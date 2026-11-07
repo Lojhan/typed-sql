@@ -564,6 +564,25 @@ DuckDB retained-version source checkpoint:
   extraction cases cover valid members, traversal/Windows path escapes, duplicates, links and special
   files. Full requirements below remain open.
 
+SQL Server parser-source checkpoint:
+
+- Registered source acquisition discovers compatibility levels from retained native captures rather
+  than equating server major versions with parser profiles. ScriptDOM compatibility levels 140,
+  150, 160 and 170 cover all ten retained engine/settings contexts. These are public parser-source
+  profiles, not engine source releases or a builtin semantic catalog.
+- Full immutable official archives, selected grammar/common-token members, the MIT notice and
+  extractor bytes are locked. Facts retain complete source text, UTF-16 offsets, token declarations,
+  all parser/lexer production spans and opaque C# action/exception bodies. The four inventories
+  contain 1,577 / 1,615 / 1,648 / 1,681 productions. Unsupported top-level declaration forms fail
+  extraction. Generation rejects stale native-context associations and reports unqualified host
+  production coverage and engine semantics. Runtime package outputs remain unchanged.
+- Focused contracts, typecheck and cached replay with fetch disabled pass. The local performance
+  gate passes without a budget change. All 67 contract files and repository quality pass locally. CI for prior
+  head `f051df8b` passed tests but failed editor schema-churn p99 at 131.81 ms against the 120 ms
+  GitHub Actions budget. Failed-job retry attempt 2 is running; the overrun is not waived.
+- Signature/type rule sourcing, semantic action interpretation, builtin generation and independent
+  native qualification remain open together with all full requirements below.
+
 ## Requirements still open
 
 

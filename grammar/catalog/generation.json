@@ -1,10 +1,10 @@
 {
   "formatVersion": 1,
-  "inputFingerprint": "sha256:633afb1b9c3e5d7c28785e501b22a3f326bcb3dfc87800574322c6cfcfba882b",
+  "inputFingerprint": "sha256:49396f1ef852375b3b5a5b056fed3c98e1219fe841351fd73d149b488c6d2a1e",
   "model": {
     "formatVersion": 2,
     "schemaDigest": "sha256:031e9b8d6e85bee77edaae2610b6d800825003be70ffb72ff23d660fd9efdf2b",
-    "normalizerDigest": "sha256:09c9d3df553cfc463a2d049689282be9dcb126b7b767be3e0e954a756f0b812f",
+    "normalizerDigest": "sha256:0385869591dc080a01a5fb5de30949fd4e20023935b6281defdd01c57ed70541",
     "inputDigest": "sha256:c9866b5b675f65b76090b0de006b3857e90cb642d887c59663025af87049e14b",
     "profiles": 33,
     "entities": 26829,
@@ -42,7 +42,8 @@
     "planning/grammar-completeness/mysql-source-coverage.json",
     "planning/grammar-completeness/postgres-source-coverage.json",
     "planning/grammar-completeness/sqlite-function-coverage.json",
-    "planning/grammar-completeness/sqlite-keyword-coverage.json"
+    "planning/grammar-completeness/sqlite-keyword-coverage.json",
+    "planning/grammar-completeness/sqlserver-source-coverage.json"
   ],
   "outputDigestFormat": "utf8-bytes-sha256",
   "outputDigests": {
@@ -76,10 +77,11 @@
     "packages/sqlite/src/parser/vocabulary.generated.ts": "sha256:06eb252d7fd14bc2cea03e5236836d1020280609a4e846a673394fdca43e7cf3",
     "packages/sqlite/src/catalog/generated/policy.ts": "sha256:9ca7f053a729b26e5f2cba05b686590bc4b8d46111c340827fcadb6b72bdf1e8",
     "packages/sqlite/src/catalog/generated/types.ts": "sha256:483e12d656eec71e592283d515fe2aa6be7e82de39ee32f636422d675b8964ef",
+    "planning/grammar-completeness/sqlserver-source-coverage.json": "sha256:b5c67aedc18f8165f7274454e48458b152505e26e8b638f1d8a860be497ac766",
     "packages/sqlserver/src/catalog/generated/types.ts": "sha256:1d6fcef8dcaeefc24e64d8c3a00eaec05e710ffb59393e336cb39904ac5a9f5c",
     "packages/sqlserver/src/catalog/generated/policy.ts": "sha256:bd065ab384934ac04640e0029b051520d920238d0510907725ecf1d6f6d6f102"
   },
-  "artifactFingerprint": "sha256:b5475adf9c6289da80a0366e38f6029f7f3419221aaf7d5222bb1d0de0d5bbe9",
+  "artifactFingerprint": "sha256:f6bc596b5647b16a909f15a9473bb78899ff43c4a63721b60769ca9db1b0354d",
   "bands": [
     {
       "dialect": "duckdb",

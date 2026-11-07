@@ -1,0 +1,5132 @@
+{
+  "formatVersion": 1,
+  "grammar": "sqlserver",
+  "profiles": {
+    "140": {
+      "revision": "3ea69b6fc1ed76b63eca6df868f3d1347b92e9fb",
+      "scope": "ScriptDOM parser source; engine binding and semantic qualification are separate",
+      "classes": [
+        {
+          "name": "TSql140ParserInternal",
+          "section": "parser",
+          "line": 28
+        },
+        {
+          "name": "TSql140LexerInternal",
+          "section": "lexer",
+          "line": 31794
+        }
+      ],
+      "keywordLiterals": [
+        {
+          "symbol": "Add",
+          "literal": "add",
+          "line": 36,
+          "owner": "common"
+        },
+        {
+          "symbol": "All",
+          "literal": "all",
+          "line": 37,
+          "owner": "common"
+        },
+        {
+          "symbol": "Alter",
+          "literal": "alter",
+          "line": 38,
+          "owner": "common"
+        },
+        {
+          "symbol": "And",
+          "literal": "and",
+          "line": 39,
+          "owner": "common"
+        },
+        {
+          "symbol": "Any",
+          "literal": "any",
+          "line": 40,
+          "owner": "common"
+        },
+        {
+          "symbol": "As",
+          "literal": "as",
+          "line": 41,
+          "owner": "common"
+        },
+        {
+          "symbol": "Asc",
+          "literal": "asc",
+          "line": 42,
+          "owner": "common"
+        },
+        {
+          "symbol": "Authorization",
+          "literal": "authorization",
+          "line": 43,
+          "owner": "common"
+        },
+        {
+          "symbol": "Backup",
+          "literal": "backup",
+          "line": 44,
+          "owner": "common"
+        },
+        {
+          "symbol": "Begin",
+          "literal": "begin",
+          "line": 45,
+          "owner": "common"
+        },
+        {
+          "symbol": "Between",
+          "literal": "between",
+          "line": 46,
+          "owner": "common"
+        },
+        {
+          "symbol": "Break",
+          "literal": "break",
+          "line": 47,
+          "owner": "common"
+        },
+        {
+          "symbol": "Browse",
+          "literal": "browse",
+          "line": 48,
+          "owner": "common"
+        },
+        {
+          "symbol": "Bulk",
+          "literal": "bulk",
+          "line": 49,
+          "owner": "common"
+        },
+        {
+          "symbol": "By",
+          "literal": "by",
+          "line": 50,
+          "owner": "common"
+        },
+        {
+          "symbol": "Cascade",
+          "literal": "cascade",
+          "line": 51,
+          "owner": "common"
+        },
+        {
+          "symbol": "Case",
+          "literal": "case",
+          "line": 52,
+          "owner": "common"
+        },
+        {
+          "symbol": "Check",
+          "literal": "check",
+          "line": 53,
+          "owner": "common"
+        },
+        {
+          "symbol": "Checkpoint",
+          "literal": "checkpoint",
+          "line": 54,
+          "owner": "common"
+        },
+        {
+          "symbol": "Close",
+          "literal": "close",
+          "line": 55,
+          "owner": "common"
+        },
+        {
+          "symbol": "Clustered",
+          "literal": "clustered",
+          "line": 56,
+          "owner": "common"
+        },
+        {
+          "symbol": "Coalesce",
+          "literal": "coalesce",
+          "line": 57,
+          "owner": "common"
+        },
+        {
+          "symbol": "Collate",
+          "literal": "collate",
+          "line": 58,
+          "owner": "common"
+        },
+        {
+          "symbol": "Column",
+          "literal": "column",
+          "line": 59,
+          "owner": "common"
+        },
+        {
+          "symbol": "Commit",
+          "literal": "commit",
+          "line": 60,
+          "owner": "common"
+        },
+        {
+          "symbol": "Compute",
+          "literal": "compute",
+          "line": 61,
+          "owner": "common"
+        },
+        {
+          "symbol": "Constraint",
+          "literal": "constraint",
+          "line": 62,
+          "owner": "common"
+        },
+        {
+          "symbol": "Contains",
+          "literal": "contains",
+          "line": 63,
+          "owner": "common"
+        },
+        {
+          "symbol": "ContainsTable",
+          "literal": "containstable",
+          "line": 64,
+          "owner": "common"
+        },
+        {
+          "symbol": "Continue",
+          "literal": "continue",
+          "line": 65,
+          "owner": "common"
+        },
+        {
+          "symbol": "Convert",
+          "literal": "convert",
+          "line": 66,
+          "owner": "common"
+        },
+        {
+          "symbol": "Create",
+          "literal": "create",
+          "line": 67,
+          "owner": "common"
+        },
+        {
+          "symbol": "Cross",
+          "literal": "cross",
+          "line": 68,
+          "owner": "common"
+        },
+        {
+          "symbol": "Current",
+          "literal": "current",
+          "line": 69,
+          "owner": "common"
+        },
+        {
+          "symbol": "CurrentDate",
+          "literal": "current_date",
+          "line": 70,
+          "owner": "common"
+        },
+        {
+          "symbol": "CurrentTime",
+          "literal": "current_time",
+          "line": 71,
+          "owner": "common"
+        },
+        {
+          "symbol": "CurrentTimestamp",
+          "literal": "current_timestamp",
+          "line": 72,
+          "owner": "common"
+        },
+        {
+          "symbol": "CurrentUser",
+          "literal": "current_user",
+          "line": 73,
+          "owner": "common"
+        },
+        {
+          "symbol": "Cursor",
+          "literal": "cursor",
+          "line": 74,
+          "owner": "common"
+        },
+        {
+          "symbol": "Database",
+          "literal": "database",
+          "line": 75,
+          "owner": "common"
+        },
+        {
+          "symbol": "Dbcc",
+          "literal": "dbcc",
+          "line": 76,
+          "owner": "common"
+        },
+        {
+          "symbol": "Deallocate",
+          "literal": "deallocate",
+          "line": 77,
+          "owner": "common"
+        },
+        {
+          "symbol": "Declare",
+          "literal": "declare",
+          "line": 78,
+          "owner": "common"
+        },
+        {
+          "symbol": "Default",
+          "literal": "default",
+          "line": 79,
+          "owner": "common"
+        },
+        {
+          "symbol": "Delete",
+          "literal": "delete",
+          "line": 80,
+          "owner": "common"
+        },
+        {
+          "symbol": "Deny",
+          "literal": "deny",
+          "line": 81,
+          "owner": "common"
+        },
+        {
+          "symbol": "Desc",
+          "literal": "desc",
+          "line": 82,
+          "owner": "common"
+        },
+        {
+          "symbol": "Distinct",
+          "literal": "distinct",
+          "line": 83,
+          "owner": "common"
+        },
+        {
+          "symbol": "Distributed",
+          "literal": "distributed",
+          "line": 84,
+          "owner": "common"
+        },
+        {
+          "symbol": "Double",
+          "literal": "double",
+          "line": 85,
+          "owner": "common"
+        },
+        {
+          "symbol": "Drop",
+          "literal": "drop",
+          "line": 86,
+          "owner": "common"
+        },
+        {
+          "symbol": "Else",
+          "literal": "else",
+          "line": 87,
+          "owner": "common"
+        },
+        {
+          "symbol": "End",
+          "literal": "end",
+          "line": 88,
+          "owner": "common"
+        },
+        {
+          "symbol": "Errlvl",
+          "literal": "errlvl",
+          "line": 89,
+          "owner": "common"
+        },
+        {
+          "symbol": "Escape",
+          "literal": "escape",
+          "line": 90,
+          "owner": "common"
+        },
+        {
+          "symbol": "Except",
+          "literal": "except",
+          "line": 91,
+          "owner": "common"
+        },
+        {
+          "symbol": "Exec",
+          "literal": "exec",
+          "line": 92,
+          "owner": "common"
+        },
+        {
+          "symbol": "Execute",
+          "literal": "execute",
+          "line": 93,
+          "owner": "common"
+        },
+        {
+          "symbol": "Exists",
+          "literal": "exists",
+          "line": 94,
+          "owner": "common"
+        },
+        {
+          "symbol": "Exit",
+          "literal": "exit",
+          "line": 95,
+          "owner": "common"
+        },
+        {
+          "symbol": "External",
+          "literal": "external",
+          "line": 31811,
+          "owner": "version"
+        },
+        {
+          "symbol": "Fetch",
+          "literal": "fetch",
+          "line": 96,
+          "owner": "common"
+        },
+        {
+          "symbol": "File",
+          "literal": "file",
+          "line": 97,
+          "owner": "common"
+        },
+        {
+          "symbol": "FillFactor",
+          "literal": "fillfactor",
+          "line": 98,
+          "owner": "common"
+        },
+        {
+          "symbol": "For",
+          "literal": "for",
+          "line": 99,
+          "owner": "common"
+        },
+        {
+          "symbol": "Foreign",
+          "literal": "foreign",
+          "line": 100,
+          "owner": "common"
+        },
+        {
+          "symbol": "FreeText",
+          "literal": "freetext",
+          "line": 101,
+          "owner": "common"
+        },
+        {
+          "symbol": "FreeTextTable",
+          "literal": "freetexttable",
+          "line": 102,
+          "owner": "common"
+        },
+        {
+          "symbol": "From",
+          "literal": "from",
+          "line": 103,
+          "owner": "common"
+        },
+        {
+          "symbol": "Full",
+          "literal": "full",
+          "line": 104,
+          "owner": "common"
+        },
+        {
+          "symbol": "Function",
+          "literal": "function",
+          "line": 105,
+          "owner": "common"
+        },
+        {
+          "symbol": "GoTo",
+          "literal": "goto",
+          "line": 106,
+          "owner": "common"
+        },
+        {
+          "symbol": "Grant",
+          "literal": "grant",
+          "line": 107,
+          "owner": "common"
+        },
+        {
+          "symbol": "Group",
+          "literal": "group",
+          "line": 108,
+          "owner": "common"
+        },
+        {
+          "symbol": "Having",
+          "literal": "having",
+          "line": 109,
+          "owner": "common"
+        },
+        {
+          "symbol": "HoldLock",
+          "literal": "holdlock",
+          "line": 110,
+          "owner": "common"
+        },
+        {
+          "symbol": "Identity",
+          "literal": "identity",
+          "line": 111,
+          "owner": "common"
+        },
+        {
+          "symbol": "IdentityInsert",
+          "literal": "identity_insert",
+          "line": 112,
+          "owner": "common"
+        },
+        {
+          "symbol": "IdentityColumn",
+          "literal": "identitycol",
+          "line": 113,
+          "owner": "common"
+        },
+        {
+          "symbol": "If",
+          "literal": "if",
+          "line": 114,
+          "owner": "common"
+        },
+        {
+          "symbol": "In",
+          "literal": "in",
+          "line": 115,
+          "owner": "common"
+        },
+        {
+          "symbol": "Index",
+          "literal": "index",
+          "line": 116,
+          "owner": "common"
+        },
+        {
+          "symbol": "Inner",
+          "literal": "inner",
+          "line": 117,
+          "owner": "common"
+        },
+        {
+          "symbol": "Insert",
+          "literal": "insert",
+          "line": 118,
+          "owner": "common"
+        },
+        {
+          "symbol": "Intersect",
+          "literal": "intersect",
+          "line": 119,
+          "owner": "common"
+        },
+        {
+          "symbol": "Into",
+          "literal": "into",
+          "line": 120,
+          "owner": "common"
+        },
+        {
+          "symbol": "Is",
+          "literal": "is",
+          "line": 121,
+          "owner": "common"
+        },
+        {
+          "symbol": "Join",
+          "literal": "join",
+          "line": 122,
+          "owner": "common"
+        },
+        {
+          "symbol": "Key",
+          "literal": "key",
+          "line": 123,
+          "owner": "common"
+        },
+        {
+          "symbol": "Kill",
+          "literal": "kill",
+          "line": 124,
+          "owner": "common"
+        },
+        {
+          "symbol": "Left",
+          "literal": "left",
+          "line": 125,
+          "owner": "common"
+        },
+        {
+          "symbol": "Like",
+          "literal": "like",
+          "line": 126,
+          "owner": "common"
+        },
+        {
+          "symbol": "LineNo",
+          "literal": "lineno",
+          "line": 127,
+          "owner": "common"
+        },
+        {
+          "symbol": "Merge",
+          "literal": "merge",
+          "line": 31818,
+          "owner": "version"
+        },
+        {
+          "symbol": "National",
+          "literal": "national",
+          "line": 128,
+          "owner": "common"
+        },
+        {
+          "symbol": "NoCheck",
+          "literal": "nocheck",
+          "line": 129,
+          "owner": "common"
+        },
+        {
+          "symbol": "NonClustered",
+          "literal": "nonclustered",
+          "line": 130,
+          "owner": "common"
+        },
+        {
+          "symbol": "Not",
+          "literal": "not",
+          "line": 131,
+          "owner": "common"
+        },
+        {
+          "symbol": "Null",
+          "literal": "null",
+          "line": 132,
+          "owner": "common"
+        },
+        {
+          "symbol": "NullIf",
+          "literal": "nullif",
+          "line": 133,
+          "owner": "common"
+        },
+        {
+          "symbol": "Of",
+          "literal": "of",
+          "line": 134,
+          "owner": "common"
+        },
+        {
+          "symbol": "Off",
+          "literal": "off",
+          "line": 135,
+          "owner": "common"
+        },
+        {
+          "symbol": "Offsets",
+          "literal": "offsets",
+          "line": 136,
+          "owner": "common"
+        },
+        {
+          "symbol": "On",
+          "literal": "on",
+          "line": 137,
+          "owner": "common"
+        },
+        {
+          "symbol": "Open",
+          "literal": "open",
+          "line": 138,
+          "owner": "common"
+        },
+        {
+          "symbol": "OpenDataSource",
+          "literal": "opendatasource",
+          "line": 139,
+          "owner": "common"
+        },
+        {
+          "symbol": "OpenQuery",
+          "literal": "openquery",
+          "line": 140,
+          "owner": "common"
+        },
+        {
+          "symbol": "OpenRowSet",
+          "literal": "openrowset",
+          "line": 141,
+          "owner": "common"
+        },
+        {
+          "symbol": "OpenXml",
+          "literal": "openxml",
+          "line": 142,
+          "owner": "common"
+        },
+        {
+          "symbol": "Option",
+          "literal": "option",
+          "line": 143,
+          "owner": "common"
+        },
+        {
+          "symbol": "Or",
+          "literal": "or",
+          "line": 144,
+          "owner": "common"
+        },
+        {
+          "symbol": "Order",
+          "literal": "order",
+          "line": 145,
+          "owner": "common"
+        },
+        {
+          "symbol": "Outer",
+          "literal": "outer",
+          "line": 146,
+          "owner": "common"
+        },
+        {
+          "symbol": "Over",
+          "literal": "over",
+          "line": 147,
+          "owner": "common"
+        },
+        {
+          "symbol": "Percent",
+          "literal": "percent",
+          "line": 148,
+          "owner": "common"
+        },
+        {
+          "symbol": "Pivot",
+          "literal": "pivot",
+          "line": 31812,
+          "owner": "version"
+        },
+        {
+          "symbol": "Plan",
+          "literal": "plan",
+          "line": 149,
+          "owner": "common"
+        },
+        {
+          "symbol": "Primary",
+          "literal": "primary",
+          "line": 150,
+          "owner": "common"
+        },
+        {
+          "symbol": "Print",
+          "literal": "print",
+          "line": 151,
+          "owner": "common"
+        },
+        {
+          "symbol": "Proc",
+          "literal": "proc",
+          "line": 152,
+          "owner": "common"
+        },
+        {
+          "symbol": "Procedure",
+          "literal": "procedure",
+          "line": 153,
+          "owner": "common"
+        },
+        {
+          "symbol": "Public",
+          "literal": "public",
+          "line": 154,
+          "owner": "common"
+        },
+        {
+          "symbol": "Raiserror",
+          "literal": "raiserror",
+          "line": 155,
+          "owner": "common"
+        },
+        {
+          "symbol": "Read",
+          "literal": "read",
+          "line": 156,
+          "owner": "common"
+        },
+        {
+          "symbol": "ReadText",
+          "literal": "readtext",
+          "line": 157,
+          "owner": "common"
+        },
+        {
+          "symbol": "Reconfigure",
+          "literal": "reconfigure",
+          "line": 158,
+          "owner": "common"
+        },
+        {
+          "symbol": "References",
+          "literal": "references",
+          "line": 159,
+          "owner": "common"
+        },
+        {
+          "symbol": "Replication",
+          "literal": "replication",
+          "line": 160,
+          "owner": "common"
+        },
+        {
+          "symbol": "Restore",
+          "literal": "restore",
+          "line": 161,
+          "owner": "common"
+        },
+        {
+          "symbol": "Restrict",
+          "literal": "restrict",
+          "line": 162,
+          "owner": "common"
+        },
+        {
+          "symbol": "Return",
+          "literal": "return",
+          "line": 163,
+          "owner": "common"
+        },
+        {
+          "symbol": "Revert",
+          "literal": "revert",
+          "line": 31813,
+          "owner": "version"
+        },
+        {
+          "symbol": "Revoke",
+          "literal": "revoke",
+          "line": 164,
+          "owner": "common"
+        },
+        {
+          "symbol": "Right",
+          "literal": "right",
+          "line": 165,
+          "owner": "common"
+        },
+        {
+          "symbol": "Rollback",
+          "literal": "rollback",
+          "line": 166,
+          "owner": "common"
+        },
+        {
+          "symbol": "RowCount",
+          "literal": "rowcount",
+          "line": 167,
+          "owner": "common"
+        },
+        {
+          "symbol": "RowGuidColumn",
+          "literal": "rowguidcol",
+          "line": 168,
+          "owner": "common"
+        },
+        {
+          "symbol": "Rule",
+          "literal": "rule",
+          "line": 169,
+          "owner": "common"
+        },
+        {
+          "symbol": "Save",
+          "literal": "save",
+          "line": 170,
+          "owner": "common"
+        },
+        {
+          "symbol": "Schema",
+          "literal": "schema",
+          "line": 171,
+          "owner": "common"
+        },
+        {
+          "symbol": "Select",
+          "literal": "select",
+          "line": 172,
+          "owner": "common"
+        },
+        {
+          "symbol": "SemanticKeyPhraseTable",
+          "literal": "semantickeyphrasetable",
+          "line": 31822,
+          "owner": "version"
+        },
+        {
+          "symbol": "SemanticSimilarityDetailsTable",
+          "literal": "semanticsimilaritydetailstable",
+          "line": 31824,
+          "owner": "version"
+        },
+        {
+          "symbol": "SemanticSimilarityTable",
+          "literal": "semanticsimilaritytable",
+          "line": 31823,
+          "owner": "version"
+        },
+        {
+          "symbol": "SessionUser",
+          "literal": "session_user",
+          "line": 173,
+          "owner": "common"
+        },
+        {
+          "symbol": "Set",
+          "literal": "set",
+          "line": 174,
+          "owner": "common"
+        },
+        {
+          "symbol": "SetUser",
+          "literal": "setuser",
+          "line": 175,
+          "owner": "common"
+        },
+        {
+          "symbol": "Shutdown",
+          "literal": "shutdown",
+          "line": 176,
+          "owner": "common"
+        },
+        {
+          "symbol": "Some",
+          "literal": "some",
+          "line": 177,
+          "owner": "common"
+        },
+        {
+          "symbol": "Statistics",
+          "literal": "statistics",
+          "line": 178,
+          "owner": "common"
+        },
+        {
+          "symbol": "StopList",
+          "literal": "stoplist",
+          "line": 31819,
+          "owner": "version"
+        },
+        {
+          "symbol": "SystemUser",
+          "literal": "system_user",
+          "line": 179,
+          "owner": "common"
+        },
+        {
+          "symbol": "Table",
+          "literal": "table",
+          "line": 180,
+          "owner": "common"
+        },
+        {
+          "symbol": "TableSample",
+          "literal": "tablesample",
+          "line": 31814,
+          "owner": "version"
+        },
+        {
+          "symbol": "TextSize",
+          "literal": "textsize",
+          "line": 181,
+          "owner": "common"
+        },
+        {
+          "symbol": "Then",
+          "literal": "then",
+          "line": 182,
+          "owner": "common"
+        },
+        {
+          "symbol": "To",
+          "literal": "to",
+          "line": 183,
+          "owner": "common"
+        },
+        {
+          "symbol": "Top",
+          "literal": "top",
+          "line": 184,
+          "owner": "common"
+        },
+        {
+          "symbol": "Tran",
+          "literal": "tran",
+          "line": 185,
+          "owner": "common"
+        },
+        {
+          "symbol": "Transaction",
+          "literal": "transaction",
+          "line": 186,
+          "owner": "common"
+        },
+        {
+          "symbol": "Trigger",
+          "literal": "trigger",
+          "line": 187,
+          "owner": "common"
+        },
+        {
+          "symbol": "Truncate",
+          "literal": "truncate",
+          "line": 188,
+          "owner": "common"
+        },
+        {
+          "symbol": "TryConvert",
+          "literal": "try_convert",
+          "line": 31825,
+          "owner": "version"
+        },
+        {
+          "symbol": "TSEqual",
+          "literal": "tsequal",
+          "line": 189,
+          "owner": "common"
+        },
+        {
+          "symbol": "Union",
+          "literal": "union",
+          "line": 190,
+          "owner": "common"
+        },
+        {
+          "symbol": "Unique",
+          "literal": "unique",
+          "line": 191,
+          "owner": "common"
+        },
+        {
+          "symbol": "Unpivot",
+          "literal": "unpivot",
+          "line": 31815,
+          "owner": "version"
+        },
+        {
+          "symbol": "Update",
+          "literal": "update",
+          "line": 192,
+          "owner": "common"
+        },
+        {
+          "symbol": "UpdateText",
+          "literal": "updatetext",
+          "line": 193,
+          "owner": "common"
+        },
+        {
+          "symbol": "Use",
+          "literal": "use",
+          "line": 194,
+          "owner": "common"
+        },
+        {
+          "symbol": "User",
+          "literal": "user",
+          "line": 195,
+          "owner": "common"
+        },
+        {
+          "symbol": "Values",
+          "literal": "values",
+          "line": 196,
+          "owner": "common"
+        },
+        {
+          "symbol": "Varying",
+          "literal": "varying",
+          "line": 197,
+          "owner": "common"
+        },
+        {
+          "symbol": "View",
+          "literal": "view",
+          "line": 198,
+          "owner": "common"
+        },
+        {
+          "symbol": "WaitFor",
+          "literal": "waitfor",
+          "line": 199,
+          "owner": "common"
+        },
+        {
+          "symbol": "When",
+          "literal": "when",
+          "line": 200,
+          "owner": "common"
+        },
+        {
+          "symbol": "Where",
+          "literal": "where",
+          "line": 201,
+          "owner": "common"
+        },
+        {
+          "symbol": "While",
+          "literal": "while",
+          "line": 202,
+          "owner": "common"
+        },
+        {
+          "symbol": "With",
+          "literal": "with",
+          "line": 203,
+          "owner": "common"
+        },
+        {
+          "symbol": "WriteText",
+          "literal": "writetext",
+          "line": 204,
+          "owner": "common"
+        }
+      ],
+      "productions": {
+        "parser": 1516,
+        "lexer": 61
+      },
+      "simpleLexerLiterals": [
+        {
+          "name": "Bang",
+          "literal": "!",
+          "line": 31837
+        },
+        {
+          "name": "PercentSign",
+          "literal": "%",
+          "line": 31838
+        },
+        {
+          "name": "Ampersand",
+          "literal": "&",
+          "line": 31839
+        },
+        {
+          "name": "LeftParenthesis",
+          "literal": "(",
+          "line": 31840
+        },
+        {
+          "name": "RightParenthesis",
+          "literal": ")",
+          "line": 31841
+        },
+        {
+          "name": "LeftCurly",
+          "literal": "{",
+          "line": 31842
+        },
+        {
+          "name": "RightCurly",
+          "literal": "}",
+          "line": 31843
+        },
+        {
+          "name": "Star",
+          "literal": "*",
+          "line": 31844
+        },
+        {
+          "name": "MultiplyEquals",
+          "literal": "*=",
+          "line": 31845
+        },
+        {
+          "name": "Plus",
+          "literal": "+",
+          "line": 31846
+        },
+        {
+          "name": "Comma",
+          "literal": ",",
+          "line": 31847
+        },
+        {
+          "name": "Minus",
+          "literal": "-",
+          "line": 31848
+        },
+        {
+          "name": "Divide",
+          "literal": "/",
+          "line": 31851
+        },
+        {
+          "name": "Colon",
+          "literal": ":",
+          "line": 31852
+        },
+        {
+          "name": "DoubleColon",
+          "literal": "::",
+          "line": 31853
+        },
+        {
+          "name": "LessThan",
+          "literal": "<",
+          "line": 31854
+        },
+        {
+          "name": "EqualsSign",
+          "literal": "=",
+          "line": 31855
+        },
+        {
+          "name": "RightOuterJoin",
+          "literal": "=*",
+          "line": 31856
+        },
+        {
+          "name": "GreaterThan",
+          "literal": ">",
+          "line": 31857
+        },
+        {
+          "name": "Circumflex",
+          "literal": "^",
+          "line": 31858
+        },
+        {
+          "name": "VerticalLine",
+          "literal": "|",
+          "line": 31859
+        },
+        {
+          "name": "Tilde",
+          "literal": "~",
+          "line": 31860
+        },
+        {
+          "name": "AddEquals",
+          "literal": "+=",
+          "line": 31861
+        },
+        {
+          "name": "SubtractEquals",
+          "literal": "-=",
+          "line": 31862
+        },
+        {
+          "name": "DivideEquals",
+          "literal": "/=",
+          "line": 31863
+        },
+        {
+          "name": "ModEquals",
+          "literal": "%=",
+          "line": 31864
+        },
+        {
+          "name": "BitwiseAndEquals",
+          "literal": "&=",
+          "line": 31865
+        },
+        {
+          "name": "BitwiseOrEquals",
+          "literal": "|=",
+          "line": 31866
+        },
+        {
+          "name": "BitwiseXorEquals",
+          "literal": "^=",
+          "line": 31867
+        },
+        {
+          "name": "Semicolon",
+          "literal": ";",
+          "line": 31869
+        }
+      ],
+      "hostProductionCoverage": "unqualified; source production names do not prove typed-sql parser support",
+      "engineSemantics": "unqualified; ScriptDOM is not the SQL Server binder or builtin overload catalog"
+    },
+    "150": {
+      "revision": "3ea69b6fc1ed76b63eca6df868f3d1347b92e9fb",
+      "scope": "ScriptDOM parser source; engine binding and semantic qualification are separate",
+      "classes": [
+        {
+          "name": "TSql150ParserInternal",
+          "section": "parser",
+          "line": 28
+        },
+        {
+          "name": "TSql150LexerInternal",
+          "section": "lexer",
+          "line": 32947
+        }
+      ],
+      "keywordLiterals": [
+        {
+          "symbol": "Add",
+          "literal": "add",
+          "line": 36,
+          "owner": "common"
+        },
+        {
+          "symbol": "All",
+          "literal": "all",
+          "line": 37,
+          "owner": "common"
+        },
+        {
+          "symbol": "Alter",
+          "literal": "alter",
+          "line": 38,
+          "owner": "common"
+        },
+        {
+          "symbol": "And",
+          "literal": "and",
+          "line": 39,
+          "owner": "common"
+        },
+        {
+          "symbol": "Any",
+          "literal": "any",
+          "line": 40,
+          "owner": "common"
+        },
+        {
+          "symbol": "As",
+          "literal": "as",
+          "line": 41,
+          "owner": "common"
+        },
+        {
+          "symbol": "Asc",
+          "literal": "asc",
+          "line": 42,
+          "owner": "common"
+        },
+        {
+          "symbol": "Authorization",
+          "literal": "authorization",
+          "line": 43,
+          "owner": "common"
+        },
+        {
+          "symbol": "Backup",
+          "literal": "backup",
+          "line": 44,
+          "owner": "common"
+        },
+        {
+          "symbol": "Begin",
+          "literal": "begin",
+          "line": 45,
+          "owner": "common"
+        },
+        {
+          "symbol": "Between",
+          "literal": "between",
+          "line": 46,
+          "owner": "common"
+        },
+        {
+          "symbol": "Break",
+          "literal": "break",
+          "line": 47,
+          "owner": "common"
+        },
+        {
+          "symbol": "Browse",
+          "literal": "browse",
+          "line": 48,
+          "owner": "common"
+        },
+        {
+          "symbol": "Bulk",
+          "literal": "bulk",
+          "line": 49,
+          "owner": "common"
+        },
+        {
+          "symbol": "By",
+          "literal": "by",
+          "line": 50,
+          "owner": "common"
+        },
+        {
+          "symbol": "Cascade",
+          "literal": "cascade",
+          "line": 51,
+          "owner": "common"
+        },
+        {
+          "symbol": "Case",
+          "literal": "case",
+          "line": 52,
+          "owner": "common"
+        },
+        {
+          "symbol": "Check",
+          "literal": "check",
+          "line": 53,
+          "owner": "common"
+        },
+        {
+          "symbol": "Checkpoint",
+          "literal": "checkpoint",
+          "line": 54,
+          "owner": "common"
+        },
+        {
+          "symbol": "Close",
+          "literal": "close",
+          "line": 55,
+          "owner": "common"
+        },
+        {
+          "symbol": "Clustered",
+          "literal": "clustered",
+          "line": 56,
+          "owner": "common"
+        },
+        {
+          "symbol": "Coalesce",
+          "literal": "coalesce",
+          "line": 57,
+          "owner": "common"
+        },
+        {
+          "symbol": "Collate",
+          "literal": "collate",
+          "line": 58,
+          "owner": "common"
+        },
+        {
+          "symbol": "Column",
+          "literal": "column",
+          "line": 59,
+          "owner": "common"
+        },
+        {
+          "symbol": "Commit",
+          "literal": "commit",
+          "line": 60,
+          "owner": "common"
+        },
+        {
+          "symbol": "Compute",
+          "literal": "compute",
+          "line": 61,
+          "owner": "common"
+        },
+        {
+          "symbol": "Constraint",
+          "literal": "constraint",
+          "line": 62,
+          "owner": "common"
+        },
+        {
+          "symbol": "Contains",
+          "literal": "contains",
+          "line": 63,
+          "owner": "common"
+        },
+        {
+          "symbol": "ContainsTable",
+          "literal": "containstable",
+          "line": 64,
+          "owner": "common"
+        },
+        {
+          "symbol": "Continue",
+          "literal": "continue",
+          "line": 65,
+          "owner": "common"
+        },
+        {
+          "symbol": "Convert",
+          "literal": "convert",
+          "line": 66,
+          "owner": "common"
+        },
+        {
+          "symbol": "Create",
+          "literal": "create",
+          "line": 67,
+          "owner": "common"
+        },
+        {
+          "symbol": "Cross",
+          "literal": "cross",
+          "line": 68,
+          "owner": "common"
+        },
+        {
+          "symbol": "Current",
+          "literal": "current",
+          "line": 69,
+          "owner": "common"
+        },
+        {
+          "symbol": "CurrentDate",
+          "literal": "current_date",
+          "line": 70,
+          "owner": "common"
+        },
+        {
+          "symbol": "CurrentTime",
+          "literal": "current_time",
+          "line": 71,
+          "owner": "common"
+        },
+        {
+          "symbol": "CurrentTimestamp",
+          "literal": "current_timestamp",
+          "line": 72,
+          "owner": "common"
+        },
+        {
+          "symbol": "CurrentUser",
+          "literal": "current_user",
+          "line": 73,
+          "owner": "common"
+        },
+        {
+          "symbol": "Cursor",
+          "literal": "cursor",
+          "line": 74,
+          "owner": "common"
+        },
+        {
+          "symbol": "Database",
+          "literal": "database",
+          "line": 75,
+          "owner": "common"
+        },
+        {
+          "symbol": "Dbcc",
+          "literal": "dbcc",
+          "line": 76,
+          "owner": "common"
+        },
+        {
+          "symbol": "Deallocate",
+          "literal": "deallocate",
+          "line": 77,
+          "owner": "common"
+        },
+        {
+          "symbol": "Declare",
+          "literal": "declare",
+          "line": 78,
+          "owner": "common"
+        },
+        {
+          "symbol": "Default",
+          "literal": "default",
+          "line": 79,
+          "owner": "common"
+        },
+        {
+          "symbol": "Delete",
+          "literal": "delete",
+          "line": 80,
+          "owner": "common"
+        },
+        {
+          "symbol": "Deny",
+          "literal": "deny",
+          "line": 81,
+          "owner": "common"
+        },
+        {
+          "symbol": "Desc",
+          "literal": "desc",
+          "line": 82,
+          "owner": "common"
+        },
+        {
+          "symbol": "Distinct",
+          "literal": "distinct",
+          "line": 83,
+          "owner": "common"
+        },
+        {
+          "symbol": "Distributed",
+          "literal": "distributed",
+          "line": 84,
+          "owner": "common"
+        },
+        {
+          "symbol": "Double",
+          "literal": "double",
+          "line": 85,
+          "owner": "common"
+        },
+        {
+          "symbol": "Drop",
+          "literal": "drop",
+          "line": 86,
+          "owner": "common"
+        },
+        {
+          "symbol": "Else",
+          "literal": "else",
+          "line": 87,
+          "owner": "common"
+        },
+        {
+          "symbol": "End",
+          "literal": "end",
+          "line": 88,
+          "owner": "common"
+        },
+        {
+          "symbol": "Errlvl",
+          "literal": "errlvl",
+          "line": 89,
+          "owner": "common"
+        },
+        {
+          "symbol": "Escape",
+          "literal": "escape",
+          "line": 90,
+          "owner": "common"
+        },
+        {
+          "symbol": "Except",
+          "literal": "except",
+          "line": 91,
+          "owner": "common"
+        },
+        {
+          "symbol": "Exec",
+          "literal": "exec",
+          "line": 92,
+          "owner": "common"
+        },
+        {
+          "symbol": "Execute",
+          "literal": "execute",
+          "line": 93,
+          "owner": "common"
+        },
+        {
+          "symbol": "Exists",
+          "literal": "exists",
+          "line": 94,
+          "owner": "common"
+        },
+        {
+          "symbol": "Exit",
+          "literal": "exit",
+          "line": 95,
+          "owner": "common"
+        },
+        {
+          "symbol": "External",
+          "literal": "external",
+          "line": 32964,
+          "owner": "version"
+        },
+        {
+          "symbol": "Fetch",
+          "literal": "fetch",
+          "line": 96,
+          "owner": "common"
+        },
+        {
+          "symbol": "File",
+          "literal": "file",
+          "line": 97,
+          "owner": "common"
+        },
+        {
+          "symbol": "FillFactor",
+          "literal": "fillfactor",
+          "line": 98,
+          "owner": "common"
+        },
+        {
+          "symbol": "For",
+          "literal": "for",
+          "line": 99,
+          "owner": "common"
+        },
+        {
+          "symbol": "Foreign",
+          "literal": "foreign",
+          "line": 100,
+          "owner": "common"
+        },
+        {
+          "symbol": "FreeText",
+          "literal": "freetext",
+          "line": 101,
+          "owner": "common"
+        },
+        {
+          "symbol": "FreeTextTable",
+          "literal": "freetexttable",
+          "line": 102,
+          "owner": "common"
+        },
+        {
+          "symbol": "From",
+          "literal": "from",
+          "line": 103,
+          "owner": "common"
+        },
+        {
+          "symbol": "Full",
+          "literal": "full",
+          "line": 104,
+          "owner": "common"
+        },
+        {
+          "symbol": "Function",
+          "literal": "function",
+          "line": 105,
+          "owner": "common"
+        },
+        {
+          "symbol": "GoTo",
+          "literal": "goto",
+          "line": 106,
+          "owner": "common"
+        },
+        {
+          "symbol": "Grant",
+          "literal": "grant",
+          "line": 107,
+          "owner": "common"
+        },
+        {
+          "symbol": "Group",
+          "literal": "group",
+          "line": 108,
+          "owner": "common"
+        },
+        {
+          "symbol": "Having",
+          "literal": "having",
+          "line": 109,
+          "owner": "common"
+        },
+        {
+          "symbol": "HoldLock",
+          "literal": "holdlock",
+          "line": 110,
+          "owner": "common"
+        },
+        {
+          "symbol": "Identity",
+          "literal": "identity",
+          "line": 111,
+          "owner": "common"
+        },
+        {
+          "symbol": "IdentityInsert",
+          "literal": "identity_insert",
+          "line": 112,
+          "owner": "common"
+        },
+        {
+          "symbol": "IdentityColumn",
+          "literal": "identitycol",
+          "line": 113,
+          "owner": "common"
+        },
+        {
+          "symbol": "If",
+          "literal": "if",
+          "line": 114,
+          "owner": "common"
+        },
+        {
+          "symbol": "In",
+          "literal": "in",
+          "line": 115,
+          "owner": "common"
+        },
+        {
+          "symbol": "Index",
+          "literal": "index",
+          "line": 116,
+          "owner": "common"
+        },
+        {
+          "symbol": "Inner",
+          "literal": "inner",
+          "line": 117,
+          "owner": "common"
+        },
+        {
+          "symbol": "Insert",
+          "literal": "insert",
+          "line": 118,
+          "owner": "common"
+        },
+        {
+          "symbol": "Intersect",
+          "literal": "intersect",
+          "line": 119,
+          "owner": "common"
+        },
+        {
+          "symbol": "Into",
+          "literal": "into",
+          "line": 120,
+          "owner": "common"
+        },
+        {
+          "symbol": "Is",
+          "literal": "is",
+          "line": 121,
+          "owner": "common"
+        },
+        {
+          "symbol": "Join",
+          "literal": "join",
+          "line": 122,
+          "owner": "common"
+        },
+        {
+          "symbol": "Key",
+          "literal": "key",
+          "line": 123,
+          "owner": "common"
+        },
+        {
+          "symbol": "Kill",
+          "literal": "kill",
+          "line": 124,
+          "owner": "common"
+        },
+        {
+          "symbol": "Left",
+          "literal": "left",
+          "line": 125,
+          "owner": "common"
+        },
+        {
+          "symbol": "Like",
+          "literal": "like",
+          "line": 126,
+          "owner": "common"
+        },
+        {
+          "symbol": "LineNo",
+          "literal": "lineno",
+          "line": 127,
+          "owner": "common"
+        },
+        {
+          "symbol": "Merge",
+          "literal": "merge",
+          "line": 32971,
+          "owner": "version"
+        },
+        {
+          "symbol": "National",
+          "literal": "national",
+          "line": 128,
+          "owner": "common"
+        },
+        {
+          "symbol": "NoCheck",
+          "literal": "nocheck",
+          "line": 129,
+          "owner": "common"
+        },
+        {
+          "symbol": "NonClustered",
+          "literal": "nonclustered",
+          "line": 130,
+          "owner": "common"
+        },
+        {
+          "symbol": "Not",
+          "literal": "not",
+          "line": 131,
+          "owner": "common"
+        },
+        {
+          "symbol": "Null",
+          "literal": "null",
+          "line": 132,
+          "owner": "common"
+        },
+        {
+          "symbol": "NullIf",
+          "literal": "nullif",
+          "line": 133,
+          "owner": "common"
+        },
+        {
+          "symbol": "Of",
+          "literal": "of",
+          "line": 134,
+          "owner": "common"
+        },
+        {
+          "symbol": "Off",
+          "literal": "off",
+          "line": 135,
+          "owner": "common"
+        },
+        {
+          "symbol": "Offsets",
+          "literal": "offsets",
+          "line": 136,
+          "owner": "common"
+        },
+        {
+          "symbol": "On",
+          "literal": "on",
+          "line": 137,
+          "owner": "common"
+        },
+        {
+          "symbol": "Open",
+          "literal": "open",
+          "line": 138,
+          "owner": "common"
+        },
+        {
+          "symbol": "OpenDataSource",
+          "literal": "opendatasource",
+          "line": 139,
+          "owner": "common"
+        },
+        {
+          "symbol": "OpenQuery",
+          "literal": "openquery",
+          "line": 140,
+          "owner": "common"
+        },
+        {
+          "symbol": "OpenRowSet",
+          "literal": "openrowset",
+          "line": 141,
+          "owner": "common"
+        },
+        {
+          "symbol": "OpenXml",
+          "literal": "openxml",
+          "line": 142,
+          "owner": "common"
+        },
+        {
+          "symbol": "Option",
+          "literal": "option",
+          "line": 143,
+          "owner": "common"
+        },
+        {
+          "symbol": "Or",
+          "literal": "or",
+          "line": 144,
+          "owner": "common"
+        },
+        {
+          "symbol": "Order",
+          "literal": "order",
+          "line": 145,
+          "owner": "common"
+        },
+        {
+          "symbol": "Outer",
+          "literal": "outer",
+          "line": 146,
+          "owner": "common"
+        },
+        {
+          "symbol": "Over",
+          "literal": "over",
+          "line": 147,
+          "owner": "common"
+        },
+        {
+          "symbol": "Percent",
+          "literal": "percent",
+          "line": 148,
+          "owner": "common"
+        },
+        {
+          "symbol": "Pivot",
+          "literal": "pivot",
+          "line": 32965,
+          "owner": "version"
+        },
+        {
+          "symbol": "Plan",
+          "literal": "plan",
+          "line": 149,
+          "owner": "common"
+        },
+        {
+          "symbol": "Primary",
+          "literal": "primary",
+          "line": 150,
+          "owner": "common"
+        },
+        {
+          "symbol": "Print",
+          "literal": "print",
+          "line": 151,
+          "owner": "common"
+        },
+        {
+          "symbol": "Proc",
+          "literal": "proc",
+          "line": 152,
+          "owner": "common"
+        },
+        {
+          "symbol": "Procedure",
+          "literal": "procedure",
+          "line": 153,
+          "owner": "common"
+        },
+        {
+          "symbol": "Public",
+          "literal": "public",
+          "line": 154,
+          "owner": "common"
+        },
+        {
+          "symbol": "Raiserror",
+          "literal": "raiserror",
+          "line": 155,
+          "owner": "common"
+        },
+        {
+          "symbol": "Read",
+          "literal": "read",
+          "line": 156,
+          "owner": "common"
+        },
+        {
+          "symbol": "ReadText",
+          "literal": "readtext",
+          "line": 157,
+          "owner": "common"
+        },
+        {
+          "symbol": "Reconfigure",
+          "literal": "reconfigure",
+          "line": 158,
+          "owner": "common"
+        },
+        {
+          "symbol": "References",
+          "literal": "references",
+          "line": 159,
+          "owner": "common"
+        },
+        {
+          "symbol": "Replication",
+          "literal": "replication",
+          "line": 160,
+          "owner": "common"
+        },
+        {
+          "symbol": "Restore",
+          "literal": "restore",
+          "line": 161,
+          "owner": "common"
+        },
+        {
+          "symbol": "Restrict",
+          "literal": "restrict",
+          "line": 162,
+          "owner": "common"
+        },
+        {
+          "symbol": "Return",
+          "literal": "return",
+          "line": 163,
+          "owner": "common"
+        },
+        {
+          "symbol": "Revert",
+          "literal": "revert",
+          "line": 32966,
+          "owner": "version"
+        },
+        {
+          "symbol": "Revoke",
+          "literal": "revoke",
+          "line": 164,
+          "owner": "common"
+        },
+        {
+          "symbol": "Right",
+          "literal": "right",
+          "line": 165,
+          "owner": "common"
+        },
+        {
+          "symbol": "Rollback",
+          "literal": "rollback",
+          "line": 166,
+          "owner": "common"
+        },
+        {
+          "symbol": "RowCount",
+          "literal": "rowcount",
+          "line": 167,
+          "owner": "common"
+        },
+        {
+          "symbol": "RowGuidColumn",
+          "literal": "rowguidcol",
+          "line": 168,
+          "owner": "common"
+        },
+        {
+          "symbol": "Rule",
+          "literal": "rule",
+          "line": 169,
+          "owner": "common"
+        },
+        {
+          "symbol": "Save",
+          "literal": "save",
+          "line": 170,
+          "owner": "common"
+        },
+        {
+          "symbol": "Schema",
+          "literal": "schema",
+          "line": 171,
+          "owner": "common"
+        },
+        {
+          "symbol": "Select",
+          "literal": "select",
+          "line": 172,
+          "owner": "common"
+        },
+        {
+          "symbol": "SemanticKeyPhraseTable",
+          "literal": "semantickeyphrasetable",
+          "line": 32975,
+          "owner": "version"
+        },
+        {
+          "symbol": "SemanticSimilarityDetailsTable",
+          "literal": "semanticsimilaritydetailstable",
+          "line": 32977,
+          "owner": "version"
+        },
+        {
+          "symbol": "SemanticSimilarityTable",
+          "literal": "semanticsimilaritytable",
+          "line": 32976,
+          "owner": "version"
+        },
+        {
+          "symbol": "SessionUser",
+          "literal": "session_user",
+          "line": 173,
+          "owner": "common"
+        },
+        {
+          "symbol": "Set",
+          "literal": "set",
+          "line": 174,
+          "owner": "common"
+        },
+        {
+          "symbol": "SetUser",
+          "literal": "setuser",
+          "line": 175,
+          "owner": "common"
+        },
+        {
+          "symbol": "Shutdown",
+          "literal": "shutdown",
+          "line": 176,
+          "owner": "common"
+        },
+        {
+          "symbol": "Some",
+          "literal": "some",
+          "line": 177,
+          "owner": "common"
+        },
+        {
+          "symbol": "Statistics",
+          "literal": "statistics",
+          "line": 178,
+          "owner": "common"
+        },
+        {
+          "symbol": "StopList",
+          "literal": "stoplist",
+          "line": 32972,
+          "owner": "version"
+        },
+        {
+          "symbol": "SystemUser",
+          "literal": "system_user",
+          "line": 179,
+          "owner": "common"
+        },
+        {
+          "symbol": "Table",
+          "literal": "table",
+          "line": 180,
+          "owner": "common"
+        },
+        {
+          "symbol": "TableSample",
+          "literal": "tablesample",
+          "line": 32967,
+          "owner": "version"
+        },
+        {
+          "symbol": "TextSize",
+          "literal": "textsize",
+          "line": 181,
+          "owner": "common"
+        },
+        {
+          "symbol": "Then",
+          "literal": "then",
+          "line": 182,
+          "owner": "common"
+        },
+        {
+          "symbol": "To",
+          "literal": "to",
+          "line": 183,
+          "owner": "common"
+        },
+        {
+          "symbol": "Top",
+          "literal": "top",
+          "line": 184,
+          "owner": "common"
+        },
+        {
+          "symbol": "Tran",
+          "literal": "tran",
+          "line": 185,
+          "owner": "common"
+        },
+        {
+          "symbol": "Transaction",
+          "literal": "transaction",
+          "line": 186,
+          "owner": "common"
+        },
+        {
+          "symbol": "Trigger",
+          "literal": "trigger",
+          "line": 187,
+          "owner": "common"
+        },
+        {
+          "symbol": "Truncate",
+          "literal": "truncate",
+          "line": 188,
+          "owner": "common"
+        },
+        {
+          "symbol": "TryConvert",
+          "literal": "try_convert",
+          "line": 32978,
+          "owner": "version"
+        },
+        {
+          "symbol": "TSEqual",
+          "literal": "tsequal",
+          "line": 189,
+          "owner": "common"
+        },
+        {
+          "symbol": "Union",
+          "literal": "union",
+          "line": 190,
+          "owner": "common"
+        },
+        {
+          "symbol": "Unique",
+          "literal": "unique",
+          "line": 191,
+          "owner": "common"
+        },
+        {
+          "symbol": "Unpivot",
+          "literal": "unpivot",
+          "line": 32968,
+          "owner": "version"
+        },
+        {
+          "symbol": "Update",
+          "literal": "update",
+          "line": 192,
+          "owner": "common"
+        },
+        {
+          "symbol": "UpdateText",
+          "literal": "updatetext",
+          "line": 193,
+          "owner": "common"
+        },
+        {
+          "symbol": "Use",
+          "literal": "use",
+          "line": 194,
+          "owner": "common"
+        },
+        {
+          "symbol": "User",
+          "literal": "user",
+          "line": 195,
+          "owner": "common"
+        },
+        {
+          "symbol": "Values",
+          "literal": "values",
+          "line": 196,
+          "owner": "common"
+        },
+        {
+          "symbol": "Varying",
+          "literal": "varying",
+          "line": 197,
+          "owner": "common"
+        },
+        {
+          "symbol": "View",
+          "literal": "view",
+          "line": 198,
+          "owner": "common"
+        },
+        {
+          "symbol": "WaitFor",
+          "literal": "waitfor",
+          "line": 199,
+          "owner": "common"
+        },
+        {
+          "symbol": "When",
+          "literal": "when",
+          "line": 200,
+          "owner": "common"
+        },
+        {
+          "symbol": "Where",
+          "literal": "where",
+          "line": 201,
+          "owner": "common"
+        },
+        {
+          "symbol": "While",
+          "literal": "while",
+          "line": 202,
+          "owner": "common"
+        },
+        {
+          "symbol": "With",
+          "literal": "with",
+          "line": 203,
+          "owner": "common"
+        },
+        {
+          "symbol": "WriteText",
+          "literal": "writetext",
+          "line": 204,
+          "owner": "common"
+        }
+      ],
+      "productions": {
+        "parser": 1554,
+        "lexer": 61
+      },
+      "simpleLexerLiterals": [
+        {
+          "name": "Bang",
+          "literal": "!",
+          "line": 32988
+        },
+        {
+          "name": "PercentSign",
+          "literal": "%",
+          "line": 32989
+        },
+        {
+          "name": "Ampersand",
+          "literal": "&",
+          "line": 32990
+        },
+        {
+          "name": "LeftParenthesis",
+          "literal": "(",
+          "line": 32991
+        },
+        {
+          "name": "RightParenthesis",
+          "literal": ")",
+          "line": 32992
+        },
+        {
+          "name": "LeftCurly",
+          "literal": "{",
+          "line": 32993
+        },
+        {
+          "name": "RightCurly",
+          "literal": "}",
+          "line": 32994
+        },
+        {
+          "name": "Star",
+          "literal": "*",
+          "line": 32995
+        },
+        {
+          "name": "MultiplyEquals",
+          "literal": "*=",
+          "line": 32996
+        },
+        {
+          "name": "Plus",
+          "literal": "+",
+          "line": 32997
+        },
+        {
+          "name": "Comma",
+          "literal": ",",
+          "line": 32998
+        },
+        {
+          "name": "Minus",
+          "literal": "-",
+          "line": 32999
+        },
+        {
+          "name": "Divide",
+          "literal": "/",
+          "line": 33002
+        },
+        {
+          "name": "Colon",
+          "literal": ":",
+          "line": 33003
+        },
+        {
+          "name": "DoubleColon",
+          "literal": "::",
+          "line": 33004
+        },
+        {
+          "name": "LessThan",
+          "literal": "<",
+          "line": 33005
+        },
+        {
+          "name": "EqualsSign",
+          "literal": "=",
+          "line": 33006
+        },
+        {
+          "name": "RightOuterJoin",
+          "literal": "=*",
+          "line": 33007
+        },
+        {
+          "name": "GreaterThan",
+          "literal": ">",
+          "line": 33008
+        },
+        {
+          "name": "Circumflex",
+          "literal": "^",
+          "line": 33009
+        },
+        {
+          "name": "VerticalLine",
+          "literal": "|",
+          "line": 33010
+        },
+        {
+          "name": "Tilde",
+          "literal": "~",
+          "line": 33011
+        },
+        {
+          "name": "AddEquals",
+          "literal": "+=",
+          "line": 33012
+        },
+        {
+          "name": "SubtractEquals",
+          "literal": "-=",
+          "line": 33013
+        },
+        {
+          "name": "DivideEquals",
+          "literal": "/=",
+          "line": 33014
+        },
+        {
+          "name": "ModEquals",
+          "literal": "%=",
+          "line": 33015
+        },
+        {
+          "name": "BitwiseAndEquals",
+          "literal": "&=",
+          "line": 33016
+        },
+        {
+          "name": "BitwiseOrEquals",
+          "literal": "|=",
+          "line": 33017
+        },
+        {
+          "name": "BitwiseXorEquals",
+          "literal": "^=",
+          "line": 33018
+        },
+        {
+          "name": "Semicolon",
+          "literal": ";",
+          "line": 33020
+        }
+      ],
+      "hostProductionCoverage": "unqualified; source production names do not prove typed-sql parser support",
+      "engineSemantics": "unqualified; ScriptDOM is not the SQL Server binder or builtin overload catalog"
+    },
+    "160": {
+      "revision": "3ea69b6fc1ed76b63eca6df868f3d1347b92e9fb",
+      "scope": "ScriptDOM parser source; engine binding and semantic qualification are separate",
+      "classes": [
+        {
+          "name": "TSql160ParserInternal",
+          "section": "parser",
+          "line": 28
+        },
+        {
+          "name": "TSql160LexerInternal",
+          "section": "lexer",
+          "line": 33909
+        }
+      ],
+      "keywordLiterals": [
+        {
+          "symbol": "Add",
+          "literal": "add",
+          "line": 36,
+          "owner": "common"
+        },
+        {
+          "symbol": "All",
+          "literal": "all",
+          "line": 37,
+          "owner": "common"
+        },
+        {
+          "symbol": "Alter",
+          "literal": "alter",
+          "line": 38,
+          "owner": "common"
+        },
+        {
+          "symbol": "And",
+          "literal": "and",
+          "line": 39,
+          "owner": "common"
+        },
+        {
+          "symbol": "Any",
+          "literal": "any",
+          "line": 40,
+          "owner": "common"
+        },
+        {
+          "symbol": "As",
+          "literal": "as",
+          "line": 41,
+          "owner": "common"
+        },
+        {
+          "symbol": "Asc",
+          "literal": "asc",
+          "line": 42,
+          "owner": "common"
+        },
+        {
+          "symbol": "Authorization",
+          "literal": "authorization",
+          "line": 43,
+          "owner": "common"
+        },
+        {
+          "symbol": "Backup",
+          "literal": "backup",
+          "line": 44,
+          "owner": "common"
+        },
+        {
+          "symbol": "Begin",
+          "literal": "begin",
+          "line": 45,
+          "owner": "common"
+        },
+        {
+          "symbol": "Between",
+          "literal": "between",
+          "line": 46,
+          "owner": "common"
+        },
+        {
+          "symbol": "Break",
+          "literal": "break",
+          "line": 47,
+          "owner": "common"
+        },
+        {
+          "symbol": "Browse",
+          "literal": "browse",
+          "line": 48,
+          "owner": "common"
+        },
+        {
+          "symbol": "Bulk",
+          "literal": "bulk",
+          "line": 49,
+          "owner": "common"
+        },
+        {
+          "symbol": "By",
+          "literal": "by",
+          "line": 50,
+          "owner": "common"
+        },
+        {
+          "symbol": "Cascade",
+          "literal": "cascade",
+          "line": 51,
+          "owner": "common"
+        },
+        {
+          "symbol": "Case",
+          "literal": "case",
+          "line": 52,
+          "owner": "common"
+        },
+        {
+          "symbol": "Check",
+          "literal": "check",
+          "line": 53,
+          "owner": "common"
+        },
+        {
+          "symbol": "Checkpoint",
+          "literal": "checkpoint",
+          "line": 54,
+          "owner": "common"
+        },
+        {
+          "symbol": "Close",
+          "literal": "close",
+          "line": 55,
+          "owner": "common"
+        },
+        {
+          "symbol": "Clustered",
+          "literal": "clustered",
+          "line": 56,
+          "owner": "common"
+        },
+        {
+          "symbol": "Coalesce",
+          "literal": "coalesce",
+          "line": 57,
+          "owner": "common"
+        },
+        {
+          "symbol": "Collate",
+          "literal": "collate",
+          "line": 58,
+          "owner": "common"
+        },
+        {
+          "symbol": "Column",
+          "literal": "column",
+          "line": 59,
+          "owner": "common"
+        },
+        {
+          "symbol": "Commit",
+          "literal": "commit",
+          "line": 60,
+          "owner": "common"
+        },
+        {
+          "symbol": "Compute",
+          "literal": "compute",
+          "line": 61,
+          "owner": "common"
+        },
+        {
+          "symbol": "Constraint",
+          "literal": "constraint",
+          "line": 62,
+          "owner": "common"
+        },
+        {
+          "symbol": "Contains",
+          "literal": "contains",
+          "line": 63,
+          "owner": "common"
+        },
+        {
+          "symbol": "ContainsTable",
+          "literal": "containstable",
+          "line": 64,
+          "owner": "common"
+        },
+        {
+          "symbol": "Continue",
+          "literal": "continue",
+          "line": 65,
+          "owner": "common"
+        },
+        {
+          "symbol": "Convert",
+          "literal": "convert",
+          "line": 66,
+          "owner": "common"
+        },
+        {
+          "symbol": "Create",
+          "literal": "create",
+          "line": 67,
+          "owner": "common"
+        },
+        {
+          "symbol": "Cross",
+          "literal": "cross",
+          "line": 68,
+          "owner": "common"
+        },
+        {
+          "symbol": "Current",
+          "literal": "current",
+          "line": 69,
+          "owner": "common"
+        },
+        {
+          "symbol": "CurrentDate",
+          "literal": "current_date",
+          "line": 70,
+          "owner": "common"
+        },
+        {
+          "symbol": "CurrentTime",
+          "literal": "current_time",
+          "line": 71,
+          "owner": "common"
+        },
+        {
+          "symbol": "CurrentTimestamp",
+          "literal": "current_timestamp",
+          "line": 72,
+          "owner": "common"
+        },
+        {
+          "symbol": "CurrentUser",
+          "literal": "current_user",
+          "line": 73,
+          "owner": "common"
+        },
+        {
+          "symbol": "Cursor",
+          "literal": "cursor",
+          "line": 74,
+          "owner": "common"
+        },
+        {
+          "symbol": "Database",
+          "literal": "database",
+          "line": 75,
+          "owner": "common"
+        },
+        {
+          "symbol": "Dbcc",
+          "literal": "dbcc",
+          "line": 76,
+          "owner": "common"
+        },
+        {
+          "symbol": "Deallocate",
+          "literal": "deallocate",
+          "line": 77,
+          "owner": "common"
+        },
+        {
+          "symbol": "Declare",
+          "literal": "declare",
+          "line": 78,
+          "owner": "common"
+        },
+        {
+          "symbol": "Default",
+          "literal": "default",
+          "line": 79,
+          "owner": "common"
+        },
+        {
+          "symbol": "Delete",
+          "literal": "delete",
+          "line": 80,
+          "owner": "common"
+        },
+        {
+          "symbol": "Deny",
+          "literal": "deny",
+          "line": 81,
+          "owner": "common"
+        },
+        {
+          "symbol": "Desc",
+          "literal": "desc",
+          "line": 82,
+          "owner": "common"
+        },
+        {
+          "symbol": "Distinct",
+          "literal": "distinct",
+          "line": 83,
+          "owner": "common"
+        },
+        {
+          "symbol": "Distributed",
+          "literal": "distributed",
+          "line": 84,
+          "owner": "common"
+        },
+        {
+          "symbol": "Double",
+          "literal": "double",
+          "line": 85,
+          "owner": "common"
+        },
+        {
+          "symbol": "Drop",
+          "literal": "drop",
+          "line": 86,
+          "owner": "common"
+        },
+        {
+          "symbol": "Else",
+          "literal": "else",
+          "line": 87,
+          "owner": "common"
+        },
+        {
+          "symbol": "End",
+          "literal": "end",
+          "line": 88,
+          "owner": "common"
+        },
+        {
+          "symbol": "Errlvl",
+          "literal": "errlvl",
+          "line": 89,
+          "owner": "common"
+        },
+        {
+          "symbol": "Escape",
+          "literal": "escape",
+          "line": 90,
+          "owner": "common"
+        },
+        {
+          "symbol": "Except",
+          "literal": "except",
+          "line": 91,
+          "owner": "common"
+        },
+        {
+          "symbol": "Exec",
+          "literal": "exec",
+          "line": 92,
+          "owner": "common"
+        },
+        {
+          "symbol": "Execute",
+          "literal": "execute",
+          "line": 93,
+          "owner": "common"
+        },
+        {
+          "symbol": "Exists",
+          "literal": "exists",
+          "line": 94,
+          "owner": "common"
+        },
+        {
+          "symbol": "Exit",
+          "literal": "exit",
+          "line": 95,
+          "owner": "common"
+        },
+        {
+          "symbol": "External",
+          "literal": "external",
+          "line": 33926,
+          "owner": "version"
+        },
+        {
+          "symbol": "Fetch",
+          "literal": "fetch",
+          "line": 96,
+          "owner": "common"
+        },
+        {
+          "symbol": "File",
+          "literal": "file",
+          "line": 97,
+          "owner": "common"
+        },
+        {
+          "symbol": "FillFactor",
+          "literal": "fillfactor",
+          "line": 98,
+          "owner": "common"
+        },
+        {
+          "symbol": "For",
+          "literal": "for",
+          "line": 99,
+          "owner": "common"
+        },
+        {
+          "symbol": "Foreign",
+          "literal": "foreign",
+          "line": 100,
+          "owner": "common"
+        },
+        {
+          "symbol": "FreeText",
+          "literal": "freetext",
+          "line": 101,
+          "owner": "common"
+        },
+        {
+          "symbol": "FreeTextTable",
+          "literal": "freetexttable",
+          "line": 102,
+          "owner": "common"
+        },
+        {
+          "symbol": "From",
+          "literal": "from",
+          "line": 103,
+          "owner": "common"
+        },
+        {
+          "symbol": "Full",
+          "literal": "full",
+          "line": 104,
+          "owner": "common"
+        },
+        {
+          "symbol": "Function",
+          "literal": "function",
+          "line": 105,
+          "owner": "common"
+        },
+        {
+          "symbol": "GoTo",
+          "literal": "goto",
+          "line": 106,
+          "owner": "common"
+        },
+        {
+          "symbol": "Grant",
+          "literal": "grant",
+          "line": 107,
+          "owner": "common"
+        },
+        {
+          "symbol": "Group",
+          "literal": "group",
+          "line": 108,
+          "owner": "common"
+        },
+        {
+          "symbol": "Having",
+          "literal": "having",
+          "line": 109,
+          "owner": "common"
+        },
+        {
+          "symbol": "HoldLock",
+          "literal": "holdlock",
+          "line": 110,
+          "owner": "common"
+        },
+        {
+          "symbol": "Identity",
+          "literal": "identity",
+          "line": 111,
+          "owner": "common"
+        },
+        {
+          "symbol": "IdentityInsert",
+          "literal": "identity_insert",
+          "line": 112,
+          "owner": "common"
+        },
+        {
+          "symbol": "IdentityColumn",
+          "literal": "identitycol",
+          "line": 113,
+          "owner": "common"
+        },
+        {
+          "symbol": "If",
+          "literal": "if",
+          "line": 114,
+          "owner": "common"
+        },
+        {
+          "symbol": "In",
+          "literal": "in",
+          "line": 115,
+          "owner": "common"
+        },
+        {
+          "symbol": "Index",
+          "literal": "index",
+          "line": 116,
+          "owner": "common"
+        },
+        {
+          "symbol": "Inner",
+          "literal": "inner",
+          "line": 117,
+          "owner": "common"
+        },
+        {
+          "symbol": "Insert",
+          "literal": "insert",
+          "line": 118,
+          "owner": "common"
+        },
+        {
+          "symbol": "Intersect",
+          "literal": "intersect",
+          "line": 119,
+          "owner": "common"
+        },
+        {
+          "symbol": "Into",
+          "literal": "into",
+          "line": 120,
+          "owner": "common"
+        },
+        {
+          "symbol": "Is",
+          "literal": "is",
+          "line": 121,
+          "owner": "common"
+        },
+        {
+          "symbol": "Join",
+          "literal": "join",
+          "line": 122,
+          "owner": "common"
+        },
+        {
+          "symbol": "Key",
+          "literal": "key",
+          "line": 123,
+          "owner": "common"
+        },
+        {
+          "symbol": "Kill",
+          "literal": "kill",
+          "line": 124,
+          "owner": "common"
+        },
+        {
+          "symbol": "Left",
+          "literal": "left",
+          "line": 125,
+          "owner": "common"
+        },
+        {
+          "symbol": "Like",
+          "literal": "like",
+          "line": 126,
+          "owner": "common"
+        },
+        {
+          "symbol": "LineNo",
+          "literal": "lineno",
+          "line": 127,
+          "owner": "common"
+        },
+        {
+          "symbol": "Merge",
+          "literal": "merge",
+          "line": 33933,
+          "owner": "version"
+        },
+        {
+          "symbol": "National",
+          "literal": "national",
+          "line": 128,
+          "owner": "common"
+        },
+        {
+          "symbol": "NoCheck",
+          "literal": "nocheck",
+          "line": 129,
+          "owner": "common"
+        },
+        {
+          "symbol": "NonClustered",
+          "literal": "nonclustered",
+          "line": 130,
+          "owner": "common"
+        },
+        {
+          "symbol": "Not",
+          "literal": "not",
+          "line": 131,
+          "owner": "common"
+        },
+        {
+          "symbol": "Null",
+          "literal": "null",
+          "line": 132,
+          "owner": "common"
+        },
+        {
+          "symbol": "NullIf",
+          "literal": "nullif",
+          "line": 133,
+          "owner": "common"
+        },
+        {
+          "symbol": "Of",
+          "literal": "of",
+          "line": 134,
+          "owner": "common"
+        },
+        {
+          "symbol": "Off",
+          "literal": "off",
+          "line": 135,
+          "owner": "common"
+        },
+        {
+          "symbol": "Offsets",
+          "literal": "offsets",
+          "line": 136,
+          "owner": "common"
+        },
+        {
+          "symbol": "On",
+          "literal": "on",
+          "line": 137,
+          "owner": "common"
+        },
+        {
+          "symbol": "Open",
+          "literal": "open",
+          "line": 138,
+          "owner": "common"
+        },
+        {
+          "symbol": "OpenDataSource",
+          "literal": "opendatasource",
+          "line": 139,
+          "owner": "common"
+        },
+        {
+          "symbol": "OpenQuery",
+          "literal": "openquery",
+          "line": 140,
+          "owner": "common"
+        },
+        {
+          "symbol": "OpenRowSet",
+          "literal": "openrowset",
+          "line": 141,
+          "owner": "common"
+        },
+        {
+          "symbol": "OpenXml",
+          "literal": "openxml",
+          "line": 142,
+          "owner": "common"
+        },
+        {
+          "symbol": "Option",
+          "literal": "option",
+          "line": 143,
+          "owner": "common"
+        },
+        {
+          "symbol": "Or",
+          "literal": "or",
+          "line": 144,
+          "owner": "common"
+        },
+        {
+          "symbol": "Order",
+          "literal": "order",
+          "line": 145,
+          "owner": "common"
+        },
+        {
+          "symbol": "Outer",
+          "literal": "outer",
+          "line": 146,
+          "owner": "common"
+        },
+        {
+          "symbol": "Over",
+          "literal": "over",
+          "line": 147,
+          "owner": "common"
+        },
+        {
+          "symbol": "Percent",
+          "literal": "percent",
+          "line": 148,
+          "owner": "common"
+        },
+        {
+          "symbol": "Pivot",
+          "literal": "pivot",
+          "line": 33927,
+          "owner": "version"
+        },
+        {
+          "symbol": "Plan",
+          "literal": "plan",
+          "line": 149,
+          "owner": "common"
+        },
+        {
+          "symbol": "Primary",
+          "literal": "primary",
+          "line": 150,
+          "owner": "common"
+        },
+        {
+          "symbol": "Print",
+          "literal": "print",
+          "line": 151,
+          "owner": "common"
+        },
+        {
+          "symbol": "Proc",
+          "literal": "proc",
+          "line": 152,
+          "owner": "common"
+        },
+        {
+          "symbol": "Procedure",
+          "literal": "procedure",
+          "line": 153,
+          "owner": "common"
+        },
+        {
+          "symbol": "Public",
+          "literal": "public",
+          "line": 154,
+          "owner": "common"
+        },
+        {
+          "symbol": "Raiserror",
+          "literal": "raiserror",
+          "line": 155,
+          "owner": "common"
+        },
+        {
+          "symbol": "Read",
+          "literal": "read",
+          "line": 156,
+          "owner": "common"
+        },
+        {
+          "symbol": "ReadText",
+          "literal": "readtext",
+          "line": 157,
+          "owner": "common"
+        },
+        {
+          "symbol": "Reconfigure",
+          "literal": "reconfigure",
+          "line": 158,
+          "owner": "common"
+        },
+        {
+          "symbol": "References",
+          "literal": "references",
+          "line": 159,
+          "owner": "common"
+        },
+        {
+          "symbol": "Replication",
+          "literal": "replication",
+          "line": 160,
+          "owner": "common"
+        },
+        {
+          "symbol": "Restore",
+          "literal": "restore",
+          "line": 161,
+          "owner": "common"
+        },
+        {
+          "symbol": "Restrict",
+          "literal": "restrict",
+          "line": 162,
+          "owner": "common"
+        },
+        {
+          "symbol": "Return",
+          "literal": "return",
+          "line": 163,
+          "owner": "common"
+        },
+        {
+          "symbol": "Revert",
+          "literal": "revert",
+          "line": 33928,
+          "owner": "version"
+        },
+        {
+          "symbol": "Revoke",
+          "literal": "revoke",
+          "line": 164,
+          "owner": "common"
+        },
+        {
+          "symbol": "Right",
+          "literal": "right",
+          "line": 165,
+          "owner": "common"
+        },
+        {
+          "symbol": "Rollback",
+          "literal": "rollback",
+          "line": 166,
+          "owner": "common"
+        },
+        {
+          "symbol": "RowCount",
+          "literal": "rowcount",
+          "line": 167,
+          "owner": "common"
+        },
+        {
+          "symbol": "RowGuidColumn",
+          "literal": "rowguidcol",
+          "line": 168,
+          "owner": "common"
+        },
+        {
+          "symbol": "Rule",
+          "literal": "rule",
+          "line": 169,
+          "owner": "common"
+        },
+        {
+          "symbol": "Save",
+          "literal": "save",
+          "line": 170,
+          "owner": "common"
+        },
+        {
+          "symbol": "Schema",
+          "literal": "schema",
+          "line": 171,
+          "owner": "common"
+        },
+        {
+          "symbol": "Select",
+          "literal": "select",
+          "line": 172,
+          "owner": "common"
+        },
+        {
+          "symbol": "SemanticKeyPhraseTable",
+          "literal": "semantickeyphrasetable",
+          "line": 33937,
+          "owner": "version"
+        },
+        {
+          "symbol": "SemanticSimilarityDetailsTable",
+          "literal": "semanticsimilaritydetailstable",
+          "line": 33939,
+          "owner": "version"
+        },
+        {
+          "symbol": "SemanticSimilarityTable",
+          "literal": "semanticsimilaritytable",
+          "line": 33938,
+          "owner": "version"
+        },
+        {
+          "symbol": "SessionUser",
+          "literal": "session_user",
+          "line": 173,
+          "owner": "common"
+        },
+        {
+          "symbol": "Set",
+          "literal": "set",
+          "line": 174,
+          "owner": "common"
+        },
+        {
+          "symbol": "SetUser",
+          "literal": "setuser",
+          "line": 175,
+          "owner": "common"
+        },
+        {
+          "symbol": "Shutdown",
+          "literal": "shutdown",
+          "line": 176,
+          "owner": "common"
+        },
+        {
+          "symbol": "Some",
+          "literal": "some",
+          "line": 177,
+          "owner": "common"
+        },
+        {
+          "symbol": "Statistics",
+          "literal": "statistics",
+          "line": 178,
+          "owner": "common"
+        },
+        {
+          "symbol": "StopList",
+          "literal": "stoplist",
+          "line": 33934,
+          "owner": "version"
+        },
+        {
+          "symbol": "SystemUser",
+          "literal": "system_user",
+          "line": 179,
+          "owner": "common"
+        },
+        {
+          "symbol": "Table",
+          "literal": "table",
+          "line": 180,
+          "owner": "common"
+        },
+        {
+          "symbol": "TableSample",
+          "literal": "tablesample",
+          "line": 33929,
+          "owner": "version"
+        },
+        {
+          "symbol": "TextSize",
+          "literal": "textsize",
+          "line": 181,
+          "owner": "common"
+        },
+        {
+          "symbol": "Then",
+          "literal": "then",
+          "line": 182,
+          "owner": "common"
+        },
+        {
+          "symbol": "To",
+          "literal": "to",
+          "line": 183,
+          "owner": "common"
+        },
+        {
+          "symbol": "Top",
+          "literal": "top",
+          "line": 184,
+          "owner": "common"
+        },
+        {
+          "symbol": "Tran",
+          "literal": "tran",
+          "line": 185,
+          "owner": "common"
+        },
+        {
+          "symbol": "Transaction",
+          "literal": "transaction",
+          "line": 186,
+          "owner": "common"
+        },
+        {
+          "symbol": "Trigger",
+          "literal": "trigger",
+          "line": 187,
+          "owner": "common"
+        },
+        {
+          "symbol": "Truncate",
+          "literal": "truncate",
+          "line": 188,
+          "owner": "common"
+        },
+        {
+          "symbol": "TryConvert",
+          "literal": "try_convert",
+          "line": 33940,
+          "owner": "version"
+        },
+        {
+          "symbol": "TSEqual",
+          "literal": "tsequal",
+          "line": 189,
+          "owner": "common"
+        },
+        {
+          "symbol": "Union",
+          "literal": "union",
+          "line": 190,
+          "owner": "common"
+        },
+        {
+          "symbol": "Unique",
+          "literal": "unique",
+          "line": 191,
+          "owner": "common"
+        },
+        {
+          "symbol": "Unpivot",
+          "literal": "unpivot",
+          "line": 33930,
+          "owner": "version"
+        },
+        {
+          "symbol": "Update",
+          "literal": "update",
+          "line": 192,
+          "owner": "common"
+        },
+        {
+          "symbol": "UpdateText",
+          "literal": "updatetext",
+          "line": 193,
+          "owner": "common"
+        },
+        {
+          "symbol": "Use",
+          "literal": "use",
+          "line": 194,
+          "owner": "common"
+        },
+        {
+          "symbol": "User",
+          "literal": "user",
+          "line": 195,
+          "owner": "common"
+        },
+        {
+          "symbol": "Values",
+          "literal": "values",
+          "line": 196,
+          "owner": "common"
+        },
+        {
+          "symbol": "Varying",
+          "literal": "varying",
+          "line": 197,
+          "owner": "common"
+        },
+        {
+          "symbol": "View",
+          "literal": "view",
+          "line": 198,
+          "owner": "common"
+        },
+        {
+          "symbol": "WaitFor",
+          "literal": "waitfor",
+          "line": 199,
+          "owner": "common"
+        },
+        {
+          "symbol": "When",
+          "literal": "when",
+          "line": 200,
+          "owner": "common"
+        },
+        {
+          "symbol": "Where",
+          "literal": "where",
+          "line": 201,
+          "owner": "common"
+        },
+        {
+          "symbol": "While",
+          "literal": "while",
+          "line": 202,
+          "owner": "common"
+        },
+        {
+          "symbol": "With",
+          "literal": "with",
+          "line": 203,
+          "owner": "common"
+        },
+        {
+          "symbol": "WriteText",
+          "literal": "writetext",
+          "line": 204,
+          "owner": "common"
+        }
+      ],
+      "productions": {
+        "parser": 1583,
+        "lexer": 65
+      },
+      "simpleLexerLiterals": [
+        {
+          "name": "Bang",
+          "literal": "!",
+          "line": 33950
+        },
+        {
+          "name": "PercentSign",
+          "literal": "%",
+          "line": 33951
+        },
+        {
+          "name": "Ampersand",
+          "literal": "&",
+          "line": 33952
+        },
+        {
+          "name": "LeftParenthesis",
+          "literal": "(",
+          "line": 33953
+        },
+        {
+          "name": "RightParenthesis",
+          "literal": ")",
+          "line": 33954
+        },
+        {
+          "name": "LeftCurly",
+          "literal": "{",
+          "line": 33955
+        },
+        {
+          "name": "RightCurly",
+          "literal": "}",
+          "line": 33956
+        },
+        {
+          "name": "Star",
+          "literal": "*",
+          "line": 33957
+        },
+        {
+          "name": "MultiplyEquals",
+          "literal": "*=",
+          "line": 33958
+        },
+        {
+          "name": "Plus",
+          "literal": "+",
+          "line": 33959
+        },
+        {
+          "name": "Comma",
+          "literal": ",",
+          "line": 33960
+        },
+        {
+          "name": "Minus",
+          "literal": "-",
+          "line": 33961
+        },
+        {
+          "name": "Divide",
+          "literal": "/",
+          "line": 33964
+        },
+        {
+          "name": "Colon",
+          "literal": ":",
+          "line": 33965
+        },
+        {
+          "name": "DoubleColon",
+          "literal": "::",
+          "line": 33966
+        },
+        {
+          "name": "LessThan",
+          "literal": "<",
+          "line": 33967
+        },
+        {
+          "name": "EqualsSign",
+          "literal": "=",
+          "line": 33968
+        },
+        {
+          "name": "RightOuterJoin",
+          "literal": "=*",
+          "line": 33969
+        },
+        {
+          "name": "GreaterThan",
+          "literal": ">",
+          "line": 33970
+        },
+        {
+          "name": "Circumflex",
+          "literal": "^",
+          "line": 33971
+        },
+        {
+          "name": "VerticalLine",
+          "literal": "|",
+          "line": 33972
+        },
+        {
+          "name": "Tilde",
+          "literal": "~",
+          "line": 33973
+        },
+        {
+          "name": "AddEquals",
+          "literal": "+=",
+          "line": 33974
+        },
+        {
+          "name": "SubtractEquals",
+          "literal": "-=",
+          "line": 33975
+        },
+        {
+          "name": "DivideEquals",
+          "literal": "/=",
+          "line": 33976
+        },
+        {
+          "name": "ModEquals",
+          "literal": "%=",
+          "line": 33977
+        },
+        {
+          "name": "BitwiseAndEquals",
+          "literal": "&=",
+          "line": 33978
+        },
+        {
+          "name": "BitwiseOrEquals",
+          "literal": "|=",
+          "line": 33979
+        },
+        {
+          "name": "BitwiseXorEquals",
+          "literal": "^=",
+          "line": 33980
+        },
+        {
+          "name": "LeftShift",
+          "literal": "<<",
+          "line": 33981
+        },
+        {
+          "name": "RightShift",
+          "literal": ">>",
+          "line": 33982
+        },
+        {
+          "name": "Concat",
+          "literal": "||",
+          "line": 33983
+        },
+        {
+          "name": "ConcatEquals",
+          "literal": "||=",
+          "line": 33984
+        },
+        {
+          "name": "Semicolon",
+          "literal": ";",
+          "line": 33986
+        }
+      ],
+      "hostProductionCoverage": "unqualified; source production names do not prove typed-sql parser support",
+      "engineSemantics": "unqualified; ScriptDOM is not the SQL Server binder or builtin overload catalog"
+    },
+    "170": {
+      "revision": "3ea69b6fc1ed76b63eca6df868f3d1347b92e9fb",
+      "scope": "ScriptDOM parser source; engine binding and semantic qualification are separate",
+      "classes": [
+        {
+          "name": "TSql170ParserInternal",
+          "section": "parser",
+          "line": 28
+        },
+        {
+          "name": "TSql170LexerInternal",
+          "section": "lexer",
+          "line": 35096
+        }
+      ],
+      "keywordLiterals": [
+        {
+          "symbol": "Add",
+          "literal": "add",
+          "line": 36,
+          "owner": "common"
+        },
+        {
+          "symbol": "All",
+          "literal": "all",
+          "line": 37,
+          "owner": "common"
+        },
+        {
+          "symbol": "Alter",
+          "literal": "alter",
+          "line": 38,
+          "owner": "common"
+        },
+        {
+          "symbol": "And",
+          "literal": "and",
+          "line": 39,
+          "owner": "common"
+        },
+        {
+          "symbol": "Any",
+          "literal": "any",
+          "line": 40,
+          "owner": "common"
+        },
+        {
+          "symbol": "As",
+          "literal": "as",
+          "line": 41,
+          "owner": "common"
+        },
+        {
+          "symbol": "Asc",
+          "literal": "asc",
+          "line": 42,
+          "owner": "common"
+        },
+        {
+          "symbol": "Authorization",
+          "literal": "authorization",
+          "line": 43,
+          "owner": "common"
+        },
+        {
+          "symbol": "Backup",
+          "literal": "backup",
+          "line": 44,
+          "owner": "common"
+        },
+        {
+          "symbol": "Begin",
+          "literal": "begin",
+          "line": 45,
+          "owner": "common"
+        },
+        {
+          "symbol": "Between",
+          "literal": "between",
+          "line": 46,
+          "owner": "common"
+        },
+        {
+          "symbol": "Break",
+          "literal": "break",
+          "line": 47,
+          "owner": "common"
+        },
+        {
+          "symbol": "Browse",
+          "literal": "browse",
+          "line": 48,
+          "owner": "common"
+        },
+        {
+          "symbol": "Bulk",
+          "literal": "bulk",
+          "line": 49,
+          "owner": "common"
+        },
+        {
+          "symbol": "By",
+          "literal": "by",
+          "line": 50,
+          "owner": "common"
+        },
+        {
+          "symbol": "Cascade",
+          "literal": "cascade",
+          "line": 51,
+          "owner": "common"
+        },
+        {
+          "symbol": "Case",
+          "literal": "case",
+          "line": 52,
+          "owner": "common"
+        },
+        {
+          "symbol": "Check",
+          "literal": "check",
+          "line": 53,
+          "owner": "common"
+        },
+        {
+          "symbol": "Checkpoint",
+          "literal": "checkpoint",
+          "line": 54,
+          "owner": "common"
+        },
+        {
+          "symbol": "Close",
+          "literal": "close",
+          "line": 55,
+          "owner": "common"
+        },
+        {
+          "symbol": "Clustered",
+          "literal": "clustered",
+          "line": 56,
+          "owner": "common"
+        },
+        {
+          "symbol": "Coalesce",
+          "literal": "coalesce",
+          "line": 57,
+          "owner": "common"
+        },
+        {
+          "symbol": "Collate",
+          "literal": "collate",
+          "line": 58,
+          "owner": "common"
+        },
+        {
+          "symbol": "Column",
+          "literal": "column",
+          "line": 59,
+          "owner": "common"
+        },
+        {
+          "symbol": "Commit",
+          "literal": "commit",
+          "line": 60,
+          "owner": "common"
+        },
+        {
+          "symbol": "Compute",
+          "literal": "compute",
+          "line": 61,
+          "owner": "common"
+        },
+        {
+          "symbol": "Constraint",
+          "literal": "constraint",
+          "line": 62,
+          "owner": "common"
+        },
+        {
+          "symbol": "Contains",
+          "literal": "contains",
+          "line": 63,
+          "owner": "common"
+        },
+        {
+          "symbol": "ContainsTable",
+          "literal": "containstable",
+          "line": 64,
+          "owner": "common"
+        },
+        {
+          "symbol": "Continue",
+          "literal": "continue",
+          "line": 65,
+          "owner": "common"
+        },
+        {
+          "symbol": "Convert",
+          "literal": "convert",
+          "line": 66,
+          "owner": "common"
+        },
+        {
+          "symbol": "Create",
+          "literal": "create",
+          "line": 67,
+          "owner": "common"
+        },
+        {
+          "symbol": "Cross",
+          "literal": "cross",
+          "line": 68,
+          "owner": "common"
+        },
+        {
+          "symbol": "Current",
+          "literal": "current",
+          "line": 69,
+          "owner": "common"
+        },
+        {
+          "symbol": "CurrentDate",
+          "literal": "current_date",
+          "line": 70,
+          "owner": "common"
+        },
+        {
+          "symbol": "CurrentTime",
+          "literal": "current_time",
+          "line": 71,
+          "owner": "common"
+        },
+        {
+          "symbol": "CurrentTimestamp",
+          "literal": "current_timestamp",
+          "line": 72,
+          "owner": "common"
+        },
+        {
+          "symbol": "CurrentUser",
+          "literal": "current_user",
+          "line": 73,
+          "owner": "common"
+        },
+        {
+          "symbol": "Cursor",
+          "literal": "cursor",
+          "line": 74,
+          "owner": "common"
+        },
+        {
+          "symbol": "Database",
+          "literal": "database",
+          "line": 75,
+          "owner": "common"
+        },
+        {
+          "symbol": "Dbcc",
+          "literal": "dbcc",
+          "line": 76,
+          "owner": "common"
+        },
+        {
+          "symbol": "Deallocate",
+          "literal": "deallocate",
+          "line": 77,
+          "owner": "common"
+        },
+        {
+          "symbol": "Declare",
+          "literal": "declare",
+          "line": 78,
+          "owner": "common"
+        },
+        {
+          "symbol": "Default",
+          "literal": "default",
+          "line": 79,
+          "owner": "common"
+        },
+        {
+          "symbol": "Delete",
+          "literal": "delete",
+          "line": 80,
+          "owner": "common"
+        },
+        {
+          "symbol": "Deny",
+          "literal": "deny",
+          "line": 81,
+          "owner": "common"
+        },
+        {
+          "symbol": "Desc",
+          "literal": "desc",
+          "line": 82,
+          "owner": "common"
+        },
+        {
+          "symbol": "Distinct",
+          "literal": "distinct",
+          "line": 83,
+          "owner": "common"
+        },
+        {
+          "symbol": "Distributed",
+          "literal": "distributed",
+          "line": 84,
+          "owner": "common"
+        },
+        {
+          "symbol": "Double",
+          "literal": "double",
+          "line": 85,
+          "owner": "common"
+        },
+        {
+          "symbol": "Drop",
+          "literal": "drop",
+          "line": 86,
+          "owner": "common"
+        },
+        {
+          "symbol": "Else",
+          "literal": "else",
+          "line": 87,
+          "owner": "common"
+        },
+        {
+          "symbol": "End",
+          "literal": "end",
+          "line": 88,
+          "owner": "common"
+        },
+        {
+          "symbol": "Errlvl",
+          "literal": "errlvl",
+          "line": 89,
+          "owner": "common"
+        },
+        {
+          "symbol": "Escape",
+          "literal": "escape",
+          "line": 90,
+          "owner": "common"
+        },
+        {
+          "symbol": "Except",
+          "literal": "except",
+          "line": 91,
+          "owner": "common"
+        },
+        {
+          "symbol": "Exec",
+          "literal": "exec",
+          "line": 92,
+          "owner": "common"
+        },
+        {
+          "symbol": "Execute",
+          "literal": "execute",
+          "line": 93,
+          "owner": "common"
+        },
+        {
+          "symbol": "Exists",
+          "literal": "exists",
+          "line": 94,
+          "owner": "common"
+        },
+        {
+          "symbol": "Exit",
+          "literal": "exit",
+          "line": 95,
+          "owner": "common"
+        },
+        {
+          "symbol": "External",
+          "literal": "external",
+          "line": 35113,
+          "owner": "version"
+        },
+        {
+          "symbol": "Fetch",
+          "literal": "fetch",
+          "line": 96,
+          "owner": "common"
+        },
+        {
+          "symbol": "File",
+          "literal": "file",
+          "line": 97,
+          "owner": "common"
+        },
+        {
+          "symbol": "FillFactor",
+          "literal": "fillfactor",
+          "line": 98,
+          "owner": "common"
+        },
+        {
+          "symbol": "For",
+          "literal": "for",
+          "line": 99,
+          "owner": "common"
+        },
+        {
+          "symbol": "Foreign",
+          "literal": "foreign",
+          "line": 100,
+          "owner": "common"
+        },
+        {
+          "symbol": "FreeText",
+          "literal": "freetext",
+          "line": 101,
+          "owner": "common"
+        },
+        {
+          "symbol": "FreeTextTable",
+          "literal": "freetexttable",
+          "line": 102,
+          "owner": "common"
+        },
+        {
+          "symbol": "From",
+          "literal": "from",
+          "line": 103,
+          "owner": "common"
+        },
+        {
+          "symbol": "Full",
+          "literal": "full",
+          "line": 104,
+          "owner": "common"
+        },
+        {
+          "symbol": "Function",
+          "literal": "function",
+          "line": 105,
+          "owner": "common"
+        },
+        {
+          "symbol": "GoTo",
+          "literal": "goto",
+          "line": 106,
+          "owner": "common"
+        },
+        {
+          "symbol": "Grant",
+          "literal": "grant",
+          "line": 107,
+          "owner": "common"
+        },
+        {
+          "symbol": "Group",
+          "literal": "group",
+          "line": 108,
+          "owner": "common"
+        },
+        {
+          "symbol": "Having",
+          "literal": "having",
+          "line": 109,
+          "owner": "common"
+        },
+        {
+          "symbol": "HoldLock",
+          "literal": "holdlock",
+          "line": 110,
+          "owner": "common"
+        },
+        {
+          "symbol": "Identity",
+          "literal": "identity",
+          "line": 111,
+          "owner": "common"
+        },
+        {
+          "symbol": "IdentityInsert",
+          "literal": "identity_insert",
+          "line": 112,
+          "owner": "common"
+        },
+        {
+          "symbol": "IdentityColumn",
+          "literal": "identitycol",
+          "line": 113,
+          "owner": "common"
+        },
+        {
+          "symbol": "If",
+          "literal": "if",
+          "line": 114,
+          "owner": "common"
+        },
+        {
+          "symbol": "In",
+          "literal": "in",
+          "line": 115,
+          "owner": "common"
+        },
+        {
+          "symbol": "Index",
+          "literal": "index",
+          "line": 116,
+          "owner": "common"
+        },
+        {
+          "symbol": "Inner",
+          "literal": "inner",
+          "line": 117,
+          "owner": "common"
+        },
+        {
+          "symbol": "Insert",
+          "literal": "insert",
+          "line": 118,
+          "owner": "common"
+        },
+        {
+          "symbol": "Intersect",
+          "literal": "intersect",
+          "line": 119,
+          "owner": "common"
+        },
+        {
+          "symbol": "Into",
+          "literal": "into",
+          "line": 120,
+          "owner": "common"
+        },
+        {
+          "symbol": "Is",
+          "literal": "is",
+          "line": 121,
+          "owner": "common"
+        },
+        {
+          "symbol": "Join",
+          "literal": "join",
+          "line": 122,
+          "owner": "common"
+        },
+        {
+          "symbol": "Key",
+          "literal": "key",
+          "line": 123,
+          "owner": "common"
+        },
+        {
+          "symbol": "Kill",
+          "literal": "kill",
+          "line": 124,
+          "owner": "common"
+        },
+        {
+          "symbol": "Left",
+          "literal": "left",
+          "line": 125,
+          "owner": "common"
+        },
+        {
+          "symbol": "Like",
+          "literal": "like",
+          "line": 126,
+          "owner": "common"
+        },
+        {
+          "symbol": "LineNo",
+          "literal": "lineno",
+          "line": 127,
+          "owner": "common"
+        },
+        {
+          "symbol": "Merge",
+          "literal": "merge",
+          "line": 35120,
+          "owner": "version"
+        },
+        {
+          "symbol": "National",
+          "literal": "national",
+          "line": 128,
+          "owner": "common"
+        },
+        {
+          "symbol": "NoCheck",
+          "literal": "nocheck",
+          "line": 129,
+          "owner": "common"
+        },
+        {
+          "symbol": "NonClustered",
+          "literal": "nonclustered",
+          "line": 130,
+          "owner": "common"
+        },
+        {
+          "symbol": "Not",
+          "literal": "not",
+          "line": 131,
+          "owner": "common"
+        },
+        {
+          "symbol": "Null",
+          "literal": "null",
+          "line": 132,
+          "owner": "common"
+        },
+        {
+          "symbol": "NullIf",
+          "literal": "nullif",
+          "line": 133,
+          "owner": "common"
+        },
+        {
+          "symbol": "Of",
+          "literal": "of",
+          "line": 134,
+          "owner": "common"
+        },
+        {
+          "symbol": "Off",
+          "literal": "off",
+          "line": 135,
+          "owner": "common"
+        },
+        {
+          "symbol": "Offsets",
+          "literal": "offsets",
+          "line": 136,
+          "owner": "common"
+        },
+        {
+          "symbol": "On",
+          "literal": "on",
+          "line": 137,
+          "owner": "common"
+        },
+        {
+          "symbol": "Open",
+          "literal": "open",
+          "line": 138,
+          "owner": "common"
+        },
+        {
+          "symbol": "OpenDataSource",
+          "literal": "opendatasource",
+          "line": 139,
+          "owner": "common"
+        },
+        {
+          "symbol": "OpenQuery",
+          "literal": "openquery",
+          "line": 140,
+          "owner": "common"
+        },
+        {
+          "symbol": "OpenRowSet",
+          "literal": "openrowset",
+          "line": 141,
+          "owner": "common"
+        },
+        {
+          "symbol": "OpenXml",
+          "literal": "openxml",
+          "line": 142,
+          "owner": "common"
+        },
+        {
+          "symbol": "Option",
+          "literal": "option",
+          "line": 143,
+          "owner": "common"
+        },
+        {
+          "symbol": "Or",
+          "literal": "or",
+          "line": 144,
+          "owner": "common"
+        },
+        {
+          "symbol": "Order",
+          "literal": "order",
+          "line": 145,
+          "owner": "common"
+        },
+        {
+          "symbol": "Outer",
+          "literal": "outer",
+          "line": 146,
+          "owner": "common"
+        },
+        {
+          "symbol": "Over",
+          "literal": "over",
+          "line": 147,
+          "owner": "common"
+        },
+        {
+          "symbol": "Percent",
+          "literal": "percent",
+          "line": 148,
+          "owner": "common"
+        },
+        {
+          "symbol": "Pivot",
+          "literal": "pivot",
+          "line": 35114,
+          "owner": "version"
+        },
+        {
+          "symbol": "Plan",
+          "literal": "plan",
+          "line": 149,
+          "owner": "common"
+        },
+        {
+          "symbol": "Primary",
+          "literal": "primary",
+          "line": 150,
+          "owner": "common"
+        },
+        {
+          "symbol": "Print",
+          "literal": "print",
+          "line": 151,
+          "owner": "common"
+        },
+        {
+          "symbol": "Proc",
+          "literal": "proc",
+          "line": 152,
+          "owner": "common"
+        },
+        {
+          "symbol": "Procedure",
+          "literal": "procedure",
+          "line": 153,
+          "owner": "common"
+        },
+        {
+          "symbol": "Public",
+          "literal": "public",
+          "line": 154,
+          "owner": "common"
+        },
+        {
+          "symbol": "Raiserror",
+          "literal": "raiserror",
+          "line": 155,
+          "owner": "common"
+        },
+        {
+          "symbol": "Read",
+          "literal": "read",
+          "line": 156,
+          "owner": "common"
+        },
+        {
+          "symbol": "ReadText",
+          "literal": "readtext",
+          "line": 157,
+          "owner": "common"
+        },
+        {
+          "symbol": "Reconfigure",
+          "literal": "reconfigure",
+          "line": 158,
+          "owner": "common"
+        },
+        {
+          "symbol": "References",
+          "literal": "references",
+          "line": 159,
+          "owner": "common"
+        },
+        {
+          "symbol": "Replication",
+          "literal": "replication",
+          "line": 160,
+          "owner": "common"
+        },
+        {
+          "symbol": "Restore",
+          "literal": "restore",
+          "line": 161,
+          "owner": "common"
+        },
+        {
+          "symbol": "Restrict",
+          "literal": "restrict",
+          "line": 162,
+          "owner": "common"
+        },
+        {
+          "symbol": "Return",
+          "literal": "return",
+          "line": 163,
+          "owner": "common"
+        },
+        {
+          "symbol": "Revert",
+          "literal": "revert",
+          "line": 35115,
+          "owner": "version"
+        },
+        {
+          "symbol": "Revoke",
+          "literal": "revoke",
+          "line": 164,
+          "owner": "common"
+        },
+        {
+          "symbol": "Right",
+          "literal": "right",
+          "line": 165,
+          "owner": "common"
+        },
+        {
+          "symbol": "Rollback",
+          "literal": "rollback",
+          "line": 166,
+          "owner": "common"
+        },
+        {
+          "symbol": "RowCount",
+          "literal": "rowcount",
+          "line": 167,
+          "owner": "common"
+        },
+        {
+          "symbol": "RowGuidColumn",
+          "literal": "rowguidcol",
+          "line": 168,
+          "owner": "common"
+        },
+        {
+          "symbol": "Rule",
+          "literal": "rule",
+          "line": 169,
+          "owner": "common"
+        },
+        {
+          "symbol": "Save",
+          "literal": "save",
+          "line": 170,
+          "owner": "common"
+        },
+        {
+          "symbol": "Schema",
+          "literal": "schema",
+          "line": 171,
+          "owner": "common"
+        },
+        {
+          "symbol": "Select",
+          "literal": "select",
+          "line": 172,
+          "owner": "common"
+        },
+        {
+          "symbol": "SemanticKeyPhraseTable",
+          "literal": "semantickeyphrasetable",
+          "line": 35124,
+          "owner": "version"
+        },
+        {
+          "symbol": "SemanticSimilarityDetailsTable",
+          "literal": "semanticsimilaritydetailstable",
+          "line": 35126,
+          "owner": "version"
+        },
+        {
+          "symbol": "SemanticSimilarityTable",
+          "literal": "semanticsimilaritytable",
+          "line": 35125,
+          "owner": "version"
+        },
+        {
+          "symbol": "SessionUser",
+          "literal": "session_user",
+          "line": 173,
+          "owner": "common"
+        },
+        {
+          "symbol": "Set",
+          "literal": "set",
+          "line": 174,
+          "owner": "common"
+        },
+        {
+          "symbol": "SetUser",
+          "literal": "setuser",
+          "line": 175,
+          "owner": "common"
+        },
+        {
+          "symbol": "Shutdown",
+          "literal": "shutdown",
+          "line": 176,
+          "owner": "common"
+        },
+        {
+          "symbol": "Some",
+          "literal": "some",
+          "line": 177,
+          "owner": "common"
+        },
+        {
+          "symbol": "Statistics",
+          "literal": "statistics",
+          "line": 178,
+          "owner": "common"
+        },
+        {
+          "symbol": "StopList",
+          "literal": "stoplist",
+          "line": 35121,
+          "owner": "version"
+        },
+        {
+          "symbol": "SystemUser",
+          "literal": "system_user",
+          "line": 179,
+          "owner": "common"
+        },
+        {
+          "symbol": "Table",
+          "literal": "table",
+          "line": 180,
+          "owner": "common"
+        },
+        {
+          "symbol": "TableSample",
+          "literal": "tablesample",
+          "line": 35116,
+          "owner": "version"
+        },
+        {
+          "symbol": "TextSize",
+          "literal": "textsize",
+          "line": 181,
+          "owner": "common"
+        },
+        {
+          "symbol": "Then",
+          "literal": "then",
+          "line": 182,
+          "owner": "common"
+        },
+        {
+          "symbol": "To",
+          "literal": "to",
+          "line": 183,
+          "owner": "common"
+        },
+        {
+          "symbol": "Top",
+          "literal": "top",
+          "line": 184,
+          "owner": "common"
+        },
+        {
+          "symbol": "Tran",
+          "literal": "tran",
+          "line": 185,
+          "owner": "common"
+        },
+        {
+          "symbol": "Transaction",
+          "literal": "transaction",
+          "line": 186,
+          "owner": "common"
+        },
+        {
+          "symbol": "Trigger",
+          "literal": "trigger",
+          "line": 187,
+          "owner": "common"
+        },
+        {
+          "symbol": "Truncate",
+          "literal": "truncate",
+          "line": 188,
+          "owner": "common"
+        },
+        {
+          "symbol": "TryConvert",
+          "literal": "try_convert",
+          "line": 35127,
+          "owner": "version"
+        },
+        {
+          "symbol": "TSEqual",
+          "literal": "tsequal",
+          "line": 189,
+          "owner": "common"
+        },
+        {
+          "symbol": "Union",
+          "literal": "union",
+          "line": 190,
+          "owner": "common"
+        },
+        {
+          "symbol": "Unique",
+          "literal": "unique",
+          "line": 191,
+          "owner": "common"
+        },
+        {
+          "symbol": "Unpivot",
+          "literal": "unpivot",
+          "line": 35117,
+          "owner": "version"
+        },
+        {
+          "symbol": "Update",
+          "literal": "update",
+          "line": 192,
+          "owner": "common"
+        },
+        {
+          "symbol": "UpdateText",
+          "literal": "updatetext",
+          "line": 193,
+          "owner": "common"
+        },
+        {
+          "symbol": "Use",
+          "literal": "use",
+          "line": 194,
+          "owner": "common"
+        },
+        {
+          "symbol": "User",
+          "literal": "user",
+          "line": 195,
+          "owner": "common"
+        },
+        {
+          "symbol": "Values",
+          "literal": "values",
+          "line": 196,
+          "owner": "common"
+        },
+        {
+          "symbol": "Varying",
+          "literal": "varying",
+          "line": 197,
+          "owner": "common"
+        },
+        {
+          "symbol": "View",
+          "literal": "view",
+          "line": 198,
+          "owner": "common"
+        },
+        {
+          "symbol": "WaitFor",
+          "literal": "waitfor",
+          "line": 199,
+          "owner": "common"
+        },
+        {
+          "symbol": "When",
+          "literal": "when",
+          "line": 200,
+          "owner": "common"
+        },
+        {
+          "symbol": "Where",
+          "literal": "where",
+          "line": 201,
+          "owner": "common"
+        },
+        {
+          "symbol": "While",
+          "literal": "while",
+          "line": 202,
+          "owner": "common"
+        },
+        {
+          "symbol": "With",
+          "literal": "with",
+          "line": 203,
+          "owner": "common"
+        },
+        {
+          "symbol": "WriteText",
+          "literal": "writetext",
+          "line": 204,
+          "owner": "common"
+        }
+      ],
+      "productions": {
+        "parser": 1616,
+        "lexer": 65
+      },
+      "simpleLexerLiterals": [
+        {
+          "name": "Bang",
+          "literal": "!",
+          "line": 35137
+        },
+        {
+          "name": "PercentSign",
+          "literal": "%",
+          "line": 35138
+        },
+        {
+          "name": "Ampersand",
+          "literal": "&",
+          "line": 35139
+        },
+        {
+          "name": "LeftParenthesis",
+          "literal": "(",
+          "line": 35140
+        },
+        {
+          "name": "RightParenthesis",
+          "literal": ")",
+          "line": 35141
+        },
+        {
+          "name": "LeftCurly",
+          "literal": "{",
+          "line": 35142
+        },
+        {
+          "name": "RightCurly",
+          "literal": "}",
+          "line": 35143
+        },
+        {
+          "name": "Star",
+          "literal": "*",
+          "line": 35144
+        },
+        {
+          "name": "MultiplyEquals",
+          "literal": "*=",
+          "line": 35145
+        },
+        {
+          "name": "Plus",
+          "literal": "+",
+          "line": 35146
+        },
+        {
+          "name": "Comma",
+          "literal": ",",
+          "line": 35147
+        },
+        {
+          "name": "Minus",
+          "literal": "-",
+          "line": 35148
+        },
+        {
+          "name": "Divide",
+          "literal": "/",
+          "line": 35151
+        },
+        {
+          "name": "Colon",
+          "literal": ":",
+          "line": 35152
+        },
+        {
+          "name": "DoubleColon",
+          "literal": "::",
+          "line": 35153
+        },
+        {
+          "name": "LessThan",
+          "literal": "<",
+          "line": 35154
+        },
+        {
+          "name": "EqualsSign",
+          "literal": "=",
+          "line": 35155
+        },
+        {
+          "name": "RightOuterJoin",
+          "literal": "=*",
+          "line": 35156
+        },
+        {
+          "name": "GreaterThan",
+          "literal": ">",
+          "line": 35157
+        },
+        {
+          "name": "Circumflex",
+          "literal": "^",
+          "line": 35158
+        },
+        {
+          "name": "VerticalLine",
+          "literal": "|",
+          "line": 35159
+        },
+        {
+          "name": "Tilde",
+          "literal": "~",
+          "line": 35160
+        },
+        {
+          "name": "AddEquals",
+          "literal": "+=",
+          "line": 35161
+        },
+        {
+          "name": "SubtractEquals",
+          "literal": "-=",
+          "line": 35162
+        },
+        {
+          "name": "DivideEquals",
+          "literal": "/=",
+          "line": 35163
+        },
+        {
+          "name": "ModEquals",
+          "literal": "%=",
+          "line": 35164
+        },
+        {
+          "name": "BitwiseAndEquals",
+          "literal": "&=",
+          "line": 35165
+        },
+        {
+          "name": "BitwiseOrEquals",
+          "literal": "|=",
+          "line": 35166
+        },
+        {
+          "name": "BitwiseXorEquals",
+          "literal": "^=",
+          "line": 35167
+        },
+        {
+          "name": "LeftShift",
+          "literal": "<<",
+          "line": 35168
+        },
+        {
+          "name": "RightShift",
+          "literal": ">>",
+          "line": 35169
+        },
+        {
+          "name": "Concat",
+          "literal": "||",
+          "line": 35170
+        },
+        {
+          "name": "ConcatEquals",
+          "literal": "||=",
+          "line": 35171
+        },
+        {
+          "name": "Semicolon",
+          "literal": ";",
+          "line": 35173
+        }
+      ],
+      "hostProductionCoverage": "unqualified; source production names do not prove typed-sql parser support",
+      "engineSemantics": "unqualified; ScriptDOM is not the SQL Server binder or builtin overload catalog"
+    }
+  },
+  "contexts": {
+    "sha256:43da58d66d3704fe12d47ab276d1f1fd6806ee4f6fd021dfa33aec65bc263796": {
+      "engineVersion": "14.0.3560.2",
+      "compatibilityLevel": 140,
+      "parserVersion": "140",
+      "revision": "3ea69b6fc1ed76b63eca6df868f3d1347b92e9fb"
+    },
+    "sha256:188d86eaf2a11ef5425e1990785084d10b3dc00aaf737392585a3f8bbdc62238": {
+      "engineVersion": "15.0.4500.2",
+      "compatibilityLevel": 140,
+      "parserVersion": "140",
+      "revision": "3ea69b6fc1ed76b63eca6df868f3d1347b92e9fb"
+    },
+    "sha256:b0c136002250760b501574f0870626335296a3f4a108c2b57ec63e77118e7506": {
+      "engineVersion": "15.0.4500.2",
+      "compatibilityLevel": 150,
+      "parserVersion": "150",
+      "revision": "3ea69b6fc1ed76b63eca6df868f3d1347b92e9fb"
+    },
+    "sha256:27325648d97390dde949c11d0b6b7877487ecb19cbda101bdff5687a2c54bb25": {
+      "engineVersion": "16.0.4305.5",
+      "compatibilityLevel": 160,
+      "parserVersion": "160",
+      "revision": "3ea69b6fc1ed76b63eca6df868f3d1347b92e9fb"
+    },
+    "sha256:6c090643da72144e95b8d36ccbec8fe7debe98650a1c7d9d2f731b0ad7e1b53b": {
+      "engineVersion": "16.0.4305.5",
+      "compatibilityLevel": 140,
+      "parserVersion": "140",
+      "revision": "3ea69b6fc1ed76b63eca6df868f3d1347b92e9fb"
+    },
+    "sha256:8abc45b28ed62ed03c37f067b636591cbf8bd1f6684899965e6cc531053cae74": {
+      "engineVersion": "16.0.4305.5",
+      "compatibilityLevel": 150,
+      "parserVersion": "150",
+      "revision": "3ea69b6fc1ed76b63eca6df868f3d1347b92e9fb"
+    },
+    "sha256:40c30f999c961dd88b57b75f1211e3226d8127615deea37e66402e3823010124": {
+      "engineVersion": "17.0.5035.5",
+      "compatibilityLevel": 150,
+      "parserVersion": "150",
+      "revision": "3ea69b6fc1ed76b63eca6df868f3d1347b92e9fb"
+    },
+    "sha256:70c2dde6c1ba52dcb891893a9d307dec67047003f8e92d307095fdf5b3876e4b": {
+      "engineVersion": "17.0.5035.5",
+      "compatibilityLevel": 140,
+      "parserVersion": "140",
+      "revision": "3ea69b6fc1ed76b63eca6df868f3d1347b92e9fb"
+    },
+    "sha256:9b5d5ef8d9d33120a93a2a281350c8811a1d6d499a87cf25c6e43b35b65a3414": {
+      "engineVersion": "17.0.5035.5",
+      "compatibilityLevel": 160,
+      "parserVersion": "160",
+      "revision": "3ea69b6fc1ed76b63eca6df868f3d1347b92e9fb"
+    },
+    "sha256:fc5ba3c5afc7decd74bd1638031870387e829da1d501910448903d27c83c817b": {
+      "engineVersion": "17.0.5035.5",
+      "compatibilityLevel": 170,
+      "parserVersion": "170",
+      "revision": "3ea69b6fc1ed76b63eca6df868f3d1347b92e9fb"
+    }
+  }
+}

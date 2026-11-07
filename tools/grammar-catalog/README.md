@@ -99,6 +99,18 @@ vendor window-name registry is included in the complete count with unavailable s
 Legacy facts do not replace the version's binding policy until independently qualified. This is
 registration evidence for the recorded platform/profile, not full SQL semantic qualification.
 
+`pnpm catalog:source sqlserver` discovers the compatibility levels in retained native captures and
+pins the corresponding official ScriptDOM parser sources. These profiles are parser compatibility
+levels, not SQL Server engine source releases. Full source archives, selected grammar/common-token
+members, the MIT notice and extractor bytes are locked. Explicit acquisition requires Python 3.12
+or newer; ordinary generation is Node-only and offline. Source facts retain complete grammar text,
+every parser/lexer production boundary, opaque C# actions and exception-handler spans. Offsets use
+UTF-16 code units. Unknown top-level declaration forms fail extraction. Generation rejects missing
+or stale native-context associations and emits the parser inventory report; source production
+names do not establish host parser support, keyword reservation or engine binding semantics.
+Builtin overloads, type rules and semantic action interpretation still require separate sources
+and native qualification.
+
 `pnpm catalog:source postgres` acquires the exact PostgreSQL versions present in retained native
 captures. It locks the full immutable source archive, selected catalog/parser/SQL inputs and the
 PostgreSQL license. Explicit refresh requires Python 3.12 or newer and Perl with its standard
