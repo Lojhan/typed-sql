@@ -593,3 +593,25 @@
   outline: 1px solid var(--accent);
   outline-offset: -1px;
 }
+
+.project-sidebar .files-section {
+  flex-grow: var(--files-weight, 1);
+}
+.project-sidebar .database-section.expanded {
+  flex-grow: var(--database-weight, 1);
+}
+.project-sidebar .migrations-section.expanded {
+  flex-grow: var(--migrations-weight, 1);
+}
+.project-sidebar > .resize-handle {
+  height: 3px;
+}
+.project-sidebar > .resize-handle:after {
+  inset: -5px 0;
+}
+.project-sidebar > .database-section:not(.expanded) + .resize-handle,
+.project-sidebar > .resize-handle:has(+ .database-section:not(.expanded)),
+.project-sidebar > .resize-handle:has(+ .migrations-section:not(.expanded)),
+.project-sidebar > .files-section:has(nav[hidden]) + .resize-handle {
+  display: none;
+}

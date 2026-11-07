@@ -131,3 +131,9 @@ export async function revealToolbarActions(scope, label) {
     if (!open) await trigger.click();
   }
 }
+
+export async function setAgentPermissions(page, mode) {
+  await revealToolbarActions(page, "Agent permissions");
+  await page.locator(`.composer-permissions input[type="radio"][value="${mode}"]`).check();
+  await page.getByLabel("Agent permissions", { exact: true }).focus();
+}

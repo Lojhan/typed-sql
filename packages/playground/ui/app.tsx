@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { AgentPanel } from "./agent";
 import { analysisId, analysisTab } from "./analysis-tabs";
@@ -67,6 +67,7 @@ import { GlobalScrollbars } from "./scrollbars";
 import { ThemeMenu, useTheme } from "./theme";
 import { ToolbarActions } from "./toolbar-actions";
 import type { Analysis, State, Value } from "./types";
+import { useMediaQuery } from "./use-media-query";
 import "./style.css";
 
 const AnalysisWorkspace = lazy(() =>
@@ -90,6 +91,7 @@ function App() {
     [activePane, setActivePane] = useState(""),
     [sidebar, setSidebar] = useState(238),
     [sidebarVisible, setSidebarVisible] = useState(true),
+    [sectionWeights, setSectionWeights] = useState<[number, number, number]>([1, 1, 1]),
     [schemaSearch, setSchemaSearch] = useState(""),
     [palette, setPalette] = useState(false),
     [explorerFocus, setExplorerFocus] = useState<{ section: "database" | "migrations"; id: string }>(),
@@ -103,6 +105,13 @@ function App() {
     [lastFile, setLastFile] = useState(""),
     [navigation, setNavigation] = useState<{ paneId: string; file: string; range: LanguageRange } | null>(null),
     [compareA, setCompareA] = useState<string | undefined>();
+  const mobile = useMediaQuery("(max-width: 640px)");
+  const [mobileTreeOpen, setMobileTreeOpen] = useState(false);
+  const treeVisible = mobile ? mobileTreeOpen : sidebarVisible;
+  const toggleSidebar = () => (mobile ? setMobileTreeOpen((value) => !value) : setSidebarVisible((value) => !value));
+  useEffect(() => {
+    if (!mobile) setMobileTreeOpen(false);
+  }, [mobile]);
   const explorer = useExplorerCatalog(
     state ? `${state.schemaHash}:${state.trusted}:${state.target}:${state.connection.state}` : "",
   );
@@ -232,10 +241,19 @@ function App() {
       const saved = JSON.parse(localStorage.getItem(storageKey.current) ?? "null") as {
         layout?: unknown;
         sidebar?: unknown;
+        sectionWeights?: unknown;
         active?: unknown;
       } | null;
       const parsed = validLayout(saved?.layout, new Set(state.files));
       if (parsed) initial = parsed;
+      if (
+        Array.isArray(saved?.sectionWeights) &&
+        saved.sectionWeights.length === 3 &&
+        saved.sectionWeights.every(
+          (value: unknown) => typeof value === "number" && Number.isFinite(value) && value > 0 && value < 100,
+        )
+      )
+        setSectionWeights(saved.sectionWeights as [number, number, number]);
       if (typeof saved?.sidebar === "number" && Number.isFinite(saved.sidebar))
         setSidebar(Math.max(150, Math.min(440, saved.sidebar)));
       if (typeof saved?.active === "string" && panes(initial).some((item) => item.id === saved.active))
@@ -255,9 +273,9 @@ function App() {
   useEffect(() => {
     if (!initialized.current || !storageKey.current) return;
     try {
-      localStorage.setItem(storageKey.current, JSON.stringify({ layout, sidebar, active: activePane }));
+      localStorage.setItem(storageKey.current, JSON.stringify({ layout, sidebar, sectionWeights, active: activePane }));
     } catch {}
-  }, [layout, sidebar, activePane]);
+  }, [layout, sidebar, sectionWeights, activePane]);
   useEffect(() => {
     const stop = (event: BeforeUnloadEvent) => {
       if (dirty.size) event.preventDefault();
@@ -344,6 +362,7 @@ function App() {
     (paneId: string, tab: string) => {
       setLayout((current) => open(current, paneId, tab));
       setActivePane(paneId);
+      setMobileTreeOpen(false);
       if (!isTool(tab)) {
         setLastFile(tab);
         void load(tab).catch((error) => setError(error.message));
@@ -555,7 +574,7 @@ function App() {
         };
       } else if (!event.shiftKey && name === "b")
         command = () => {
-          if (!dialog) setSidebarVisible((value) => !value);
+          if (!dialog || dialog.getAttribute("aria-label") === "Project explorer") toggleSidebar();
         };
       else if (event.code === "Backslash")
         command = () => {
@@ -1204,11 +1223,13 @@ function App() {
       await refresh();
     });
   const createEntry = (folder: boolean) => {
-    setSidebarVisible(true);
+    if (mobile) setMobileTreeOpen(true);
+    else setSidebarVisible(true);
     setTreeCreation({ id: crypto.randomUUID(), folder });
   };
   const focusExplorer = (section: "database" | "migrations") => {
-    setSidebarVisible(true);
+    if (mobile) setMobileTreeOpen(true);
+    else setSidebarVisible(true);
     setExplorerFocus({ section, id: crypto.randomUUID() });
   };
   const commands: PaletteCommand[] = [
@@ -1238,10 +1259,10 @@ function App() {
     { id: "new-folder", label: "New folder", icon: "new-folder", run: () => createEntry(true) },
     {
       id: "tree",
-      label: sidebarVisible ? "Hide file tree" : "Show file tree",
+      label: treeVisible ? "Hide file tree" : "Show file tree",
       icon: "sidebar",
       shortcut: "⌘B / Ctrl+B",
-      run: () => setSidebarVisible((value) => !value),
+      run: toggleSidebar,
     },
     ...(["system", "light", "dark"] as const).map((value) => ({
       id: `theme-${value}`,
@@ -1386,6 +1407,71 @@ function App() {
           await refresh();
         }),
     });
+  const resizeSections = (index: 0 | 1, delta: number) => {
+    const sections = document.querySelectorAll<HTMLElement>(".project-sidebar > .explorer-section");
+    const first = sections[index]?.getBoundingClientRect().height ?? 0;
+    const second = sections[index + 1]?.getBoundingClientRect().height ?? 0;
+    const total = first + second;
+    if (!total) return;
+    const minimum = Math.min(92, total / 2);
+    const fraction = Math.max(minimum, Math.min(total - minimum, first + delta)) / total;
+    setSectionWeights((current) => {
+      const next = [...current] as [number, number, number];
+      const combined = current[index] + current[index + 1]!;
+      next[index] = combined * fraction;
+      next[index + 1] = combined * (1 - fraction);
+      return next;
+    });
+  };
+  const treeStyle = {
+    "--files-weight": sectionWeights[0],
+    "--database-weight": sectionWeights[1],
+    "--migrations-weight": sectionWeights[2],
+  } as CSSProperties;
+  const projectTree = (
+    <>
+      <section className="explorer-section files-section" aria-label="File explorer">
+        <WorkspaceFileTree
+          files={state.files.filter((file) => !/\.d\.[cm]?ts$/u.test(file))}
+          folders={state.folders ?? []}
+          project={state.project.name}
+          selected={focusedFile}
+          scratch={state.scratchDirectory}
+          creation={treeCreation}
+          onOpen={(file) => openTab(focused.id, file)}
+          onCreate={async (path, folder) => {
+            if (folder) await api("folder", { folder: path });
+            else await api("save", { file: path, source: "", revision: null });
+            await refresh();
+            if (!folder) openTab(focused.id, path);
+          }}
+        />
+      </section>
+      <Resize
+        axis="vertical"
+        label="Resize Files and Database"
+        value={Math.round((100 * sectionWeights[0]) / (sectionWeights[0] + sectionWeights[1]))}
+        onChange={(delta) => resizeSections(0, delta)}
+      />
+      <ExplorerSidebar
+        separator={
+          <Resize
+            axis="vertical"
+            label="Resize Database and Migrations"
+            value={Math.round((100 * sectionWeights[1]) / (sectionWeights[1] + sectionWeights[2]))}
+            onChange={(delta) => resizeSections(1, delta)}
+          />
+        }
+        focusRequest={explorerFocus}
+        catalog={explorer.catalog}
+        loading={explorer.loading}
+        error={explorer.error}
+        selected={inspectionTarget(focused.active)}
+        onOpen={(target) => openTab(focused.id, inspectionTab(target))}
+        onRefresh={explorer.refresh}
+      />
+    </>
+  );
   return (
     <div className="app-shell">
       <GlobalScrollbars />
@@ -1399,35 +1485,30 @@ function App() {
         <Notice tone="warning">Live schema changed. Generate the compiler snapshot and restart before running.</Notice>
       ) : null}
       <div className="workspace-body">
-        {sidebarVisible ? (
+        {mobile ? (
+          mobileTreeOpen ? (
+            <Modal
+              className="mobile-project-drawer"
+              label="Project explorer"
+              onClose={() => setMobileTreeOpen(false)}
+              dismissOnBackdrop
+              padding="none"
+            >
+              <Bar>
+                <BarLabel>Project explorer</BarLabel>
+                <IconButton aria-label="Close project explorer" onClick={() => setMobileTreeOpen(false)}>
+                  <Icon name="close" />
+                </IconButton>
+              </Bar>
+              <aside id="project-sidebar" className="project-sidebar" style={treeStyle}>
+                {projectTree}
+              </aside>
+            </Modal>
+          ) : null
+        ) : sidebarVisible ? (
           <>
-            <aside className="project-sidebar" style={{ width: sidebar }}>
-              <section className="explorer-section files-section" aria-label="File explorer">
-                <WorkspaceFileTree
-                  files={state.files.filter((file) => !/\.d\.[cm]?ts$/u.test(file))}
-                  folders={state.folders ?? []}
-                  project={state.project.name}
-                  selected={focusedFile}
-                  scratch={state.scratchDirectory}
-                  creation={treeCreation}
-                  onOpen={(file) => openTab(focused.id, file)}
-                  onCreate={async (path, folder) => {
-                    if (folder) await api("folder", { folder: path });
-                    else await api("save", { file: path, source: "", revision: null });
-                    await refresh();
-                    if (!folder) openTab(focused.id, path);
-                  }}
-                />
-              </section>
-              <ExplorerSidebar
-                focusRequest={explorerFocus}
-                catalog={explorer.catalog}
-                loading={explorer.loading}
-                error={explorer.error}
-                selected={inspectionTarget(focused.active)}
-                onOpen={(target) => openTab(focused.id, inspectionTab(target))}
-                onRefresh={explorer.refresh}
-              />
+            <aside id="project-sidebar" className="project-sidebar" style={{ ...treeStyle, width: sidebar }}>
+              {projectTree}
             </aside>
             <Resize
               axis="horizontal"
@@ -1468,7 +1549,9 @@ function App() {
             aria-label="Toggle project tree"
             aria-keyshortcuts="Meta+B Control+B"
             title="Toggle project tree (⌘B / Ctrl+B)"
-            onClick={() => setSidebarVisible((value) => !value)}
+            aria-expanded={treeVisible}
+            aria-controls="project-sidebar"
+            onClick={toggleSidebar}
           >
             <Icon name="sidebar" />
           </IconButton>
