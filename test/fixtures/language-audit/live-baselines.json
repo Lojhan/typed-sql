@@ -297,7 +297,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:815c44d0024a0bcbee824584de5772dc98a84ddf261c7b900759a1a35d935523",
+        "fingerprint": "sha256:bdf8dacdf8ff819793bd71f73ec6bc4ca17d72bbfba067ab6f82d0ec702f8a95",
         "counts": {
           "native-invocation-unverified": 2,
           "native-rejected-generated-invocation": 15,
@@ -905,13 +905,13 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:e7adc3b419f26d9ab04c2179f136bf041979a1ad4e6fa6c5279b21c2101fbb26",
+        "fingerprint": "sha256:4a334e7a684db03988e1fb9d84e0dadab55ff1ff4bc11eeb0c01603f542ca9be",
         "counts": {
           "native-invocation-unverified": 342,
           "native-rejected-generated-invocation": 486,
-          "native-valid-grammar-diagnostic": 219,
-          "native-valid-grammar-unknown": 7,
-          "native-valid-recognition-only": 1887
+          "native-valid-grammar-diagnostic": 255,
+          "native-valid-grammar-unknown": 6,
+          "native-valid-recognition-only": 1852
         }
       }
     },
@@ -990,13 +990,13 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:41dd7fc6a3d7128dda50e1a2d6f373f409eabb9299f0b744fcfe14a18cbab532",
+        "fingerprint": "sha256:70b76ad713e59a17a0a5b718b01929cb0fb0727c32a40d617d0f39bf14785e6e",
         "counts": {
           "native-invocation-unverified": 357,
-          "native-rejected-generated-invocation": 493,
-          "native-valid-grammar-diagnostic": 205,
+          "native-rejected-generated-invocation": 490,
+          "native-valid-grammar-diagnostic": 202,
           "native-valid-grammar-unknown": 11,
-          "native-valid-recognition-only": 2102
+          "native-valid-recognition-only": 2108
         }
       }
     },
@@ -1541,7 +1541,7 @@
         },
         "types": {
           "status": "observed",
-          "fingerprint": "sha256:59322f40562ffc68507f7f54ffccd765190d63c3cdcd1c21d81405e4584bb2c4",
+          "fingerprint": "sha256:27d66945f72cf6d143888f5b7283a9f97a56f1f01c8ba1b5d8536e08e3729e3e",
           "count": 473,
           "scope": "engine"
         },
@@ -1582,13 +1582,13 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:e00137b2f4e325ad4eae4e944d978ab632061ecd06d26bbb386bb81a29666bad",
+        "fingerprint": "sha256:a082595bc7bbe81bbbe6454287ffc691b0c79853a2eff587c123b62248fe074d",
         "counts": {
           "native-invocation-unverified": 623,
-          "native-rejected-generated-invocation": 488,
-          "native-valid-grammar-diagnostic": 2198,
-          "native-valid-grammar-unknown": 8,
-          "native-valid-recognition-only": 85
+          "native-rejected-generated-invocation": 923,
+          "native-valid-grammar-diagnostic": 712,
+          "native-valid-grammar-unknown": 60,
+          "native-valid-recognition-only": 3348
         }
       }
     },
