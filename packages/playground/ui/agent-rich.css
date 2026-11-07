@@ -1,0 +1,258 @@
+.agent-markdown {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.agent-markdown > :first-child {
+  margin-top: 0;
+}
+.agent-markdown > :last-child {
+  margin-bottom: 0;
+}
+.agent-markdown p,
+.agent-markdown ul,
+.agent-markdown ol {
+  margin: 8px 0;
+}
+.agent-markdown ul,
+.agent-markdown ol {
+  padding-left: 24px;
+}
+.agent-markdown h1,
+.agent-markdown h2,
+.agent-markdown h3 {
+  margin: 16px 0 8px;
+  line-height: 1.4;
+}
+.agent-markdown h1 {
+  font-size: 18px;
+}
+.agent-markdown h2 {
+  font-size: 16px;
+}
+.agent-markdown h3 {
+  font-size: 14px;
+}
+.agent-markdown a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+.agent-markdown blockquote {
+  border-left: 2px solid var(--accent);
+  padding-left: 12px;
+  margin: 12px 0;
+  color: var(--muted);
+}
+.agent-markdown code {
+  font:
+    11px / 1.6 "SFMono-Regular",
+    Consolas,
+    monospace;
+  background: var(--bg);
+  border-radius: var(--control-radius);
+  padding: 1px 4px;
+}
+.agent-markdown pre code {
+  padding: 0;
+  background: transparent;
+}
+.agent-markdown pre,
+.analysis-query,
+.agent-tool-details pre {
+  white-space: pre;
+  overflow: auto;
+  margin: 0;
+  padding: 12px;
+  font:
+    11px / 1.6 "SFMono-Regular",
+    Consolas,
+    monospace;
+}
+.agent-markdown table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12px;
+}
+.agent-markdown th,
+.agent-markdown td {
+  border: 1px solid var(--border);
+  padding: 6px 8px;
+  text-align: left;
+}
+.agent-markdown th {
+  background: var(--bg);
+}
+.agent-markdown [data-streamdown="table-wrapper"] {
+  overflow: auto;
+  max-width: 100%;
+}
+.agent-markdown [data-streamdown="code-block"] {
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  overflow: hidden;
+}
+.agent-code {
+  position: relative;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+}
+.agent-code > .ui-button {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  background: var(--panel);
+  z-index: 1;
+}
+.agent-code pre {
+  padding-top: 34px;
+}
+.agent-tool-details summary {
+  padding: 6px 8px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.agent-tool-details pre {
+  max-height: 260px;
+}
+.analysis-card {
+  min-width: 0;
+  margin-bottom: 12px;
+}
+.analysis-card > .ui-bar {
+  border-radius: var(--control-radius) var(--control-radius) 0 0;
+}
+.analysis-body {
+  padding: var(--panel-padding);
+}
+.analysis-card .agent-markdown {
+  margin-bottom: 12px;
+}
+.analysis-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.analysis-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 12px;
+  min-width: 0;
+}
+.analysis-filter {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  min-width: 0;
+}
+.analysis-filter > span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.analysis-filter small {
+  color: var(--muted);
+  font-size: 10px;
+}
+.analysis-filter select[multiple] {
+  height: 80px;
+}
+.analysis-controls {
+  margin-bottom: 12px;
+}
+.analysis-controls > .ui-control-group {
+  margin-top: 12px;
+}
+.analysis-plot {
+  min-width: 0;
+  height: 300px;
+  position: relative;
+}
+.analysis-plot > [role="img"] {
+  width: 100%;
+  height: 100%;
+}
+.analysis-plot .ui-empty {
+  height: 100%;
+}
+.analysis-metric {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  padding: 20px;
+}
+.analysis-metric > strong {
+  font-size: 32px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.analysis-metric > span,
+.analysis-note {
+  color: var(--muted);
+}
+.analysis-note {
+  font-size: 12px;
+  margin: 8px 12px;
+}
+.analysis-table {
+  height: 300px;
+  display: flex;
+  min-width: 0;
+  overflow: hidden;
+}
+.analysis-provenance {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.6;
+  margin: 12px 0 0;
+}
+.analysis-workspace {
+  overflow: auto;
+  padding: 12px;
+}
+.analysis-workspace > .analysis-card {
+  flex: none;
+}
+.analysis-query {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  border-radius: var(--control-radius);
+}
+
+.agent-markdown [style*="--sdm-c"] {
+  color: var(--sdm-c, inherit);
+}
+:root[data-theme="dark"] .agent-markdown [style*="--shiki-dark"] {
+  color: var(--shiki-dark, var(--sdm-c, inherit));
+}
+.analysis-controls fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.analysis-controls fieldset > .ui-control-group {
+  margin-top: 12px;
+}
+.analysis-plot.compact {
+  height: 70px;
+  width: 100%;
+  flex-basis: 100%;
+}
+.analysis-comparison {
+  flex-basis: 100%;
+}
+.analysis-plot > .ui-empty {
+  position: absolute;
+  inset: 0;
+}
+.analysis-columns .ui-field-label {
+  display: flex;
+  margin-block: 8px;
+}

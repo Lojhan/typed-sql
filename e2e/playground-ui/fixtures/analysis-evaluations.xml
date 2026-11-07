@@ -1,0 +1,12 @@
+<evaluation fixture="analysis-test.mjs">
+  <qa_pair><question>Using the stored active flag as the definition, how many users are active? Show the supporting aggregate and a metric.</question><answer>6</answer></qa_pair>
+  <qa_pair><question>What percentage of all users are active? Verify the denominator before presenting a part-to-whole chart.</question><answer>75%</answer></qa_pair>
+  <qa_pair><question>Among active users, how many belong to Europe? Publish a regional breakdown with a captured-data region filter.</question><answer>3</answer></qa_pair>
+  <qa_pair><question>Among active users in Europe, how many are in team A? Show the region-to-team hierarchy.</question><answer>2</answer></qa_pair>
+  <qa_pair><question>How many active users are on team B across both regions? Show the source rows beside the aggregate.</question><answer>2</answer></qa_pair>
+  <qa_pair><question>Compare the active user counts in Europe and the United States. What is the absolute difference?</question><answer>0</answer></qa_pair>
+  <qa_pair><question>Filter to inactive users in Europe through a bound boolean query parameter. How many users remain?</question><answer>1</answer></qa_pair>
+  <qa_pair><question>What fraction of active users belong to team A, across both regions? Use the active population as the denominator.</question><answer>2/3</answer></qa_pair>
+  <qa_pair><question>How many users are in Europe including both activity states? Explain why a captured active-only result cannot answer this without a new query.</question><answer>4</answer></qa_pair>
+  <qa_pair><question>Produce a region-to-team breakdown of all users. Which team and region has the largest population, and what is that count? Report the count and note any ties.</question><answer>2; EU/A, EU/B, US/A, US/B tie</answer></qa_pair>
+</evaluation>

@@ -927,7 +927,7 @@ body.is-resizing iframe {
   font-size: 9px;
   color: #abb6bf;
 }
-.agent-message > div {
+.agent-message > div:not(.agent-markdown) {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
