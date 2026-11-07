@@ -87,7 +87,17 @@ New retained/declared versions are discovered from the corpus and feature ledger
 check commands consume committed facts without network access or a compiler. Raw acquisitions
 remain under ignored artifacts; durable retention and full native compile-profile reconciliation
 are still required. Compiled registration facts carry arity and category evidence, with return
-semantics still unknown. Other vendor source owners remain to implement.
+semantics still unknown. Additional vendor sources and profile qualification remain open.
+
+`pnpm catalog:source duckdb` discovers exact retained versions and runs the registered source-API
+adapter for each supported major. It pins official source/library archives, source revisions,
+license notices and extractor bytes. Explicit refresh needs Python and a C++17 compiler; normal
+generation consumes committed facts offline. Version 2 retains native parameter names, passing
+modes, defaults and typed options. Version 1 retains positional types, varargs, named-option maps
+and macro declarations; missing formal names/passing descriptors remain unknown. Its separate
+vendor window-name registry is included in the complete count with unavailable signatures explicit.
+Legacy facts do not replace the version's binding policy until independently qualified. This is
+registration evidence for the recorded platform/profile, not full SQL semantic qualification.
 
 `pnpm catalog:source postgres` acquires the exact PostgreSQL versions present in retained native
 captures. It locks the full immutable source archive, selected catalog/parser/SQL inputs and the

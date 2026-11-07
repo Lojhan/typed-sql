@@ -9,21 +9,23 @@ const passingModes = ["positional-only", "positional-or-named", "variadic-positi
  */
 export function sourceRoutine(registration) {
   let inputPosition = 0;
-  const parameters = registration.parameters.map((parameter, index) => {
-    const defaultExpression =
-      registration.macroDefaults.find((entry) => entry.name === parameter.name)?.expression ?? parameter.default;
-    return {
-      position: index + 1,
-      inputPosition: parameter.kind <= 1 ? ++inputPosition : null,
-      name: parameter.name,
-      nativeType: parameter.type,
-      mode: parameter.kind <= 1 ? "positional" : parameter.kind === 3 ? "named" : "variadic",
-      passing: passingModes[parameter.kind],
-      hasDefault: defaultExpression !== null,
-      ...(defaultExpression === null ? {} : { defaultExpression }),
-    };
-  });
-  const variadic = registration.parameters.filter((parameter) => parameter.kind === 2 || parameter.kind === 4);
+  const parameters =
+    registration.parameters?.map((parameter, index) => {
+      const defaultExpression =
+        registration.macroDefaults.find((entry) => entry.name === parameter.name)?.expression ?? parameter.default;
+      return {
+        position: index + 1,
+        inputPosition: parameter.kind === null || parameter.kind <= 1 ? ++inputPosition : null,
+        name: parameter.name,
+        nativeType: parameter.type,
+        mode:
+          parameter.kind === null || parameter.kind <= 1 ? "positional" : parameter.kind === 3 ? "named" : "variadic",
+        passing: parameter.kind === null ? null : passingModes[parameter.kind],
+        hasDefault: defaultExpression !== null,
+        ...(defaultExpression === null ? {} : { defaultExpression }),
+      };
+    }) ?? null;
+  const variadic = registration.parameters?.filter((parameter) => parameter.kind === 2 || parameter.kind === 4);
   const mapper = {
     ...duckdbMapper,
     parameterMode: (mode) => (mode === "variadic" ? "variadic" : duckdbMapper.parameterMode(mode)),
@@ -39,8 +41,8 @@ export function sourceRoutine(registration) {
       kind: registration.kind,
       schema_name: registration.schema,
       result: registration.result,
-      varargs: variadic[0]?.type ?? null,
-      variadic: variadic.length > 0,
+      varargs: variadic?.[0]?.type ?? null,
+      variadic: variadic ? variadic.length > 0 : null,
       macro_definition: registration.definition,
     }),
     mapper,

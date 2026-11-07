@@ -18,20 +18,24 @@ export const DuckDBRegistrationSchema = object({
   result: nullableText,
   definition: nullableText,
   macroDefaults: Type.Array(object({ name: text, expression: text })),
-  parameters: Type.Array(
-    object({
-      name: text,
-      type: nullableText,
-      kind: Type.Integer({ minimum: 0, maximum: 4 }),
-      default: nullableText,
-    }),
-  ),
+  parameters: Type.Union([
+    Type.Null(),
+    Type.Array(
+      object({
+        name: nullableText,
+        type: nullableText,
+        kind: Type.Union([Type.Null(), Type.Integer({ minimum: 0, maximum: 4 })]),
+        default: nullableText,
+      }),
+    ),
+  ]),
   options: Type.Array(object({ name: text, type: text, aliases: Type.Array(text, { uniqueItems: true }) })),
 });
 export const DuckDBSourceFactsSchema = object({
   formatVersion: Type.Literal(1),
   grammar: Type.Literal("duckdb"),
-  version: Type.String({ pattern: "^2\\.\\d+\\.\\d+$" }),
+  version: Type.String({ pattern: "^[12]\\.\\d+\\.\\d+$" }),
+  signatureApi: Type.Union([Type.Literal(1), Type.Literal(2)]),
   revision: Type.String({ pattern: "^[a-f0-9]{40}$" }),
   sourceId: Type.String({ pattern: "^[a-f0-9]{10,40}$" }),
   profile: text,
@@ -44,7 +48,7 @@ export const extractorId = "duckdb/vendor-signatures-v1";
 export async function extractorRevision() {
   return hash(
     await Promise.all(
-      ["facts.mjs", "refresh.mjs", "extract-v2.cpp", "extract-archive.py"].map(async (path) => [
+      ["facts.mjs", "refresh.mjs", "extract-v1.cpp", "extract-v2.cpp", "extract-archive.py"].map(async (path) => [
         path,
         await readFile(new URL(path, import.meta.url), "utf8"),
       ]),
@@ -61,6 +65,8 @@ const compareRegistrations = (a, b) => {
 export function validateSourceFacts(value) {
   assertJson(value);
   if (!checker.Check(value)) throw new TypeError("Invalid DuckDB source facts");
+  if (Number(value.version.split(".")[0]) !== value.signatureApi)
+    throw new TypeError("DuckDB signature API/version differs");
   if (!value.revision.startsWith(value.sourceId)) throw new TypeError("DuckDB library/source revision differs");
   const keys = new Set();
   const overloads = new Map();
@@ -74,16 +80,22 @@ export function validateSourceFacts(value) {
     overloads.set(groupKey, group);
     const names = new Set();
     let previous = -1;
-    for (const parameter of row.parameters) {
-      const folded = parameter.name.replace(/[A-Z]/gu, (c) => c.toLowerCase());
+    if (
+      value.signatureApi === 2 &&
+      (row.parameters === null ||
+        row.parameters.some((parameter) => parameter.name === null || parameter.kind === null))
+    )
+      throw new TypeError("Incomplete DuckDB v2 signature");
+    for (const parameter of row.parameters ?? []) {
+      const folded = parameter.name?.replace(/[A-Z]/gu, (c) => c.toLowerCase());
       if (
-        names.has(folded) ||
-        parameter.kind < previous ||
+        (folded !== undefined && names.has(folded)) ||
+        (parameter.kind !== null && parameter.kind < previous) ||
         ((parameter.kind === 2 || parameter.kind === 4) && parameter.default !== null)
       )
         throw new TypeError("Invalid DuckDB parameter sequence");
-      names.add(folded);
-      previous = parameter.kind;
+      if (folded !== undefined) names.add(folded);
+      if (parameter.kind !== null) previous = parameter.kind;
     }
     const options = new Set();
     for (const option of row.options)
@@ -100,7 +112,7 @@ export function validateSourceFacts(value) {
     throw new TypeError("Noncanonical DuckDB registration order");
   return value;
 }
-export function parseSignatureOutput(output, { version, revision, profile }) {
+export function parseSignatureOutput(output, { version, revision, profile, signatureApi = 2 }) {
   const lines = output.trimEnd().split("\n");
   const header = JSON.parse(lines.shift());
   if (
@@ -128,6 +140,7 @@ export function parseSignatureOutput(output, { version, revision, profile }) {
     formatVersion: 1,
     grammar: "duckdb",
     version,
+    signatureApi,
     revision,
     profile,
     sourceId: header.sourceId,

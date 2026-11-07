@@ -128,7 +128,8 @@ export async function generateCatalog({ groups, semanticGroups, input, emit, hea
       Object.values(binding.overrides).some((mode) => !["labels", "formal"].includes(mode))
     )
       throw new TypeError(`Missing DuckDB named argument policy: ${group.version}`);
-    const sourceProfile = sourceFacts.versions[group.version];
+    const sourceProfile =
+      binding.parameterModes === "vendor-signatures" ? sourceFacts.versions[group.version] : undefined;
     if (binding.parameterModes === "vendor-signatures" && !sourceProfile)
       throw new TypeError(`Required DuckDB vendor signature profile is missing: ${group.version}`);
     const sourceIndex = new Map();

@@ -13,6 +13,30 @@ import {
 import { sourceRoutine } from "../../tools/grammar-catalog/src/sources/duckdb/model.mjs";
 
 await describe("DuckDB vendor signatures", async () => {
+  await it("covers the legacy registry without inventing formal names or window signatures", async () => {
+    const catalog = JSON.parse(
+      await readFile(new URL("../../grammar/duckdb/facts/catalog.json", import.meta.url), "utf8"),
+    );
+    const facts = validateSourceFacts(catalog.versions["1.5.6"]);
+    strict.equal(facts.signatureApi, 1);
+    strict.equal(facts.registrations.length, 2945);
+    const windows = facts.registrations.filter((row) => row.kind === "window");
+    strict.equal(windows.length, 15);
+    strict.ok(windows.every((row) => row.parameters === null && row.result === null));
+    const scalar = facts.registrations.find((row) => row.name === "abs" && row.kind === "scalar")!;
+    strict.ok(scalar.parameters?.every((parameter) => parameter.name === null && parameter.kind === null));
+    const routine = sourceRoutine(scalar);
+    strict.ok(routine.parameters.status === "known");
+    if (routine.parameters.status !== "known") throw new Error("Missing legacy arguments");
+    strict.ok(routine.parameters.value.every((parameter) => parameter.passing.status === "unknown"));
+    strict.throws(() => duckdbSourceBinding(routine), /Unqualified/u);
+    strict.equal(sourceRoutine(windows[0]!).parameters.status, "unknown");
+    strict.ok(facts.registrations.some((row) => row.options.length > 0));
+    strict.ok(facts.registrations.some((row) => row.parameters?.some((parameter) => parameter.kind === 2)));
+    const changed = structuredClone(facts);
+    changed.signatureApi = 2;
+    strict.throws(() => validateSourceFacts(changed), /API\/version/u);
+  });
   await it("retains passing modes, defaults and table-option boundaries from locked vendor bytes", async () => {
     const lock = JSON.parse(await readFile(new URL("../../grammar/duckdb/sources.lock.json", import.meta.url), "utf8"));
     const catalog = JSON.parse(
@@ -24,15 +48,15 @@ await describe("DuckDB vendor signatures", async () => {
     strict.equal(facts.registrations.length, 3235);
     const mod = facts.registrations.filter((row) => row.name === "mod");
     strict.ok(mod.length > 1);
-    strict.ok(mod.every((row) => row.parameters.every((parameter) => parameter.kind === 0)));
+    strict.ok(mod.every((row) => row.parameters?.every((parameter) => parameter.kind === 0)));
     const avg = facts.registrations.filter((row) => row.name === "avg");
-    strict.ok(avg.some((row) => row.parameters[0]?.type === "DECIMAL" && row.parameters[0].kind === 1));
-    strict.ok(avg.some((row) => row.parameters[0]?.type === "BIGINT" && row.parameters[0].kind === 0));
+    strict.ok(avg.some((row) => row.parameters?.[0]?.type === "DECIMAL" && row.parameters?.[0]?.kind === 1));
+    strict.ok(avg.some((row) => row.parameters?.[0]?.type === "BIGINT" && row.parameters?.[0]?.kind === 0));
     const range = facts.registrations.filter((row) => row.name === "range" && row.kind === "table");
     strict.ok(range.length > 0);
-    strict.ok(range.every((row) => row.options.length === 0 && row.parameters.every((p) => p.kind === 0)));
+    strict.ok(range.every((row) => row.options.length === 0 && row.parameters?.every((p) => p.kind === 0)));
     strict.ok(facts.registrations.some((row) => row.options.length > 0));
-    strict.ok(facts.registrations.some((row) => row.parameters.some((parameter) => parameter.default !== null)));
+    strict.ok(facts.registrations.some((row) => row.parameters?.some((parameter) => parameter.default !== null)));
     strict.ok(facts.registrations.some((row) => row.macroDefaults.length > 0));
     const forged = structuredClone(catalog);
     forged.versions["2.0.0"].registrations[0].parameters.push({
@@ -78,7 +102,7 @@ await describe("DuckDB vendor signatures", async () => {
     const positionalDefault = { ...routine, parameters: [{ name: "input", type: "INTEGER", kind: 0, default: "1" }] };
     strict.equal(
       parseSignatureOutput([header, JSON.stringify(positionalDefault), '{"registrations":1}'].join("\n"), options)
-        .registrations[0]?.parameters[0]?.default,
+        .registrations[0]?.parameters?.[0]?.default,
       "1",
     );
     strict.throws(

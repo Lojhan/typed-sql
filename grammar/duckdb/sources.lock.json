@@ -3,9 +3,36 @@
   "grammar": "duckdb",
   "extractor": {
     "id": "duckdb/vendor-signatures-v1",
-    "revision": "sha256:6c619598608cf1923f98053031f178aa528ded5aae1dc6852e91c28ec0c250be"
+    "revision": "sha256:20be95de77a05298e2e9a1146a51a29835165883c21b7b1ef63e7277293ac92c"
   },
   "sources": [
+    {
+      "version": "1.5.6",
+      "reference": "v1.5.6",
+      "repository": "https://github.com/duckdb/duckdb",
+      "revision": "069cc9f9b5be802405797faecc284961b07c70ef",
+      "upstreamRevision": "069cc9f9b5be802405797faecc284961b07c70ef",
+      "files": {
+        "source.tar.gz": {
+          "digest": "sha256:77cfc249ad652104b770fa7a8bb1d0119c3232e5dd03aadaaa1c9c7554fe7c05",
+          "bytes": 100995483
+        },
+        "LICENSE": {
+          "digest": "sha256:7e17fd31249fa875cb3b1c5e05c6c3e99b75509f6a2804ca176c217834de1dcb",
+          "bytes": 1072
+        },
+        "libduckdb-osx-universal.zip": {
+          "digest": "sha256:e0bc007d9b0094c0970ac1847a8601d10aad07cbd2910ce586ec810f77b638d6",
+          "bytes": 36216941
+        }
+      },
+      "license": {
+        "identifier": "MIT",
+        "path": "LICENSE"
+      },
+      "defines": [],
+      "factsDigest": "sha256:bb4a46b56bc9fc2c7456ad4e8b240bde429c71a111e6ad1cc6b69c366ae61b28"
+    },
     {
       "version": "2.0.0",
       "reference": "v2.0.0",
@@ -31,7 +58,7 @@
         "path": "LICENSE"
       },
       "defines": [],
-      "factsDigest": "sha256:14fa405d5df83d7318561146782f8abdd1926a69b64c30af1e7dd082fb1357bf"
+      "factsDigest": "sha256:57c9aa5d7b4eac6c7715e88bc517b130cc81fd0d7714a782e9de7aef29db3ada"
     }
   ]
 }

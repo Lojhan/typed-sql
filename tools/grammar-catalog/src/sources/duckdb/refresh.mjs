@@ -19,8 +19,26 @@ async function download(url) {
 }
 
 /** Explicit acquisition only. Ordinary catalog generation reads retained JSON offline. */
-export async function refreshDuckDBSources({ root, compiler = "c++", version = "2.0.0" }) {
-  if (!/^2\.\d+\.\d+$/u.test(version)) throw new TypeError("DuckDB signature extractor requires version 2 source API");
+export async function refreshDuckDBSources({ root, compiler = "c++", version }) {
+  const corpus = JSON.parse(await readFile(join(root, "grammar/catalog/upstream.json"), "utf8"));
+  const versions = version
+    ? [version]
+    : [
+        ...new Set(
+          Object.values(corpus.targets)
+            .filter((target) => target.dialect === "duckdb")
+            .map((target) => target.target.version),
+        ),
+      ].sort();
+  if (!versions.length) throw new TypeError("No DuckDB source targets");
+  const results = [];
+  for (const selected of versions) results.push(await refreshVersion({ root, compiler, version: selected }));
+  return { versions: results.length, results };
+}
+
+async function refreshVersion({ root, compiler, version }) {
+  if (!/^[12]\.\d+\.\d+$/u.test(version)) throw new TypeError("Unqualified DuckDB source API");
+  const signatureApi = Number(version.split(".")[0]);
   const profile = `${process.platform}-${process.arch}`;
   const platform = {
     "darwin-arm64": "osx-arm64",
@@ -49,7 +67,11 @@ export async function refreshDuckDBSources({ root, compiler = "c++", version = "
       );
   const revision = existing?.revision ?? (ref.object?.type === "commit" ? ref.object.sha : undefined);
   if (!/^[a-f0-9]{40}$/u.test(revision ?? "")) throw new TypeError("Unsupported DuckDB source reference");
-  const archiveName = `duckdb-shared-libs-${platform}.tar.gz`;
+  const archives = {
+    1: `libduckdb-${process.platform === "darwin" ? "osx-universal" : platform}.zip`,
+    2: `duckdb-shared-libs-${platform}.tar.gz`,
+  };
+  const archiveName = archives[signatureApi];
   const paths = ["source.tar.gz", "LICENSE", archiveName];
   const directory = join(root, "artifacts/grammar-catalog/acquisitions/duckdb", revision);
   await mkdir(directory, { recursive: true });
@@ -87,7 +109,7 @@ export async function refreshDuckDBSources({ root, compiler = "c++", version = "
         "-std=c++17",
         "-I",
         join(workspace, `duckdb-${revision}/src/include`),
-        fileURLToPath(new URL("extract-v2.cpp", import.meta.url)),
+        fileURLToPath(new URL(`extract-v${signatureApi}.cpp`, import.meta.url)),
         "-L",
         workspace,
         "-lduckdb",
@@ -98,7 +120,7 @@ export async function refreshDuckDBSources({ root, compiler = "c++", version = "
       { maxBuffer: 8 * 1024 * 1024 },
     );
     const { stdout } = await execFile(binary, [], { maxBuffer: 32 * 1024 * 1024 });
-    facts = parseSignatureOutput(stdout, { version, revision, profile });
+    facts = parseSignatureOutput(stdout, { version, revision, profile, signatureApi });
   } finally {
     await rm(workspace, { recursive: true, force: true });
   }

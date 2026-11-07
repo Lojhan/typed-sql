@@ -548,6 +548,22 @@ MySQL literal instantiator bounds checkpoint:
 - All 66 contract files, repository typecheck and quality pass locally. Cached source replay
   reproduces facts/locks byte-for-byte with network disabled. Full requirements below remain open.
 
+DuckDB retained-version source checkpoint:
+
+- Source refresh discovers both retained exact versions and selects their source API within the
+  DuckDB owner. The legacy official universal library uses a flat zip; extraction rejects duplicate,
+  noncanonical, encrypted, directory and nonregular members before writing into the fresh workspace.
+- DuckDB 1.5.6 locks revision `069cc9f9b5be802405797faecc284961b07c70ef` and records 2,945
+  inventory entries. The ordinary catalog supplies 2,930; the separate vendor window-name registry
+  supplies 15 additional entries. Their unavailable signatures stay unknown. Legacy positional types,
+  varargs, named option maps and macro declarations are retained without inventing formal names or
+  parameter-passing descriptors. Those facts do not replace the existing version binding policy.
+- DuckDB 2.0 facts reproduce unchanged apart from the explicit signature-API label. Generated runtime
+  package files remain byte-identical. Both-version refresh and cached network-disabled replay pass;
+  focused tests and all 66 contract files pass. Repository typecheck and quality pass. Nine flat-zip
+  extraction cases cover valid members, traversal/Windows path escapes, duplicates, links and special
+  files. Full requirements below remain open.
+
 ## Requirements still open
 
 
