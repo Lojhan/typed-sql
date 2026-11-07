@@ -1,5 +1,5 @@
 import { type ReactNode, useId, useLayoutEffect, useRef, useState } from "react";
-import { IconButton } from "./components";
+import { Button, IconButton } from "./components";
 import { Icon, type IconName } from "./icon";
 import "./toolbar-actions.css";
 
@@ -9,11 +9,17 @@ export function ToolbarActions({
   label,
   collapseBelow = 560,
   icon = "more",
+  trigger,
+  className = "",
+  closeOnChange = false,
 }: {
   children: ReactNode;
   label: string;
   collapseBelow?: number;
   icon?: IconName;
+  trigger?: ReactNode;
+  className?: string;
+  closeOnChange?: boolean;
 }) {
   const root = useRef<HTMLDivElement>(null);
   const popup = useRef<HTMLFieldSetElement>(null);
@@ -50,16 +56,28 @@ export function ToolbarActions({
     element.style.top = `${Math.max(8, Math.min(top, window.innerHeight - menu.height - 8))}px`;
   };
   return (
-    <div ref={root} className={`toolbar-actions ${compact ? "is-overflow" : ""}`}>
-      <IconButton ref={launcher} aria-label={label} aria-expanded={open} aria-controls={id} onClick={toggle}>
-        <Icon name={icon} />
-      </IconButton>
+    <div ref={root} className={`toolbar-actions ${compact ? "is-overflow" : ""} ${className}`}>
+      {trigger ? (
+        <Button ref={launcher} aria-label={label} aria-expanded={open} aria-controls={id} onClick={toggle}>
+          {trigger}
+        </Button>
+      ) : (
+        <IconButton ref={launcher} aria-label={label} aria-expanded={open} aria-controls={id} onClick={toggle}>
+          <Icon name={icon} />
+        </IconButton>
+      )}
       <fieldset
         ref={popup}
         aria-label={`${label} controls`}
         id={id}
         popover={compact ? "auto" : undefined}
         className={`toolbar-actions-content ${compact ? "ui-menu" : ""}`}
+        onChange={() => {
+          if (closeOnChange && popup.current?.matches(":popover-open")) {
+            popup.current.hidePopover();
+            launcher.current?.focus();
+          }
+        }}
         onToggle={(event) => setOpen(event.currentTarget.matches(":popover-open"))}
         onKeyDown={(event) => {
           if (event.key === "Escape" && popup.current?.matches(":popover-open")) {

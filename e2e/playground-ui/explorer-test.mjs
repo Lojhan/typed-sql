@@ -332,8 +332,11 @@ export default defineConfig({
     await invoke(`>Theme: ${mode[0].toUpperCase() + mode.slice(1)}`, `Theme: ${mode[0].toUpperCase() + mode.slice(1)}`);
     await shot(columnTable, `structured-columns-${mode}`, 1040, 260);
     await shot(incoming.locator("li").first(), `structured-relationship-${mode}`, 700, 180);
-    await page.setViewportSize({ width: 600, height: 900 });
-    await page.waitForFunction(() => document.querySelector(".inspection-panel")?.clientWidth <= 360);
+    await page.setViewportSize({ width: 360, height: 900 });
+    await page.waitForFunction(() => {
+      const width = document.querySelector(".inspection-panel")?.clientWidth;
+      return width >= 300 && width <= 360 && !document.querySelector(".project-sidebar");
+    });
     const content = await objectDetails
       .locator(".inspection-content")
       .evaluate((node) => ({ width: node.clientWidth, scroll: node.scrollWidth }));
@@ -344,6 +347,10 @@ export default defineConfig({
     await tableScroll.press("ArrowRight");
     await page.waitForFunction(() => document.querySelector(".definition-table-scroll").scrollLeft > 0);
     await page.setViewportSize({ width: 1280, height: 900 });
+    await publicNamespace.waitFor();
+    if ((await publicNamespace.getAttribute("aria-expanded")) === "false") await publicNamespace.press("ArrowRight");
+    await publicNamespace.press("ArrowRight");
+    await page.keyboard.press("ArrowRight");
   }
   check(
     "structured definitions retain readable light/dark rows and keyboard-scrollable tables inside an actual narrow pane",

@@ -28,6 +28,8 @@ export type IconName =
   | "split"
   | "more"
   | "settings"
+  | "send"
+  | "add"
   | "sun"
   | "moon"
   | "system"
@@ -69,6 +71,8 @@ export function Icon({ name }: { name: IconName }) {
     refresh: "M13.5 5.5A5.5 5.5 0 1 0 14 9M13.5 2v4H10",
     play: "m5 2.5 8 5.5-8 5.5Z",
     split: "M2 2h12v12H2zM8 2v12",
+    send: "M8 14V2M3 7l5-5 5 5",
+    add: "M8 2v12M2 8h12",
     settings: "M2 4h12M2 12h12M5 2v4M11 10v4M2 8h12M9 6v4",
     more: "M3 8h.01M8 8h.01M13 8h.01",
     moon: "M13.5 10.5A6 6 0 0 1 5.5 2.5a6 6 0 1 0 8 8Z",

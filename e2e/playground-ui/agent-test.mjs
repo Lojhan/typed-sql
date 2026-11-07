@@ -3,7 +3,7 @@ import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { join, resolve } from "node:path";
 import { command, consumer, server } from "../build/src/consumer.mjs";
-import { componentContract, revealToolbarActions } from "./fixtures/component-contracts.mjs";
+import { componentContract, revealToolbarActions, setAgentPermissions } from "./fixtures/component-contracts.mjs";
 
 const artifacts = resolve("artifacts/playground-ui/agent-browser");
 await rm(artifacts, { recursive: true, force: true });
@@ -106,10 +106,19 @@ try {
   await page.getByRole("textbox", { name: "Query source editor", exact: true }).waitFor();
   await invoke(">Open agent", "Open agent");
   const config = page.locator(".agent-config"),
-    profile = page.getByRole("combobox", { name: "Agent profile", exact: true }),
+    profile = page.locator('select[aria-label="Agent profile"]'),
     conversations = page.getByRole("combobox", { name: "Agent conversation", exact: true }),
     composer = page.getByRole("textbox", { name: "Message local agent", exact: true }),
     messages = page.getByRole("log", { name: "Agent conversation", exact: true });
+  await config.getByRole("button", { name: "Close agent configuration", exact: true }).click();
+  await config.waitFor({ state: "detached" });
+  await revealToolbarActions(page, "Agent settings");
+  await page.getByRole("button", { name: "Configure agents", exact: true }).click();
+  await config.getByRole("button", { name: "Cancel", exact: true }).click();
+  await config.waitFor({ state: "detached" });
+  await revealToolbarActions(page, "Agent settings");
+  await page.getByRole("button", { name: "Configure agents", exact: true }).click();
+  check("agent configuration can be dismissed and reopened before any profile exists");
   await config.getByRole("combobox", { name: "Agent preset", exact: true }).selectOption("codex");
   assert.equal(await config.getByRole("textbox", { name: "Agent name", exact: true }).inputValue(), "Codex");
   assert.equal(await config.getByRole("textbox", { name: "Agent executable", exact: true }).inputValue(), "codex-acp");
@@ -119,8 +128,8 @@ try {
   await config.waitFor({ state: "detached" });
   assert.equal(await profile.inputValue(), "codex");
   check("Codex preset saves explicit codex-acp executable and empty arguments without starting a process");
-  await revealToolbarActions(page, "Agent actions");
-  await page.getByRole("button", { name: "Configure", exact: true }).click();
+  await revealToolbarActions(page, "Agent settings");
+  await page.getByRole("button", { name: "Configure agents", exact: true }).click();
   await config.getByRole("combobox", { name: "Agent preset", exact: true }).selectOption("custom");
   await config.getByRole("textbox", { name: "Agent name", exact: true }).fill("Fixture ACP");
   await config.getByRole("textbox", { name: "Agent executable", exact: true }).fill(process.execPath);
@@ -132,7 +141,7 @@ try {
   assert.equal(await profile.inputValue(), "fixture-acp");
   await assert.rejects(readFile(join(root, "fake-agent-trace.jsonl")), { code: "ENOENT" });
   await page.reload();
-  await profile.waitFor();
+  await profile.waitFor({ state: "attached" });
   await page.waitForFunction(() => document.querySelector('[aria-label="Agent profile"]').value === "fixture-acp");
   check("native form input events persist the configured profile and selected profile ID across reload");
   await invoke("playground/existing.sql");
@@ -142,12 +151,12 @@ try {
   if (await contextSettings.isVisible()) await contextSettings.click();
   await page.getByRole("checkbox", { name: "Schema", exact: true }).check();
   if (await contextSettings.isVisible()) await contextSettings.click();
-  const workspaceTools = page.getByRole("combobox", { name: "Workspace tools", exact: true });
-  assert.equal(await workspaceTools.inputValue(), "ask");
-  await workspaceTools.selectOption("allow");
+  const workspaceTools = page.locator(".composer-permissions [data-tool-mode]");
+  assert.equal(await workspaceTools.getAttribute("data-tool-mode"), "ask");
+  await setAgentPermissions(page, "allow");
   const promptRequest = page.waitForRequest((request) => request.url().endsWith("/api/agents/prompt"));
   await composer.fill("stream response");
-  await page.getByRole("button", { name: "Send ↑", exact: true }).click();
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
   const sent = (await promptRequest).postDataJSON();
   assert.equal(sent.toolMode, "allow");
   assert.equal(sent.context.source.file, "playground/existing.sql");
@@ -175,7 +184,7 @@ try {
   await messages.getByText(/Completed response/u).waitFor();
   assert.equal(await conversations.inputValue(), streamId);
   assert.equal(
-    await page.getByRole("combobox", { name: "Workspace tools", exact: true }).inputValue(),
+    await page.locator(".composer-permissions [data-tool-mode]").getAttribute("data-tool-mode"),
     "allow",
     "The explicitly granted tool setting is restored with the conversation",
   );
@@ -191,13 +200,12 @@ try {
   check(
     "switching tabs and reloading restores selected conversation and messages while browser storage holds only IDs",
   );
-  await revealToolbarActions(page, "Agent actions");
   await page.getByRole("button", { name: "New chat", exact: true }).click();
   await page.waitForFunction(() => document.querySelectorAll(".agent-message").length === 0);
   const rejectedId = await conversations.inputValue();
   assert.notEqual(rejectedId, streamId);
   await composer.fill("reject proposal");
-  await page.getByRole("button", { name: "Send ↑", exact: true }).click();
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
   const rejected = page.locator(".agent-proposal.pending");
   await rejected.waitFor();
   const rejectedPath = await rejected.locator("header strong").textContent();
@@ -238,7 +246,6 @@ try {
     "reviewed rejection leaves a new file absent and long proposal paths/code stay within narrow light/dark panels",
     geometry,
   );
-  await revealToolbarActions(page, "Agent actions");
   await page.getByRole("button", { name: "New chat", exact: true }).click();
   await page.waitForFunction(() => document.querySelectorAll(".agent-message").length === 0);
   const acceptedId = await conversations.inputValue();
@@ -337,11 +344,10 @@ try {
   assert.equal(await conversations.inputValue(), acceptedId);
   await page.unroute("**/api/agents/conversation?*");
   check("late conversation responses cannot replace a newer selected conversation");
-  await revealToolbarActions(page, "Agent actions");
   await page.getByRole("button", { name: "New chat", exact: true }).click();
   await page.waitForFunction(() => document.querySelectorAll(".agent-message").length === 0);
   await composer.fill("accept dirty race");
-  await page.getByRole("button", { name: "Send ↑", exact: true }).click();
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
   const dirtyRaceProposal = page.locator(".agent-proposal.pending");
   await dirtyRaceProposal.waitFor();
   await dirtyRaceProposal.getByRole("button", { name: "Review diff", exact: true }).click();
@@ -400,11 +406,10 @@ try {
   await page.locator(".agent-proposal.accepted").waitFor();
   await page.getByRole("button", { name: "Stop", exact: true }).waitFor({ state: "detached" });
 
-  await revealToolbarActions(page, "Agent actions");
   await page.getByRole("button", { name: "New chat", exact: true }).click();
   await page.waitForFunction(() => document.querySelectorAll(".agent-message").length === 0);
   await composer.fill("cancel proposal");
-  await page.getByRole("button", { name: "Send ↑", exact: true }).click();
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
   const cancelled = page.locator(".agent-proposal.pending");
   await cancelled.waitFor();
   const cancelledPath = await cancelled.locator("header strong").textContent();
@@ -469,8 +474,6 @@ try {
   check("shared component geometry is consistent across rendered controls and section headers");
   await page.setViewportSize({ width: 720, height: 900 });
   await contextSettings.waitFor();
-  const agentActions = page.getByLabel("Agent actions", { exact: true });
-  await agentActions.waitFor();
   const headerGeometry = await page.locator(".agent-toolbar").evaluate((element) => ({
     height: element.clientHeight,
     expected: Number.parseFloat(getComputedStyle(element).getPropertyValue("--bar-height")),
@@ -478,16 +481,12 @@ try {
   }));
   assert.ok(headerGeometry.height <= headerGeometry.expected + 1);
   assert.equal(headerGeometry.overflow, false);
-  await agentActions.click();
-  await page.getByRole("button", { name: "Configure", exact: true }).waitFor();
-  await page.keyboard.press("Escape");
-  assert.equal(await page.getByRole("button", { name: "Configure", exact: true }).isVisible(), false);
-  await shot(page.locator(".agent-toolbar"), "agent-header-compact");
-  check("agent header keeps profile and conversation selectors on one row with a dismissible action group");
+  await page.getByRole("button", { name: "New chat", exact: true }).waitFor();
+  check("chat header keeps conversation navigation separate from bottom composer settings");
   const composerGeometry = await page.evaluate(() => {
     const messages = document.querySelector(".agent-messages"),
       composer = document.querySelector(".agent-composer"),
-      row = composer.querySelector(".context-options");
+      row = composer.querySelector(".composer-actions");
     return {
       gutter: messages.getBoundingClientRect().left + Number.parseFloat(getComputedStyle(messages).paddingLeft),
       composer: composer.getBoundingClientRect().left,
@@ -507,7 +506,17 @@ try {
   await composer.click();
   assert.equal(await page.getByRole("checkbox", { name: "Schema", exact: true }).isVisible(), false);
   await shot(page.locator(".agent-composer"), "composer-compact");
-  check("composer and messages share gutters; narrow settings remain one row with a dismissible context menu");
+  await page.getByLabel("Agent permissions", { exact: true }).click();
+  await page.getByRole("radio", { name: /^Allow all/u }).waitFor();
+  await shot(page.locator(".composer-permissions [popover]"), "composer-permissions");
+  await page.keyboard.press("Escape");
+  assert.equal(await page.getByRole("radio", { name: /^Allow all/u }).isVisible(), false);
+  await page.getByLabel("Agent settings", { exact: true }).click();
+  await page.getByRole("combobox", { name: "Agent profile", exact: true }).waitFor();
+  await shot(page.locator(".composer-agent [popover]"), "composer-agent-settings");
+  await composer.click();
+  check("agent and permission panes expose actual profiles and scoped tool modes with light dismissal");
+  check("composer settings sit below the prompt on one aligned row with a dismissible context pane");
   assert.deepEqual(evidence.errors, []);
 } catch (error) {
   evidence.failure = error.stack ?? String(error);

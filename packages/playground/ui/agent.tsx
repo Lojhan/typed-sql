@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState } from "react";
 import { api } from "./api";
 import {
   Bar,
@@ -9,6 +9,7 @@ import {
   FieldLabel,
   FormField,
   FormPanel,
+  IconButton,
   Input,
   Notice,
   Panel,
@@ -106,6 +107,7 @@ export function AgentPanel({
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [configure, setConfigure] = useState(false),
+    [configDismissed, setConfigDismissed] = useState(false),
     [name, setName] = useState("Local agent"),
     [command, setCommand] = useState(""),
     [args, setArgs] = useState("[]"),
@@ -116,23 +118,16 @@ export function AgentPanel({
     [review, setReview] = useState<string | null>(null);
   const [artifacts, setArtifacts] = useState<{ id: string; title: string; createdAt: string; order?: number }[]>([]);
   const [resultRun, setResultRun] = useState("");
-  const workspaceTools = toolMode !== "off";
+  const permissionsId = useId();
   useEffect(() => {
     setToolMode(conversation?.id ? (conversation.toolMode ?? (conversation.workspaceTools ? "allow" : "off")) : "ask");
   }, [conversation?.id, conversation?.toolMode, conversation?.workspaceTools]);
-  const workspace = useRef<HTMLElement>(null);
-  const [compactComposer, setCompactComposer] = useState(true);
-  useLayoutEffect(() => {
-    if (!workspace.current) return;
-    setCompactComposer(workspace.current.clientWidth < 850);
-    const observer = new ResizeObserver(([entry]) => {
-      if (entry) setCompactComposer(entry.contentRect.width < 850);
-    });
-    observer.observe(workspace.current);
-    return () => observer.disconnect();
-  }, []);
   const selectedRun = state.runs.find((run) => run.id === resultRun);
   const result = selectedRun?.results[0]?.value;
+  const contextCount =
+    Number(!!(includeSource && source?.revision)) +
+    Number(includeSchema) +
+    Number(includeResult && result !== undefined);
   const end = useRef<HTMLDivElement>(null);
   const transcript = useRef<HTMLDivElement>(null);
   const followEnd = useRef(true);
@@ -409,26 +404,8 @@ export function AgentPanel({
     if (action === "accept" && proposal) onChanged(proposal.file);
   };
   return (
-    <View className="agent-workspace" ref={workspace}>
+    <View className="agent-workspace">
       <Bar className="agent-toolbar">
-        <Select
-          aria-label="Agent profile"
-          value={profile}
-          onChange={(event) => {
-            selectionVersion.current++;
-            setProfile(event.target.value);
-            setConversation(null);
-            setReview(null);
-            persistSelection(event.target.value);
-          }}
-        >
-          <option value="">Select local agent</option>
-          {agents?.profiles.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name}
-            </option>
-          ))}
-        </Select>
         <Select
           aria-label="Agent conversation"
           value={conversation?.id ?? ""}
@@ -465,22 +442,20 @@ export function AgentPanel({
               </option>
             ))}
         </Select>
-        <ToolbarActions label="Agent actions" collapseBelow={600}>
-          <Button
-            disabled={!profile || busy || conversation?.status === "running"}
-            onClick={() =>
-              void perform(async () => {
-                await create();
-              })
-            }
-          >
-            New chat
-          </Button>
-          <Button onClick={() => setConfigure((value) => !value)}>Configure</Button>
-        </ToolbarActions>
+        <IconButton
+          aria-label="New chat"
+          disabled={!profile || busy || conversation?.status === "running"}
+          onClick={() =>
+            void perform(async () => {
+              await create();
+            })
+          }
+        >
+          <Icon name="add" />
+        </IconButton>
       </Bar>
       {error ? <Notice tone="error">{error}</Notice> : null}
-      {configure || agents?.profiles.length === 0 ? (
+      {configure || (agents?.profiles.length === 0 && !configDismissed) ? (
         <FormPanel
           className="agent-config"
           onSubmit={(event) => {
@@ -488,7 +463,19 @@ export function AgentPanel({
             void perform(saveProfile);
           }}
         >
-          <h3>Connect an ACP agent</h3>
+          <Bar separator="none" padding="none" className="agent-config-header">
+            <BarLabel as="strong">Connect an ACP agent</BarLabel>
+            <IconButton
+              aria-label="Close agent configuration"
+              disabled={busy}
+              onClick={() => {
+                setConfigure(false);
+                setConfigDismissed(true);
+              }}
+            >
+              <Icon name="close" />
+            </IconButton>
+          </Bar>
           <FormField label="Preset">
             <Select
               aria-label="Agent preset"
@@ -532,6 +519,15 @@ export function AgentPanel({
           </FormField>
           <ControlGroup wrap className="config-footer">
             <span>Starts a trusted local process. Configured globally for your account.</span>
+            <Button
+              disabled={busy}
+              onClick={() => {
+                setConfigure(false);
+                setConfigDismissed(true);
+              }}
+            >
+              Cancel
+            </Button>
             <Button type="submit" disabled={busy || !command}>
               Save profile
             </Button>
@@ -737,82 +733,6 @@ export function AgentPanel({
           void perform(send);
         }}
       >
-        <Bar className="context-options">
-          <FieldLabel>
-            Tools
-            <Select
-              aria-label="Workspace tools"
-              value={toolMode}
-              disabled={!agents?.workspaceToolsAvailable || !state.trusted || conversation?.status === "running"}
-              onChange={(event) => setToolMode(event.target.value as "off" | "ask" | "allow")}
-            >
-              <option value="ask">Ask before use</option>
-              <option value="allow">Allow for this conversation</option>
-              <option value="off">Off</option>
-            </Select>
-          </FieldLabel>
-          <details
-            className={compactComposer ? "file-menu agent-context-menu" : "agent-context-inline"}
-            open={!compactComposer}
-          >
-            <summary className="ui-menu-trigger" aria-label="Context settings">
-              Context
-            </summary>
-            <div className={compactComposer ? "ui-menu agent-context-fields" : "agent-context-fields"}>
-              <FieldLabel>
-                <Input
-                  type="checkbox"
-                  checked={includeSource}
-                  disabled={!source?.revision}
-                  onChange={(event) => setIncludeSource(event.target.checked)}
-                />
-                {source
-                  ? `${source.file.split("/").at(-1)}${source.revision ? "" : " · save to attach"}`
-                  : "Active file"}
-              </FieldLabel>
-
-              <FieldLabel>
-                <Input
-                  type="checkbox"
-                  checked={includeSchema}
-                  onChange={(event) => setIncludeSchema(event.target.checked)}
-                />
-                Schema
-              </FieldLabel>
-              <FieldLabel>
-                <Input
-                  type="checkbox"
-                  checked={includeResult}
-                  disabled={result === undefined}
-                  onChange={(event) => setIncludeResult(event.target.checked)}
-                />
-                Captured result
-              </FieldLabel>
-              <Select
-                aria-label="Agent captured result context"
-                value={resultRun}
-                onChange={(event) => setResultRun(event.target.value)}
-              >
-                <option value="">Select captured run</option>
-                {state.runs
-                  .filter((run) => run.results.length)
-                  .map((run) => (
-                    <option key={run.id} value={run.id}>
-                      {run.file} · {run.sourceRevision.slice(0, 8)} · {run.target ?? "unverified"}
-                    </option>
-                  ))}
-              </Select>
-            </div>
-          </details>
-          <span className="agent-process-status">
-            {conversation?.status === "running" ? "Working…" : profile ? "ACP · local" : ""}
-          </span>
-        </Bar>
-        {workspaceTools && agents?.workspaceToolsAvailable ? (
-          <p className="agent-tools-scope">
-            Read-only queries and project inspection · file changes always require review.
-          </p>
-        ) : null}
         <TextArea
           aria-label="Message local agent"
           variant="plain"
@@ -828,11 +748,146 @@ export function AgentPanel({
           }}
         />
         <Bar separator="none" className="composer-actions">
-          <BarLabel truncate title="File changes require review. Queries run through the workspace controls.">
-            File changes require review. Queries run through the workspace controls.
-          </BarLabel>
+          <ControlGroup className="composer-settings">
+            <ToolbarActions
+              label="Agent settings"
+              className="composer-agent"
+              collapseBelow={Infinity}
+              closeOnChange
+              trigger={
+                <>
+                  <Icon name="agent" />
+                  <span title={agents?.profiles.find((item) => item.id === profile)?.name}>
+                    {agents?.profiles.find((item) => item.id === profile)?.name ?? "Agent"}
+                  </span>
+                </>
+              }
+            >
+              <div className="composer-pane-heading">Local agent</div>
+              <Select
+                aria-label="Agent profile"
+                value={profile}
+                onChange={(event) => {
+                  selectionVersion.current++;
+                  setProfile(event.target.value);
+                  setConversation(null);
+                  setReview(null);
+                  persistSelection(event.target.value);
+                }}
+              >
+                <option value="">Select local agent</option>
+                {agents?.profiles.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </Select>
+
+              <p className="composer-pane-note">Uses the model and provider configured in this agent.</p>
+              <Button onClick={() => setConfigure(true)}>Configure agents</Button>
+            </ToolbarActions>
+            <ToolbarActions
+              label="Agent permissions"
+              className="composer-permissions"
+              collapseBelow={Infinity}
+              closeOnChange
+              trigger={
+                <>
+                  <Icon name="lock" />
+                  <span data-tool-mode={toolMode}>
+                    {toolMode === "allow" ? "Allow all" : toolMode === "off" ? "Tools off" : "Ask"}
+                  </span>
+                </>
+              }
+            >
+              <div className="composer-pane-heading">Workspace permissions</div>
+              {(
+                [
+                  ["ask", "Ask before use", "Approve each scoped tool call before it runs."],
+                  ["allow", "Allow all", "Allow scoped tools for this conversation."],
+                  ["off", "Tools off", "Use attached context without workspace tools."],
+                ] as const
+              ).map(([value, title, detail]) => (
+                <label className="composer-permission-choice" key={value}>
+                  <input
+                    type="radio"
+                    name={permissionsId}
+                    value={value}
+                    checked={toolMode === value}
+                    disabled={!agents?.workspaceToolsAvailable || !state.trusted || conversation?.status === "running"}
+                    onChange={() => setToolMode(value)}
+                  />
+                  <span>
+                    <strong>{title}</strong>
+                    <small>{detail}</small>
+                  </span>
+                </label>
+              ))}
+              <p className="composer-pane-note">Queries remain read-only. File changes always require review.</p>
+            </ToolbarActions>
+            <ToolbarActions
+              label="Context settings"
+              className="composer-context"
+              collapseBelow={Infinity}
+              trigger={
+                <>
+                  <Icon name="add" />
+                  {contextCount ? <span>{contextCount}</span> : null}
+                </>
+              }
+            >
+              <div className="composer-pane-heading">Attach context</div>
+              <div className="composer-context-fields">
+                <FieldLabel>
+                  <Input
+                    type="checkbox"
+                    checked={includeSource}
+                    disabled={!source?.revision}
+                    onChange={(event) => setIncludeSource(event.target.checked)}
+                  />
+                  {source
+                    ? `${source.file.split("/").at(-1)}${source.revision ? "" : " · save to attach"}`
+                    : "Active file"}
+                </FieldLabel>
+
+                <FieldLabel>
+                  <Input
+                    type="checkbox"
+                    checked={includeSchema}
+                    onChange={(event) => setIncludeSchema(event.target.checked)}
+                  />
+                  Schema
+                </FieldLabel>
+                <FieldLabel>
+                  <Input
+                    type="checkbox"
+                    checked={includeResult}
+                    disabled={result === undefined}
+                    onChange={(event) => setIncludeResult(event.target.checked)}
+                  />
+                  Captured result
+                </FieldLabel>
+                <Select
+                  aria-label="Agent captured result context"
+                  value={resultRun}
+                  onChange={(event) => setResultRun(event.target.value)}
+                >
+                  <option value="">Select captured run</option>
+                  {state.runs
+                    .filter((run) => run.results.length)
+                    .map((run) => (
+                      <option key={run.id} value={run.id}>
+                        {run.file} · {run.sourceRevision.slice(0, 8)} · {run.target ?? "unverified"}
+                      </option>
+                    ))}
+                </Select>
+              </div>
+            </ToolbarActions>
+          </ControlGroup>
           {conversation?.status === "running" ? (
-            <Button
+            <IconButton
+              aria-label="Stop"
+              title="Stop agent turn"
               onClick={() =>
                 void perform(async () => {
                   const id = conversation.id,
@@ -843,11 +898,18 @@ export function AgentPanel({
                 })
               }
             >
-              Stop
-            </Button>
+              <Icon name="stop" />
+            </IconButton>
           ) : (
-            <Button variant="primary" type="submit" disabled={!profile || !message.trim() || busy}>
-              Send ↑
+            <Button
+              variant="primary"
+              iconOnly
+              type="submit"
+              aria-label="Send message"
+              title="Send message (⌘Enter / Ctrl+Enter)"
+              disabled={!profile || !message.trim() || busy}
+            >
+              <Icon name="send" />
             </Button>
           )}
         </Bar>

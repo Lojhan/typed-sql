@@ -1,11 +1,3 @@
-.agent-tools-scope {
-  margin: 0;
-  padding: 6px 8px;
-  font-size: 10px;
-  line-height: 1.5;
-  color: var(--muted);
-  border-bottom: 1px solid var(--border);
-}
 .agent-tool-call {
   margin: 0 0 6px;
 }
@@ -69,86 +61,126 @@
   margin-inline: var(--agent-gutter);
   overflow: visible;
 }
-.agent-composer .context-options {
-  flex-wrap: nowrap;
-  height: var(--bar-height);
-  padding-block: 0;
+
+.agent-composer > textarea {
+  min-height: 96px;
 }
-.agent-composer .context-options > .ui-field-label {
-  max-width: none;
-  flex: 0 1 auto;
+.agent-composer .composer-actions {
+  gap: 6px;
 }
-.agent-composer .context-options select {
-  width: auto;
-  max-width: 180px;
-}
-.agent-composer .context-options label {
-  white-space: nowrap;
-}
-.agent-context-fields {
-  display: flex;
-  align-items: center;
-  gap: var(--control-gap);
-  min-width: 0;
-}
-.agent-context-inline {
-  display: flex;
-  min-width: 0;
+.composer-settings {
   flex: 1;
+  min-width: 0;
+  gap: 2px;
 }
-.agent-context-inline > summary {
-  display: none;
+.composer-settings > .toolbar-actions > button {
+  padding-inline: 6px;
+  gap: 5px;
 }
-.agent-context-menu {
-  position: relative;
-  flex: none;
-}
-.agent-context-menu > summary {
-  width: auto;
-  padding-inline: 8px;
-  border-color: var(--border);
-  cursor: pointer;
+.composer-settings > .toolbar-actions > button > span {
+  font-size: var(--control-font-size);
+  color: inherit;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
-.agent-context-menu > .agent-context-fields {
-  position: absolute;
-  top: auto;
-  bottom: calc(100% + 8px);
-  right: 0;
-  width: 260px;
-  max-width: calc(100vw - 32px);
+.composer-settings .composer-agent > button > span {
+  max-width: 110px;
+}
+.composer-settings .composer-permissions > button > span {
+  max-width: 85px;
+}
+.composer-settings > .composer-context > button {
+  min-width: var(--control-height);
+}
+.composer-pane-heading {
+  padding: 8px;
+  font-weight: 600;
+}
+.composer-pane-note {
+  margin: 0;
+  padding: 8px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: normal;
+}
+.composer-permission-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px;
+  border-radius: var(--control-radius);
+  cursor: pointer;
+}
+.composer-permission-choice:hover {
+  background: var(--hover);
+}
+.composer-permission-choice input {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+}
+.composer-permission-choice strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+}
+.agent-workspace .composer-permission-choice small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 4px;
+  white-space: normal;
+  max-width: 250px;
+}
+.composer-context-fields {
+  display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: 12px;
-  padding: 12px;
-  max-height: 50vh;
-  overflow: auto;
+  padding: 8px;
 }
-.agent-composer .agent-context-menu .ui-field-label {
+.composer-context-fields .ui-field-label {
   max-width: none;
-  overflow: visible;
-}
-.agent-composer .agent-context-menu select {
-  max-width: 100%;
-  width: 100%;
-}
-.agent-process-status {
-  flex: 1;
-  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 10px;
 }
-@container (max-width: 600px) {
-  .agent-process-status {
+.composer-context-fields select {
+  max-width: 100%;
+}
+@container (max-width: 320px) {
+  .composer-settings .composer-agent > button > span {
+    max-width: 75px;
+  }
+  .composer-settings > .toolbar-actions > button {
+    padding-inline: 4px;
+    gap: 4px;
+  }
+}
+@container (max-width: 260px) {
+  .composer-settings .composer-permissions > button > span {
     display: none;
   }
 }
 
-@container (max-width: 400px) {
-  .agent-composer .context-options > .ui-field-label {
-    flex: 1;
-  }
-  .agent-composer .context-options > .ui-field-label select {
-    max-width: 140px;
-  }
+.agent-toolbar > select[aria-label="Agent conversation"] {
+  flex: 1;
+  width: 0;
+  max-width: none;
+}
+.composer-agent .ui-select {
+  width: 100%;
+}
+
+.composer-context > button:not(:has(span)) {
+  width: var(--control-height);
+  padding: 0;
+}
+
+.agent-config-header {
+  margin-bottom: 8px;
 }

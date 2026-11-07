@@ -1662,3 +1662,27 @@ hr.resize-handle {
 .file-menu > div {
   top: calc(100% + 4px);
 }
+
+.modal-backdrop:has(.mobile-project-drawer) {
+  justify-content: flex-start;
+  align-items: stretch;
+  padding: 0;
+}
+.ui-dialog.mobile-project-drawer {
+  display: flex;
+  flex-direction: column;
+  width: min(360px, calc(100vw - 48px));
+  max-width: none;
+  height: 100dvh;
+  max-height: 100dvh;
+  margin: 0;
+  border-radius: 0;
+  overflow: hidden;
+}
+.mobile-project-drawer > .project-sidebar {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  max-width: none;
+  min-width: 0;
+}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { api } from "./api";
 import { IconButton, SectionHeader, TreeButton, TreeLabel } from "./components";
 import {
@@ -208,7 +208,9 @@ export function ExplorerSidebar({
   onOpen,
   onRefresh,
   focusRequest,
+  separator,
 }: {
+  separator?: ReactNode;
   focusRequest?: { section: "database" | "migrations"; id: string } | undefined;
   catalog: ExplorerCatalog | null;
   loading: boolean;
@@ -277,6 +279,7 @@ export function ExplorerSidebar({
           </div>
         ) : null}
       </section>
+      {separator}
       <section
         className={`explorer-section migrations-section ${migrationsOpen ? "expanded" : ""}`}
         aria-label="Migration explorer"

@@ -8,6 +8,8 @@ pageType: how-to
 
 The optional local workspace puts schema relationships, real project files, inferred SQL contracts and query results in one browser window. It runs on loopback, uses your installed grammar and saved schema, and requires no hosted account. The [docs playground](../playground.md) remains an analysis-only example.
 
+Follow the [workspace tour](./workspace-tour.md) for screenshots and a hands-on example that explores objects and migration history, compares two queries, and asks a local agent for an interactive chart.
+
 ## Install and launch
 
 Install the optional host alongside the [CLI and your grammar](../getting-started/index.md):
@@ -84,6 +86,8 @@ PostgreSQL/pg is the connected adapter. Other grammars can use a saved snapshot 
 The file tree shows actual files inside the repository, grouped by directory. The default writable query folder is `playground/`; change `scratchDirectory` and `writeRoots` to select another repository folder. Save, Save As and Rename operate on disk, so query files survive host and browser restarts and can be edited externally, committed and shared. Browser storage retains layout, open tabs and cursors rather than becoming the source of truth for file contents. Use a consistent `--port` to restore browser layout across host launches; repository files persist regardless of the port or browser. Unsaved buffers need an explicit save.
 
 Use the file and folder buttons in **Files**, or right-click a folder or blank tree space. Creation starts an inline name field in the selected directory: Enter creates the actual file/folder, while Escape or leaving the field cancels. Empty folders remain visible and survive host restarts. Duplicate names produce a conflict instead of replacing existing work.
+
+Drag the dividers between Files, Database and Migrations to resize expanded sections. Their proportions persist with the workspace layout. On mobile screens, the project tree opens as a drawer against the left edge, leaving the editor at full width. Use the tree icon or Cmd/Ctrl+B to toggle it; Escape, the close button or tapping the backdrop dismisses it. Opening a file or object closes the drawer.
 
 Open files as tabs and split a group left, right, above or below. Drag tabs between groups and resize the file tree, editor groups, inspector and results. The same file can be viewed in multiple groups with a shared edit buffer. Schema, Compare and Agent are workspace views alongside query tabs.
 
@@ -213,7 +217,9 @@ Profiles live in the user's `agents.json`, under `$XDG_CONFIG_HOME/typed-sql/pla
 
 Choose the source, schema or result context to attach before sending. Source context must match the saved file revision. Attachments are limited to 256 KiB. The client forwards only those selected attachments plus the conversation transcript; it does not automatically collect the database or project directory. Agents with their own filesystem tools may access additional host files under their own permissions. Review an agent's configuration before sharing sensitive data.
 
-**Workspace tools** has three modes: **Ask before use** (the default), **Allow for this conversation**, and **Off**. Ask shows the tool name and arguments before an operation runs, with **Allow once**, **Allow for this conversation**, and **Deny**. The mode is saved after sending a prompt and restored with the conversation. All modes still require project trust; allowing tools never bypasses read-only query enforcement or file-change review. Tool activity is grouped per turn and collapsed by default. Expand it for statuses and result details. The controls are unavailable when the host does not provide workspace tools.
+The composer’s bottom bar groups **Agent settings**, **Agent permissions** and **Context settings** in contextual panes. Agent settings chooses an installed local-agent profile and its configured provider/model; **Configure agents** opens profile configuration, which can be dismissed with its close button or **Cancel**. Context settings attaches the selected saved file, schema or captured run. The arrow button sends the prompt; Cmd/Ctrl+Enter also sends it.
+
+**Agent permissions** has three modes: **Ask before use** (the default), **Allow all** for the current conversation, and **Tools off**. Ask shows the tool name and arguments before an operation runs, with **Allow once**, **Allow for this conversation**, and **Deny**. The mode is saved after sending a prompt and restored with the conversation. All modes still require project trust; allowing tools never bypasses read-only query enforcement or file-change review. Tool activity is grouped per turn and collapsed by default. Expand it for statuses and result details. The controls are unavailable when the host does not provide workspace tools.
 
 Assistant text streams into the conversation. The workspace persists messages and proposals in private, project-scoped user storage. Switching tabs or reloading restores the selected profile and conversation after validating their IDs against the current project. Browser storage holds only those selection IDs; loading the transcript still requires project trust. A fresh ACP session receives the saved transcript each turn; this does not rely on agent-specific session loading. Stop cancels the turn and terminates the owned process group. Turns have a two-minute deadline, bounded output and at most two concurrent local processes. Authentication, malformed-protocol and process failures appear as failed turns rather than fabricated responses.
 
