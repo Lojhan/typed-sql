@@ -489,6 +489,26 @@ PostgreSQL source-routine projection checkpoint:
 - Prior checkpoint `64ad63ca` passed full CI run 42410652224. Remaining full-goal requirements
   below are unchanged; this is not complete grammar/source/semantic parity.
 
+PostgreSQL installed-routine closure checkpoint:
+
+- Source extraction additionally locks Snowball/PL/pgSQL installation SQL and extension control
+  files from the existing immutable archives. Namespace comes from explicit search-path/control
+  declarations, not native identity copying or a maintained routine list. A bounded external
+  declaration reader interprets result types, parameter metadata and declared/default SQL
+  strictness/volatility/parallel attributes. Unsupported clauses remain gaps and block projection.
+- All 19,857 version-specific native routine descriptors now match source records across the six
+  retained contexts, including the 30 previously native-only handler descriptors. The source
+  projection has no native-only signature fallback; an unmatched native routine blocks generation.
+  Source coverage separates bootstrap row/name counts from the complete routine descriptor census.
+- Every projected runtime signature still matches native-derived metadata and generated runtime
+  catalog bytes remain unchanged. Tests also reject missing/extra descriptors, unknown installation
+  attributes, conflicting/missing namespaces and duplicate clauses. Nullability, execution,
+  canonical default rendering and decoding retain their previous unqualified scope.
+- All 65 contract files, clean-room generation, packed consumers, repository typecheck, quality
+  and network-disabled cached-source replay pass locally. Prior checkpoint `34c4c2bd` passed
+  full CI run 42412683471; new-head CI remains required. The full remaining requirements below
+  stay open.
+
 ## Requirements still open
 
 

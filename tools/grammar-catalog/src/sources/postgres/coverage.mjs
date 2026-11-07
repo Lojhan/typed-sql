@@ -61,6 +61,7 @@ function profileCoverage(facts, capture, parserKeywords, prepared) {
         .sort(),
     },
     procedures: {
+      scope: "bootstrap data rows only; installation routines are accounted for under routineDescriptors",
       sourceRegistrations: routines.length,
       nativeRegistrations: nativeRoutines.rows.length,
       ...nameInventory(names(routines, "proname"), names(nativeRoutines.rows, "name")),
@@ -70,6 +71,7 @@ function profileCoverage(facts, capture, parserKeywords, prepared) {
       matched: comparison.matched.length,
       matchedPairsDigest: hash(comparison.matched),
       installationHeaders: comparison.installationHeaders,
+      installedRoutineDeclarations: comparison.installedRoutineDeclarations,
       installationGaps: comparison.installationGaps,
       sourceOnly: comparison.sourceOnly,
       nativeOnly: comparison.nativeOnly,

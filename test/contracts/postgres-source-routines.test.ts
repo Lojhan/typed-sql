@@ -7,6 +7,10 @@ import { describeRoutine } from "../../tools/grammar-catalog/src/model/build.mjs
 import { checkSourceTexts, readLockedSources } from "../../tools/grammar-catalog/src/sources/postgres/facts.mjs";
 import { grammarTypeAliases } from "../../tools/grammar-catalog/src/sources/postgres/grammar-aliases.mjs";
 import {
+  installedRoutineDescriptors,
+  moduleNamespace,
+} from "../../tools/grammar-catalog/src/sources/postgres/installed-routines.mjs";
+import {
   catalogArray,
   prepareSourceProfile,
   sourceRoutineRow,
@@ -32,7 +36,7 @@ await describe("PostgreSQL source routine interpretation", async () => {
     };
     strict.throws(() => checkSourceTexts(lock, changed), /source text bytes disagree/u);
   });
-  await it("projects every bootstrap routine through validated source facts with equal native runtime signatures", () => {
+  await it("projects every captured routine through validated bootstrap and installation facts", () => {
     for (const target of Object.values(corpus.targets)) {
       if (typeof target !== "object" || target === null || !("dialect" in target) || target.dialect !== "postgres")
         continue;
@@ -40,7 +44,12 @@ await describe("PostgreSQL source routine interpretation", async () => {
         version = /^(\d+(?:\.\d+|beta\d+))/u.exec(capture.target.version)![1]!;
       const source = facts.versions[version]!;
       const prepared = prepareSourceProfile(facts, source, capture);
-      strict.equal(prepared.routines.size, source.catalogs.pg_proc!.entries.length);
+      strict.equal(prepared.routines.size, capture.categories.functions.rows.length);
+      strict.equal(
+        prepared.comparison.installedRoutineDeclarations + source.catalogs.pg_proc!.entries.length,
+        prepared.routines.size,
+      );
+      strict.deepEqual(prepared.comparison.nativeOnly, []);
       strict.deepEqual(prepared.comparison.mismatches, []);
       strict.deepEqual(prepared.comparison.installationGaps, []);
       strict.equal(
@@ -71,6 +80,29 @@ await describe("PostgreSQL source routine interpretation", async () => {
         },
       };
       strict.throws(() => prepareSourceProfile(facts, source, changed), /Unqualified/u);
+      const first = capture.categories.functions.rows[0];
+      const additional = {
+        ...capture,
+        categories: {
+          ...capture.categories,
+          functions: {
+            ...capture.categories.functions,
+            rows: [
+              ...capture.categories.functions.rows,
+              { ...first, name: "source_audit_extra", identity: "pg_catalog.source_audit_extra()" },
+            ],
+          },
+        },
+      };
+      strict.throws(() => prepareSourceProfile(facts, source, additional), /Unqualified/u);
+      const missing = {
+        ...capture,
+        categories: {
+          ...capture.categories,
+          functions: { ...capture.categories.functions, rows: capture.categories.functions.rows.slice(1) },
+        },
+      };
+      strict.throws(() => prepareSourceProfile(facts, source, missing), /Unqualified/u);
     }
   });
 
@@ -87,6 +119,59 @@ await describe("PostgreSQL source routine interpretation", async () => {
     strict.deepEqual(catalogArray("{ }"), []);
     strict.equal(catalogArray("_null_"), null);
     for (const value of ['{"unclosed}', "{nested,{x}}", "{a,}", "{a,,b}"]) strict.throws(() => catalogArray(value));
+  });
+
+  await it("qualifies external installation declarations using explicit namespaces and SQL defaults", () => {
+    const types = new Map([
+      ["internal", "internal"],
+      ["oid", "oid"],
+      ["void", "void"],
+    ]);
+    const sql =
+      "SET search_path = pg_catalog; CREATE FUNCTION external_helper(INTERNAL) RETURNS INTERNAL AS '$libdir/module', 'helper' LANGUAGE C STRICT;";
+    const parsed = installedRoutineDescriptors(sql, types, undefined);
+    strict.deepEqual(parsed.gaps, []);
+    strict.equal(parsed.rows.length, 1);
+    strict.deepEqual(
+      {
+        namespace: parsed.rows[0]!.row.namespace,
+        strict: parsed.rows[0]!.row.strict,
+        volatility: parsed.rows[0]!.row.volatility,
+        parallel: parsed.rows[0]!.row.parallel,
+      },
+      { namespace: "pg_catalog", strict: true, volatility: "v", parallel: "u" },
+    );
+    const extension = installedRoutineDescriptors(
+      "CREATE FUNCTION validate(oid) RETURNS void LANGUAGE c AS 'MODULE_PATHNAME';",
+      types,
+      "schema = custom\n",
+    );
+    strict.deepEqual(extension.gaps, []);
+    strict.equal(extension.rows[0]!.row.namespace, "custom");
+    const attributes = installedRoutineDescriptors(
+      "CREATE FUNCTION flags(oid) RETURNS void LANGUAGE c AS 'module' IMMUTABLE PARALLEL SAFE CALLED ON NULL INPUT;",
+      types,
+      "schema = custom\n",
+    );
+    strict.deepEqual(attributes.gaps, []);
+    strict.equal(attributes.rows[0]!.row.strict, false);
+    strict.equal(attributes.rows[0]!.row.volatility, "i");
+    strict.equal(attributes.rows[0]!.row.parallel, "s");
+    strict.throws(() => moduleNamespace("SET search_path = first;", "schema = second\n"), /Conflicting/u);
+    strict.equal(
+      installedRoutineDescriptors("CREATE FUNCTION unnamed(oid) RETURNS void LANGUAGE c AS 'module';", types, undefined)
+        .gaps.length,
+      1,
+    );
+    for (const clause of ["SECURITY DEFINER", "PARALLEL FUTURE", "STRICT CALLED ON NULL INPUT"])
+      strict.equal(
+        installedRoutineDescriptors(
+          `CREATE FUNCTION rejected(oid) RETURNS void LANGUAGE c AS 'module' ${clause};`,
+          types,
+          "schema = custom\n",
+        ).gaps.length,
+        1,
+      );
   });
 
   await it("extracts parameter headers without interpreting body strings or comments as declarations", () => {

@@ -99,12 +99,19 @@ export async function refreshPostgresSources({ root, perl = "perl", python = "py
     const catalogs = JSON.parse(stdout);
     const keywords = parseKeywords(await readFile(join(sourceRoot, "src/include/parser/kwlist.h"), "utf8"));
     const uninterpretedInputs = paths.filter(
-      (path) => path.endsWith(".sql") || path.endsWith(".txt") || path.endsWith("gram.y"),
+      (path) => path.endsWith(".sql") || path.endsWith(".sql.in") || path.endsWith(".txt") || path.endsWith("gram.y"),
     );
     const textInputs = Object.fromEntries(
       await Promise.all(
         paths
-          .filter((path) => path.endsWith(".sql") || path.endsWith("gram.y") || path.endsWith("bootstrap.c"))
+          .filter(
+            (path) =>
+              path.endsWith(".sql") ||
+              path.endsWith(".sql.in") ||
+              path.endsWith(".control") ||
+              path.endsWith("gram.y") ||
+              path.endsWith("bootstrap.c"),
+          )
           .map(async (path) => [path, await readFile(join(sourceRoot, path), "utf8")]),
       ),
     );

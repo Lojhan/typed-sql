@@ -3,7 +3,7 @@
   "grammar": "postgres",
   "extractor": {
     "id": "postgres/vendor-bootstrap-v1",
-    "revision": "sha256:d8c2d9e24389b10ee07e585bf7650e83c4b3c8f83cb4d7ad6543c4005e7203a8"
+    "revision": "sha256:4008e37b11cf9ef4080f1f101d92d7850572c48c00e58390bd95d812f36b0f64"
   },
   "sources": [
     {
@@ -60,6 +60,14 @@
         "postgres-6b3806732b7c5df06bdd0ed150e8a07b4ad62315/src/backend/parser/gram.y": {
           "digest": "sha256:b7eaa3b105d0871aa203fd0349497f118fd42660f3d71179f91b6f00c0d2ce37",
           "bytes": 459837
+        },
+        "postgres-6b3806732b7c5df06bdd0ed150e8a07b4ad62315/src/backend/snowball/snowball.sql.in": {
+          "digest": "sha256:079737103ac9c9fd21b22352471136ff160ebcf153bae3c888329b3075231720",
+          "bytes": 1557
+        },
+        "postgres-6b3806732b7c5df06bdd0ed150e8a07b4ad62315/src/backend/snowball/snowball_func.sql.in": {
+          "digest": "sha256:43d787719a1879401436cf393cfaed57dcd5dc8edbbd03f38f2a56485bde7a31",
+          "bytes": 1299
         },
         "postgres-6b3806732b7c5df06bdd0ed150e8a07b4ad62315/src/include/catalog/binary_upgrade.h": {
           "digest": "sha256:8b0473c06eddd6410af889863858c8cfe478f5450803721d274207e18dfcda07",
@@ -472,6 +480,14 @@
         "postgres-6b3806732b7c5df06bdd0ed150e8a07b4ad62315/src/include/parser/kwlist.h": {
           "digest": "sha256:0791809f1c10761f76450c935710b47261a991d35adab212ddb888a958053548",
           "bytes": 29243
+        },
+        "postgres-6b3806732b7c5df06bdd0ed150e8a07b4ad62315/src/pl/plpgsql/src/plpgsql--1.0.sql": {
+          "digest": "sha256:f4e7e05438808ac0da0b3801397d16e36102969af7e2ffc982def5b7524fb557",
+          "bytes": 658
+        },
+        "postgres-6b3806732b7c5df06bdd0ed150e8a07b4ad62315/src/pl/plpgsql/src/plpgsql.control": {
+          "digest": "sha256:9457c3f51d6bdfab93f13080d177795a9274c025e378fb613218342e3a3c7b45",
+          "bytes": 193
         }
       },
       "license": {
@@ -479,7 +495,7 @@
         "path": "postgres-6b3806732b7c5df06bdd0ed150e8a07b4ad62315/COPYRIGHT"
       },
       "defines": [],
-      "factsDigest": "sha256:a1dc89649169f794a549054bcdf2c178a1bce8bf400c198b61569c52a51857e4"
+      "factsDigest": "sha256:e1d5ed3d7c527f0a5099b9d622fe0ebe9fd8923cb0c51a8ed398addf6ef0f5ca"
     },
     {
       "version": "15.19",
@@ -535,6 +551,14 @@
         "postgres-2ff1375b5dd8bf09d8cb0e795974528180fd75ca/src/backend/parser/gram.y": {
           "digest": "sha256:020cd7eb502aa06807b5e2b56eed04fc0d2d5f6bf1339fd892a564037e67ad70",
           "bytes": 475938
+        },
+        "postgres-2ff1375b5dd8bf09d8cb0e795974528180fd75ca/src/backend/snowball/snowball.sql.in": {
+          "digest": "sha256:0a46c722ca53ac974f026e92cd2b55b9a76995eacd788641b6ebdc8c7b1608cc",
+          "bytes": 1557
+        },
+        "postgres-2ff1375b5dd8bf09d8cb0e795974528180fd75ca/src/backend/snowball/snowball_func.sql.in": {
+          "digest": "sha256:eac523c5049a3642c711068389982342ca09b536ec333690807beeff3c204b4b",
+          "bytes": 1299
         },
         "postgres-2ff1375b5dd8bf09d8cb0e795974528180fd75ca/src/include/catalog/binary_upgrade.h": {
           "digest": "sha256:f836906429d69ef33cf44eb3c2d303ada0a4ad4929cf766709258abf3281c961",
@@ -955,6 +979,14 @@
         "postgres-2ff1375b5dd8bf09d8cb0e795974528180fd75ca/src/include/parser/kwlist.h": {
           "digest": "sha256:d33997e04d510308f64958549ba27e123ea0dff9dd98eab24952039821fcb40d",
           "bytes": 29432
+        },
+        "postgres-2ff1375b5dd8bf09d8cb0e795974528180fd75ca/src/pl/plpgsql/src/plpgsql--1.0.sql": {
+          "digest": "sha256:f4e7e05438808ac0da0b3801397d16e36102969af7e2ffc982def5b7524fb557",
+          "bytes": 658
+        },
+        "postgres-2ff1375b5dd8bf09d8cb0e795974528180fd75ca/src/pl/plpgsql/src/plpgsql.control": {
+          "digest": "sha256:9457c3f51d6bdfab93f13080d177795a9274c025e378fb613218342e3a3c7b45",
+          "bytes": 193
         }
       },
       "license": {
@@ -962,7 +994,7 @@
         "path": "postgres-2ff1375b5dd8bf09d8cb0e795974528180fd75ca/COPYRIGHT"
       },
       "defines": [],
-      "factsDigest": "sha256:c10942d0778c205151092361e57c1a71e872354f9846cfc32d0a8b2f1a1d84aa"
+      "factsDigest": "sha256:e98d72e1d0a466ae41a78c2f848cfa1b87635118ee466fc904fbf0f4f0704ae9"
     },
     {
       "version": "16.15",
@@ -1018,6 +1050,14 @@
         "postgres-7d3e000c5961a544302072058a1184e9a588837b/src/backend/parser/gram.y": {
           "digest": "sha256:35d957e230167ecbd19b8c7f08b43ba070a3189c1d9de6c360b7fcebfbfd714f",
           "bytes": 484337
+        },
+        "postgres-7d3e000c5961a544302072058a1184e9a588837b/src/backend/snowball/snowball.sql.in": {
+          "digest": "sha256:21df7ed1422c4449acc577862142f2a8a16a4e7ec290d4399820f2d7a8045e67",
+          "bytes": 1557
+        },
+        "postgres-7d3e000c5961a544302072058a1184e9a588837b/src/backend/snowball/snowball_func.sql.in": {
+          "digest": "sha256:626ec907ce8c344d2cb70f0878a095955729e6cc9ddf5b6554e44c9cf3da5eb6",
+          "bytes": 1299
         },
         "postgres-7d3e000c5961a544302072058a1184e9a588837b/src/include/catalog/binary_upgrade.h": {
           "digest": "sha256:166a366482c11e48e5ad1e53fef18ece92c2180ae45f082de40dc5cfb3e48218",
@@ -1438,6 +1478,14 @@
         "postgres-7d3e000c5961a544302072058a1184e9a588837b/src/include/parser/kwlist.h": {
           "digest": "sha256:b9db8bdeecc085e015e6e958a53545ebe0d8fbadf1094bc885ae511d32ace819",
           "bytes": 30143
+        },
+        "postgres-7d3e000c5961a544302072058a1184e9a588837b/src/pl/plpgsql/src/plpgsql--1.0.sql": {
+          "digest": "sha256:f4e7e05438808ac0da0b3801397d16e36102969af7e2ffc982def5b7524fb557",
+          "bytes": 658
+        },
+        "postgres-7d3e000c5961a544302072058a1184e9a588837b/src/pl/plpgsql/src/plpgsql.control": {
+          "digest": "sha256:9457c3f51d6bdfab93f13080d177795a9274c025e378fb613218342e3a3c7b45",
+          "bytes": 193
         }
       },
       "license": {
@@ -1445,7 +1493,7 @@
         "path": "postgres-7d3e000c5961a544302072058a1184e9a588837b/COPYRIGHT"
       },
       "defines": [],
-      "factsDigest": "sha256:1e0340f8f92d108c92418bb73e3d7cb56aa2bbc7e72fabd8a2739d55ec6a7890"
+      "factsDigest": "sha256:32b86acdcfdcf610053f15002430f8cbebbbdb7786fa4d1cae64c1b2bb494279"
     },
     {
       "version": "17.11",
@@ -1497,6 +1545,14 @@
         "postgres-083ac033419f690758508e08c1736089384bbee8/src/backend/parser/gram.y": {
           "digest": "sha256:ba8ad5a6e1df5768dee7dbca5f2594400a741806b4f671579ecf806969b9e3bf",
           "bytes": 501908
+        },
+        "postgres-083ac033419f690758508e08c1736089384bbee8/src/backend/snowball/snowball.sql.in": {
+          "digest": "sha256:9fef815ee03d8ae68dd2d544110d4baf3abfdc43924b73b3947529982c7fe73a",
+          "bytes": 1557
+        },
+        "postgres-083ac033419f690758508e08c1736089384bbee8/src/backend/snowball/snowball_func.sql.in": {
+          "digest": "sha256:b623b211e585a4fa7077b6b2a64aaee20be00bc979da1c2f324226fc3ba5871a",
+          "bytes": 1299
         },
         "postgres-083ac033419f690758508e08c1736089384bbee8/src/include/catalog/binary_upgrade.h": {
           "digest": "sha256:57901c9daa0edb90acc813b676afa609fc45566642613f6f4fb10ba3b4fce5ef",
@@ -1917,6 +1973,14 @@
         "postgres-083ac033419f690758508e08c1736089384bbee8/src/include/parser/kwlist.h": {
           "digest": "sha256:8fa117aec8410d483c9fb9e711b1fea7cefc4acc1483c13af40fd24cbd4470bf",
           "bytes": 31429
+        },
+        "postgres-083ac033419f690758508e08c1736089384bbee8/src/pl/plpgsql/src/plpgsql--1.0.sql": {
+          "digest": "sha256:f4e7e05438808ac0da0b3801397d16e36102969af7e2ffc982def5b7524fb557",
+          "bytes": 658
+        },
+        "postgres-083ac033419f690758508e08c1736089384bbee8/src/pl/plpgsql/src/plpgsql.control": {
+          "digest": "sha256:9457c3f51d6bdfab93f13080d177795a9274c025e378fb613218342e3a3c7b45",
+          "bytes": 193
         }
       },
       "license": {
@@ -1924,7 +1988,7 @@
         "path": "postgres-083ac033419f690758508e08c1736089384bbee8/COPYRIGHT"
       },
       "defines": [],
-      "factsDigest": "sha256:f1094414e61d877cf9491cc5a806d0d6ae111c13075f5d3fabcbe5b0279e9ebb"
+      "factsDigest": "sha256:cd3d5fcd4a14db71caddec76e4c1eacaff2370fdad693ffd85486260ec37b34a"
     },
     {
       "version": "18.6",
@@ -1976,6 +2040,14 @@
         "postgres-724edf9bde9d356724ad384a2e196edc3c9f80f7/src/backend/parser/gram.y": {
           "digest": "sha256:7e548b673a1e03eb3a56c5eb9ad92d8e11095fac76e14cb258ca851f58274724",
           "bytes": 507317
+        },
+        "postgres-724edf9bde9d356724ad384a2e196edc3c9f80f7/src/backend/snowball/snowball.sql.in": {
+          "digest": "sha256:daef5c9ca1f13f171d3b78a6e3d1bb11d10e80ea0386dc31862677af266bd095",
+          "bytes": 1557
+        },
+        "postgres-724edf9bde9d356724ad384a2e196edc3c9f80f7/src/backend/snowball/snowball_func.sql.in": {
+          "digest": "sha256:718dc756fd315c585d2d3fb5e8201a658fb51b2d1fe0870aefd242de10f09b95",
+          "bytes": 1299
         },
         "postgres-724edf9bde9d356724ad384a2e196edc3c9f80f7/src/include/catalog/binary_upgrade.h": {
           "digest": "sha256:016b0be24430e2494456a9d1e0270df62968536a2be1394e88a69b1948cead41",
@@ -2396,6 +2468,14 @@
         "postgres-724edf9bde9d356724ad384a2e196edc3c9f80f7/src/include/parser/kwlist.h": {
           "digest": "sha256:fdcdf3694513cba63b4016f63032472b686e381bb35f17c5d645bc2f6f1dac16",
           "bytes": 31620
+        },
+        "postgres-724edf9bde9d356724ad384a2e196edc3c9f80f7/src/pl/plpgsql/src/plpgsql--1.0.sql": {
+          "digest": "sha256:f4e7e05438808ac0da0b3801397d16e36102969af7e2ffc982def5b7524fb557",
+          "bytes": 658
+        },
+        "postgres-724edf9bde9d356724ad384a2e196edc3c9f80f7/src/pl/plpgsql/src/plpgsql.control": {
+          "digest": "sha256:9457c3f51d6bdfab93f13080d177795a9274c025e378fb613218342e3a3c7b45",
+          "bytes": 193
         }
       },
       "license": {
@@ -2403,7 +2483,7 @@
         "path": "postgres-724edf9bde9d356724ad384a2e196edc3c9f80f7/COPYRIGHT"
       },
       "defines": [],
-      "factsDigest": "sha256:e614a2c757be283c3e70c248371d56722eb51850b72a7bf2cc65d21da951c062"
+      "factsDigest": "sha256:900a5074bbf1e13924ebaa0366ca97221a21d030796df52098fd38cbc96b839e"
     },
     {
       "version": "19beta3",
@@ -2455,6 +2535,14 @@
         "postgres-3638289fb57bdabec00deda98ee9624a35f5d66a/src/backend/parser/gram.y": {
           "digest": "sha256:37ccc53bf31650ce9376c808de107e4d8a9c2bcc3b7e5aef7c20f552db3505ce",
           "bytes": 538393
+        },
+        "postgres-3638289fb57bdabec00deda98ee9624a35f5d66a/src/backend/snowball/snowball.sql.in": {
+          "digest": "sha256:2420b647ffed759d4cba89c05fe34d2565ffe1670ac78771a35c6dfc38f40a44",
+          "bytes": 1557
+        },
+        "postgres-3638289fb57bdabec00deda98ee9624a35f5d66a/src/backend/snowball/snowball_func.sql.in": {
+          "digest": "sha256:c7634e438a7d9f009b796b9897c34d544aa638329ec2013d8bd40f89a74cc5a6",
+          "bytes": 1299
         },
         "postgres-3638289fb57bdabec00deda98ee9624a35f5d66a/src/include/catalog/binary_upgrade.h": {
           "digest": "sha256:70c2fc9a7d08581f6617545a71397d21e61fbd12494938bfc44aa3a12bb82d51",
@@ -2899,6 +2987,14 @@
         "postgres-3638289fb57bdabec00deda98ee9624a35f5d66a/src/include/parser/kwlist.h": {
           "digest": "sha256:8c368f62af0d1090349c9ce74bdbd545e3f32111a406a875f55f8917f2995ae0",
           "bytes": 32691
+        },
+        "postgres-3638289fb57bdabec00deda98ee9624a35f5d66a/src/pl/plpgsql/src/plpgsql--1.0.sql": {
+          "digest": "sha256:f4e7e05438808ac0da0b3801397d16e36102969af7e2ffc982def5b7524fb557",
+          "bytes": 658
+        },
+        "postgres-3638289fb57bdabec00deda98ee9624a35f5d66a/src/pl/plpgsql/src/plpgsql.control": {
+          "digest": "sha256:9457c3f51d6bdfab93f13080d177795a9274c025e378fb613218342e3a3c7b45",
+          "bytes": 193
         }
       },
       "license": {
@@ -2906,7 +3002,7 @@
         "path": "postgres-3638289fb57bdabec00deda98ee9624a35f5d66a/COPYRIGHT"
       },
       "defines": [],
-      "factsDigest": "sha256:75faf6dcac1361d8b77e0b140f9481b5be07a41ec0009efc6d4dbf65aa755125"
+      "factsDigest": "sha256:9542bc557e44b0ac6d2ee5fc1c115ac8467892937b8007913cec3e320ccb009b"
     }
   ]
 }

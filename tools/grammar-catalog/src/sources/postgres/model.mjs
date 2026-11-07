@@ -1,8 +1,10 @@
 import { postgresMapper } from "../../mappers/postgres.mjs";
 import { describeRoutine } from "../../model/build.mjs";
+import { hash } from "../../model/canonical.mjs";
 import { routineSignature } from "../../model/routines.mjs";
 import { parseRoutine } from "../../model/schema.mjs";
 import { grammarTypeAliases } from "./grammar-aliases.mjs";
+import { installedRoutineDescriptors } from "./installed-routines.mjs";
 import { installationHeaders } from "./sql-headers.mjs";
 
 /** Parse the one-dimensional catalog array notation; unfamiliar/nested forms fail closed. */
@@ -155,6 +157,10 @@ export function sourceRoutineRow(row, typeNames, keywords) {
 /** Source descriptors use the same executable routine schema as native observations. */
 export function sourceRoutine(row, typeNames, keywords, header) {
   const descriptor = applyHeader(sourceRoutineRow(row, typeNames, keywords), header);
+  return routineFromDescriptor(descriptor, header);
+}
+
+function routineFromDescriptor(descriptor, header) {
   const mapper = {
     ...postgresMapper,
     routineFacts: (row) => {
@@ -190,7 +196,7 @@ export function sourceHeaders(facts, source, typeNames) {
     if (headers.has(key)) throw new TypeError("Multiple PostgreSQL installation headers for one routine");
     headers.set(key, { ...header, source: path, digest });
   }
-  return { headers, gaps: result.gaps };
+  return { headers, gaps: result.gaps, typeNames: new Map([...typeNames, ...aliases]) };
 }
 
 export function applyHeader(row, header) {
@@ -216,10 +222,37 @@ export function applyHeader(row, header) {
   };
 }
 
-/** Equality here qualifies descriptor fields only, not execution, nullability or decoding. */
-export function compareRoutines(facts, source, capture) {
+function sourceRecords(facts, source, capture) {
   const types = canonicalTypes(capture.categories.types.rows);
   const installation = sourceHeaders(facts, source, types);
+  const records = source.catalogs.pg_proc.entries.map(({ row: id }) => {
+    const original = sourceRoutineRow(facts.rows[id], types, source.keywords);
+    const header = installation.headers.get(
+      JSON.stringify([original.namespace, original.name, original.argument_types]),
+    );
+    return { sourceRow: id, sourceKind: "bootstrap", row: applyHeader(original, header), header };
+  });
+  const gaps = [...installation.gaps];
+  for (const [path, digest] of Object.entries(source.textInputs)) {
+    if (!/^(?:src\/backend\/snowball|src\/pl\/plpgsql\/src)\/[^/]+\.sql(?:\.in)?$/u.test(path)) continue;
+    const controlPath = path.includes("--") ? `${path.slice(0, path.indexOf("--"))}.control` : null;
+    const control =
+      controlPath && source.textInputs[controlPath] ? facts.texts[source.textInputs[controlPath]] : undefined;
+    const parsed = installedRoutineDescriptors(facts.texts[digest], installation.typeNames, control);
+    gaps.push(...parsed.gaps.map((gap) => ({ ...gap, source: path })));
+    for (const { row, header } of parsed.rows)
+      records.push({
+        sourceRow: hash({ path, digest, start: header.start }),
+        sourceKind: "installation",
+        row,
+        header: { ...header, source: path, digest },
+      });
+  }
+  return { records, installationHeaders: installation.headers.size, installationGaps: gaps };
+}
+
+/** Equality here qualifies descriptor fields only, not execution, nullability or decoding. */
+export function compareRoutines(facts, source, capture, preparedRecords = sourceRecords(facts, source, capture)) {
   const native = new Map();
   for (const row of capture.categories.functions.rows) {
     const key = routineKey(row);
@@ -229,13 +262,11 @@ export function compareRoutines(facts, source, capture) {
   const matched = [],
     sourceOnly = [],
     mismatches = [];
-  for (const { row: id } of source.catalogs.pg_proc.entries) {
-    const original = sourceRoutineRow(facts.rows[id], types, source.keywords);
-    const header = installation.headers.get(
-      JSON.stringify([original.namespace, original.name, original.argument_types]),
-    );
-    const row = applyHeader(original, header),
-      actual = native.get(routineKey(row));
+  const seen = new Set();
+  for (const { sourceRow: id, sourceKind, row } of preparedRecords.records) {
+    if (seen.has(routineKey(row))) throw new TypeError("Duplicate PostgreSQL source routine key");
+    seen.add(routineKey(row));
+    const actual = native.get(routineKey(row));
     if (!actual) {
       sourceOnly.push({ sourceRow: id, identity: row.identity });
       continue;
@@ -258,13 +289,15 @@ export function compareRoutines(facts, source, capture) {
     const differences = fields.filter((field) => JSON.stringify(row[field]) !== JSON.stringify(actual[field]));
     if (differences.length)
       mismatches.push({ sourceRow: id, identity: row.identity, fields: differences, expected: row, actual });
-    else matched.push({ sourceRow: id, identity: row.identity });
+    else matched.push({ sourceRow: id, sourceKind, identity: row.identity });
   }
   return {
     qualification:
       "catalog descriptors with installation parameter overlays; canonical type spellings come from native type metadata; canonical default rendering, execution, nullability and decoding unqualified",
-    installationHeaders: installation.headers.size,
-    installationGaps: installation.gaps,
+    installationHeaders: preparedRecords.installationHeaders,
+    installedRoutineDeclarations: preparedRecords.records.filter(({ sourceKind }) => sourceKind === "installation")
+      .length,
+    installationGaps: preparedRecords.installationGaps,
     matched,
     sourceOnly,
     nativeOnly: [...native.values()].map(({ identity }) => identity).sort(),
@@ -274,20 +307,20 @@ export function compareRoutines(facts, source, capture) {
 
 /** Only source records whose final descriptors agree with native observations may drive emission. */
 export function prepareSourceProfile(facts, source, capture) {
-  const comparison = compareRoutines(facts, source, capture);
-  if (comparison.sourceOnly.length || comparison.mismatches.length || comparison.installationGaps.length)
+  const records = sourceRecords(facts, source, capture);
+  const comparison = compareRoutines(facts, source, capture, records);
+  if (
+    comparison.sourceOnly.length ||
+    comparison.nativeOnly.length ||
+    comparison.mismatches.length ||
+    comparison.installationGaps.length
+  )
     throw new TypeError(`Unqualified PostgreSQL source routine projection: ${capture.target.version}`);
-  const types = canonicalTypes(capture.categories.types.rows);
-  const installation = sourceHeaders(facts, source, types);
-  const headers = new Map(
-    [...installation.headers.values()].map((header) => [
-      `${header.namespace}.${header.name}(${header.inputs.join(", ")})`,
-      header,
-    ]),
-  );
+  const bySource = new Map(records.records.map((record) => [record.sourceRow, record]));
   const routines = new Map();
   for (const { sourceRow, identity } of comparison.matched) {
-    const routine = sourceRoutine(facts.rows[sourceRow], types, source.keywords, headers.get(identity));
+    const record = bySource.get(sourceRow);
+    const routine = routineFromDescriptor(record.row, record.header);
     if (routine.identity !== identity || routines.has(identity))
       throw new TypeError("PostgreSQL source projection identity differs");
     routines.set(identity, routine);

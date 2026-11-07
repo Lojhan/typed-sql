@@ -23,6 +23,8 @@ with tarfile.open(archive_path, "r:gz") as archive:
                                  "src/backend/bootstrap/bootstrap.c")
             or (local.parent.as_posix() == "src/include/catalog" and local.suffix in (".dat", ".h"))
             or (local.parent.as_posix() == "src/backend/catalog" and local.suffix in (".sql", ".txt"))
+            or (local.parent.as_posix() in ("src/backend/snowball", "src/pl/plpgsql/src")
+                and (local.name.endswith((".sql", ".sql.in", ".control"))))
         )
         if needed:
             if not member.isfile():

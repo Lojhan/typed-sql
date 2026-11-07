@@ -482,6 +482,7 @@
         ]
       },
       "procedures": {
+        "scope": "bootstrap data rows only; installation routines are accounted for under routineDescriptors",
         "sourceRegistrations": 3186,
         "nativeRegistrations": 3191,
         "sourceNames": 2617,
@@ -498,18 +499,13 @@
       },
       "routineDescriptors": {
         "scope": "catalog descriptors with installation parameter overlays; canonical type spellings come from native type metadata; canonical default rendering, execution, nullability and decoding unqualified",
-        "matched": 3186,
-        "matchedPairsDigest": "sha256:189e638336ac69e6ac65266e4efc86683b05fbf49e39f32ebeaa43d1501bf847",
+        "matched": 3191,
+        "matchedPairsDigest": "sha256:ba11b988f6d7637480f29f98ce55ba5365e1c49526b7808b427bd32dea97aec2",
         "installationHeaders": 75,
+        "installedRoutineDeclarations": 5,
         "installationGaps": [],
         "sourceOnly": [],
-        "nativeOnly": [
-          "pg_catalog.dsnowball_init(internal)",
-          "pg_catalog.dsnowball_lexize(internal, internal, internal, internal)",
-          "pg_catalog.plpgsql_call_handler()",
-          "pg_catalog.plpgsql_inline_handler(internal)",
-          "pg_catalog.plpgsql_validator(oid)"
-        ],
+        "nativeOnly": [],
         "mismatches": []
       },
       "types": {
@@ -789,7 +785,10 @@
         "src/backend/catalog/sql_features.txt",
         "src/backend/catalog/system_functions.sql",
         "src/backend/catalog/system_views.sql",
-        "src/backend/parser/gram.y"
+        "src/backend/parser/gram.y",
+        "src/backend/snowball/snowball.sql.in",
+        "src/backend/snowball/snowball_func.sql.in",
+        "src/pl/plpgsql/src/plpgsql--1.0.sql"
       ]
     },
     "sha256:2b60551aba9e5b605007f4a6a74481e4eb7cda4b3bca477476e5f8cfcb47ce14": {
@@ -1272,6 +1271,7 @@
         ]
       },
       "procedures": {
+        "scope": "bootstrap data rows only; installation routines are accounted for under routineDescriptors",
         "sourceRegistrations": 3228,
         "nativeRegistrations": 3233,
         "sourceNames": 2641,
@@ -1288,18 +1288,13 @@
       },
       "routineDescriptors": {
         "scope": "catalog descriptors with installation parameter overlays; canonical type spellings come from native type metadata; canonical default rendering, execution, nullability and decoding unqualified",
-        "matched": 3228,
-        "matchedPairsDigest": "sha256:dc469add7d652e07ddc78844c4bfa70d5cdc67074c562beadc5841102a47a7d2",
+        "matched": 3233,
+        "matchedPairsDigest": "sha256:59c889194c69198737cdf8328cf9901c6546238cbd947da8842ad717e6bf06f6",
         "installationHeaders": 75,
+        "installedRoutineDeclarations": 5,
         "installationGaps": [],
         "sourceOnly": [],
-        "nativeOnly": [
-          "pg_catalog.dsnowball_init(internal)",
-          "pg_catalog.dsnowball_lexize(internal, internal, internal, internal)",
-          "pg_catalog.plpgsql_call_handler()",
-          "pg_catalog.plpgsql_inline_handler(internal)",
-          "pg_catalog.plpgsql_validator(oid)"
-        ],
+        "nativeOnly": [],
         "mismatches": []
       },
       "types": {
@@ -1589,7 +1584,10 @@
         "src/backend/catalog/sql_features.txt",
         "src/backend/catalog/system_functions.sql",
         "src/backend/catalog/system_views.sql",
-        "src/backend/parser/gram.y"
+        "src/backend/parser/gram.y",
+        "src/backend/snowball/snowball.sql.in",
+        "src/backend/snowball/snowball_func.sql.in",
+        "src/pl/plpgsql/src/plpgsql--1.0.sql"
       ]
     },
     "sha256:96bf91c109c512425b9a31a4508753d924d996a29f8182eb529f2264493b6a0c": {
@@ -2083,6 +2081,7 @@
         ]
       },
       "procedures": {
+        "scope": "bootstrap data rows only; installation routines are accounted for under routineDescriptors",
         "sourceRegistrations": 3281,
         "nativeRegistrations": 3286,
         "sourceNames": 2689,
@@ -2099,18 +2098,13 @@
       },
       "routineDescriptors": {
         "scope": "catalog descriptors with installation parameter overlays; canonical type spellings come from native type metadata; canonical default rendering, execution, nullability and decoding unqualified",
-        "matched": 3281,
-        "matchedPairsDigest": "sha256:d43a803714e54582ae084c3e485e22a4ec0c32bb1da6b56c7e00d1db4531de58",
+        "matched": 3286,
+        "matchedPairsDigest": "sha256:fdf00414f8e172f3b8b90a173148a21f053fa6ad077e2d939e7fe31d6f867325",
         "installationHeaders": 76,
+        "installedRoutineDeclarations": 5,
         "installationGaps": [],
         "sourceOnly": [],
-        "nativeOnly": [
-          "pg_catalog.dsnowball_init(internal)",
-          "pg_catalog.dsnowball_lexize(internal, internal, internal, internal)",
-          "pg_catalog.plpgsql_call_handler()",
-          "pg_catalog.plpgsql_inline_handler(internal)",
-          "pg_catalog.plpgsql_validator(oid)"
-        ],
+        "nativeOnly": [],
         "mismatches": []
       },
       "types": {
@@ -2402,7 +2396,10 @@
         "src/backend/catalog/sql_features.txt",
         "src/backend/catalog/system_functions.sql",
         "src/backend/catalog/system_views.sql",
-        "src/backend/parser/gram.y"
+        "src/backend/parser/gram.y",
+        "src/backend/snowball/snowball.sql.in",
+        "src/backend/snowball/snowball_func.sql.in",
+        "src/pl/plpgsql/src/plpgsql--1.0.sql"
       ]
     },
     "sha256:0b0bab560435c1a5c7bcf9351c86fcc4f70c8ea91774b9b7ea71b2d549dc8967": {
@@ -2916,6 +2913,7 @@
         ]
       },
       "procedures": {
+        "scope": "bootstrap data rows only; installation routines are accounted for under routineDescriptors",
         "sourceRegistrations": 3314,
         "nativeRegistrations": 3319,
         "sourceNames": 2714,
@@ -2932,18 +2930,13 @@
       },
       "routineDescriptors": {
         "scope": "catalog descriptors with installation parameter overlays; canonical type spellings come from native type metadata; canonical default rendering, execution, nullability and decoding unqualified",
-        "matched": 3314,
-        "matchedPairsDigest": "sha256:0894d89191086469d6700abd878e37df98492126f622f7ca205f9f1048d907a7",
+        "matched": 3319,
+        "matchedPairsDigest": "sha256:42299e806e32d58fe7f15408542b5dd89d3f4e85867ebda4adfd44463f10a904",
         "installationHeaders": 80,
+        "installedRoutineDeclarations": 5,
         "installationGaps": [],
         "sourceOnly": [],
-        "nativeOnly": [
-          "pg_catalog.dsnowball_init(internal)",
-          "pg_catalog.dsnowball_lexize(internal, internal, internal, internal)",
-          "pg_catalog.plpgsql_call_handler()",
-          "pg_catalog.plpgsql_inline_handler(internal)",
-          "pg_catalog.plpgsql_validator(oid)"
-        ],
+        "nativeOnly": [],
         "mismatches": []
       },
       "types": {
@@ -3238,7 +3231,10 @@
         "src/backend/catalog/sql_features.txt",
         "src/backend/catalog/system_functions.sql",
         "src/backend/catalog/system_views.sql",
-        "src/backend/parser/gram.y"
+        "src/backend/parser/gram.y",
+        "src/backend/snowball/snowball.sql.in",
+        "src/backend/snowball/snowball_func.sql.in",
+        "src/pl/plpgsql/src/plpgsql--1.0.sql"
       ]
     },
     "sha256:214c3656678161933579274025a5871b85a95877f47165aa1ac7c18f36ef30c5": {
@@ -3755,6 +3751,7 @@
         ]
       },
       "procedures": {
+        "scope": "bootstrap data rows only; installation routines are accounted for under routineDescriptors",
         "sourceRegistrations": 3397,
         "nativeRegistrations": 3402,
         "sourceNames": 2782,
@@ -3771,18 +3768,13 @@
       },
       "routineDescriptors": {
         "scope": "catalog descriptors with installation parameter overlays; canonical type spellings come from native type metadata; canonical default rendering, execution, nullability and decoding unqualified",
-        "matched": 3397,
-        "matchedPairsDigest": "sha256:f624dfef19b274f7ff57705039280064a236cab6fea0ff696c5f4d831bedcab3",
+        "matched": 3402,
+        "matchedPairsDigest": "sha256:629dde65b1fb87f1475a96dfa4f3226ec8279bc0f31f79c053f4dbcefe021a9a",
         "installationHeaders": 82,
+        "installedRoutineDeclarations": 5,
         "installationGaps": [],
         "sourceOnly": [],
-        "nativeOnly": [
-          "pg_catalog.dsnowball_init(internal)",
-          "pg_catalog.dsnowball_lexize(internal, internal, internal, internal)",
-          "pg_catalog.plpgsql_call_handler()",
-          "pg_catalog.plpgsql_inline_handler(internal)",
-          "pg_catalog.plpgsql_validator(oid)"
-        ],
+        "nativeOnly": [],
         "mismatches": []
       },
       "types": {
@@ -4081,7 +4073,10 @@
         "src/backend/catalog/sql_features.txt",
         "src/backend/catalog/system_functions.sql",
         "src/backend/catalog/system_views.sql",
-        "src/backend/parser/gram.y"
+        "src/backend/parser/gram.y",
+        "src/backend/snowball/snowball.sql.in",
+        "src/backend/snowball/snowball_func.sql.in",
+        "src/pl/plpgsql/src/plpgsql--1.0.sql"
       ]
     },
     "sha256:3945c254c410805ebaa8b0bfe54322b60ec70aa53d9a60f4de2ba5b7756f723f": {
@@ -4615,6 +4610,7 @@
         ]
       },
       "procedures": {
+        "scope": "bootstrap data rows only; installation routines are accounted for under routineDescriptors",
         "sourceRegistrations": 3421,
         "nativeRegistrations": 3426,
         "sourceNames": 2798,
@@ -4631,18 +4627,13 @@
       },
       "routineDescriptors": {
         "scope": "catalog descriptors with installation parameter overlays; canonical type spellings come from native type metadata; canonical default rendering, execution, nullability and decoding unqualified",
-        "matched": 3421,
-        "matchedPairsDigest": "sha256:75aea18ae6ea6ede3ec26707d52ea7c6fcd7c470cecc754eb15470296b540f05",
+        "matched": 3426,
+        "matchedPairsDigest": "sha256:635b0f86966ceff0e0e77befbc3c9a5d70c9b198082fa39bab10c411d3797ed0",
         "installationHeaders": 45,
+        "installedRoutineDeclarations": 5,
         "installationGaps": [],
         "sourceOnly": [],
-        "nativeOnly": [
-          "pg_catalog.dsnowball_init(internal)",
-          "pg_catalog.dsnowball_lexize(internal, internal, internal, internal)",
-          "pg_catalog.plpgsql_call_handler()",
-          "pg_catalog.plpgsql_inline_handler(internal)",
-          "pg_catalog.plpgsql_validator(oid)"
-        ],
+        "nativeOnly": [],
         "mismatches": []
       },
       "types": {
@@ -4965,7 +4956,10 @@
         "src/backend/catalog/sql_features.txt",
         "src/backend/catalog/system_functions.sql",
         "src/backend/catalog/system_views.sql",
-        "src/backend/parser/gram.y"
+        "src/backend/parser/gram.y",
+        "src/backend/snowball/snowball.sql.in",
+        "src/backend/snowball/snowball_func.sql.in",
+        "src/pl/plpgsql/src/plpgsql--1.0.sql"
       ]
     }
   }

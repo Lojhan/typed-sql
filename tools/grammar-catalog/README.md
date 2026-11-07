@@ -103,9 +103,12 @@ unconditional type aliases extracted from grammar actions, and bootstrap default
 Source descriptors must match native parameter/result/property metadata before their validated
 routine models drive emission. Canonical type spellings come from independent native type metadata;
 canonical default-expression rendering, execution, nullability and decoding remain unqualified.
-SQL-installed routines absent from bootstrap data retain their native metadata and remain explicit
-source gaps. Full grammar productions, SQL bodies, configuration and extension profiles still need
-separate interpretation and qualification. Committed source text includes the upstream license notice.
+Snowball and PL/pgSQL installation declarations also supply validated routine models; their schemas
+come from explicit SQL search paths or extension control files. An unmatched source/native routine
+or unsupported installation declaration blocks generation. This covers the retained native routine
+inventories, while full grammar productions, SQL bodies, configuration and additional extension
+profiles still need separate interpretation and qualification. Committed source text includes the
+upstream license notice.
 
 The SQLite catalog refresh also locks the full vendor archive and builds its amalgamation in a
 fresh temporary directory. Archive members must agree with the separately pinned files before

@@ -109,7 +109,7 @@ function parts(tokens, start) {
   throw new TypeError("Unclosed vendor SQL argument list");
 }
 
-function declaredType(tokens, typeNames) {
+export function declaredType(tokens, typeNames) {
   if (
     !tokens.length ||
     tokens.some((token) => !["word", "quoted"].includes(token.kind) && !["[", "]", "."].includes(token.value))
@@ -152,6 +152,8 @@ function parameter(tokens, sql, typeNames, forcedMode) {
   if (!type)
     throw new TypeError(`Unqualified vendor SQL argument type: ${sql.slice(tokens[0].start, tokens.at(-1).end)}`);
   if (defaultAt >= 0 && defaultAt === tokens.length - 1) throw new TypeError("Missing vendor SQL default expression");
+  if (defaultAt >= 0 && ["o", "t"].includes(mode))
+    throw new TypeError("Output parameter cannot have a vendor SQL default");
   return {
     name,
     type,
@@ -161,7 +163,7 @@ function parameter(tokens, sql, typeNames, forcedMode) {
 }
 
 /** Extract every CREATE FUNCTION header, retaining failures rather than skipping unsupported syntax. */
-export function installationHeaders(sql, typeNames) {
+export function installationHeaders(sql, typeNames, options = {}) {
   const tokens = headerTokens(sql),
     headers = [],
     gaps = [];
@@ -174,7 +176,7 @@ export function installationHeaders(sql, typeNames) {
       index++;
       const first = tokens[index++];
       if (!["word", "quoted"].includes(first?.kind)) throw new TypeError("Missing vendor SQL routine name");
-      let namespace = "pg_catalog",
+      let namespace = Object.hasOwn(options, "namespace") ? options.namespace : "pg_catalog",
         name = first.value;
       if (tokens[index]?.value === ".") {
         namespace = name;

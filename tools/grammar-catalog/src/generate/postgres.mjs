@@ -54,8 +54,6 @@ export async function generateCatalog({ groups, semanticGroups, input, emit, hea
       const signatures = commonEntities(group, "functions")
         .map((entity) => {
           const candidates = contexts.map(({ id }) => prepared.get(id).routines.get(entity.routine.identity));
-          // Non-bootstrap SQL-installed routines retain native metadata and remain visible source gaps.
-          if (candidates.every((routine) => routine === undefined)) return postgresSemanticSignature(entity);
           if (candidates.some((routine) => routine === undefined))
             throw new TypeError("Incomplete PostgreSQL source projection across profiles");
           const values = candidates.map((routine) => postgresSemanticSignature({ ...entity, routine }));
