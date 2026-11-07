@@ -39,3 +39,15 @@ export function numericVersionBand(components) {
     return match.slice(1, components + 1).join(".");
   };
 }
+
+/** A contribution declares which native fields identify overloads; missing identity evidence fails extraction. */
+export function identityFields(categories) {
+  const fields = Object.fromEntries(Object.entries(categories).map(([category, names]) => [category, [...names]]));
+  return (category, row) => {
+    const names = fields[category];
+    if (!names) return undefined;
+    if (names.some((name) => !Object.hasOwn(row, name)))
+      throw new TypeError(`Missing native identity field: ${category}`);
+    return { identity: JSON.stringify(names.map((name) => row[name])), knowledge: "native-fields" };
+  };
+}

@@ -1,10 +1,12 @@
-import { numericVersionBand } from "../registry.mjs";
+import { identityFields, numericVersionBand } from "../registry.mjs";
 
 const numericFields = Object.freeze({ functions: ["arity", "builtin", "flags"], collations: ["seq"] });
 
 export const sqliteMapper = Object.freeze({
   id: "sqlite",
   versionBand: numericVersionBand(3),
+  parameterMode: (mode) => (mode === "positional" ? "input" : "unknown"),
+  entityIdentity: identityFields({ keywords: ["name"], types: ["name"], collations: ["name"], settings: ["name"] }),
   normalizeRow(category, row) {
     const normalized = { ...row };
     for (const field of numericFields[category] ?? []) {

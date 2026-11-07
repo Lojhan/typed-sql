@@ -1,10 +1,23 @@
 import { hash } from "../language-audit/hash.mjs";
 import { CATEGORIES } from "../language-audit/inventory.mjs";
 
-export function generationReport(corpus, groups, inputs, outputs) {
+export function generationReport(corpus, groups, inputs, outputs, catalog = undefined) {
   return {
     formatVersion: 1,
     inputFingerprint: hash({ contexts: corpus.targets, inputs }),
+    ...(catalog
+      ? {
+          model: {
+            formatVersion: catalog.formatVersion,
+            schemaDigest: catalog.schemaDigest,
+            normalizerDigest: catalog.normalizerDigest,
+            inputDigest: catalog.inputDigest,
+            profiles: Object.keys(catalog.profiles).length,
+            entities: Object.keys(catalog.entities).length,
+            sources: Object.keys(catalog.sources).length,
+          },
+        }
+      : {}),
     outputs: [...outputs].sort(),
     bands: groups.map((group) => ({
       dialect: group.dialect,
@@ -44,6 +57,13 @@ export function renderGenerationReport(report) {
     "| Grammar | Version | Contexts | Category | Shared facts | Context-specific facts |",
     "| --- | --- | ---: | --- | ---: | ---: |",
   ];
+  if (report.model)
+    lines.splice(
+      8,
+      0,
+      `Validated model v${report.model.formatVersion}: ${report.model.profiles} profiles, ${report.model.entities} normalized entities, ${report.model.sources} source records. Schema ${report.model.schemaDigest}; normalizer ${report.model.normalizerDigest}. Unknown provenance fields and semantic gaps remain unverified.`,
+      "",
+    );
   for (const band of report.bands)
     for (const [name, category] of Object.entries(band.categories))
       lines.push(

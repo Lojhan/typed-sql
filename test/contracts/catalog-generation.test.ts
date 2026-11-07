@@ -28,7 +28,20 @@ import { acceptLiveBaseline, reviewLive } from "../../scripts/language-audit/liv
 import { preparePostgres } from "../../scripts/language-audit/native.mjs";
 import { extractSqliteStrictTypes } from "../../scripts/language-audit/references.js";
 
-const capture = () => collectLive("postgres", async () => [{ name: "discovered" }], { version: "18.6" });
+const capture = () =>
+  collectLive(
+    "postgres",
+    async () => [
+      {
+        name: "discovered",
+        left_type: "integer",
+        right_type: "integer",
+        provider: "c",
+        encoding: -1,
+      },
+    ],
+    { version: "18.6" },
+  );
 
 await describe("reproducible native catalog generation", async () => {
   await it("retains facts independently of inference approval and refuses to baseline a type disagreement", async () => {
@@ -72,8 +85,8 @@ await describe("reproducible native catalog generation", async () => {
     });
     const groups = groupCorpus(corpus);
     strict.equal(groups.length, 1);
-    strict.equal(groups[0].categories.types.rows.length, 0);
-    strict.equal(groups[0].categories.types.excludedContextRows, 2);
+    strict.equal(groups[0]!.categories.types!.rows!.length, 0);
+    strict.equal(groups[0]!.categories.types!.excludedContextRows, 2);
     const directory = await mkdtemp(join(tmpdir(), "typed-sql-generation-"));
     try {
       const path = join(directory, "corpus.json");

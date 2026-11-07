@@ -4,5 +4,8 @@
   "type": "module",
   "engines": {
     "node": ">=22.11"
+  },
+  "dependencies": {
+    "@sinclair/typebox": "0.34.52"
   }
 }

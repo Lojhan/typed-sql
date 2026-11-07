@@ -1,9 +1,19 @@
-import { numericVersionBand } from "../registry.mjs";
+import { identityFields, numericVersionBand } from "../registry.mjs";
 
 export const duckdbMapper = Object.freeze({
   id: "duckdb",
   versionBand: numericVersionBand(3),
   normalizeRow: (_category, row) => row,
+  parameterMode: (mode) => ({ positional: "input", named: "named-only" })[mode] ?? "unknown",
+  entityIdentity: identityFields({
+    keywords: ["name"],
+    types: ["name"],
+    operators: ["name", "arguments"],
+    casts: ["name"],
+    collations: ["name"],
+    settings: ["name"],
+    extensions: ["name"],
+  }),
   routineFacts(row) {
     const shape = {
       returnsSet: row.kind === undefined ? null : ["table", "table_macro"].includes(row.kind),

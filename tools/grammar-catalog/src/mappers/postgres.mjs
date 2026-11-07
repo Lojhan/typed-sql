@@ -1,9 +1,19 @@
-import { numericVersionBand } from "../registry.mjs";
+import { identityFields, numericVersionBand } from "../registry.mjs";
 
 export const postgresMapper = Object.freeze({
   id: "postgres",
   versionBand: numericVersionBand(1),
   normalizeRow: (_category, row) => row,
+  parameterMode: (mode) => ({ i: "input", o: "output", b: "inout", t: "output", v: "variadic" })[mode] ?? "unknown",
+  entityIdentity: identityFields({
+    keywords: ["name"],
+    types: ["name"],
+    operators: ["name", "left_type", "right_type"],
+    casts: ["name"],
+    collations: ["name", "provider", "encoding"],
+    settings: ["name"],
+    extensions: ["name"],
+  }),
   routineFacts(row) {
     if (!Array.isArray(row.all_argument_types ?? row.argument_types)) return {};
     if (row.parameter_modes != null && !Array.isArray(row.parameter_modes))

@@ -1,7 +1,8 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
+import { CATALOG_SCHEMA_DOCUMENT } from "../../tools/grammar-catalog/src/model/schema.mjs";
 import { hash } from "../language-audit/hash.mjs";
-import { duckdbCombinations, duckdbSignature, groupCorpus, postgresSignature } from "./model.mjs";
+import { duckdbCombinations, duckdbSignature, normalizedCorpus, postgresSignature } from "./model.mjs";
 import { generationReport, renderGenerationReport } from "./report.mjs";
 import { sqlServerTypeSource } from "./sqlserver.mjs";
 
@@ -76,7 +77,13 @@ export async function generateCatalogs(corpus, options = {}) {
     outputs.push(path);
     return output(path, text, check, changed);
   };
-  const groups = groupCorpus(corpus);
+  const { catalog, groups } = normalizedCorpus(corpus);
+  inputs.model = {
+    schemaDigest: catalog.schemaDigest,
+    normalizerDigest: catalog.normalizerDigest,
+    inputDigest: catalog.inputDigest,
+  };
+  await emit("grammar/catalog/format.schema.json", `${JSON.stringify(CATALOG_SCHEMA_DOCUMENT, null, 2)}\n`);
   for (const target of requiredTargets ?? [])
     if (!groups.some((group) => group.dialect === target.dialect && group.version === target.version))
       throw new Error(`Missing native generation input: ${target.dialect} ${target.version}`);
@@ -239,7 +246,7 @@ export async function generateCatalogs(corpus, options = {}) {
     `${header}export const nativeTypeAliases: Readonly<Record<string, string>> = ${literal(Object.fromEntries(Object.entries(duckAliases).sort(([a], [b]) => a.localeCompare(b))))};\n`,
   );
   inputs.sqliteTypes = options.sqliteTypes;
-  const report = generationReport(corpus, groups, inputs, outputs);
+  const report = generationReport(corpus, groups, inputs, outputs, catalog);
   await output("grammar/catalog/generation.json", `${JSON.stringify(report, null, 2)}\n`, check, changed);
   await output("planning/language-audit/generation.md", renderGenerationReport(report), check, changed);
   if (check && changed.length)

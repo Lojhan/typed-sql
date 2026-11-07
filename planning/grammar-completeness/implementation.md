@@ -20,6 +20,14 @@ never grammar-name branches. Engine and extension meanings belong to their contr
 - Removed the corpus's closed grammar-name allowlist and made mapper injection available across
   capture import, validation, persistence and grouping. A synthetic graph contribution exercises
   that full round trip. SQL Server's disposable-database identity rule belongs to its mapper.
+- Added the executable v2 model schema, inferred static types, content-addressed entities,
+  profile/source references and a loss-preserving legacy importer. Generation now consumes
+  that validated projection instead of independently normalizing raw rows.
+- All 33 retained contexts import into 26,829 normalized entities and 164 source records.
+  Every source category and raw-row reference is accounted for by contract tests. Native
+  payloads, formal/default/output metadata and unresolved provenance are preserved.
+- Profile-specific variants and unavailable evidence retain explicit membership. Generated
+  schema and normalizer/input digests participate in the generation evidence.
 
 ## Validation observed
 
@@ -35,12 +43,21 @@ never grammar-name branches. Engine and extension meanings belong to their contr
 - Documentation contracts pass. The performance gate passes in an isolated run without budget
   changes. A preceding run during concurrent packaging failed the scanner budget and is not
   used as performance evidence; both logs remain in local artifacts.
+- The preceding published checkpoint `984e1fde` passed CI run `42380744391` and migration
+  integration run `42380744338`. Those results do not qualify subsequent working changes.
+- V2 model/import tests pass, including corrupted references, unsupported/non-JSON values,
+  cyclic metadata and external contribution round trips. The generated draft-07 schema also
+  compiles under the separately installed Ajv 8.20.0 validator.
+- After the model integration, `pnpm typecheck`, `pnpm quality` and all 50 repository contract
+  test files pass locally, including package graph and isolated packed consumers/editors.
 
 ## Requirements still open
 
 1. Independently decoded native type identities and modifiers; remove shared implementation
    normalization from the expected side of native comparisons.
-2. Complete validated IR, provenance/source locks and field/projection-loss accounting.
+2. Complete semantic facets for every IR category, immutable upstream source locks and
+   field/projection-loss accounting. The structural v2 model and legacy importer are implemented;
+   unknown historical provenance is not upgraded to qualified source evidence.
 3. Pinned structured source extraction for every declared engine/version/profile.
 4. Full signature/type/keyword/operator/cast/syntax generation, including special invocation
    forms, generic constraints, named/default/variadic arguments and table outputs.

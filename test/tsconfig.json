@@ -11,6 +11,7 @@
     "../scripts/catalog-generation/**/*.ts",
     "../scripts/catalog-generation/**/*.mjs",
     "../tools/grammar-catalog/src/**/*.mjs",
+    "../tools/grammar-catalog/src/**/*.ts",
     "../packages/*/test/**/*.test.ts",
     "../editors/vscode/test/**/*.test.ts",
     "../packages/*/test/helpers/**/*.ts",

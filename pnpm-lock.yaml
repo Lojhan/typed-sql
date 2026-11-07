@@ -681,6 +681,12 @@ importers:
         specifier: 6.4.5
         version: 6.4.5(@types/node@24.19.2)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.0)(tsx@4.23.15)(yaml@2.9.1)
 
+  tools/grammar-catalog:
+    dependencies:
+      '@sinclair/typebox':
+        specifier: 0.34.52
+        version: 0.34.52
+
   website:
     dependencies:
       '@codemirror/autocomplete':

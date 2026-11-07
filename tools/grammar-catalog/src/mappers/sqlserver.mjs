@@ -1,4 +1,4 @@
-import { numericVersionBand } from "../registry.mjs";
+import { identityFields, numericVersionBand } from "../registry.mjs";
 
 export const sqlServerMapper = Object.freeze({
   id: "sqlserver",
@@ -9,6 +9,20 @@ export const sqlServerMapper = Object.freeze({
     return { ...target, settings };
   },
   normalizeRow: (_category, row) => row,
+  parameterMode: (mode) => (mode === "input" ? "input" : "unknown"),
+  resultColumn: (column) => ({
+    name: column.name,
+    nativeType: column.type_name ?? null,
+    nullable:
+      typeof column.is_nullable === "boolean"
+        ? column.is_nullable
+        : column.is_nullable === 0
+          ? false
+          : column.is_nullable === 1
+            ? true
+            : null,
+  }),
+  entityIdentity: identityFields({ keywords: ["name"], types: ["name"], collations: ["name"], settings: ["name"] }),
   routineFacts(row) {
     const returnsSet = row.kind === undefined ? null : ["IF", "TF", "FT"].includes(row.kind);
     if (row.parameters_json == null) return { returnsSet };

@@ -1,57 +1,18 @@
+import { legacyGenerationInput } from "../../tools/grammar-catalog/src/import/legacy.mjs";
 import { builtinMappers } from "../../tools/grammar-catalog/src/mappers/index.mjs";
-import { routineSignature } from "../../tools/grammar-catalog/src/model/routines.mjs";
-import { CATEGORIES, hash } from "../language-audit/inventory.mjs";
-import { expandTarget } from "./corpus.mjs";
+import { CATEGORIES } from "../language-audit/inventory.mjs";
 
 export function targetSeries(dialect, version, registry = builtinMappers) {
   return registry.get(dialect).versionBand(version);
 }
 
-// A semantic band uses only facts shared by all its captured builds/modes/profiles.
-// Individual contexts remain intact in the corpus; disagreement never selects an arbitrary row.
+// Keep context-specific facts in the normalized graph and consume only its validated projections.
+export function normalizedCorpus(corpus, registry = builtinMappers) {
+  return legacyGenerationInput(corpus, registry, CATEGORIES);
+}
+
 export function groupCorpus(corpus, registry = builtinMappers) {
-  const groups = new Map();
-  for (const [id, entry] of Object.entries(corpus.targets)) {
-    const version = targetSeries(entry.dialect, entry.target.version, registry);
-    const key = `${entry.dialect}/${version}`;
-    const group = groups.get(key) ?? { dialect: entry.dialect, version, contexts: [], categories: {} };
-    group.contexts.push({ id, capture: expandTarget(corpus, entry, registry) });
-    groups.set(key, group);
-  }
-  for (const group of groups.values()) {
-    group.contexts.sort((a, b) => a.id.localeCompare(b.id));
-    for (const name of CATEGORIES) {
-      const observed = group.contexts.map(({ capture }) => capture.categories[name]);
-      if (observed.some((entry) => entry.status !== "observed")) {
-        group.categories[name] = {
-          status: "unavailable",
-          reasons: [...new Set(observed.map((entry) => entry.reason).filter(Boolean))],
-        };
-        continue;
-      }
-      const mapper = registry.get(group.dialect);
-      const normalized = observed.map((entry) => [
-        ...new Map(
-          entry.rows.map((raw) => {
-            const row = mapper.normalizeRow(name, raw);
-            const value =
-              name === "functions" && row.signature ? { ...row, signature: routineSignature(mapper, row) } : row;
-            return [hash(value), value];
-          }),
-        ).values(),
-      ]);
-      const memberships = normalized.map((rows) => new Set(rows.map(hash)));
-      const rows = normalized[0].filter((row) => memberships.every((membership) => membership.has(hash(row))));
-      group.categories[name] = {
-        status: "observed",
-        rows,
-        excludedContextRows: new Set(normalized.flatMap((rows) => rows.map(hash))).size - rows.length,
-      };
-    }
-  }
-  return [...groups.values()].sort((a, b) =>
-    `${a.dialect}/${a.version}`.localeCompare(`${b.dialect}/${b.version}`, undefined, { numeric: true }),
-  );
+  return normalizedCorpus(corpus, registry).groups;
 }
 
 export function postgresSignature(row) {

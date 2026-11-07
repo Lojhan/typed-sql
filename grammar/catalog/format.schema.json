@@ -1,0 +1,1616 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "formatVersion",
+    "schemaDigest",
+    "normalizerDigest",
+    "inputDigest",
+    "requiredCategories",
+    "sources",
+    "entities",
+    "profiles"
+  ],
+  "properties": {
+    "formatVersion": {
+      "const": 2,
+      "type": "number"
+    },
+    "schemaDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "normalizerDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "inputDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "requiredCategories": {
+      "minItems": 1,
+      "uniqueItems": true,
+      "type": "array",
+      "items": {
+        "minLength": 1,
+        "pattern": "\\S",
+        "type": "string"
+      }
+    },
+    "sources": {
+      "additionalProperties": false,
+      "type": "object",
+      "patternProperties": {
+        "^sha256:[a-f0-9]{64}$": {
+          "$ref": "CatalogSource"
+        }
+      }
+    },
+    "entities": {
+      "additionalProperties": false,
+      "type": "object",
+      "patternProperties": {
+        "^sha256:[a-f0-9]{64}$": {
+          "$ref": "CatalogEntity"
+        }
+      }
+    },
+    "profiles": {
+      "additionalProperties": false,
+      "minProperties": 1,
+      "type": "object",
+      "patternProperties": {
+        "^sha256:[a-f0-9]{64}$": {
+          "$ref": "CatalogProfile"
+        }
+      }
+    }
+  },
+  "definitions": {
+    "CatalogJson": {
+      "$id": "CatalogJson",
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "CatalogJson"
+          }
+        },
+        {
+          "type": "object",
+          "patternProperties": {
+            "^(.*)$": {
+              "$ref": "CatalogJson"
+            }
+          }
+        }
+      ]
+    },
+    "CatalogTypeExpression": {
+      "$id": "CatalogTypeExpression",
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "kind",
+            "identity"
+          ],
+          "properties": {
+            "kind": {
+              "const": "native",
+              "type": "string"
+            },
+            "identity": {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "kind",
+            "name",
+            "constraints"
+          ],
+          "properties": {
+            "kind": {
+              "const": "variable",
+              "type": "string"
+            },
+            "name": {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            "constraints": {
+              "type": "array",
+              "items": {
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "kind",
+            "constructor",
+            "arguments",
+            "modifiers"
+          ],
+          "properties": {
+            "kind": {
+              "const": "apply",
+              "type": "string"
+            },
+            "constructor": {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            "arguments": {
+              "type": "array",
+              "items": {
+                "$ref": "CatalogTypeExpression"
+              }
+            },
+            "modifiers": {
+              "type": "object",
+              "patternProperties": {
+                "^(.*)$": {
+                  "$ref": "CatalogJson"
+                }
+              }
+            }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "kind",
+            "columns"
+          ],
+          "properties": {
+            "kind": {
+              "const": "row",
+              "type": "string"
+            },
+            "columns": {
+              "type": "array",
+              "items": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "name",
+                  "type"
+                ],
+                "properties": {
+                  "name": {
+                    "minLength": 1,
+                    "pattern": "\\S",
+                    "type": "string"
+                  },
+                  "type": {
+                    "$ref": "CatalogTypeExpression"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "kind",
+            "choices"
+          ],
+          "properties": {
+            "kind": {
+              "const": "alternatives",
+              "type": "string"
+            },
+            "choices": {
+              "minItems": 1,
+              "type": "array",
+              "items": {
+                "$ref": "CatalogTypeExpression"
+              }
+            }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "kind",
+            "reason"
+          ],
+          "properties": {
+            "kind": {
+              "const": "unknown",
+              "type": "string"
+            },
+            "reason": {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "CatalogAvailability": {
+      "$id": "CatalogAvailability",
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "const": "always",
+              "type": "string"
+            }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "kind",
+            "conditions"
+          ],
+          "properties": {
+            "kind": {
+              "anyOf": [
+                {
+                  "const": "all",
+                  "type": "string"
+                },
+                {
+                  "const": "any",
+                  "type": "string"
+                }
+              ]
+            },
+            "conditions": {
+              "minItems": 1,
+              "type": "array",
+              "items": {
+                "$ref": "CatalogAvailability"
+              }
+            }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "kind",
+            "condition"
+          ],
+          "properties": {
+            "kind": {
+              "const": "not",
+              "type": "string"
+            },
+            "condition": {
+              "$ref": "CatalogAvailability"
+            }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "kind",
+            "key",
+            "operator",
+            "value"
+          ],
+          "properties": {
+            "kind": {
+              "const": "predicate",
+              "type": "string"
+            },
+            "key": {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            "operator": {
+              "anyOf": [
+                {
+                  "const": "equals",
+                  "type": "string"
+                },
+                {
+                  "const": "contains",
+                  "type": "string"
+                },
+                {
+                  "const": "at-least",
+                  "type": "string"
+                },
+                {
+                  "const": "before",
+                  "type": "string"
+                }
+              ]
+            },
+            "value": {
+              "$ref": "CatalogJson"
+            }
+          }
+        }
+      ]
+    },
+    "CatalogRoutine": {
+      "additionalProperties": false,
+      "$id": "CatalogRoutine",
+      "type": "object",
+      "required": [
+        "identity",
+        "identityKnowledge",
+        "namespace",
+        "nativeKind",
+        "parameters",
+        "variadic",
+        "variadicType",
+        "defaultExpressions",
+        "result",
+        "invocation",
+        "properties",
+        "requiredPolicy"
+      ],
+      "properties": {
+        "identity": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "type": "string"
+        },
+        "identityKnowledge": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "type": "string"
+        },
+        "namespace": {
+          "anyOf": [
+            {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "status",
+                "value"
+              ],
+              "properties": {
+                "status": {
+                  "const": "known",
+                  "type": "string"
+                },
+                "value": {
+                  "anyOf": [
+                    {
+                      "minLength": 1,
+                      "pattern": "\\S",
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "status",
+                "reason"
+              ],
+              "properties": {
+                "status": {
+                  "const": "unknown",
+                  "type": "string"
+                },
+                "reason": {
+                  "minLength": 1,
+                  "pattern": "\\S",
+                  "type": "string"
+                }
+              }
+            }
+          ]
+        },
+        "nativeKind": {
+          "anyOf": [
+            {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "status",
+                "value"
+              ],
+              "properties": {
+                "status": {
+                  "const": "known",
+                  "type": "string"
+                },
+                "value": {
+                  "minLength": 1,
+                  "pattern": "\\S",
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "status",
+                "reason"
+              ],
+              "properties": {
+                "status": {
+                  "const": "unknown",
+                  "type": "string"
+                },
+                "reason": {
+                  "minLength": 1,
+                  "pattern": "\\S",
+                  "type": "string"
+                }
+              }
+            }
+          ]
+        },
+        "parameters": {
+          "anyOf": [
+            {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "status",
+                "value"
+              ],
+              "properties": {
+                "status": {
+                  "const": "known",
+                  "type": "string"
+                },
+                "value": {
+                  "type": "array",
+                  "items": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "position",
+                      "inputPosition",
+                      "name",
+                      "mode",
+                      "nativeMode",
+                      "type",
+                      "default"
+                    ],
+                    "properties": {
+                      "position": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "status",
+                              "value"
+                            ],
+                            "properties": {
+                              "status": {
+                                "const": "known",
+                                "type": "string"
+                              },
+                              "value": {
+                                "minimum": 1,
+                                "type": "integer"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "status",
+                              "reason"
+                            ],
+                            "properties": {
+                              "status": {
+                                "const": "unknown",
+                                "type": "string"
+                              },
+                              "reason": {
+                                "minLength": 1,
+                                "pattern": "\\S",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "inputPosition": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "status",
+                              "value"
+                            ],
+                            "properties": {
+                              "status": {
+                                "const": "known",
+                                "type": "string"
+                              },
+                              "value": {
+                                "minimum": 1,
+                                "type": "integer"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "status",
+                              "reason"
+                            ],
+                            "properties": {
+                              "status": {
+                                "const": "unknown",
+                                "type": "string"
+                              },
+                              "reason": {
+                                "minLength": 1,
+                                "pattern": "\\S",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "name": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "status",
+                              "value"
+                            ],
+                            "properties": {
+                              "status": {
+                                "const": "known",
+                                "type": "string"
+                              },
+                              "value": {
+                                "anyOf": [
+                                  {
+                                    "minLength": 1,
+                                    "pattern": "\\S",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "status",
+                              "reason"
+                            ],
+                            "properties": {
+                              "status": {
+                                "const": "unknown",
+                                "type": "string"
+                              },
+                              "reason": {
+                                "minLength": 1,
+                                "pattern": "\\S",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "mode": {
+                        "anyOf": [
+                          {
+                            "const": "input",
+                            "type": "string"
+                          },
+                          {
+                            "const": "output",
+                            "type": "string"
+                          },
+                          {
+                            "const": "inout",
+                            "type": "string"
+                          },
+                          {
+                            "const": "variadic",
+                            "type": "string"
+                          },
+                          {
+                            "const": "named-only",
+                            "type": "string"
+                          },
+                          {
+                            "const": "unknown",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "nativeMode": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "status",
+                              "value"
+                            ],
+                            "properties": {
+                              "status": {
+                                "const": "known",
+                                "type": "string"
+                              },
+                              "value": {
+                                "minLength": 1,
+                                "pattern": "\\S",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "status",
+                              "reason"
+                            ],
+                            "properties": {
+                              "status": {
+                                "const": "unknown",
+                                "type": "string"
+                              },
+                              "reason": {
+                                "minLength": 1,
+                                "pattern": "\\S",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "type": {
+                        "$ref": "CatalogTypeExpression"
+                      },
+                      "default": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "kind"
+                            ],
+                            "properties": {
+                              "kind": {
+                                "anyOf": [
+                                  {
+                                    "const": "absent",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "present-expression-unavailable",
+                                    "type": "string"
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "kind",
+                              "sql"
+                            ],
+                            "properties": {
+                              "kind": {
+                                "const": "expression",
+                                "type": "string"
+                              },
+                              "sql": {
+                                "minLength": 1,
+                                "pattern": "\\S",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "kind",
+                              "reason"
+                            ],
+                            "properties": {
+                              "kind": {
+                                "const": "unknown",
+                                "type": "string"
+                              },
+                              "reason": {
+                                "minLength": 1,
+                                "pattern": "\\S",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "status",
+                "reason"
+              ],
+              "properties": {
+                "status": {
+                  "const": "unknown",
+                  "type": "string"
+                },
+                "reason": {
+                  "minLength": 1,
+                  "pattern": "\\S",
+                  "type": "string"
+                }
+              }
+            }
+          ]
+        },
+        "variadic": {
+          "anyOf": [
+            {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "status",
+                "value"
+              ],
+              "properties": {
+                "status": {
+                  "const": "known",
+                  "type": "string"
+                },
+                "value": {
+                  "type": "boolean"
+                }
+              }
+            },
+            {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "status",
+                "reason"
+              ],
+              "properties": {
+                "status": {
+                  "const": "unknown",
+                  "type": "string"
+                },
+                "reason": {
+                  "minLength": 1,
+                  "pattern": "\\S",
+                  "type": "string"
+                }
+              }
+            }
+          ]
+        },
+        "variadicType": {
+          "$ref": "CatalogTypeExpression"
+        },
+        "defaultExpressions": {
+          "anyOf": [
+            {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "status",
+                "value"
+              ],
+              "properties": {
+                "status": {
+                  "const": "known",
+                  "type": "string"
+                },
+                "value": {
+                  "minLength": 1,
+                  "pattern": "\\S",
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "status",
+                "reason"
+              ],
+              "properties": {
+                "status": {
+                  "const": "unknown",
+                  "type": "string"
+                },
+                "reason": {
+                  "minLength": 1,
+                  "pattern": "\\S",
+                  "type": "string"
+                }
+              }
+            }
+          ]
+        },
+        "result": {
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "type",
+            "columns",
+            "returnsSet",
+            "nullable"
+          ],
+          "properties": {
+            "type": {
+              "$ref": "CatalogTypeExpression"
+            },
+            "columns": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "status",
+                    "value"
+                  ],
+                  "properties": {
+                    "status": {
+                      "const": "known",
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "array",
+                      "items": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "name",
+                          "type",
+                          "nullable",
+                          "native"
+                        ],
+                        "properties": {
+                          "name": {
+                            "anyOf": [
+                              {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "status",
+                                  "value"
+                                ],
+                                "properties": {
+                                  "status": {
+                                    "const": "known",
+                                    "type": "string"
+                                  },
+                                  "value": {
+                                    "minLength": 1,
+                                    "pattern": "\\S",
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "status",
+                                  "reason"
+                                ],
+                                "properties": {
+                                  "status": {
+                                    "const": "unknown",
+                                    "type": "string"
+                                  },
+                                  "reason": {
+                                    "minLength": 1,
+                                    "pattern": "\\S",
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            ]
+                          },
+                          "type": {
+                            "$ref": "CatalogTypeExpression"
+                          },
+                          "nullable": {
+                            "anyOf": [
+                              {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "status",
+                                  "value"
+                                ],
+                                "properties": {
+                                  "status": {
+                                    "const": "known",
+                                    "type": "string"
+                                  },
+                                  "value": {
+                                    "type": "boolean"
+                                  }
+                                }
+                              },
+                              {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "status",
+                                  "reason"
+                                ],
+                                "properties": {
+                                  "status": {
+                                    "const": "unknown",
+                                    "type": "string"
+                                  },
+                                  "reason": {
+                                    "minLength": 1,
+                                    "pattern": "\\S",
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            ]
+                          },
+                          "native": {
+                            "type": "object",
+                            "patternProperties": {
+                              "^(.*)$": {
+                                "$ref": "CatalogJson"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "status",
+                    "reason"
+                  ],
+                  "properties": {
+                    "status": {
+                      "const": "unknown",
+                      "type": "string"
+                    },
+                    "reason": {
+                      "minLength": 1,
+                      "pattern": "\\S",
+                      "type": "string"
+                    }
+                  }
+                }
+              ]
+            },
+            "returnsSet": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "status",
+                    "value"
+                  ],
+                  "properties": {
+                    "status": {
+                      "const": "known",
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "boolean"
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "status",
+                    "reason"
+                  ],
+                  "properties": {
+                    "status": {
+                      "const": "unknown",
+                      "type": "string"
+                    },
+                    "reason": {
+                      "minLength": 1,
+                      "pattern": "\\S",
+                      "type": "string"
+                    }
+                  }
+                }
+              ]
+            },
+            "nullable": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "status",
+                    "value"
+                  ],
+                  "properties": {
+                    "status": {
+                      "const": "known",
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "boolean"
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "status",
+                    "reason"
+                  ],
+                  "properties": {
+                    "status": {
+                      "const": "unknown",
+                      "type": "string"
+                    },
+                    "reason": {
+                      "minLength": 1,
+                      "pattern": "\\S",
+                      "type": "string"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "invocation": {
+          "anyOf": [
+            {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "status",
+                "value"
+              ],
+              "properties": {
+                "status": {
+                  "const": "known",
+                  "type": "string"
+                },
+                "value": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "kind"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "anyOf": [
+                        {
+                          "const": "call",
+                          "type": "string"
+                        },
+                        {
+                          "const": "special-syntax",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "production": {
+                      "minLength": 1,
+                      "pattern": "\\S",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "status",
+                "reason"
+              ],
+              "properties": {
+                "status": {
+                  "const": "unknown",
+                  "type": "string"
+                },
+                "reason": {
+                  "minLength": 1,
+                  "pattern": "\\S",
+                  "type": "string"
+                }
+              }
+            }
+          ]
+        },
+        "properties": {
+          "type": "object",
+          "patternProperties": {
+            "^(.*)$": {
+              "$ref": "CatalogJson"
+            }
+          }
+        },
+        "requiredPolicy": {
+          "uniqueItems": true,
+          "type": "array",
+          "items": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          }
+        }
+      }
+    },
+    "CatalogEntity": {
+      "additionalProperties": false,
+      "$id": "CatalogEntity",
+      "type": "object",
+      "required": [
+        "grammar",
+        "category",
+        "name",
+        "identity",
+        "identityKnowledge",
+        "availability",
+        "native"
+      ],
+      "properties": {
+        "grammar": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "type": "string"
+        },
+        "category": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "type": "string"
+        },
+        "identity": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "type": "string"
+        },
+        "identityKnowledge": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "type": "string"
+        },
+        "availability": {
+          "$ref": "CatalogAvailability"
+        },
+        "native": {
+          "type": "object",
+          "patternProperties": {
+            "^(.*)$": {
+              "$ref": "CatalogJson"
+            }
+          }
+        },
+        "routine": {
+          "$ref": "CatalogRoutine"
+        }
+      }
+    },
+    "CatalogSource": {
+      "additionalProperties": false,
+      "$id": "CatalogSource",
+      "type": "object",
+      "required": [
+        "kind",
+        "location",
+        "revision",
+        "contentDigest",
+        "digestFormat",
+        "extractor",
+        "license",
+        "native"
+      ],
+      "properties": {
+        "kind": {
+          "anyOf": [
+            {
+              "const": "native-capture",
+              "type": "string"
+            },
+            {
+              "const": "vendor-source",
+              "type": "string"
+            },
+            {
+              "const": "official-reference",
+              "type": "string"
+            },
+            {
+              "const": "reviewed-policy",
+              "type": "string"
+            }
+          ]
+        },
+        "location": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "status",
+                "value"
+              ],
+              "properties": {
+                "status": {
+                  "const": "known",
+                  "type": "string"
+                },
+                "value": {
+                  "minLength": 1,
+                  "pattern": "\\S",
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "status",
+                "reason"
+              ],
+              "properties": {
+                "status": {
+                  "const": "unknown",
+                  "type": "string"
+                },
+                "reason": {
+                  "minLength": 1,
+                  "pattern": "\\S",
+                  "type": "string"
+                }
+              }
+            }
+          ]
+        },
+        "contentDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "digestFormat": {
+          "anyOf": [
+            {
+              "const": "canonical-json-sha256",
+              "type": "string"
+            },
+            {
+              "const": "bytes-sha256",
+              "type": "string"
+            }
+          ]
+        },
+        "extractor": {
+          "anyOf": [
+            {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "status",
+                "value"
+              ],
+              "properties": {
+                "status": {
+                  "const": "known",
+                  "type": "string"
+                },
+                "value": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "revision"
+                  ],
+                  "properties": {
+                    "id": {
+                      "minLength": 1,
+                      "pattern": "\\S",
+                      "type": "string"
+                    },
+                    "revision": {
+                      "minLength": 1,
+                      "pattern": "\\S",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "status",
+                "reason"
+              ],
+              "properties": {
+                "status": {
+                  "const": "unknown",
+                  "type": "string"
+                },
+                "reason": {
+                  "minLength": 1,
+                  "pattern": "\\S",
+                  "type": "string"
+                }
+              }
+            }
+          ]
+        },
+        "license": {
+          "anyOf": [
+            {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "status",
+                "value"
+              ],
+              "properties": {
+                "status": {
+                  "const": "known",
+                  "type": "string"
+                },
+                "value": {
+                  "minLength": 1,
+                  "pattern": "\\S",
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "status",
+                "reason"
+              ],
+              "properties": {
+                "status": {
+                  "const": "unknown",
+                  "type": "string"
+                },
+                "reason": {
+                  "minLength": 1,
+                  "pattern": "\\S",
+                  "type": "string"
+                }
+              }
+            }
+          ]
+        },
+        "native": {
+          "type": "object",
+          "patternProperties": {
+            "^(.*)$": {
+              "$ref": "CatalogJson"
+            }
+          }
+        }
+      }
+    },
+    "CatalogProfile": {
+      "additionalProperties": false,
+      "$id": "CatalogProfile",
+      "type": "object",
+      "required": [
+        "grammar",
+        "version",
+        "band",
+        "target",
+        "categories"
+      ],
+      "properties": {
+        "grammar": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "type": "string"
+        },
+        "version": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "type": "string"
+        },
+        "band": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "type": "string"
+        },
+        "target": {
+          "type": "object",
+          "patternProperties": {
+            "^(.*)$": {
+              "$ref": "CatalogJson"
+            }
+          }
+        },
+        "categories": {
+          "additionalProperties": false,
+          "minProperties": 1,
+          "type": "object",
+          "patternProperties": {
+            "\\S": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "status",
+                    "source",
+                    "originalFingerprint",
+                    "entries",
+                    "native"
+                  ],
+                  "properties": {
+                    "status": {
+                      "const": "observed",
+                      "type": "string"
+                    },
+                    "source": {
+                      "pattern": "^sha256:[a-f0-9]{64}$",
+                      "type": "string"
+                    },
+                    "originalFingerprint": {
+                      "pattern": "^sha256:[a-f0-9]{64}$",
+                      "type": "string"
+                    },
+                    "entries": {
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "entity",
+                          "rawRow"
+                        ],
+                        "properties": {
+                          "entity": {
+                            "pattern": "^sha256:[a-f0-9]{64}$",
+                            "type": "string"
+                          },
+                          "rawRow": {
+                            "pattern": "^sha256:[a-f0-9]{64}$",
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "native": {
+                      "type": "object",
+                      "patternProperties": {
+                        "^(.*)$": {
+                          "$ref": "CatalogJson"
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "status",
+                    "reason",
+                    "native"
+                  ],
+                  "properties": {
+                    "status": {
+                      "const": "unavailable",
+                      "type": "string"
+                    },
+                    "reason": {
+                      "minLength": 1,
+                      "pattern": "\\S",
+                      "type": "string"
+                    },
+                    "native": {
+                      "type": "object",
+                      "patternProperties": {
+                        "^(.*)$": {
+                          "$ref": "CatalogJson"
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

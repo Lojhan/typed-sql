@@ -94,9 +94,10 @@ await describe("grammar-independent catalog mapper registrations", async () => {
       await writeCorpus(corpus, path, registry);
       const restored = await readCorpus(path, registry);
       const [group] = groupCorpus(restored, registry);
+      if (!group) throw new Error("External contribution group is missing");
       strict.equal(group.dialect, "synthetic/graph");
       strict.equal(group.version, "7.2");
-      strict.deepEqual(group.categories.functions.rows, [row]);
+      strict.deepEqual(group.categories.functions!.rows, [row]);
       await strict.rejects(readCorpus(path), /Unregistered/u);
     } finally {
       await rm(directory, { recursive: true, force: true });
@@ -120,10 +121,10 @@ await describe("grammar-independent catalog mapper registrations", async () => {
   await it("validates every retained legacy signature and recovers shared SQLite facts across wrappers", async () => {
     const corpus = await readCorpus();
     const group = groupCorpus(corpus).find((entry) => entry.dialect === "sqlite" && entry.version === "3.53.4");
-    strict.ok(group);
+    if (!group) throw new Error("SQLite native contexts are missing");
     strict.equal(group.contexts.length, 4);
-    strict.ok(group.categories.functions.rows.length >= 140);
-    strict.ok(group.categories.functions.rows.some((row: { name: string }) => row.name === "abs"));
+    strict.ok(group.categories.functions!.rows!.length >= 140);
+    strict.ok(group.categories.functions!.rows!.some((row: { name: string }) => row.name === "abs"));
     // Normalization changes the shared view, never the archived native capture.
     const rows = Object.values(corpus.rows) as { name: string; arity?: unknown }[];
     strict.ok(rows.some((row) => row.name === "abs" && typeof row.arity === "string"));
