@@ -625,3 +625,12 @@ Recognition fallback ownership and MySQL semantic findings:
     final requirement-by-requirement completion audit.
 
 This list preserves the full goal. It is not a reduced definition of ready-to-merge.
+
+## Native MySQL numeric regression evidence
+
+The isolated test runtime now runs MySQL 8.4.11 on linux/arm64.
+`mysql-numeric-witnesses.json` retains nine explicit pure-function queries, exact image/driver
+identity, preparation/execution descriptors, observed values and the native description of each
+grammar-claimed type. Five queries have a native type-code mismatch; three other queries return
+NULL against a non-null claim. These are targeted bug witnesses, not a usage-frequency metric.
+The numeric family migration and permanent regression tests remain required before promotion.

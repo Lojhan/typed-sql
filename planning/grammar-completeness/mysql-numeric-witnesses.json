@@ -1,0 +1,373 @@
+{
+  "formatVersion": 1,
+  "status": "open-regression-witnesses",
+  "scope": "Explicit pure-function regression queries on one exact native engine; not a workload sample or all-version qualification",
+  "analysisRevision": "6ea9410c97b8c7831fad831534b16471e28c8c26",
+  "target": {
+    "version": "8.4.11",
+    "edition": "MySQL Community Server - GPL",
+    "sql_mode": "IGNORE_SPACE,ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION"
+  },
+  "nativePlatform": "linux/arm64",
+  "image": {
+    "id": "b568b36c40dcaf1c2967403fa404be8d5f5ce7df967dd305153facee1a34cb87",
+    "repoDigests": [
+      "docker.io/library/mysql@sha256:0f51e63e537a1f176423fa03ef559aabe6fa4372a53160a44bc7e75da7d15364",
+      "docker.io/library/mysql@sha256:4452d4257b94692c09df0f6011a3275744746001150f3cdbdc9278bacfa385bb"
+    ]
+  },
+  "driver": {
+    "name": "mysql2",
+    "version": "3.24.6",
+    "supportBigNumbers": true,
+    "bigNumberStrings": true
+  },
+  "claimDescriptionSql": "SELECT * FROM JSON_TABLE('null', '$' COLUMNS (value double PATH '$')) AS native_claim",
+  "nativeClaimDescriptions": {
+    "double": [
+      {
+        "name": "value",
+        "engineType": 5,
+        "flags": 0,
+        "characterSet": 63,
+        "columnLength": 22,
+        "decimals": 31
+      }
+    ]
+  },
+  "cases": [
+    {
+      "sql": "SELECT ABS(CAST(-2 AS SIGNED)) AS value",
+      "claimed": [
+        {
+          "name": "value",
+          "tsType": "number",
+          "databaseType": "double",
+          "nullable": false
+        }
+      ],
+      "nativePrepared": [
+        {
+          "name": "value",
+          "engineType": 8,
+          "flags": 129,
+          "characterSet": 63,
+          "columnLength": 21,
+          "decimals": 0
+        }
+      ],
+      "nativeExecuted": [
+        {
+          "name": "value",
+          "engineType": 8,
+          "flags": 129,
+          "characterSet": 63,
+          "columnLength": 21,
+          "decimals": 0
+        }
+      ],
+      "rows": [
+        {
+          "value": "2"
+        }
+      ],
+      "confirmedIssues": ["native-type-code-differs-from-native-description-of-claimed-type"]
+    },
+    {
+      "sql": "SELECT ABS(CAST('-9007199254740993' AS SIGNED)) AS value",
+      "claimed": [
+        {
+          "name": "value",
+          "tsType": "number",
+          "databaseType": "double",
+          "nullable": false
+        }
+      ],
+      "nativePrepared": [
+        {
+          "name": "value",
+          "engineType": 8,
+          "flags": 129,
+          "characterSet": 63,
+          "columnLength": 21,
+          "decimals": 0
+        }
+      ],
+      "nativeExecuted": [
+        {
+          "name": "value",
+          "engineType": 8,
+          "flags": 129,
+          "characterSet": 63,
+          "columnLength": 21,
+          "decimals": 0
+        }
+      ],
+      "rows": [
+        {
+          "value": "9007199254740993"
+        }
+      ],
+      "confirmedIssues": ["native-type-code-differs-from-native-description-of-claimed-type"]
+    },
+    {
+      "sql": "SELECT ABS(CAST(-2.25 AS DECIMAL(9,2))) AS value",
+      "claimed": [
+        {
+          "name": "value",
+          "tsType": "number",
+          "databaseType": "double",
+          "nullable": false
+        }
+      ],
+      "nativePrepared": [
+        {
+          "name": "value",
+          "engineType": 246,
+          "flags": 129,
+          "characterSet": 63,
+          "columnLength": 11,
+          "decimals": 2
+        }
+      ],
+      "nativeExecuted": [
+        {
+          "name": "value",
+          "engineType": 246,
+          "flags": 129,
+          "characterSet": 63,
+          "columnLength": 11,
+          "decimals": 2
+        }
+      ],
+      "rows": [
+        {
+          "value": "2.25"
+        }
+      ],
+      "confirmedIssues": ["native-type-code-differs-from-native-description-of-claimed-type"]
+    },
+    {
+      "sql": "SELECT ACOS(2) AS value",
+      "claimed": [
+        {
+          "name": "value",
+          "tsType": "number",
+          "databaseType": "double",
+          "nullable": false
+        }
+      ],
+      "nativePrepared": [
+        {
+          "name": "value",
+          "engineType": 5,
+          "flags": 128,
+          "characterSet": 63,
+          "columnLength": 23,
+          "decimals": 31
+        }
+      ],
+      "nativeExecuted": [
+        {
+          "name": "value",
+          "engineType": 5,
+          "flags": 128,
+          "characterSet": 63,
+          "columnLength": 23,
+          "decimals": 31
+        }
+      ],
+      "rows": [
+        {
+          "value": null
+        }
+      ],
+      "confirmedIssues": ["native-null-result-contradicts-non-null-claim"]
+    },
+    {
+      "sql": "SELECT LOG(-1) AS value",
+      "claimed": [
+        {
+          "name": "value",
+          "tsType": "number",
+          "databaseType": "double",
+          "nullable": false
+        }
+      ],
+      "nativePrepared": [
+        {
+          "name": "value",
+          "engineType": 5,
+          "flags": 128,
+          "characterSet": 63,
+          "columnLength": 23,
+          "decimals": 31
+        }
+      ],
+      "nativeExecuted": [
+        {
+          "name": "value",
+          "engineType": 5,
+          "flags": 128,
+          "characterSet": 63,
+          "columnLength": 23,
+          "decimals": 31
+        }
+      ],
+      "rows": [
+        {
+          "value": null
+        }
+      ],
+      "confirmedIssues": ["native-null-result-contradicts-non-null-claim"]
+    },
+    {
+      "sql": "SELECT SQRT(-1) AS value",
+      "claimed": [
+        {
+          "name": "value",
+          "tsType": "number",
+          "databaseType": "double",
+          "nullable": false
+        }
+      ],
+      "nativePrepared": [
+        {
+          "name": "value",
+          "engineType": 5,
+          "flags": 128,
+          "characterSet": 63,
+          "columnLength": 23,
+          "decimals": 31
+        }
+      ],
+      "nativeExecuted": [
+        {
+          "name": "value",
+          "engineType": 5,
+          "flags": 128,
+          "characterSet": 63,
+          "columnLength": 23,
+          "decimals": 31
+        }
+      ],
+      "rows": [
+        {
+          "value": null
+        }
+      ],
+      "confirmedIssues": ["native-null-result-contradicts-non-null-claim"]
+    },
+    {
+      "sql": "SELECT FLOOR(CAST(1.25 AS DECIMAL(9,2))) AS value",
+      "claimed": [
+        {
+          "name": "value",
+          "tsType": "number",
+          "databaseType": "double",
+          "nullable": false
+        }
+      ],
+      "nativePrepared": [
+        {
+          "name": "value",
+          "engineType": 8,
+          "flags": 129,
+          "characterSet": 63,
+          "columnLength": 21,
+          "decimals": 0
+        }
+      ],
+      "nativeExecuted": [
+        {
+          "name": "value",
+          "engineType": 8,
+          "flags": 129,
+          "characterSet": 63,
+          "columnLength": 21,
+          "decimals": 0
+        }
+      ],
+      "rows": [
+        {
+          "value": "1"
+        }
+      ],
+      "confirmedIssues": ["native-type-code-differs-from-native-description-of-claimed-type"]
+    },
+    {
+      "sql": "SELECT ROUND(CAST(1.25 AS DECIMAL(9,2)),1) AS value",
+      "claimed": [
+        {
+          "name": "value",
+          "tsType": "number",
+          "databaseType": "double",
+          "nullable": false
+        }
+      ],
+      "nativePrepared": [
+        {
+          "name": "value",
+          "engineType": 246,
+          "flags": 129,
+          "characterSet": 63,
+          "columnLength": 11,
+          "decimals": 1
+        }
+      ],
+      "nativeExecuted": [
+        {
+          "name": "value",
+          "engineType": 246,
+          "flags": 129,
+          "characterSet": 63,
+          "columnLength": 11,
+          "decimals": 1
+        }
+      ],
+      "rows": [
+        {
+          "value": "1.3"
+        }
+      ],
+      "confirmedIssues": ["native-type-code-differs-from-native-description-of-claimed-type"]
+    },
+    {
+      "sql": "SELECT SIN(0) AS value",
+      "claimed": [
+        {
+          "name": "value",
+          "tsType": "number",
+          "databaseType": "double",
+          "nullable": false
+        }
+      ],
+      "nativePrepared": [
+        {
+          "name": "value",
+          "engineType": 5,
+          "flags": 128,
+          "characterSet": 63,
+          "columnLength": 23,
+          "decimals": 31
+        }
+      ],
+      "nativeExecuted": [
+        {
+          "name": "value",
+          "engineType": 5,
+          "flags": 128,
+          "characterSet": 63,
+          "columnLength": 23,
+          "decimals": 31
+        }
+      ],
+      "rows": [
+        {
+          "value": 0
+        }
+      ],
+      "confirmedIssues": []
+    }
+  ]
+}
