@@ -171,8 +171,8 @@ try {
   assert.equal(await conversations.inputValue(), streamId);
   assert.equal(
     await page.getByRole("checkbox", { name: "Workspace tools", exact: true }).isChecked(),
-    false,
-    "Tool permission is not silently restored with conversation IDs",
+    true,
+    "The explicitly granted tool setting is restored with the conversation",
   );
   await page.reload();
   await messages.getByText(/Completed response/u).waitFor();

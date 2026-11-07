@@ -18,6 +18,11 @@ for await (const line of createInterface({ input: process.stdin })) {
     reply(message.id, { sessionId });
   } else if (message.method === "session/prompt") {
     try {
+      if (!toolServer) {
+        text("Workspace tools are disabled.");
+        reply(message.id, { stopReason: "end_turn" });
+        continue;
+      }
       let counter = 0;
       const call = async (method, params) => {
         const response = await fetch(toolServer.url, {
@@ -38,6 +43,30 @@ for await (const line of createInterface({ input: process.stdin })) {
         capabilities: {},
         clientInfo: { name: "analysis-fixture", version: "1" },
       });
+      if (message.params.prompt[0].text.includes("user: show me a random chart")) {
+        const { structuredContent: retained } = await call("tools/call", {
+          name: "typed_sql_get_analysis_data",
+          arguments: {},
+        });
+        const dataset = retained.datasets.items.find((item) => item.columns.includes("active"));
+        if (!dataset) throw new Error("Missing retained status dataset");
+        await call("tools/call", {
+          name: "typed_sql_get_analysis_data",
+          arguments: { datasetId: dataset.datasetId, limit: 5 },
+        });
+        await call("tools/call", {
+          name: "typed_sql_present",
+          arguments: {
+            version: 1,
+            title: "Follow-up chart",
+            datasetId: dataset.datasetId,
+            views: [{ id: "followup", kind: "bar", title: "Retained user status", x: 0, y: 1 }],
+          },
+        });
+        text("Published a chart from the retained status dataset.");
+        reply(message.id, { stopReason: "end_turn" });
+        continue;
+      }
       text("## Active users\n\nI’m checking the captured users by region and team.\n\n");
       const { structuredContent: dataset } = await call("tools/call", {
         name: "typed_sql_query_analysis",

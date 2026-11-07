@@ -226,6 +226,38 @@ try {
   assert.ok(await readFile(join(root, "playground/users.analysis.json"), "utf8"));
   check("removing a private analysis preserves its reusable repository definition");
 
+  await page.getByRole("button", { name: "Agent", exact: true }).click();
+  await page.reload();
+  const toolsToggle = page.getByRole("checkbox", { name: "Workspace tools", exact: true });
+  await toolsToggle.waitFor();
+  assert.equal(await toolsToggle.isChecked(), true);
+  await page.getByRole("textbox", { name: "Message local agent", exact: true }).fill("show me a random chart");
+  const followupRequest = page.waitForRequest((request) => request.url().endsWith("/api/agents/prompt"));
+  await page.getByRole("button", { name: "Send ↑", exact: true }).click();
+  assert.equal((await followupRequest).postDataJSON().workspaceTools, true);
+  const followup = page
+    .locator(".analysis-card")
+    .filter({ has: page.getByText("Retained user status", { exact: true }) });
+  await followup.getByRole("img").scrollIntoViewIfNeeded();
+  await followup.getByRole("img").locator("svg").waitFor();
+  await page.getByRole("button", { name: "Stop", exact: true }).waitFor({ state: "detached" });
+  await followup.screenshot({ path: join(artifacts, "followup-chart.png") });
+  evidence.screenshots.push("followup-chart.png");
+  check("a simple chart follow-up after reload retains the tool grant and renders a real chart from stored data");
+  await toolsToggle.uncheck();
+  await page
+    .getByRole("textbox", { name: "Message local agent", exact: true })
+    .fill("Continue without workspace tools");
+  const disabledRequest = page.waitForRequest((request) => request.url().endsWith("/api/agents/prompt"));
+  await page.getByRole("button", { name: "Send ↑", exact: true }).click();
+  assert.equal((await disabledRequest).postDataJSON().workspaceTools, false);
+  await page.getByText("Workspace tools are disabled.", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Stop", exact: true }).waitFor({ state: "detached" });
+  await page.reload();
+  await toolsToggle.waitFor();
+  assert.equal(await toolsToggle.isChecked(), false);
+  check("explicitly disabling tools is sent and restored for the conversation");
+
   assert.deepEqual(evidence.errors, []);
 } catch (error) {
   evidence.failure = error.stack ?? String(error);

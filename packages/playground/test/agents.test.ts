@@ -473,6 +473,7 @@ await describe("local ACP agents and reviewed repository tools", async () => {
         await api(agents, "/prompt", { conversationId: created.id, message: "Inspect", workspaceTools: true });
         const done = await waitFor(agents, created.id, (value) => value.status !== "running");
         strict.equal(done.status, "idle");
+        strict.equal(done.workspaceTools, true);
         strict.equal(opens, 1);
         strict.equal(signal?.aborted, true);
         strict.equal(done.toolCalls?.[0]?.name, "workspace_schema");
@@ -489,6 +490,7 @@ await describe("local ACP agents and reviewed repository tools", async () => {
         const reopened = new AgentRoutes({ files, trusted: () => true, configDirectory: join(root, "user-config") });
         try {
           const restored = (await api(reopened, `/conversation?id=${created.id}`)) as AgentConversation;
+          strict.equal(restored.workspaceTools, true);
           strict.equal(restored.toolCalls?.[0]?.state, "completed");
           strict.equal(restored.proposals[0]?.status, "pending");
           await api(reopened, "/proposal", {

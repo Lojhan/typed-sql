@@ -34,6 +34,7 @@ interface Conversation {
   title: string;
   updatedAt?: string;
   profileId: string;
+  workspaceTools?: boolean;
   status: "idle" | "running" | "failed" | "cancelled";
   messages: { id: string; role: string; text: string; createdAt: string; order?: number }[];
   proposals: {
@@ -113,8 +114,10 @@ export function AgentPanel({
   const [artifacts, setArtifacts] = useState<{ id: string; title: string; createdAt: string; order?: number }[]>([]);
   const [resultRun, setResultRun] = useState("");
   useEffect(() => {
-    if (!state.trusted || !agents?.workspaceToolsAvailable) setWorkspaceTools(false);
-  }, [state.trusted, agents?.workspaceToolsAvailable]);
+    setWorkspaceTools(
+      !!(conversation?.id && state.trusted && agents?.workspaceToolsAvailable && conversation.workspaceTools),
+    );
+  }, [conversation?.id, conversation?.workspaceTools, state.trusted, agents?.workspaceToolsAvailable]);
   const selectedRun = state.runs.find((run) => run.id === resultRun);
   const result = selectedRun?.results[0]?.value;
   const end = useRef<HTMLDivElement>(null);
@@ -332,7 +335,7 @@ export function AgentPanel({
       conversationId: active.id,
       message: submittedMessage,
       context,
-      ...(workspaceTools && agents?.workspaceToolsAvailable ? { workspaceTools: true } : {}),
+      workspaceTools: !!(workspaceTools && agents?.workspaceToolsAvailable),
     });
     if (mounted.current && trusted.current && selectionVersion.current === request) {
       setConversation(next);
