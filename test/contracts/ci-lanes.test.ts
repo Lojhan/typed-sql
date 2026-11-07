@@ -25,22 +25,19 @@ await describe("CI evidence lanes", async () => {
     for (const channel of ["beta", "rc", "stable"])
       strict.ok(policy.channels[channel]!.required.includes("build-integrations"));
   });
-  await it("keeps pull-request work bounded and comprehensive matrices scheduled", async () => {
+  await it("runs live language matrices on pull requests and keeps editor/example expansion scheduled", async () => {
     const workflow = await readFile(join(workspace, ".github/workflows/ci.yml"), "utf8");
     strict.ok(workflow.includes('cron: "17 4 * * 2"'));
-    for (const job of [
-      "typescript-editor-matrix",
-      "postgres-e2e",
-      "mysql-e2e",
-      "examples-e2e",
-      "sqlite-node-matrix",
-      "sqlite-language-matrix",
-    ]) {
+    for (const job of ["typescript-editor-matrix", "examples-e2e"]) {
       const section = workflow.slice(workflow.indexOf(`  ${job}:`));
       strict.ok(
         section.startsWith(`  ${job}:\n    if: github.event_name != 'pull_request'`),
         `${job} is not scheduled-only`,
       );
+    }
+    for (const job of ["postgres-e2e", "mysql-e2e", "sqlite-node-matrix", "sqlite-language-matrix"]) {
+      const section = workflow.slice(workflow.indexOf(`  ${job}:\n`)).split(/\n(?= {2}\S)/u)[0]!;
+      strict.ok(!/^ {4}if:/mu.test(section), `${job} must audit pull requests`);
     }
     for (const evidence of [
       "pull-request-distribution:",
@@ -67,7 +64,7 @@ await describe("CI evidence lanes", async () => {
     strict.ok(quality.includes("if: always()"));
     strict.ok(
       quality.includes(
-        "needs: [source-quality, packed-real-databases, editor-artifacts, editor-sdk-platforms, build-integrations]",
+        "needs: [source-quality, packed-real-databases, editor-artifacts, editor-sdk-platforms, build-integrations, postgres-e2e, mysql-e2e, sqlite-node-matrix, sqlite-language-matrix]",
       ),
     );
     strict.ok(quality.includes("node scripts/assert-ci-prerequisites.mjs"));
@@ -77,6 +74,10 @@ await describe("CI evidence lanes", async () => {
       ["TYPED_SQL_DATABASE_RESULT", "packed-real-databases"],
       ["TYPED_SQL_EDITOR_RESULT", "editor-artifacts"],
       ["TYPED_SQL_EDITOR_SDK_RESULT", "editor-sdk-platforms"],
+      ["TYPED_SQL_POSTGRES_RESULT", "postgres-e2e"],
+      ["TYPED_SQL_MYSQL_RESULT", "mysql-e2e"],
+      ["TYPED_SQL_SQLITE_NODE_RESULT", "sqlite-node-matrix"],
+      ["TYPED_SQL_SQLITE_LANGUAGE_RESULT", "sqlite-language-matrix"],
     ])
       strict.ok(quality.includes(`${variable}: \${{ needs.${job}.result }}`));
     strict.ok(workflow.includes("pnpm e2e:packed"));
@@ -91,6 +92,10 @@ await describe("CI evidence lanes", async () => {
       TYPED_SQL_DATABASE_RESULT: "success",
       TYPED_SQL_EDITOR_RESULT: "success",
       TYPED_SQL_EDITOR_SDK_RESULT: "success",
+      TYPED_SQL_POSTGRES_RESULT: "success",
+      TYPED_SQL_MYSQL_RESULT: "success",
+      TYPED_SQL_SQLITE_NODE_RESULT: "success",
+      TYPED_SQL_SQLITE_LANGUAGE_RESULT: "success",
     };
     strict.doesNotThrow(() => execFileSync(process.execPath, [script], { env: successful, stdio: "pipe" }));
     for (const variable of Object.keys(successful)) {

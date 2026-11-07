@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": false,
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "allowJs": true,
+    "paths": {
+      "@typed-sql/core": ["../../packages/core/src/index.ts"],
+      "@typed-sql/schema": ["../../packages/schema/src/index.ts"],
+      "@typed-sql/schema/snapshot": ["../../packages/schema/src/snapshot.ts"],
+      "@typed-sql/ast/toolkit": ["../../packages/ast/src/toolkit/index.ts"]
+    }
+  },
+  "include": ["*.ts", "*.mjs"]
+}

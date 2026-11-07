@@ -10,6 +10,9 @@ import {
   typePolicy,
 } from "../packages/mysql/dist/packages/mysql/src/index.js";
 import { createMySql2Database } from "../packages/mysql/dist/packages/mysql/src/mysql2.js";
+import { collectLive } from "./language-audit/inventory.mjs";
+import { reviewLiveBaseline } from "./language-audit/live-baseline.mjs";
+import { enrichRecognition, prepareMySql } from "./language-audit/native.mjs";
 
 const options = Object.create(null);
 for (let index = 2; index < process.argv.length; index += 2) {
@@ -255,6 +258,23 @@ try {
 
   const support = mySqlVersionSupport(actualVersion, options.channel);
   results.push(result("server.support-policy", support === "supported" || support === "canary", support));
+  const languageInventory = await collectLive("mysql", async (sql) => (await pool.query(sql))[0], {
+    version: actualVersion,
+    modeProfile: options["mode-profile"],
+  });
+  const nativeClient = await pool.getConnection();
+  let languageRecognition;
+  try {
+    languageRecognition = await enrichRecognition(
+      languageInventory,
+      (sql) => prepareMySql(nativeClient, sql),
+      snapshot.server,
+    );
+  } finally {
+    nativeClient.release();
+  }
+  const languageReview = await reviewLiveBaseline(languageInventory);
+  results.push(result("language.inventory-reviewed", languageReview.status === "match", languageReview));
   artifact = {
     formatVersion: 1,
     generatedAt: new Date().toISOString(),
@@ -272,6 +292,8 @@ try {
       runtimeVersion: process.version,
     },
     evidence: {
+      languageInventory,
+      languageRecognition,
       settings: {
         sqlMode: actualModes.join(","),
         characterSetServer: settings.character_set_server,
