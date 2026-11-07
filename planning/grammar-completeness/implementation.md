@@ -120,6 +120,10 @@ Required type/cast facts fail closed without falling back to native payloads. Le
 helper exports delegate to the same semantic projectors rather than maintaining a second mapping.
 Grouping/projection contracts expose statically typed entities instead of implicit `any` arrays.
 Other emitter projections still require migration; full projection-loss accounting remains open.
+SQL Server type emission now consumes typed physical storage identity and dimensions, with
+unknown width/identity rejected rather than coerced from missing raw fields. Alias relationships
+remain explicit policy, independent of shared storage. Forged native payloads do not affect output.
+Its runtime generated catalog remains byte-identical; focused projection tests and typecheck pass.
 All generated runtime catalogs are byte-identical. All 56 contract files passed; final focused
 checks cover required-fact removal and forged native payloads after grouping type annotations.
 

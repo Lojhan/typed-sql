@@ -56,6 +56,7 @@ export function describeEntity(category, name, facts = {}) {
       category: missing("type category"),
       defined: missing("type definition"),
       preferred: missing("preferred type"),
+      storageIdentity: missing("physical storage identity"),
       dimensions: { maxLength: missing("maximum length"), precision: missing("precision"), scale: missing("scale") },
     },
     operators: {

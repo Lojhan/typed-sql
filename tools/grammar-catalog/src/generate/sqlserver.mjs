@@ -1,7 +1,7 @@
 import { decodeFunctions, rowsLiteral } from "./common.mjs";
-import { sqlServerTypeSource } from "./sqlserver-types.mjs";
+import { sqlServerSemanticTypeSource } from "./sqlserver-types.mjs";
 
-export async function generateCatalog({ groups, input, emit, header }) {
+export async function generateCatalog({ semanticGroups, input, emit, header }) {
   const policy = await input("policy", "grammar/sqlserver/catalog/policy.json");
   if (policy.formatVersion !== 1) throw new Error("Unsupported sqlserver generation policy");
   const entries = decodeFunctions(policy.functions, {
@@ -17,7 +17,10 @@ export async function generateCatalog({ groups, input, emit, header }) {
     if (entry.intrinsicNullable !== undefined && typeof entry.intrinsicNullable !== "boolean")
       throw new Error(`Invalid intrinsic nullability policy: ${entry.name}`);
   }
-  await emit("packages/sqlserver/src/catalog/generated/types.ts", sqlServerTypeSource(policy, groups, header));
+  await emit(
+    "packages/sqlserver/src/catalog/generated/types.ts",
+    sqlServerSemanticTypeSource(policy, semanticGroups, header),
+  );
   await emit(
     "packages/sqlserver/src/catalog/generated/policy.ts",
     `${header}import type { SqlServerBuiltin } from "../index.js";\nexport const builtinEntries: readonly SqlServerBuiltin[] = Object.freeze(${rowsLiteral(entries)});\nexport const dateparts = ${rowsLiteral(policy.dateparts)} as const;\n`,

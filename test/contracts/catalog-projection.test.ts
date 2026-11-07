@@ -7,6 +7,10 @@ import {
   postgresSemanticSignature,
   postgresSemanticTypes,
 } from "../../tools/grammar-catalog/src/generate/facts/postgres-semantic.mjs";
+import {
+  sqlServerSemanticTypeSource,
+  sqlServerTypeSource,
+} from "../../tools/grammar-catalog/src/generate/sqlserver-types.mjs";
 import { groupCatalog } from "../../tools/grammar-catalog/src/model/groups.mjs";
 import { commonEntities, nativeIdentity, requireKnown } from "../../tools/grammar-catalog/src/model/projection.mjs";
 
@@ -91,6 +95,47 @@ await describe("validated catalog projections", async () => {
           "types",
         ),
       /Unavailable/u,
+    );
+  });
+  await it("requires SQL Server storage and dimension evidence without reading raw payloads", async () => {
+    const { catalog } = normalizedCorpus(await readCorpus());
+    const groups = groupCatalog(catalog).filter((group) => group.grammar === "sqlserver");
+    const policy = JSON.parse(
+      await readFile(new URL("../../grammar/sqlserver/catalog/policy.json", import.meta.url), "utf8"),
+    );
+    const baseline = sqlServerSemanticTypeSource(policy, groups, "");
+    const poisoned = structuredClone(groups);
+    for (const group of poisoned)
+      for (const member of group.categories.types!.common)
+        member.entity.native = { name: "forged", max_length: 0, system_type_id: 0 };
+    strict.equal(sqlServerSemanticTypeSource(policy, poisoned, ""), baseline);
+    for (const property of ["storageIdentity", "maxLength"] as const) {
+      const missing = structuredClone(groups);
+      for (const group of missing)
+        for (const member of group.categories.types!.common) {
+          const facet = member.entity.semantic;
+          if (facet.kind !== "type") throw new Error("Unexpected type facet");
+          const unknown = { status: "unknown" as const, reason: "withheld required evidence" };
+          if (property === "storageIdentity") facet.storageIdentity = unknown;
+          else facet.dimensions.maxLength = unknown;
+        }
+      strict.throws(() => sqlServerSemanticTypeSource(policy, missing, ""), /Unqualified/u);
+    }
+    strict.throws(
+      () =>
+        sqlServerTypeSource(
+          { types: [] },
+          [
+            {
+              dialect: "sqlserver",
+              categories: {
+                types: { rows: [{ name: "integer", system_type_id: 56, max_length: null, precision: 10, scale: 0 }] },
+              },
+            },
+          ],
+          "",
+        ),
+      /Unqualified/u,
     );
   });
 });

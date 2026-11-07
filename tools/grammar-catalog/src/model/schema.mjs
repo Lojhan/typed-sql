@@ -114,6 +114,7 @@ export const SemanticFacetSchema = Type.Union([
     category: facetText,
     defined: facetBoolean,
     preferred: facetBoolean,
+    storageIdentity: facetText,
     dimensions: object({ maxLength: facetInteger, precision: facetInteger, scale: facetInteger }),
   }),
   object({

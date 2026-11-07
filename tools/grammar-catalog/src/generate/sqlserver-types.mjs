@@ -1,23 +1,41 @@
+import { sqlserverEntityFacts } from "../mappers/facets/sqlserver.mjs";
 import { hash } from "../model/canonical.mjs";
+import { describeEntity } from "../model/facets.mjs";
+import { commonEntities, nativeIdentity, requireKnown } from "../model/projection.mjs";
 
-// Physical limits come from sys.types; representation and syntax remain grammar policy.
+// Compatibility only. Production callers consume validated model groups.
 export function sqlServerTypeSource(policy, groups, header) {
-  const observed = groups
+  const entities = groups
     .filter((group) => group.dialect === "sqlserver")
     .flatMap((group) => group.categories.types.rows)
     .map((row) => ({
       name: row.name,
-      system_type_id: Number(row.system_type_id),
-      max_length: Number(row.max_length),
-      precision: Number(row.precision),
-      scale: Number(row.scale),
+      semantic: describeEntity("types", row.name, sqlserverEntityFacts("types", row)),
     }));
-  if (
-    observed.some((row) =>
-      [row.system_type_id, row.max_length, row.precision, row.scale].some((value) => !Number.isSafeInteger(value)),
-    )
-  )
-    throw new Error("Invalid native SQL Server type dimensions");
+  return renderTypeSource(policy, entities, header);
+}
+export function sqlServerSemanticTypeSource(policy, groups, header) {
+  return renderTypeSource(
+    policy,
+    groups.flatMap((group) => commonEntities(group, "types")),
+    header,
+  );
+}
+// Physical limits are explicit facts; representation, defaults and aliases remain owned policy.
+function renderTypeSource(policy, entities, header) {
+  const observed = entities.map((entity) => {
+    const facet = entity.semantic;
+    if (facet.kind !== "type") throw new TypeError(`Invalid SQL Server type facet: ${entity.name}`);
+    const storage = requireKnown(facet.storageIdentity, `${entity.name} storage identity`);
+    if (!/^\d+$/u.test(storage)) throw new TypeError(`Invalid SQL Server storage identity: ${entity.name}`);
+    return {
+      name: nativeIdentity(facet.canonical, entity.name),
+      system_type_id: storage,
+      max_length: requireKnown(facet.dimensions.maxLength, `${entity.name} width`),
+      precision: requireKnown(facet.dimensions.precision, `${entity.name} precision`),
+      scale: requireKnown(facet.dimensions.scale, `${entity.name} scale`),
+    };
+  });
   const rules = {},
     nativeFacts = new Map(),
     bounds = [];

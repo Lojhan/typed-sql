@@ -1417,6 +1417,7 @@
                 "category",
                 "defined",
                 "preferred",
+                "storageIdentity",
                 "dimensions"
               ],
               "properties": {
@@ -1567,6 +1568,48 @@
                         },
                         "value": {
                           "type": "boolean"
+                        }
+                      }
+                    },
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "status",
+                        "reason"
+                      ],
+                      "properties": {
+                        "status": {
+                          "const": "unknown",
+                          "type": "string"
+                        },
+                        "reason": {
+                          "minLength": 1,
+                          "pattern": "\\S",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "storageIdentity": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "status",
+                        "value"
+                      ],
+                      "properties": {
+                        "status": {
+                          "const": "known",
+                          "type": "string"
+                        },
+                        "value": {
+                          "minLength": 1,
+                          "pattern": "\\S",
+                          "type": "string"
                         }
                       }
                     },
