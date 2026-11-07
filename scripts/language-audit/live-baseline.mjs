@@ -5,6 +5,7 @@ const path = new URL("../../test/fixtures/language-audit/live-baselines.json", i
 
 export const liveTarget = reviewTarget;
 
+/** @param {ReturnType<typeof import('../../tools/grammar-catalog/src/registry.mjs').createMapperRegistry> | undefined} [registry] */
 export function summarizeLive(input, registry = undefined) {
   const categories = Object.fromEntries(
     CATEGORIES.map((name) => {
@@ -62,10 +63,12 @@ export function reviewLive(input, baseline, registry = undefined) {
   return { status: changes.length ? "review-required" : "match", key, changedCategories: changes, summary };
 }
 
+/** @param {ReturnType<typeof import('../../tools/grammar-catalog/src/registry.mjs').createMapperRegistry> | undefined} [registry] */
 export async function reviewLiveBaseline(input, registry = undefined) {
   return reviewLive(input, JSON.parse(await readFile(path, "utf8")), registry);
 }
 
+/** @param {ReturnType<typeof import('../../tools/grammar-catalog/src/registry.mjs').createMapperRegistry> | undefined} [registry] */
 export async function acceptLiveBaseline(input, registry = undefined) {
   const baseline = JSON.parse(await readFile(path, "utf8"));
   const review = reviewLive(input, baseline, registry);
@@ -79,6 +82,7 @@ export async function acceptLiveBaseline(input, registry = undefined) {
   console.log(`${input.dialect} ${input.target.version}: recorded live inventory ${review.key}`);
 }
 
+/** @param {ReturnType<typeof import('../../tools/grammar-catalog/src/registry.mjs').createMapperRegistry> | undefined} [registry] */
 export async function recordNativeFindings(input, recognition, registry = undefined) {
   if (!recognition?.observations) return;
   if (hash(recognition.observations) !== input.recognition?.fingerprint)
