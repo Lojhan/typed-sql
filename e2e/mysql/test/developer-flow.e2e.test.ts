@@ -31,12 +31,14 @@ import { NativePreviewTypeScriptBridge } from "@typed-sql/ts-bridge/native-previ
 import { createPool } from "mysql2/promise";
 import { describe, it, log, strict, waitForExpectedResult, waitForPort } from "poku";
 import { calculateTypePolicyHash } from "../../../packages/schema/src/index.js";
+import { prepareMySql } from "../../../scripts/language-audit/native.mjs";
 import {
   assertCompiledLegacyValuePlans,
   assertLegacyTextValuePlans,
   assertLegacyValuePlans,
   assertMySqlRawJsonValuePlans,
 } from "../../../test/helpers/legacy-value-plans.js";
+import { assertMySqlNumericConformance } from "../../../test/helpers/mysql-numeric-conformance.js";
 import { mysqlCodecFidelity } from "../src/codec-query.js";
 import { mysqlJsonEmptyAggregate, mysqlJsonMutations, mysqlJsonProjection } from "../src/json-query.js";
 import { streamAccountsQuery } from "../src/stream-query.js";
@@ -261,6 +263,32 @@ try {
       }
       strict.strictEqual(snapshot.metadata.schemaHash.length, 64);
       strict.strictEqual(snapshot.metadata.typePolicyHash.length, 64);
+    });
+
+    await it("matches native numeric descriptors and compiled runtime values", async () => {
+      const snapshot = dialect().validateSnapshot(JSON.parse(await readFile(generatedSnapshotPath, "utf8")));
+      const pool = createPool({ uri: connectionUri });
+      try {
+        const connection = await pool.getConnection();
+        try {
+          const database = await createMySql2Database({ connectionUri, typePolicy });
+          try {
+            await assertMySqlNumericConformance(
+              database,
+              dialect(),
+              snapshot,
+              (sql) => prepareMySql(connection, sql),
+              packageDirectory,
+            );
+          } finally {
+            await database.close();
+          }
+        } finally {
+          connection.release();
+        }
+      } finally {
+        await pool.end();
+      }
     });
 
     await it("records a redacted conformance v2 differential report", async () => {

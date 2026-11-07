@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { describe, it, strict } from "poku";
 import { expandTarget, readCorpus } from "../../scripts/catalog-generation/corpus.mjs";
+import { projectRoutines } from "../../tools/grammar-catalog/src/generate/mysql-routines.mjs";
 import { checkLockedFacts } from "../../tools/grammar-catalog/src/provenance/source-lock.mjs";
 import { sourceCoverage } from "../../tools/grammar-catalog/src/sources/mysql/coverage.mjs";
 import { extractorRevision, validateSourceFacts } from "../../tools/grammar-catalog/src/sources/mysql/facts.mjs";
@@ -10,6 +11,42 @@ import { functions, keywords } from "../../tools/grammar-catalog/src/sources/mys
 const lock = JSON.parse(await readFile(new URL("../../grammar/mysql/sources.lock.json", import.meta.url), "utf8"));
 const facts = JSON.parse(await readFile(new URL("../../grammar/mysql/facts/catalog.json", import.meta.url), "utf8"));
 await describe("locked MySQL registration and keyword facts", async () => {
+  await it("projects fresh source arities through semantic families and rejects conflicting version evidence", () => {
+    const families = [
+      {
+        name: "reviewed",
+        routines: ["FRESH", "GUARDED", "SPECIAL", "INTERNAL"],
+        result: "double",
+        minimumArguments: 0,
+        maximumArguments: null,
+        nullability: "always",
+      },
+    ];
+    const profile = {
+      version: "fresh-version",
+      functions: [
+        { name: "FRESH", minimum: 2, maximum: 3, internal: false, conditions: [] },
+        { name: "GUARDED", minimum: 1, maximum: 1, internal: false, conditions: ["#ifdef FEATURE"] },
+        { name: "SPECIAL", minimum: null, maximum: null, internal: null, conditions: [] },
+        { name: "INTERNAL", minimum: 1, maximum: 1, internal: true, conditions: [] },
+      ],
+    };
+    const projected = projectRoutines(families, [profile]);
+    const fresh = projected.routines.find(({ routines }) => routines.includes("FRESH"))!;
+    strict.equal(fresh.result, "double");
+    strict.equal(fresh.minimumArguments, 2);
+    strict.equal(fresh.maximumArguments, 3);
+    strict.equal(projected.report.find(({ name }) => name === "FRESH")?.minimumSource, "vendor-registration");
+    strict.ok(
+      projected.report
+        .filter(({ name }) => name !== "FRESH")
+        .every(({ minimumSource }) => minimumSource === "maintained-policy"),
+    );
+    const conflicting = structuredClone(profile);
+    conflicting.version = "another-version";
+    conflicting.functions[0]!.minimum = 1;
+    strict.throws(() => projectRoutines(families, [profile, conflicting]), /Conflicting MySQL source arity/u);
+  });
   await it("covers all retained engine versions and compares every native keyword context", async () => {
     checkLockedFacts(lock, facts, validateSourceFacts);
     strict.equal(lock.extractor.revision, await extractorRevision());

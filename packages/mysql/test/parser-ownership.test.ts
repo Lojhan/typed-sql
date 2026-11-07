@@ -11,7 +11,11 @@ await describe("MySQL-owned parser", async () => {
       "SELECT id FROM users FOR UPDATE SKIP LOCKED",
     ]) {
       const statement = parseStatement(source);
-      strict.deepStrictEqual(statement, parseCompatibilityStatement(source, { syntax: "mysql" }));
+      // MySQL retains exact literal spelling for decimal inference; the compatibility AST does not.
+      const sharedShape = JSON.parse(
+        JSON.stringify(statement, (key, value) => (key === "numericText" ? undefined : value)),
+      );
+      strict.deepStrictEqual(sharedShape, parseCompatibilityStatement(source, { syntax: "mysql" }));
       strict.ok(Object.isFrozen(statement));
       strict.ok(Object.isFrozen(statement.range));
     }

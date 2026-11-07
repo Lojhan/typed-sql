@@ -114,7 +114,7 @@ class Scanner {
       return this.#token("parameter", text, text.slice(1), start);
     }
     if (isWordStart(char)) return this.#scanWord(start);
-    if (/[0-9]/.test(char)) return this.#scanNumber(start);
+    if (/[0-9]/.test(char) || (char === "." && /[0-9]/.test(this.#peek(1)))) return this.#scanNumber(start);
     if (char === "'") return this.#scanString(start, !this.#noBackslashEscapes, "'");
     if (char === '"' && !this.#ansiQuotes) return this.#scanString(start, !this.#noBackslashEscapes, '"');
     if (char === '"') return this.#scanQuotedIdentifier(start, '"');
@@ -154,7 +154,7 @@ class Scanner {
 
   #scanNumber(start: Position): Token {
     while (/[0-9]/.test(this.#peek())) this.#advance();
-    if (this.#peek() === "." && /[0-9]/.test(this.#peek(1))) {
+    if (this.#peek() === ".") {
       this.#advance();
       while (/[0-9]/.test(this.#peek())) this.#advance();
     }

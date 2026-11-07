@@ -80,6 +80,7 @@ const precedence = new Map<string, number>([
 ]);
 
 const typeContinuationWords = new Set([
+  "INTEGER",
   "BIT",
   "CHARACTER",
   "DOUBLE",
@@ -937,6 +938,7 @@ class Parser {
       return {
         kind: "literal",
         value: Number(token.value),
+        numericText: token.value,
         range: token.range,
       };
     }

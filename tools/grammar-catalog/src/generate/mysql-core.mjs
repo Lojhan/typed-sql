@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
+import { projectRoutines } from "./mysql-routines.mjs";
 
-export async function generateCore({ source, ledger, emit, header }) {
+export async function generateCore({ source, facts, ledger, emit, header }) {
   const series = [...ledger.dialects.mysql.stable, ...ledger.dialects.mysql.canary].map(({ minimum, maximum }) => {
     if (minimum !== maximum) throw new Error("MySQL catalog targets require an exact series");
     return minimum;
@@ -81,7 +82,19 @@ export async function generateCore({ source, ledger, emit, header }) {
     }
   }
 
+  const projections = {};
   function render(source, target) {
+    const profiles = Object.values(facts.versions).filter(
+      (profile) => profile.version.split(".").slice(0, 2).join(".") === target,
+    );
+    if (!profiles.length) throw new TypeError(`Missing MySQL registration profile for ${target}`);
+    const projected = projectRoutines(
+      source.routines
+        .filter((entry) => active(entry, target))
+        .map((entry) => ({ ...stripVersion(entry), editions: [...(entry.editions ?? allEditions)].sort() })),
+      profiles,
+    );
+    projections[target] = projected.report;
     const selected = stable({
       formatVersion: 1,
       series: target,
@@ -97,14 +110,7 @@ export async function generateCore({ source, ledger, emit, header }) {
         .filter((entry) => active(entry, target))
         .map((entry) => ({ ...stripVersion(entry), operators: [...entry.operators].sort() }))
         .sort((left, right) => left.name.localeCompare(right.name)),
-      routines: source.routines
-        .filter((entry) => active(entry, target))
-        .map((entry) => ({
-          ...stripVersion(entry),
-          routines: [...entry.routines].sort(),
-          editions: [...(entry.editions ?? allEditions)].sort(),
-        }))
-        .sort((left, right) => left.name.localeCompare(right.name)),
+      routines: projected.routines,
       collations: source.collations
         .filter((entry) => active(entry, target))
         .map(stripVersion)
@@ -118,6 +124,10 @@ export async function generateCore({ source, ledger, emit, header }) {
 
   validate(source);
   for (const target of series) await emit(`packages/mysql/src/catalog/generated/${target}.ts`, render(source, target));
+  await emit(
+    "planning/grammar-completeness/mysql-routine-projection.json",
+    `${JSON.stringify({ formatVersion: 1, grammar: "mysql", profiles: projections }, null, 2)}\n`,
+  );
   const registry = `${header}${series.map((target, index) => `import catalog${index} from "./${target}.js";`).join("\n")}\nexport const mySqlCatalogs = [${series.map((_target, index) => `catalog${index}`).join(", ")}] as const;\n`;
   await emit("packages/mysql/src/catalog/generated/registry.ts", registry);
 }

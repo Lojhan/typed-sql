@@ -161,7 +161,14 @@
       "signedness": "none",
       "introduced": "8.4"
     },
-    { "name": "json", "aliases": [], "mapping": "json", "category": "json", "signedness": "none", "introduced": "8.4" },
+    {
+      "name": "json",
+      "aliases": [],
+      "mapping": "json",
+      "category": "json",
+      "signedness": "none",
+      "introduced": "8.4"
+    },
     {
       "name": "enum",
       "aliases": [],
@@ -366,11 +373,36 @@
       "result": "boolean",
       "introduced": "8.4"
     },
-    { "name": "logical", "operators": ["AND", "OR", "XOR"], "result": "boolean", "introduced": "8.4" },
-    { "name": "numeric", "operators": ["%", "*", "+", "-", "/"], "result": "numeric", "introduced": "8.4" },
-    { "name": "bitwise", "operators": ["&", "^", "|", "<<", ">>"], "result": "bitwise", "introduced": "8.4" },
-    { "name": "json", "operators": ["->"], "result": "json", "introduced": "8.4" },
-    { "name": "json-text", "operators": ["->>"], "result": "json-text", "introduced": "8.4" }
+    {
+      "name": "logical",
+      "operators": ["AND", "OR", "XOR"],
+      "result": "boolean",
+      "introduced": "8.4"
+    },
+    {
+      "name": "numeric",
+      "operators": ["%", "*", "+", "-", "/"],
+      "result": "numeric",
+      "introduced": "8.4"
+    },
+    {
+      "name": "bitwise",
+      "operators": ["&", "^", "|", "<<", ">>"],
+      "result": "bitwise",
+      "introduced": "8.4"
+    },
+    {
+      "name": "json",
+      "operators": ["->"],
+      "result": "json",
+      "introduced": "8.4"
+    },
+    {
+      "name": "json-text",
+      "operators": ["->>"],
+      "result": "json-text",
+      "introduced": "8.4"
+    }
   ],
   "routines": [
     {
@@ -475,25 +507,19 @@
     {
       "name": "double",
       "routines": [
-        "ABS",
         "ACOS",
         "ASIN",
         "ATAN",
         "ATAN2",
-        "CEIL",
-        "CEILING",
         "COS",
         "COT",
         "EXP",
-        "FLOOR",
         "LN",
         "LOG",
         "LOG10",
         "LOG2",
         "POW",
         "POWER",
-        "RAND",
-        "ROUND",
         "SIN",
         "SQRT",
         "TAN"
@@ -501,7 +527,7 @@
       "result": "double",
       "minimumArguments": 0,
       "maximumArguments": 2,
-      "nullability": "arguments",
+      "nullability": "always",
       "introduced": "8.4"
     },
     {
@@ -592,22 +618,142 @@
       "maximumArguments": 1,
       "nullability": "arguments",
       "introduced": "9.7"
+    },
+    {
+      "name": "numeric-absolute",
+      "routines": ["ABS"],
+      "result": "numeric-absolute",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "nullability": "arguments",
+      "introduced": "8.4"
+    },
+    {
+      "name": "numeric-round",
+      "routines": ["ROUND"],
+      "result": "numeric-round",
+      "minimumArguments": 1,
+      "maximumArguments": 2,
+      "nullability": "arguments",
+      "introduced": "8.4"
+    },
+    {
+      "name": "numeric-integral",
+      "routines": ["FLOOR", "CEIL", "CEILING"],
+      "result": "numeric-integral",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "nullability": "arguments",
+      "introduced": "8.4"
+    },
+    {
+      "name": "random",
+      "routines": ["RAND"],
+      "result": "double",
+      "minimumArguments": 0,
+      "maximumArguments": 1,
+      "nullability": "never",
+      "introduced": "8.4"
     }
   ],
   "collations": [
-    { "name": "binary", "characterSet": "binary", "unicode": false, "binary": true, "introduced": "8.4" },
-    { "name": "ascii_bin", "characterSet": "ascii", "unicode": false, "binary": true, "introduced": "8.4" },
-    { "name": "ascii_general_ci", "characterSet": "ascii", "unicode": false, "binary": false, "introduced": "8.4" },
-    { "name": "latin1_bin", "characterSet": "latin1", "unicode": false, "binary": true, "introduced": "8.4" },
-    { "name": "latin1_swedish_ci", "characterSet": "latin1", "unicode": false, "binary": false, "introduced": "8.4" },
-    { "name": "utf8mb3_bin", "characterSet": "utf8mb3", "unicode": true, "binary": true, "introduced": "8.4" },
-    { "name": "utf8mb3_general_ci", "characterSet": "utf8mb3", "unicode": true, "binary": false, "introduced": "8.4" },
-    { "name": "utf8mb4_bin", "characterSet": "utf8mb4", "unicode": true, "binary": true, "introduced": "8.4" },
-    { "name": "utf8mb4_0900_ai_ci", "characterSet": "utf8mb4", "unicode": true, "binary": false, "introduced": "8.4" },
-    { "name": "utf8mb4_0900_as_ci", "characterSet": "utf8mb4", "unicode": true, "binary": false, "introduced": "8.4" },
-    { "name": "utf8mb4_0900_as_cs", "characterSet": "utf8mb4", "unicode": true, "binary": false, "introduced": "8.4" },
-    { "name": "utf8mb4_0900_bin", "characterSet": "utf8mb4", "unicode": true, "binary": true, "introduced": "8.4" },
-    { "name": "utf8mb4_general_ci", "characterSet": "utf8mb4", "unicode": true, "binary": false, "introduced": "8.4" },
-    { "name": "utf8mb4_unicode_ci", "characterSet": "utf8mb4", "unicode": true, "binary": false, "introduced": "8.4" }
+    {
+      "name": "binary",
+      "characterSet": "binary",
+      "unicode": false,
+      "binary": true,
+      "introduced": "8.4"
+    },
+    {
+      "name": "ascii_bin",
+      "characterSet": "ascii",
+      "unicode": false,
+      "binary": true,
+      "introduced": "8.4"
+    },
+    {
+      "name": "ascii_general_ci",
+      "characterSet": "ascii",
+      "unicode": false,
+      "binary": false,
+      "introduced": "8.4"
+    },
+    {
+      "name": "latin1_bin",
+      "characterSet": "latin1",
+      "unicode": false,
+      "binary": true,
+      "introduced": "8.4"
+    },
+    {
+      "name": "latin1_swedish_ci",
+      "characterSet": "latin1",
+      "unicode": false,
+      "binary": false,
+      "introduced": "8.4"
+    },
+    {
+      "name": "utf8mb3_bin",
+      "characterSet": "utf8mb3",
+      "unicode": true,
+      "binary": true,
+      "introduced": "8.4"
+    },
+    {
+      "name": "utf8mb3_general_ci",
+      "characterSet": "utf8mb3",
+      "unicode": true,
+      "binary": false,
+      "introduced": "8.4"
+    },
+    {
+      "name": "utf8mb4_bin",
+      "characterSet": "utf8mb4",
+      "unicode": true,
+      "binary": true,
+      "introduced": "8.4"
+    },
+    {
+      "name": "utf8mb4_0900_ai_ci",
+      "characterSet": "utf8mb4",
+      "unicode": true,
+      "binary": false,
+      "introduced": "8.4"
+    },
+    {
+      "name": "utf8mb4_0900_as_ci",
+      "characterSet": "utf8mb4",
+      "unicode": true,
+      "binary": false,
+      "introduced": "8.4"
+    },
+    {
+      "name": "utf8mb4_0900_as_cs",
+      "characterSet": "utf8mb4",
+      "unicode": true,
+      "binary": false,
+      "introduced": "8.4"
+    },
+    {
+      "name": "utf8mb4_0900_bin",
+      "characterSet": "utf8mb4",
+      "unicode": true,
+      "binary": true,
+      "introduced": "8.4"
+    },
+    {
+      "name": "utf8mb4_general_ci",
+      "characterSet": "utf8mb4",
+      "unicode": true,
+      "binary": false,
+      "introduced": "8.4"
+    },
+    {
+      "name": "utf8mb4_unicode_ci",
+      "characterSet": "utf8mb4",
+      "unicode": true,
+      "binary": false,
+      "introduced": "8.4"
+    }
   ]
 }

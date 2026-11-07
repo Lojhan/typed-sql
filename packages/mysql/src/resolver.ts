@@ -29,6 +29,7 @@ import {
   mySqlCoreCatalogForSchema,
   normalizeMySqlType,
 } from "./catalog/index.js";
+import { mySqlNumericLiteralType, resolveMySqlNumeric } from "./numeric-functions.js";
 import type {
   CallExpression,
   Expression,
@@ -43,7 +44,13 @@ import type {
   WithClause,
 } from "./parser/index.js";
 import { walkStatement } from "./parser/index.js";
-import { defaultMySqlTypePolicy, isKnownMySqlType, type MySqlTypePolicy, mapMySqlType } from "./type-policy.js";
+import {
+  defaultMySqlTypePolicy,
+  isKnownMySqlType,
+  type MySqlTypePolicy,
+  mapMySqlType,
+  mySqlTypeDeclaration,
+} from "./type-policy.js";
 
 interface ResolvedType {
   readonly tsType: string;
@@ -1421,12 +1428,16 @@ class Resolver {
       if (typeof expression.value === "boolean")
         return { tsType: "boolean", nullable: false, databaseType: "boolean", coercibility: 5 };
       if (typeof expression.value === "number") {
-        const databaseType = Number.isInteger(expression.value) ? "int" : "decimal";
+        const databaseType = mySqlNumericLiteralType(expression.numericText ?? String(expression.value));
+        if (!databaseType) {
+          this.#diagnostic("TSQ401", "Numeric literal exceeds the supported exact representation", expression.range);
+          return { tsType: "unknown", nullable: true };
+        }
         return {
-          tsType: databaseType === "decimal" ? this.#policy.decimal : "number",
+          tsType: mapMySqlType(databaseType, this.#policy, this.#schema),
           nullable: false,
           databaseType,
-          unsigned: false,
+          unsigned: isUnsigned(databaseType),
           coercibility: 5,
         };
       }
@@ -1462,13 +1473,9 @@ class Resolver {
       };
     }
     if (expression.kind === "cast") {
-      const source = this.#expression(
-        expression.expression,
-        scope,
-        ctes,
-        this.#databaseType(expression.databaseType.name, true),
-      );
-      if (!isKnownMySqlType(expression.databaseType.name, this.#schema))
+      const databaseType = mySqlTypeDeclaration(expression.databaseType.name);
+      const source = this.#expression(expression.expression, scope, ctes, this.#databaseType(databaseType, true));
+      if (!isKnownMySqlType(databaseType, this.#schema))
         this.#diagnostic(
           "TSQ106",
           `Invalid or unknown MySQL cast type ${expression.databaseType.name}`,
@@ -1477,10 +1484,10 @@ class Resolver {
       if (normalized(expression.databaseType.name) === "json")
         return this.#jsonResult(this.#jsonDocument(source, expression.expression), source.nullable);
       return {
-        tsType: mapMySqlType(expression.databaseType.name, this.#policy, this.#schema),
+        tsType: mapMySqlType(databaseType, this.#policy, this.#schema),
         nullable: source.nullable,
-        databaseType: normalized(expression.databaseType.name),
-        unsigned: isUnsigned(expression.databaseType.name),
+        databaseType,
+        unsigned: isUnsigned(databaseType),
         ...(mySqlCatalogType(expression.databaseType.name, this.#schema)?.category === "string"
           ? this.#connectionCollation(2)
           : {}),
@@ -1777,7 +1784,11 @@ class Resolver {
         );
         return { tsType: "unknown", nullable: true };
       }
-      return this.#builtinResult(builtin.result, functionName, values, expression.range);
+      const result = this.#builtinResult(builtin.result, functionName, values, expression.range, expression.arguments);
+      return {
+        ...result,
+        nullable: builtin.nullability === "always" ? true : builtin.nullability === "never" ? false : result.nullable,
+      };
     }
     if (
       mySqlCoreCatalogForSchema(this.#schema) !== undefined &&
@@ -2061,8 +2072,14 @@ class Resolver {
     functionName: string,
     values: readonly ResolvedType[],
     range: SourceRange,
+    expressions: readonly Expression[] = [],
   ): ResolvedType {
     const argumentNullable = values.some((value) => value.nullable);
+    if (rule === "numeric-absolute" || rule === "numeric-round" || rule === "numeric-integral") {
+      const result = resolveMySqlNumeric(rule, values, expressions, this.#policy, this.#schema);
+      if (result.reason) this.#diagnostic("TSQ401", result.reason, range);
+      return result;
+    }
     if (rule === "count")
       return { tsType: this.#policy.bigint, nullable: false, databaseType: "bigint", unsigned: false };
     if (rule === "bigint")

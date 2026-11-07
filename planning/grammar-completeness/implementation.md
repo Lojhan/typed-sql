@@ -631,6 +631,48 @@ This list preserves the full goal. It is not a reduced definition of ready-to-me
 The isolated test runtime now runs MySQL 8.4.11 on linux/arm64.
 `mysql-numeric-witnesses.json` retains nine explicit pure-function queries, exact image/driver
 identity, preparation/execution descriptors, observed values and the native description of each
-grammar-claimed type. Five queries have a native type-code mismatch; three other queries return
-NULL against a non-null claim. These are targeted bug witnesses, not a usage-frequency metric.
-The numeric family migration and permanent regression tests remain required before promotion.
+grammar-claimed type. Two signed-cast queries already emitted TSQ106: these were unsupported
+valid queries, not unguarded type claims. Six other queries exposed unguarded defects: three
+result-type mismatches and three NULL results against non-null claims. The ninth is a control.
+The retained evidence includes original diagnostics and this classification. These are targeted
+bug witnesses, not a usage-frequency metric.
+The numeric family migration and permanent regression tests now cover these cases. A separate
+post-fix qualification records source digests, native observations and comparison checks; the
+original failing claims and diagnostics remain regression history.
+
+## MySQL numeric family and source-bound argument projection
+
+- Generation overlays reviewed semantic families with unconditional public vendor registration
+  bounds. It obtains minimum bounds for 47/52/52 mapped names in the 8.4/9.7/26.7 bands and
+  finite maximum bounds for 42/47/47. Conditional, missing and unresolved registrations retain
+  explicitly attributed policy bounds. Conflicting profiles in a band fail generation. The
+  generated `mysql-routine-projection.json` retains every selected registration and field owner;
+  this does not claim automatic extraction of return semantics.
+- Grammar-owned numeric rules preserve exact decimal spelling, signed BIGINT casts and configured
+  integer/decimal representations for ABS and integral/decimal rounding. Source-backed domain
+  nullability is explicit catalog policy. Unsupported operand categories emit diagnostics.
+- The nine native regressions pass static analysis and independent native type descriptions,
+  unsigned flags, decimal dimensions and nullability checks on the exact MySQL 8.4.11 context.
+  Compiled queries execute through the real mysql2 adapter with exact bigint, decimal-string and
+  NULL value assertions. The same helper runs in the existing MySQL E2E matrix; local one-context
+  results do not establish that the complete matrix has passed.
+- General numeric qualification remains open, including unary unsigned boundaries, arithmetic
+  precision, nonconstant ROUND scale and complete parameter/result descriptors. MySQL/SQLite
+  general native-description owners remain required; this targeted oracle does not replace them.
+- MySQL package tests and coverage, workspace typecheck, MySQL E2E typecheck, quality and build
+  pass locally. The full repository suite passes, including all 68 contract files and packed
+  consumer partitions. The isolated performance gate passes with unchanged budgets. Exact-head CI
+  remains pending.
+- Additional preparation-only probes are retained as open followups in the witness file. They
+  confirm that unary negation still misses unsigned spelling and value-dependent DECIMAL
+  promotion, and that a nonliteral ROUND scale loses dimensions. These are not passing coverage.
+
+## Packed consumer verification partition
+
+CI run `42419946846` on `952cecae` failed because the combined packed-consumer file exceeded its
+120-second test deadline near the final editor shutdown. The distribution checks remain in that
+file; the same PostgreSQL/MySQL/SQLite editor checks move to an independent isolated packed
+consumer fixture. SQL Server/DuckDB retain their existing packed editor fixture. `test:pack`
+includes all three files. No timeout or performance budget is increased and no assertions are
+removed. All three packed partitions pass in the full local contract run (68 files, zero
+failures). The new partition still requires exact-head CI qualification.

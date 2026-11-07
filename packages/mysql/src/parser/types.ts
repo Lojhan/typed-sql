@@ -50,6 +50,7 @@ export interface StarExpression {
 export interface LiteralExpression {
   readonly kind: "literal";
   readonly value: string | number | boolean | null;
+  readonly numericText?: string;
   readonly characterSet?: Identifier;
   readonly range: SourceRange;
 }

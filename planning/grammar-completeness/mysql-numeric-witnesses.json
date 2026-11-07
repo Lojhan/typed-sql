@@ -1,6 +1,6 @@
 {
   "formatVersion": 1,
-  "status": "open-regression-witnesses",
+  "status": "retained-regression-history-with-local-qualification",
   "scope": "Explicit pure-function regression queries on one exact native engine; not a workload sample or all-version qualification",
   "analysisRevision": "6ea9410c97b8c7831fad831534b16471e28c8c26",
   "target": {
@@ -71,7 +71,9 @@
           "value": "2"
         }
       ],
-      "confirmedIssues": ["native-type-code-differs-from-native-description-of-claimed-type"]
+      "confirmedIssues": ["native-type-code-differs-from-native-description-of-claimed-type"],
+      "diagnostics": ["TSQ106"],
+      "classification": "unsupported-valid-query"
     },
     {
       "sql": "SELECT ABS(CAST('-9007199254740993' AS SIGNED)) AS value",
@@ -108,7 +110,9 @@
           "value": "9007199254740993"
         }
       ],
-      "confirmedIssues": ["native-type-code-differs-from-native-description-of-claimed-type"]
+      "confirmedIssues": ["native-type-code-differs-from-native-description-of-claimed-type"],
+      "diagnostics": ["TSQ106"],
+      "classification": "unsupported-valid-query"
     },
     {
       "sql": "SELECT ABS(CAST(-2.25 AS DECIMAL(9,2))) AS value",
@@ -145,7 +149,9 @@
           "value": "2.25"
         }
       ],
-      "confirmedIssues": ["native-type-code-differs-from-native-description-of-claimed-type"]
+      "confirmedIssues": ["native-type-code-differs-from-native-description-of-claimed-type"],
+      "diagnostics": [],
+      "classification": "unguarded-semantic-defect"
     },
     {
       "sql": "SELECT ACOS(2) AS value",
@@ -182,7 +188,9 @@
           "value": null
         }
       ],
-      "confirmedIssues": ["native-null-result-contradicts-non-null-claim"]
+      "confirmedIssues": ["native-null-result-contradicts-non-null-claim"],
+      "diagnostics": [],
+      "classification": "unguarded-semantic-defect"
     },
     {
       "sql": "SELECT LOG(-1) AS value",
@@ -219,7 +227,9 @@
           "value": null
         }
       ],
-      "confirmedIssues": ["native-null-result-contradicts-non-null-claim"]
+      "confirmedIssues": ["native-null-result-contradicts-non-null-claim"],
+      "diagnostics": [],
+      "classification": "unguarded-semantic-defect"
     },
     {
       "sql": "SELECT SQRT(-1) AS value",
@@ -256,7 +266,9 @@
           "value": null
         }
       ],
-      "confirmedIssues": ["native-null-result-contradicts-non-null-claim"]
+      "confirmedIssues": ["native-null-result-contradicts-non-null-claim"],
+      "diagnostics": [],
+      "classification": "unguarded-semantic-defect"
     },
     {
       "sql": "SELECT FLOOR(CAST(1.25 AS DECIMAL(9,2))) AS value",
@@ -293,7 +305,9 @@
           "value": "1"
         }
       ],
-      "confirmedIssues": ["native-type-code-differs-from-native-description-of-claimed-type"]
+      "confirmedIssues": ["native-type-code-differs-from-native-description-of-claimed-type"],
+      "diagnostics": [],
+      "classification": "unguarded-semantic-defect"
     },
     {
       "sql": "SELECT ROUND(CAST(1.25 AS DECIMAL(9,2)),1) AS value",
@@ -330,7 +344,9 @@
           "value": "1.3"
         }
       ],
-      "confirmedIssues": ["native-type-code-differs-from-native-description-of-claimed-type"]
+      "confirmedIssues": ["native-type-code-differs-from-native-description-of-claimed-type"],
+      "diagnostics": [],
+      "classification": "unguarded-semantic-defect"
     },
     {
       "sql": "SELECT SIN(0) AS value",
@@ -367,7 +383,842 @@
           "value": 0
         }
       ],
-      "confirmedIssues": []
+      "confirmedIssues": [],
+      "diagnostics": [],
+      "classification": "control"
     }
-  ]
+  ],
+  "classificationSummary": {
+    "unsupportedValidQueries": 2,
+    "unguardedSemanticDefects": 6,
+    "controls": 1
+  },
+  "postFixQualification": {
+    "scope": "Nine explicit regression cases on the exact target above only; cross-version and general numeric qualification remain open",
+    "sourceFiles": {
+      "grammar/mysql/catalog/core.json": "6a6310db8848dfd4324d32ae858e5d7b0b2b400ce7b28c454dc541a1b6ec74ee",
+      "packages/mysql/src/numeric-functions.ts": "d24ed7a2de92f56ae47fc956351cce4831e5056304f9a87a075f5db931310322",
+      "packages/mysql/src/resolver.ts": "98c7f889d42e5ea0bd6962b28a7564f9b4dc0f44704b0df4e48324a4ad863e83",
+      "packages/mysql/src/type-policy.ts": "3cb5801e0e3226556c534168dad5ff113a50658262ad9ebd45aa298d6560e279",
+      "packages/mysql/src/parser/parser.ts": "1baba5f04de9dd74c56486e18d197f490c05a491f0eef16a97db77ebc614cf08",
+      "packages/mysql/src/parser/tokenizer.ts": "4aeff1993eac2fda62532abafa473e27fa0868e818aa4b4f0825659bd6f5dfc7",
+      "test/helpers/mysql-numeric-conformance.ts": "bb6d298670c5beb4fcb044a06b1e5b0f7dc8c7c8f84ca2765b27b9cdd999ceae",
+      "test/helpers/mysql-numeric-cases.ts": "abd3707006b4747341d68163dc3d727e23efcb26de72c4c4b53134d848c35914"
+    },
+    "verification": [
+      "diagnostics empty and no parameters",
+      "inferred TypeScript type and SQL type",
+      "native result code and unsigned flag agree with engine description of claimed SQL type",
+      "native decimal dimensions agree with engine description of claimed SQL type",
+      "inferred nullability agrees with native NOT_NULL flag",
+      "compiled runtime queries decode exact expected bigint, decimal string and NULL values"
+    ],
+    "nativeClaimDescriptions": {
+      "bigint": [
+        {
+          "name": "value",
+          "engineType": 8,
+          "flags": 0,
+          "characterSet": 63,
+          "columnLength": 20,
+          "decimals": 0
+        }
+      ],
+      "decimal(9,2)": [
+        {
+          "name": "value",
+          "engineType": 246,
+          "flags": 0,
+          "characterSet": 63,
+          "columnLength": 11,
+          "decimals": 2
+        }
+      ],
+      "double": [
+        {
+          "name": "value",
+          "engineType": 5,
+          "flags": 0,
+          "characterSet": 63,
+          "columnLength": 22,
+          "decimals": 31
+        }
+      ],
+      "decimal(9,1)": [
+        {
+          "name": "value",
+          "engineType": 246,
+          "flags": 0,
+          "characterSet": 63,
+          "columnLength": 11,
+          "decimals": 1
+        }
+      ]
+    },
+    "observations": [
+      {
+        "sql": "SELECT ABS(CAST(-2 AS SIGNED)) AS value",
+        "columns": [
+          {
+            "name": "value",
+            "tsType": "bigint",
+            "nullable": false,
+            "databaseType": "bigint",
+            "unsigned": false,
+            "range": {
+              "start": 7,
+              "end": 39,
+              "line": 1,
+              "column": 8
+            }
+          }
+        ],
+        "diagnostics": [],
+        "prepared": [
+          {
+            "name": "value",
+            "engineType": 8,
+            "flags": 129,
+            "characterSet": 63,
+            "columnLength": 21,
+            "decimals": 0
+          }
+        ],
+        "executed": [
+          {
+            "name": "value",
+            "engineType": 8,
+            "flags": 129,
+            "characterSet": 63,
+            "columnLength": 21,
+            "decimals": 0
+          }
+        ],
+        "rows": [
+          {
+            "value": "2"
+          }
+        ]
+      },
+      {
+        "sql": "SELECT ABS(CAST('-9007199254740993' AS SIGNED)) AS value",
+        "columns": [
+          {
+            "name": "value",
+            "tsType": "bigint",
+            "nullable": false,
+            "databaseType": "bigint",
+            "unsigned": false,
+            "range": {
+              "start": 7,
+              "end": 56,
+              "line": 1,
+              "column": 8
+            }
+          }
+        ],
+        "diagnostics": [],
+        "prepared": [
+          {
+            "name": "value",
+            "engineType": 8,
+            "flags": 129,
+            "characterSet": 63,
+            "columnLength": 21,
+            "decimals": 0
+          }
+        ],
+        "executed": [
+          {
+            "name": "value",
+            "engineType": 8,
+            "flags": 129,
+            "characterSet": 63,
+            "columnLength": 21,
+            "decimals": 0
+          }
+        ],
+        "rows": [
+          {
+            "value": "9007199254740993"
+          }
+        ]
+      },
+      {
+        "sql": "SELECT ABS(CAST(-2.25 AS DECIMAL(9,2))) AS value",
+        "columns": [
+          {
+            "name": "value",
+            "tsType": "string",
+            "nullable": false,
+            "databaseType": "decimal(9,2)",
+            "unsigned": false,
+            "range": {
+              "start": 7,
+              "end": 48,
+              "line": 1,
+              "column": 8
+            }
+          }
+        ],
+        "diagnostics": [],
+        "prepared": [
+          {
+            "name": "value",
+            "engineType": 246,
+            "flags": 129,
+            "characterSet": 63,
+            "columnLength": 11,
+            "decimals": 2
+          }
+        ],
+        "executed": [
+          {
+            "name": "value",
+            "engineType": 246,
+            "flags": 129,
+            "characterSet": 63,
+            "columnLength": 11,
+            "decimals": 2
+          }
+        ],
+        "rows": [
+          {
+            "value": "2.25"
+          }
+        ]
+      },
+      {
+        "sql": "SELECT ACOS(2) AS value",
+        "columns": [
+          {
+            "name": "value",
+            "tsType": "number",
+            "nullable": true,
+            "databaseType": "double",
+            "range": {
+              "start": 7,
+              "end": 23,
+              "line": 1,
+              "column": 8
+            }
+          }
+        ],
+        "diagnostics": [],
+        "prepared": [
+          {
+            "name": "value",
+            "engineType": 5,
+            "flags": 128,
+            "characterSet": 63,
+            "columnLength": 23,
+            "decimals": 31
+          }
+        ],
+        "executed": [
+          {
+            "name": "value",
+            "engineType": 5,
+            "flags": 128,
+            "characterSet": 63,
+            "columnLength": 23,
+            "decimals": 31
+          }
+        ],
+        "rows": [
+          {
+            "value": null
+          }
+        ]
+      },
+      {
+        "sql": "SELECT LOG(-1) AS value",
+        "columns": [
+          {
+            "name": "value",
+            "tsType": "number",
+            "nullable": true,
+            "databaseType": "double",
+            "range": {
+              "start": 7,
+              "end": 23,
+              "line": 1,
+              "column": 8
+            }
+          }
+        ],
+        "diagnostics": [],
+        "prepared": [
+          {
+            "name": "value",
+            "engineType": 5,
+            "flags": 128,
+            "characterSet": 63,
+            "columnLength": 23,
+            "decimals": 31
+          }
+        ],
+        "executed": [
+          {
+            "name": "value",
+            "engineType": 5,
+            "flags": 128,
+            "characterSet": 63,
+            "columnLength": 23,
+            "decimals": 31
+          }
+        ],
+        "rows": [
+          {
+            "value": null
+          }
+        ]
+      },
+      {
+        "sql": "SELECT SQRT(-1) AS value",
+        "columns": [
+          {
+            "name": "value",
+            "tsType": "number",
+            "nullable": true,
+            "databaseType": "double",
+            "range": {
+              "start": 7,
+              "end": 24,
+              "line": 1,
+              "column": 8
+            }
+          }
+        ],
+        "diagnostics": [],
+        "prepared": [
+          {
+            "name": "value",
+            "engineType": 5,
+            "flags": 128,
+            "characterSet": 63,
+            "columnLength": 23,
+            "decimals": 31
+          }
+        ],
+        "executed": [
+          {
+            "name": "value",
+            "engineType": 5,
+            "flags": 128,
+            "characterSet": 63,
+            "columnLength": 23,
+            "decimals": 31
+          }
+        ],
+        "rows": [
+          {
+            "value": null
+          }
+        ]
+      },
+      {
+        "sql": "SELECT FLOOR(CAST(1.25 AS DECIMAL(9,2))) AS value",
+        "columns": [
+          {
+            "name": "value",
+            "tsType": "bigint",
+            "nullable": false,
+            "databaseType": "bigint",
+            "unsigned": false,
+            "range": {
+              "start": 7,
+              "end": 49,
+              "line": 1,
+              "column": 8
+            }
+          }
+        ],
+        "diagnostics": [],
+        "prepared": [
+          {
+            "name": "value",
+            "engineType": 8,
+            "flags": 129,
+            "characterSet": 63,
+            "columnLength": 21,
+            "decimals": 0
+          }
+        ],
+        "executed": [
+          {
+            "name": "value",
+            "engineType": 8,
+            "flags": 129,
+            "characterSet": 63,
+            "columnLength": 21,
+            "decimals": 0
+          }
+        ],
+        "rows": [
+          {
+            "value": "1"
+          }
+        ]
+      },
+      {
+        "sql": "SELECT ROUND(CAST(1.25 AS DECIMAL(9,2)),1) AS value",
+        "columns": [
+          {
+            "name": "value",
+            "tsType": "string",
+            "nullable": false,
+            "databaseType": "decimal(9,1)",
+            "unsigned": false,
+            "range": {
+              "start": 7,
+              "end": 51,
+              "line": 1,
+              "column": 8
+            }
+          }
+        ],
+        "diagnostics": [],
+        "prepared": [
+          {
+            "name": "value",
+            "engineType": 246,
+            "flags": 129,
+            "characterSet": 63,
+            "columnLength": 11,
+            "decimals": 1
+          }
+        ],
+        "executed": [
+          {
+            "name": "value",
+            "engineType": 246,
+            "flags": 129,
+            "characterSet": 63,
+            "columnLength": 11,
+            "decimals": 1
+          }
+        ],
+        "rows": [
+          {
+            "value": "1.3"
+          }
+        ]
+      },
+      {
+        "sql": "SELECT SIN(0) AS value",
+        "columns": [
+          {
+            "name": "value",
+            "tsType": "number",
+            "nullable": true,
+            "databaseType": "double",
+            "range": {
+              "start": 7,
+              "end": 22,
+              "line": 1,
+              "column": 8
+            }
+          }
+        ],
+        "diagnostics": [],
+        "prepared": [
+          {
+            "name": "value",
+            "engineType": 5,
+            "flags": 128,
+            "characterSet": 63,
+            "columnLength": 23,
+            "decimals": 31
+          }
+        ],
+        "executed": [
+          {
+            "name": "value",
+            "engineType": 5,
+            "flags": 128,
+            "characterSet": 63,
+            "columnLength": 23,
+            "decimals": 31
+          }
+        ],
+        "rows": [
+          {
+            "value": 0
+          }
+        ]
+      }
+    ]
+  },
+  "openFollowups": {
+    "scope": "Additional explicit preparation-only probes on the same exact native target; not executed and not qualified",
+    "observations": [
+      {
+        "sql": "SELECT -9223372036854775808 AS value",
+        "claimed": [
+          {
+            "name": "value",
+            "tsType": "bigint",
+            "nullable": false,
+            "databaseType": "bigint unsigned",
+            "unsigned": false,
+            "coercibility": 5,
+            "range": {
+              "start": 7,
+              "end": 36,
+              "line": 1,
+              "column": 8
+            }
+          }
+        ],
+        "diagnostics": [],
+        "native": {
+          "accepted": true,
+          "metadata": {
+            "status": "native preparation metadata for this invocation",
+            "columns": [
+              {
+                "name": "value",
+                "engineType": 8,
+                "flags": 129,
+                "characterSet": 63,
+                "columnLength": 20,
+                "decimals": 0
+              }
+            ],
+            "parameterCount": 0
+          }
+        }
+      },
+      {
+        "sql": "SELECT -9223372036854775809 AS value",
+        "claimed": [
+          {
+            "name": "value",
+            "tsType": "bigint",
+            "nullable": false,
+            "databaseType": "bigint unsigned",
+            "unsigned": false,
+            "coercibility": 5,
+            "range": {
+              "start": 7,
+              "end": 36,
+              "line": 1,
+              "column": 8
+            }
+          }
+        ],
+        "diagnostics": [],
+        "native": {
+          "accepted": true,
+          "metadata": {
+            "status": "native preparation metadata for this invocation",
+            "columns": [
+              {
+                "name": "value",
+                "engineType": 246,
+                "flags": 129,
+                "characterSet": 63,
+                "columnLength": 20,
+                "decimals": 0
+              }
+            ],
+            "parameterCount": 0
+          }
+        }
+      },
+      {
+        "sql": "SELECT -18446744073709551615 AS value",
+        "claimed": [
+          {
+            "name": "value",
+            "tsType": "bigint",
+            "nullable": false,
+            "databaseType": "bigint unsigned",
+            "unsigned": false,
+            "coercibility": 5,
+            "range": {
+              "start": 7,
+              "end": 37,
+              "line": 1,
+              "column": 8
+            }
+          }
+        ],
+        "diagnostics": [],
+        "native": {
+          "accepted": true,
+          "metadata": {
+            "status": "native preparation metadata for this invocation",
+            "columns": [
+              {
+                "name": "value",
+                "engineType": 246,
+                "flags": 129,
+                "characterSet": 63,
+                "columnLength": 21,
+                "decimals": 0
+              }
+            ],
+            "parameterCount": 0
+          }
+        }
+      },
+      {
+        "sql": "SELECT -CAST(1 AS UNSIGNED) AS value",
+        "claimed": [
+          {
+            "name": "value",
+            "tsType": "bigint",
+            "nullable": false,
+            "databaseType": "bigint unsigned",
+            "unsigned": false,
+            "range": {
+              "start": 7,
+              "end": 36,
+              "line": 1,
+              "column": 8
+            }
+          }
+        ],
+        "diagnostics": [],
+        "native": {
+          "accepted": true,
+          "metadata": {
+            "status": "native preparation metadata for this invocation",
+            "columns": [
+              {
+                "name": "value",
+                "engineType": 8,
+                "flags": 129,
+                "characterSet": 63,
+                "columnLength": 22,
+                "decimals": 0
+              }
+            ],
+            "parameterCount": 0
+          }
+        }
+      },
+      {
+        "sql": "SELECT -CAST(9223372036854775808 AS UNSIGNED) AS value",
+        "claimed": [
+          {
+            "name": "value",
+            "tsType": "bigint",
+            "nullable": false,
+            "databaseType": "bigint unsigned",
+            "unsigned": false,
+            "range": {
+              "start": 7,
+              "end": 54,
+              "line": 1,
+              "column": 8
+            }
+          }
+        ],
+        "diagnostics": [],
+        "native": {
+          "accepted": true,
+          "metadata": {
+            "status": "native preparation metadata for this invocation",
+            "columns": [
+              {
+                "name": "value",
+                "engineType": 246,
+                "flags": 129,
+                "characterSet": 63,
+                "columnLength": 22,
+                "decimals": 0
+              }
+            ],
+            "parameterCount": 0
+          }
+        }
+      },
+      {
+        "sql": "SELECT -CAST(-2 AS SIGNED) AS value",
+        "claimed": [
+          {
+            "name": "value",
+            "tsType": "bigint",
+            "nullable": false,
+            "databaseType": "bigint",
+            "unsigned": false,
+            "range": {
+              "start": 7,
+              "end": 35,
+              "line": 1,
+              "column": 8
+            }
+          }
+        ],
+        "diagnostics": [],
+        "native": {
+          "accepted": true,
+          "metadata": {
+            "status": "native preparation metadata for this invocation",
+            "columns": [
+              {
+                "name": "value",
+                "engineType": 246,
+                "flags": 129,
+                "characterSet": 63,
+                "columnLength": 21,
+                "decimals": 0
+              }
+            ],
+            "parameterCount": 0
+          }
+        }
+      },
+      {
+        "sql": "SELECT --1 AS value",
+        "claimed": [
+          {
+            "name": "value",
+            "tsType": "number",
+            "nullable": false,
+            "databaseType": "int",
+            "unsigned": false,
+            "coercibility": 5,
+            "range": {
+              "start": 7,
+              "end": 19,
+              "line": 1,
+              "column": 8
+            }
+          }
+        ],
+        "diagnostics": [],
+        "native": {
+          "accepted": true,
+          "metadata": {
+            "status": "native preparation metadata for this invocation",
+            "columns": [
+              {
+                "name": "value",
+                "engineType": 246,
+                "flags": 129,
+                "characterSet": 63,
+                "columnLength": 2,
+                "decimals": 0
+              }
+            ],
+            "parameterCount": 0
+          }
+        }
+      },
+      {
+        "sql": "SELECT -(1+1) AS value",
+        "claimed": [
+          {
+            "name": "value",
+            "tsType": "bigint",
+            "nullable": false,
+            "databaseType": "bigint",
+            "unsigned": false,
+            "range": {
+              "start": 7,
+              "end": 22,
+              "line": 1,
+              "column": 8
+            }
+          }
+        ],
+        "diagnostics": [],
+        "native": {
+          "accepted": true,
+          "metadata": {
+            "status": "native preparation metadata for this invocation",
+            "columns": [
+              {
+                "name": "value",
+                "engineType": 8,
+                "flags": 129,
+                "characterSet": 63,
+                "columnLength": 3,
+                "decimals": 0
+              }
+            ],
+            "parameterCount": 0
+          }
+        }
+      },
+      {
+        "sql": "SELECT -1.25 AS value",
+        "claimed": [
+          {
+            "name": "value",
+            "tsType": "string",
+            "nullable": false,
+            "databaseType": "decimal(3,2)",
+            "unsigned": false,
+            "coercibility": 5,
+            "range": {
+              "start": 7,
+              "end": 21,
+              "line": 1,
+              "column": 8
+            }
+          }
+        ],
+        "diagnostics": [],
+        "native": {
+          "accepted": true,
+          "metadata": {
+            "status": "native preparation metadata for this invocation",
+            "columns": [
+              {
+                "name": "value",
+                "engineType": 246,
+                "flags": 129,
+                "characterSet": 63,
+                "columnLength": 5,
+                "decimals": 2
+              }
+            ],
+            "parameterCount": 0
+          }
+        }
+      },
+      {
+        "sql": "SELECT ROUND(1.25,CAST(1 AS SIGNED)) AS value",
+        "claimed": [
+          {
+            "name": "value",
+            "tsType": "string",
+            "nullable": false,
+            "databaseType": "decimal",
+            "unsigned": false,
+            "range": {
+              "start": 7,
+              "end": 45,
+              "line": 1,
+              "column": 8
+            }
+          }
+        ],
+        "diagnostics": [],
+        "native": {
+          "accepted": true,
+          "metadata": {
+            "status": "native preparation metadata for this invocation",
+            "columns": [
+              {
+                "name": "value",
+                "engineType": 246,
+                "flags": 129,
+                "characterSet": 63,
+                "columnLength": 5,
+                "decimals": 1
+              }
+            ],
+            "parameterCount": 0
+          }
+        }
+      }
+    ],
+    "interpretation": "Unary negation still preserves unsigned SQL spelling and misses value-dependent integer-to-decimal promotion; nonliteral ROUND scale loses exact dimensions. These observations are not counted as passing coverage."
+  }
 }

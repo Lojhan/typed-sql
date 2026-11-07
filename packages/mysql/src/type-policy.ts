@@ -39,6 +39,16 @@ function normalized(value: string): string {
   return output;
 }
 
+/** Preserve dimensions for result descriptions; SIGNED/UNSIGNED are native cast spellings. */
+export function mySqlTypeDeclaration(value: string): string {
+  const type = normalized(value);
+  if (/^signed(?: integer)?$/u.test(type)) return "bigint";
+  if (/^unsigned(?: integer)?$/u.test(type)) return "bigint unsigned";
+  const decimal = /^(?:decimal|dec|fixed|numeric)(?:\s*\(\s*(\d+)\s*\))?$/u.exec(type);
+  if (decimal) return `decimal(${decimal[1] ?? "10"},0)`;
+  return type;
+}
+
 function baseType(value: string): string {
   let type = normalized(value);
   if (type.endsWith(" unsigned")) type = type.slice(0, -" unsigned".length);
@@ -96,10 +106,21 @@ export function mySqlSetValues(databaseType: string): readonly string[] | undefi
 
 export function isKnownMySqlType(databaseType: string, schema?: SchemaSnapshot): boolean {
   const type = baseType(databaseType);
+  if (["decimal", "dec", "fixed", "numeric"].includes(type)) {
+    const dimensions =
+      /^(?:decimal|dec|fixed|numeric)(?:\s*\(\s*(\d+)\s*(?:,\s*(\d+)\s*)?\))?(?:\s+(?:unsigned|signed|zerofill))?$/u.exec(
+        normalized(databaseType),
+      );
+    if (!dimensions) return false;
+    const precision = Number(dimensions[1] ?? "10"),
+      scale = Number(dimensions[2] ?? "0");
+    if (precision < 1 || precision > 65 || scale > precision || scale > 30) return false;
+  }
   return mySqlCatalogType(type, schema) !== undefined || schema?.domains?.[type] !== undefined;
 }
 
 export function mapMySqlType(databaseType: string, policy: MySqlTypePolicy, schema?: SchemaSnapshot): string {
+  if (!isKnownMySqlType(databaseType, schema)) return policy.unknown;
   const type = baseType(databaseType);
   const values = mySqlEnumValues(databaseType);
   if (values !== undefined) return values.map((value) => JSON.stringify(value)).join(" | ") || "never";

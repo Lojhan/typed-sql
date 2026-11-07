@@ -15,4 +15,5 @@ tools/grammar-catalog/src/sources/** text eol=lf
 planning/grammar-completeness/duckdb-routine-projection.json linguist-generated=true
 planning/grammar-completeness/postgres-source-coverage.json linguist-generated=true
 planning/grammar-completeness/mysql-source-coverage.json linguist-generated=true
+planning/grammar-completeness/mysql-routine-projection.json linguist-generated=true
 planning/grammar-completeness/sqlserver-source-coverage.json linguist-generated=true
