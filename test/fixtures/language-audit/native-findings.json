@@ -1406,6 +1406,7 @@
     "sha256:647da71ec101cc23a2c2f753a3fae52f27d37ae454862497391f0af68cfa1d58": {"name":"variance","sql":"SELECT pg_catalog.variance(CAST(NULL AS numeric)) AS value","status":"native-valid-grammar-diagnostic","diagnostics":["TSQ202: Unknown function variance"],"diagnosticDetails":[{"code":"TSQ202","message":"Unknown function variance","range":{"start":7,"end":49,"line":1,"column":8},"severity":"warning"}],"nativeMetadata":{"status":"catalog-signature-preserved; result description unavailable through SQL PREPARE","parameterCount":0,"columns":null},"columns":[{"name":"value","tsType":"unknown","nullable":true,"range":{"start":7,"end":58,"line":1,"column":8}}],"parameters":[]},
     "sha256:648ec0eec0a7390aa0f65a2cfdaa682d67d72564482e365398be6f917b5deadf": {"name":"cash_send","sql":"SELECT pg_catalog.cash_send(CAST(NULL AS money)) AS value","status":"native-valid-grammar-diagnostic","diagnostics":["TSQ202: Unknown function cash_send"],"diagnosticDetails":[{"code":"TSQ202","message":"Unknown function cash_send","range":{"start":7,"end":48,"line":1,"column":8},"severity":"warning"}],"nativeMetadata":{"status":"catalog-signature-preserved; result description unavailable through SQL PREPARE","parameterCount":0,"columns":null},"columns":[{"name":"value","tsType":"unknown","nullable":true,"range":{"start":7,"end":57,"line":1,"column":8}}],"parameters":[]},
     "sha256:649b81297549fc85a4702b126f493eca825b86638d88e1922615d00b849b92c4": {"name":"validate_password_strength","sql":"SELECT validate_password_strength(NULL) AS value","status":"native-valid-grammar-diagnostic","diagnostics":["TSQ202: Unknown function validate_password_strength"],"diagnosticDetails":[{"code":"TSQ202","message":"Unknown function validate_password_strength","range":{"start":7,"end":39,"line":1,"column":8},"severity":"warning"}],"nativeMetadata":{"status":"native preparation metadata for this invocation","columns":[{"name":"value","engineType":8,"flags":128,"characterSet":63,"columnLength":10,"decimals":0}],"parameterCount":0},"columns":[{"name":"value","tsType":"unknown","nullable":true,"range":{"start":7,"end":48,"line":1,"column":8}}],"parameters":[]},
+    "sha256:64a900de7b7340eab817c55c7d53d3f0dc531066fc0621e24f15346a08d834b6": {"name":"concat","sql":"SELECT pg_catalog.concat(CAST(NULL AS \"any\")) AS value","status":"native-valid-grammar-diagnostic","diagnostics":["TSQ106: Invalid or unknown PostgreSQL cast type \"any\""],"diagnosticDetails":[{"code":"TSQ106","message":"Invalid or unknown PostgreSQL cast type \"any\"","range":{"start":38,"end":43,"line":1,"column":39},"severity":"error"}],"nativeMetadata":{"status":"catalog-signature-preserved; result description unavailable through SQL PREPARE","parameterCount":0,"columns":null},"columns":[{"name":"value","tsType":"string","nullable":false,"databaseType":"text","range":{"start":7,"end":54,"line":1,"column":8}}],"parameters":[]},
     "sha256:64b8dc8ebb3285a3ba85181aa9f3de18a3b0236670a1ff61b3c7896da429705b": {"name":"st_linestringfromtext","sql":"SELECT st_linestringfromtext(NULL, NULL, NULL) AS value","status":"native-valid-grammar-diagnostic","diagnostics":["TSQ202: Unknown function st_linestringfromtext"],"diagnosticDetails":[{"code":"TSQ202","message":"Unknown function st_linestringfromtext","range":{"start":7,"end":46,"line":1,"column":8},"severity":"warning"}],"nativeMetadata":{"status":"native preparation metadata for this invocation","columns":[{"name":"value","engineType":255,"flags":128,"characterSet":63,"columnLength":4294967295,"decimals":0}],"parameterCount":0},"columns":[{"name":"value","tsType":"unknown","nullable":true,"range":{"start":7,"end":55,"line":1,"column":8}}],"parameters":[]},
     "sha256:64c8626d780787847ef8a96822e4d73807fcea3ba03694e303794d1db16af8a3": {"name":"record_image_ne","sql":"SELECT pg_catalog.record_image_ne(CAST(NULL AS record), CAST(NULL AS record)) AS value","status":"native-valid-grammar-diagnostic","diagnostics":["TSQ106: Invalid or unknown PostgreSQL cast type record","TSQ106: Invalid or unknown PostgreSQL cast type record","TSQ202: Unknown function record_image_ne"],"diagnosticDetails":[{"code":"TSQ106","message":"Invalid or unknown PostgreSQL cast type record","range":{"start":47,"end":53,"line":1,"column":48},"severity":"error"},{"code":"TSQ106","message":"Invalid or unknown PostgreSQL cast type record","range":{"start":69,"end":75,"line":1,"column":70},"severity":"error"},{"code":"TSQ202","message":"Unknown function record_image_ne","range":{"start":7,"end":77,"line":1,"column":8},"severity":"warning"}],"nativeMetadata":{"status":"catalog-signature-preserved; result description unavailable through SQL PREPARE","parameterCount":0,"columns":null},"columns":[{"name":"value","tsType":"unknown","nullable":true,"range":{"start":7,"end":86,"line":1,"column":8}}],"parameters":[]},
     "sha256:64d2307cbd6ac0f9175f2280cdf1efe934c7028c417d63cefbd92e2a92489afa": {"name":"set_masklen","sql":"SELECT pg_catalog.set_masklen(CAST(NULL AS inet), CAST(NULL AS integer)) AS value","status":"native-valid-grammar-diagnostic","diagnostics":["TSQ202: Unknown function set_masklen"],"diagnosticDetails":[{"code":"TSQ202","message":"Unknown function set_masklen","range":{"start":7,"end":72,"line":1,"column":8},"severity":"warning"}],"nativeMetadata":{"status":"catalog-signature-preserved; result description unavailable through SQL PREPARE","parameterCount":0,"columns":null},"columns":[{"name":"value","tsType":"unknown","nullable":true,"range":{"start":7,"end":81,"line":1,"column":8}}],"parameters":[]},
@@ -4127,7 +4128,7 @@
         "native-valid-grammar-unknown": 8,
         "native-valid-recognition-only": 83
       },
-      "fingerprint": "sha256:7101c4685259805d63e06a5e0d1c82f7efa737f1bf866f2c487b13f478c2278e",
+      "fingerprint": "sha256:baf10c5bd2fe58f694187773b5f3ecd2cb764815f02322bde098f80e316d0287",
       "observationIds": [
         "sha256:36b7e92dbaa5d7d932455ad51459674b3d9f6c9cc8c0eedfb493b293b4a46a7f",
         "sha256:95d4bd97be8cd13ec5fc6bb243cb253bbaaf106e10e5e9fc0a5a30e410b75f91",
@@ -4137,7 +4138,7 @@
         "sha256:9f672db185ed01c8d192db0e27fd7b4ce58dc2ce7472fca5cf4742a69f20c8ff",
         "sha256:6a34ec2a2a9f99d4a334c4fb9c4a0cb411bdefa66f9bd10625c79b763af140a4",
         "sha256:18b117604618a9c30dbf06749c7b20a8617313d33130920e3270a3058703afa5",
-        "sha256:9c676e43785c017487bb7eb44778f5cc75a706589b8fc04efd96fd5b4f3fdbf0",
+        "sha256:64a900de7b7340eab817c55c7d53d3f0dc531066fc0621e24f15346a08d834b6",
         "sha256:04bd87f64d151fc6ae0d91e163cdc12abe9b63f7886b9bc080b3a87e5924c9e0",
         "sha256:35b3d51f0bf8a0dd2b9dc14a85772f23a39d824132936ae1c0079e3d6648987f",
         "sha256:23618e6f9cbc38d059e7ea27f7c4f6bde64b127a6602a23beb52b85cc8b84630",
@@ -6804,7 +6805,7 @@
         "native-valid-grammar-unknown": 8,
         "native-valid-recognition-only": 85
       },
-      "fingerprint": "sha256:4ae0e568a7232e215dcbcbf2cf935e398822c82e3e5ac3a48a9c6533c5688529",
+      "fingerprint": "sha256:1f674d211c327ab0f5a05d32d01bb22d1ef936c9ffb97bd5dbf6613e5e2a1038",
       "observationIds": [
         "sha256:36b7e92dbaa5d7d932455ad51459674b3d9f6c9cc8c0eedfb493b293b4a46a7f",
         "sha256:95d4bd97be8cd13ec5fc6bb243cb253bbaaf106e10e5e9fc0a5a30e410b75f91",
@@ -6814,7 +6815,7 @@
         "sha256:9f672db185ed01c8d192db0e27fd7b4ce58dc2ce7472fca5cf4742a69f20c8ff",
         "sha256:6a34ec2a2a9f99d4a334c4fb9c4a0cb411bdefa66f9bd10625c79b763af140a4",
         "sha256:18b117604618a9c30dbf06749c7b20a8617313d33130920e3270a3058703afa5",
-        "sha256:9c676e43785c017487bb7eb44778f5cc75a706589b8fc04efd96fd5b4f3fdbf0",
+        "sha256:64a900de7b7340eab817c55c7d53d3f0dc531066fc0621e24f15346a08d834b6",
         "sha256:04bd87f64d151fc6ae0d91e163cdc12abe9b63f7886b9bc080b3a87e5924c9e0",
         "sha256:35b3d51f0bf8a0dd2b9dc14a85772f23a39d824132936ae1c0079e3d6648987f",
         "sha256:23618e6f9cbc38d059e7ea27f7c4f6bde64b127a6602a23beb52b85cc8b84630",
@@ -9225,11 +9226,11 @@
         "native-valid-grammar-unknown": 8,
         "native-valid-recognition-only": 82
       },
-      "fingerprint": "sha256:4b238a22f4d8c9e9577e38b16cd2394a8f0b01b6fa4c7d36d2fd6e41eb4d9968",
+      "fingerprint": "sha256:5e32d720a5968640cfca75431cbfceb69f50c985f7a311ee25c0a79329a77875",
       "observationIds": [
         "sha256:36b7e92dbaa5d7d932455ad51459674b3d9f6c9cc8c0eedfb493b293b4a46a7f",
         "sha256:84fa2626c08eceb78e609101c0d74bae96d69a387ae6488385f61b6377ab22f5",
-        "sha256:9c676e43785c017487bb7eb44778f5cc75a706589b8fc04efd96fd5b4f3fdbf0",
+        "sha256:64a900de7b7340eab817c55c7d53d3f0dc531066fc0621e24f15346a08d834b6",
         "sha256:04bd87f64d151fc6ae0d91e163cdc12abe9b63f7886b9bc080b3a87e5924c9e0",
         "sha256:35b3d51f0bf8a0dd2b9dc14a85772f23a39d824132936ae1c0079e3d6648987f",
         "sha256:23618e6f9cbc38d059e7ea27f7c4f6bde64b127a6602a23beb52b85cc8b84630",
@@ -11359,7 +11360,7 @@
         "native-valid-grammar-unknown": 8,
         "native-valid-recognition-only": 85
       },
-      "fingerprint": "sha256:6d10436ea09140a104f644c543595b99979de6457efddbafbcd0a32162bf670e",
+      "fingerprint": "sha256:2397eb9b11159f7cb8f3537fa81ac697fc597ae47cb47f5bf997ba9c15464d1c",
       "observationIds": [
         "sha256:36b7e92dbaa5d7d932455ad51459674b3d9f6c9cc8c0eedfb493b293b4a46a7f",
         "sha256:95d4bd97be8cd13ec5fc6bb243cb253bbaaf106e10e5e9fc0a5a30e410b75f91",
@@ -11369,7 +11370,7 @@
         "sha256:9f672db185ed01c8d192db0e27fd7b4ce58dc2ce7472fca5cf4742a69f20c8ff",
         "sha256:6a34ec2a2a9f99d4a334c4fb9c4a0cb411bdefa66f9bd10625c79b763af140a4",
         "sha256:18b117604618a9c30dbf06749c7b20a8617313d33130920e3270a3058703afa5",
-        "sha256:9c676e43785c017487bb7eb44778f5cc75a706589b8fc04efd96fd5b4f3fdbf0",
+        "sha256:64a900de7b7340eab817c55c7d53d3f0dc531066fc0621e24f15346a08d834b6",
         "sha256:04bd87f64d151fc6ae0d91e163cdc12abe9b63f7886b9bc080b3a87e5924c9e0",
         "sha256:35b3d51f0bf8a0dd2b9dc14a85772f23a39d824132936ae1c0079e3d6648987f",
         "sha256:23618e6f9cbc38d059e7ea27f7c4f6bde64b127a6602a23beb52b85cc8b84630",
@@ -14735,11 +14736,11 @@
         "native-valid-grammar-unknown": 8,
         "native-valid-recognition-only": 82
       },
-      "fingerprint": "sha256:7645ea0f3325a804f7356eecf8ab05606daa0579f9bcbcd442b24639849fb21c",
+      "fingerprint": "sha256:de670c910f1422dd0c973c61fe0abcd56514eeba63869392d9ad838a0415ef40",
       "observationIds": [
         "sha256:36b7e92dbaa5d7d932455ad51459674b3d9f6c9cc8c0eedfb493b293b4a46a7f",
         "sha256:84fa2626c08eceb78e609101c0d74bae96d69a387ae6488385f61b6377ab22f5",
-        "sha256:9c676e43785c017487bb7eb44778f5cc75a706589b8fc04efd96fd5b4f3fdbf0",
+        "sha256:64a900de7b7340eab817c55c7d53d3f0dc531066fc0621e24f15346a08d834b6",
         "sha256:04bd87f64d151fc6ae0d91e163cdc12abe9b63f7886b9bc080b3a87e5924c9e0",
         "sha256:35b3d51f0bf8a0dd2b9dc14a85772f23a39d824132936ae1c0079e3d6648987f",
         "sha256:23618e6f9cbc38d059e7ea27f7c4f6bde64b127a6602a23beb52b85cc8b84630",
@@ -21753,7 +21754,7 @@
         "native-valid-grammar-unknown": 8,
         "native-valid-recognition-only": 83
       },
-      "fingerprint": "sha256:e35ea29a17ca22563081c6f8fd732aad249af0b338d76dccb6ef68a665405c4d",
+      "fingerprint": "sha256:f217025cdc698ce462fd10343ba287a125c2fa0d7cf2414542df52a278fcae93",
       "observationIds": [
         "sha256:36b7e92dbaa5d7d932455ad51459674b3d9f6c9cc8c0eedfb493b293b4a46a7f",
         "sha256:95d4bd97be8cd13ec5fc6bb243cb253bbaaf106e10e5e9fc0a5a30e410b75f91",
@@ -21763,7 +21764,7 @@
         "sha256:9f672db185ed01c8d192db0e27fd7b4ce58dc2ce7472fca5cf4742a69f20c8ff",
         "sha256:6a34ec2a2a9f99d4a334c4fb9c4a0cb411bdefa66f9bd10625c79b763af140a4",
         "sha256:18b117604618a9c30dbf06749c7b20a8617313d33130920e3270a3058703afa5",
-        "sha256:9c676e43785c017487bb7eb44778f5cc75a706589b8fc04efd96fd5b4f3fdbf0",
+        "sha256:64a900de7b7340eab817c55c7d53d3f0dc531066fc0621e24f15346a08d834b6",
         "sha256:04bd87f64d151fc6ae0d91e163cdc12abe9b63f7886b9bc080b3a87e5924c9e0",
         "sha256:35b3d51f0bf8a0dd2b9dc14a85772f23a39d824132936ae1c0079e3d6648987f",
         "sha256:23618e6f9cbc38d059e7ea27f7c4f6bde64b127a6602a23beb52b85cc8b84630",
