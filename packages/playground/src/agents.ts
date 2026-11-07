@@ -587,14 +587,20 @@ export class AgentRoutes {
       if (cancelled || conversation.status !== "running")
         throw new WorkspaceError("AGENT_CANCELLED", "Agent turn is no longer active");
     };
-    const cancel = () => {
-      cancelled = true;
-      controller.abort();
+    const failPendingToolCalls = () => {
       for (const call of conversation.toolCalls ?? [])
         if (turnToolCalls.has(call.id) && call.state === "running") {
           call.state = "failed";
           call.updatedAt = now();
         }
+    };
+    const cancel = () => {
+      // The active reservation includes cleanup and persistence after the model settles.
+      // Cancelling that cleanup must not rewrite an already terminal outcome.
+      if (conversation.status !== "running") return;
+      cancelled = true;
+      controller.abort();
+      failPendingToolCalls();
       conversation.status = "cancelled";
       conversation.stopReason = "cancelled";
       if (sessionId) connection?.notify("session/cancel", { sessionId });
@@ -829,11 +835,7 @@ export class AgentRoutes {
     } finally {
       clearTimeout(timer);
       controller.abort();
-      for (const call of conversation.toolCalls ?? [])
-        if (turnToolCalls.has(call.id) && call.state === "running") {
-          call.state = "failed";
-          call.updatedAt = now();
-        }
+      failPendingToolCalls();
       try {
         await workspaceTools?.close();
       } catch {

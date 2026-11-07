@@ -651,6 +651,62 @@ await describe("local ACP agents and reviewed repository tools", async () => {
       { workspaceTools: tools },
     );
   });
+  for (const [mode, status, stopReason] of [
+    ["normal", "idle", "end_turn"],
+    ["stop-refusal", "failed", "refusal"],
+    ["stop-cancelled", "cancelled", "cancelled"],
+  ] as const)
+    await it(`preserves ${status} outcome when closing during terminal cleanup`, async () => {
+      let entered!: () => void;
+      const closing = new Promise<void>((resolve) => {
+        entered = resolve;
+      });
+      let finish!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+      const tools: AgentWorkspaceTools = {
+        open: async () => ({
+          mcpServers: [],
+          close: async () => {
+            entered();
+            await gate;
+          },
+        }),
+      };
+      await fixture(
+        async (root, agents, files) => {
+          try {
+            const created = (await api(agents, "/new", { profileId: "local" })) as AgentConversation;
+            await api(agents, "/prompt", { conversationId: created.id, message: "Explain", workspaceTools: true });
+            await closing;
+            const terminal = (await api(agents, "/cancel", { conversationId: created.id })) as AgentConversation;
+            strict.equal(terminal.status, status);
+            strict.equal(terminal.stopReason, stopReason);
+            const shuttingDown = agents.close();
+            finish();
+            await shuttingDown;
+            const reopened = new AgentRoutes({
+              files,
+              trusted: () => true,
+              configDirectory: join(root, "user-config"),
+            });
+            try {
+              const restored = (await api(reopened, `/conversation?id=${created.id}`)) as AgentConversation;
+              strict.equal(restored.status, status);
+              strict.equal(restored.stopReason, stopReason);
+              strict.deepEqual(restored.messages, terminal.messages);
+            } finally {
+              await reopened.close();
+            }
+          } finally {
+            finish();
+          }
+        },
+        mode,
+        { workspaceTools: tools },
+      );
+    });
   await it("counts a cancelled-but-closing lease against the two-turn resource limit", async () => {
     let closing!: () => void;
     const entered = new Promise<void>((resolve) => {
