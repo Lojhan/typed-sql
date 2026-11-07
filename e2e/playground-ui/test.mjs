@@ -921,7 +921,25 @@ export default {dialect:postgres(),schema:{file:'schema.json'},outDir:'generated
   try {
     await proof.goto(url);
     await proof.getByRole("navigation", { name: "Project files" }).waitFor();
+    const [connected] = await Promise.all([
+      proof.waitForResponse((response) => /\/api\/(?:connect|refresh)$/u.test(response.url())),
+      proof.getByRole("button", { name: /^(?:Connect to target|Refresh schema)$/u }).click(),
+    ]);
+    assert.equal(connected.status(), 200);
+    await proof.locator('button[aria-label="Refresh schema"][title^="connected"]').waitFor();
     const proofEditor = proof.getByRole("textbox", { name: "Query source editor" });
+    const waitForRun = async (id, condition) => {
+      const token = new URL(url).hash.slice("#session=".length);
+      const deadline = Date.now() + 40000;
+      while (Date.now() < deadline) {
+        const response = await fetch(new URL("/api/state", url), { headers: { "x-typed-sql-session": token } });
+        const state = await response.json();
+        const run = state.runs.find((item) => item.id === id);
+        if (run && condition(run)) return run;
+        await proof.waitForTimeout(100);
+      }
+      throw new Error(`Run ${id} did not reach the expected completed result`);
+    };
     const choose = async (query, label = query) => {
       await proof.keyboard.press("ControlOrMeta+k");
       const dialog = proof.getByRole("dialog", { name: "Command palette", exact: true });
@@ -949,12 +967,7 @@ export default {dialect:postgres(),schema:{file:'schema.json'},outDir:'generated
     await proof.getByRole("button", { name: "Run", exact: true }).click();
     assert.equal((await rawRun).status(), 202, "Unrelated dirty modules do not block raw SQL");
     const rawRecord = await (await rawRun).json();
-    await proof.waitForFunction(async (id) => {
-      const state = await (
-        await fetch("/api/state", { headers: { "x-typed-sql-session": sessionStorage.getItem("typed-sql-session") } })
-      ).json();
-      return state.runs.some((run) => run.id === id && run.finishedAt);
-    }, rawRecord.id);
+    await waitForRun(rawRecord.id, (run) => !!run.finishedAt);
     await choose("playground/dependency.ts");
     const helperSave = proof.waitForResponse((response) => response.url().endsWith("/api/save"));
     await proofEditor.press("ControlOrMeta+s");
@@ -965,16 +978,12 @@ export default {dialect:postgres(),schema:{file:'schema.json'},outDir:'generated
     const moduleResponse = await moduleRun;
     assert.equal(moduleResponse.status(), 202);
     const moduleRecord = await moduleResponse.json();
-    await proof.waitForFunction(async (id) => {
-      const state = await (
-        await fetch("/api/state", { headers: { "x-typed-sql-session": sessionStorage.getItem("typed-sql-session") } })
-      ).json();
-      const run = state.runs.find((run) => run.id === id);
-      return (
-        run?.status === "succeeded" &&
-        run.results.some((result) => JSON.stringify(result.value).includes('["value",2]'))
-      );
-    }, moduleRecord.id);
+    await waitForRun(
+      moduleRecord.id,
+      (run) =>
+        run.status === "succeeded" &&
+        run.results.some((result) => JSON.stringify(result.value).includes('["value",2]')),
+    );
     check(
       "TS/JS runs name dirty source dependencies, while raw SQL runs independently and saved imports execute current values",
     );
@@ -1031,7 +1040,8 @@ export default {dialect:postgres(),schema:{file:'schema.json'},outDir:'generated
     await writeFile(join(root, "live-schema.json"), JSON.stringify(live));
     const refreshed = proof.waitForResponse((response) => response.url().endsWith("/api/refresh"));
     await proof.getByRole("button", { name: "Refresh schema", exact: true }).click();
-    assert.equal((await refreshed).status(), 200);
+    const refreshResponse = await refreshed;
+    assert.equal(refreshResponse.status(), 200, await refreshResponse.text());
     await proof.locator(".contract-view pre").filter({ hasText: '"id": string' }).waitFor();
     const oldResponse = proof.waitForResponse(
       (response) =>
