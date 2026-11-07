@@ -36,8 +36,39 @@ export function IconButton({
 }: Omit<ButtonProps, "variant"> & { "aria-label": string }) {
   return <Button {...props} iconOnly aria-label={label} title={title} className={className} />;
 }
-export function TabButton(props: Omit<ButtonProps, "variant">) {
-  return <Button {...props} role="tab" variant="tab" />;
+export function Tab({
+  children,
+  onClose,
+  closeLabel,
+  containerProps,
+  ...props
+}: Omit<ButtonProps, "variant"> & {
+  onClose?: () => void;
+  closeLabel?: string;
+  containerProps?: ComponentProps<"div">;
+}) {
+  return (
+    <div {...containerProps} className={classes("ui-tab", containerProps?.className)}>
+      <Button {...props} role="tab" variant="tab">
+        {children}
+      </Button>
+      {onClose ? (
+        <IconButton className="tab-close" aria-label={closeLabel ?? "Close tab"} onClick={onClose}>
+          <Icon name="close" />
+        </IconButton>
+      ) : null}
+    </div>
+  );
+}
+export function TabBar({ children, actions, className, ...props }: ComponentProps<"div"> & { actions?: ReactNode }) {
+  return (
+    <Bar className={classes("ui-tabbar", className)} padding="none">
+      <div {...props} className="ui-tabs" role="tablist">
+        {children}
+      </div>
+      {actions}
+    </Bar>
+  );
 }
 export function TreeButton({ className, ...props }: Omit<ButtonProps, "variant">) {
   return <Button {...props} variant="row" className={classes("ui-tree-row", className)} />;
@@ -71,16 +102,18 @@ export function WorkspaceTab({
   onClose: () => void;
 }) {
   return (
-    <div {...props} className={classes("ui-workspace-tab", "pane-tab", selected && "selected", className)}>
-      <TabButton aria-selected={selected} title={path} onClick={onOpen}>
-        <Icon name={icon} />
-        <span className="ui-tab-label">{name}</span>
-        {dirty ? <span className="dirty-mark">●</span> : null}
-      </TabButton>
-      <IconButton className="tab-close" aria-label={`Close ${name}`} onClick={onClose}>
-        <Icon name="close" />
-      </IconButton>
-    </div>
+    <Tab
+      containerProps={{ ...props, className: classes("pane-tab", selected && "selected", className) }}
+      aria-selected={selected}
+      title={path}
+      onClick={onOpen}
+      onClose={onClose}
+      closeLabel={`Close ${name}`}
+    >
+      <Icon name={icon} />
+      <span className="ui-tab-label">{name}</span>
+      {dirty ? <span className="dirty-mark">●</span> : null}
+    </Tab>
   );
 }
 export function Input({

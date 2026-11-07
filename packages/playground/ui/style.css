@@ -170,22 +170,6 @@ p {
   position: relative;
   background: var(--panel);
 }
-.pane-tabbar {
-  background: var(--bg);
-  min-width: 0;
-  padding: 0;
-  gap: 0;
-  align-items: stretch;
-}
-.pane-tabs {
-  display: flex;
-  flex: 1;
-  overflow-x: auto;
-  overflow-y: hidden;
-  min-width: 0;
-  scrollbar-width: thin;
-  height: 100%;
-}
 .dirty-mark {
   font-size: 7px;
   color: #8d9ba5;
@@ -326,16 +310,7 @@ body.is-resizing iframe {
   min-width: 0;
   overflow: hidden;
 }
-.bottom-tabs {
-  background: var(--bg);
-}
-.bottom-tabs button > span {
-  font-size: 9px;
-  color: var(--danger);
-  margin-left: 5px;
-}
 .bottom-tabs select {
-  margin-left: auto;
   max-width: 210px;
 }
 .quiet-empty,
@@ -1169,10 +1144,6 @@ hr.resize-handle {
   height: var(--icon-size);
   flex: 0 0 var(--icon-size);
   vertical-align: middle;
-}
-.pane-tabs {
-  overflow-x: auto;
-  overflow-y: hidden;
 }
 .file-tree {
   list-style: none;

@@ -1,5 +1,5 @@
 import { type DragEvent, type ReactNode, useEffect, useRef, useState } from "react";
-import { Bar, Button, ControlGroup, IconButton, MenuSurface, View, WorkspaceTab } from "./components";
+import { Button, ControlGroup, IconButton, MenuSurface, TabBar, View, WorkspaceTab } from "./components";
 import { inspectionTarget } from "./explorer-model";
 import { fileIcon, Icon } from "./icon";
 import { type Edge, FILE_MIME, isTool, type Layout, type Pane, title } from "./layout";
@@ -156,69 +156,72 @@ export function PaneLayout(props: Props) {
         setEdge(undefined);
       }}
     >
-      <Bar className="pane-tabbar">
-        <div className="pane-tabs" role="tablist" aria-label="Open workspace tabs">
-          {node.tabs.map((tab) => (
-            <WorkspaceTab
-              key={tab}
-              name={title(tab)}
-              path={isTool(tab) ? title(tab) : tab}
-              selected={node.active === tab}
-              dirty={props.dirty.has(tab)}
-              icon={
-                inspectionTarget(tab)?.kind === "migration"
-                  ? "migration"
-                  : inspectionTarget(tab)?.kind === "object"
-                    ? "database"
-                    : tab === "@schema"
-                      ? "schema"
-                      : tab === "@compare"
-                        ? "compare"
-                        : tab === "@agent"
-                          ? "agent"
-                          : fileIcon(tab)
-              }
-              draggable
-              onDragStart={(event) => {
-                event.dataTransfer.setData(FILE_MIME, JSON.stringify({ tab, source: node.id }));
-                event.dataTransfer.effectAllowed = "copyMove";
-              }}
-              onOpen={() => props.onOpen(node.id, tab)}
-              onClose={() => props.onClose(node.id, tab)}
-            />
-          ))}
-        </div>
-        <ControlGroup className="pane-actions">
-          <IconButton
-            title="Split editor"
-            aria-label="Split editor"
-            aria-haspopup="menu"
-            aria-expanded={menu}
-            ref={splitButton}
-            onClick={() => setMenu((value) => !value)}
-          >
-            <Icon name="split" />
-          </IconButton>
-          {menu ? (
-            <MenuSurface className="split-menu" role="menu" aria-label="Split editor" ref={menuElement}>
-              {(["left", "right", "top", "bottom"] as const).map((direction) => (
-                <Button
-                  variant="menu"
-                  role="menuitem"
-                  tabIndex={-1}
-                  key={direction}
-                  onClick={() => {
-                    props.onSplit(node.id, direction);
-                    setMenu(false);
-                  }}
-                >
-                  Split {direction}
-                </Button>
-              ))}
-            </MenuSurface>
-          ) : null}
-        </ControlGroup>
-      </Bar>
+      <TabBar
+        className="pane-tabbar"
+        aria-label="Open workspace tabs"
+        actions={
+          <ControlGroup className="pane-actions">
+            <IconButton
+              title="Split editor"
+              aria-label="Split editor"
+              aria-haspopup="menu"
+              aria-expanded={menu}
+              ref={splitButton}
+              onClick={() => setMenu((value) => !value)}
+            >
+              <Icon name="split" />
+            </IconButton>
+            {menu ? (
+              <MenuSurface className="split-menu" role="menu" aria-label="Split editor" ref={menuElement}>
+                {(["left", "right", "top", "bottom"] as const).map((direction) => (
+                  <Button
+                    variant="menu"
+                    role="menuitem"
+                    tabIndex={-1}
+                    key={direction}
+                    onClick={() => {
+                      props.onSplit(node.id, direction);
+                      setMenu(false);
+                    }}
+                  >
+                    Split {direction}
+                  </Button>
+                ))}
+              </MenuSurface>
+            ) : null}
+          </ControlGroup>
+        }
+      >
+        {node.tabs.map((tab) => (
+          <WorkspaceTab
+            key={tab}
+            name={title(tab)}
+            path={isTool(tab) ? title(tab) : tab}
+            selected={node.active === tab}
+            dirty={props.dirty.has(tab)}
+            icon={
+              inspectionTarget(tab)?.kind === "migration"
+                ? "migration"
+                : inspectionTarget(tab)?.kind === "object"
+                  ? "database"
+                  : tab === "@schema"
+                    ? "schema"
+                    : tab === "@compare"
+                      ? "compare"
+                      : tab === "@agent"
+                        ? "agent"
+                        : fileIcon(tab)
+            }
+            draggable
+            onDragStart={(event) => {
+              event.dataTransfer.setData(FILE_MIME, JSON.stringify({ tab, source: node.id }));
+              event.dataTransfer.effectAllowed = "copyMove";
+            }}
+            onOpen={() => props.onOpen(node.id, tab)}
+            onClose={() => props.onClose(node.id, tab)}
+          />
+        ))}
+      </TabBar>
       <div className="pane-body" role="tabpanel">
         {props.render(node)}
       </div>

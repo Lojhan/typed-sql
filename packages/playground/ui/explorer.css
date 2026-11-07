@@ -125,10 +125,6 @@
   margin: 0;
   overflow-wrap: anywhere;
 }
-.inspection-tabs button span {
-  font-size: 10px;
-  font-variant-numeric: tabular-nums;
-}
 .inspection-content {
   flex: 1;
   min-height: 0;

@@ -18,7 +18,8 @@ import {
   MenuTrigger,
   Notice,
   Select,
-  TabButton,
+  Tab,
+  TabBar,
   View,
 } from "./components";
 import {
@@ -1114,42 +1115,48 @@ function App() {
           }
         />
         <div className="document-bottom" style={{ flex: `${item.bottomRatio} 1 0` }}>
-          <Bar className="bottom-tabs" role="tablist" aria-label="Query tools">
+          <TabBar
+            className="bottom-tabs"
+            aria-label="Query tools"
+            actions={
+              item.bottom === "results" ? (
+                <Select
+                  aria-label="Captured execution"
+                  value={item.runId ?? ""}
+                  onChange={(event) =>
+                    setLayout((current) =>
+                      changePane(current, item.id, (value) => ({
+                        ...value,
+                        runId: event.target.value,
+                      })),
+                    )
+                  }
+                >
+                  <option value="">Latest for this file</option>
+                  {state.runs.map((run) => (
+                    <option key={run.id} value={run.id}>
+                      {run.file.split("/").at(-1)} · {new Date(run.startedAt).toLocaleTimeString()}
+                    </option>
+                  ))}
+                </Select>
+              ) : null
+            }
+          >
             {(["results", "types", "bindings", "problems"] as const).map((tab) => (
-              <TabButton
+              <Tab
                 aria-selected={item.bottom === tab}
-                className={item.bottom === tab ? "selected" : ""}
                 key={tab}
                 onClick={() =>
                   setLayout((current) => changePane(current, item.id, (value) => ({ ...value, bottom: tab })))
                 }
               >
                 {tab[0]!.toUpperCase() + tab.slice(1)}
-                {tab === "problems" && problemsFor(doc).length ? <span>{problemsFor(doc).length}</span> : null}
-              </TabButton>
+                {tab === "problems" && problemsFor(doc).length ? (
+                  <span className="ui-tab-count error">{problemsFor(doc).length}</span>
+                ) : null}
+              </Tab>
             ))}
-            {item.bottom === "results" ? (
-              <Select
-                aria-label="Captured execution"
-                value={item.runId ?? ""}
-                onChange={(event) =>
-                  setLayout((current) =>
-                    changePane(current, item.id, (value) => ({
-                      ...value,
-                      runId: event.target.value,
-                    })),
-                  )
-                }
-              >
-                <option value="">Latest for this file</option>
-                {state.runs.map((run) => (
-                  <option key={run.id} value={run.id}>
-                    {run.file.split("/").at(-1)} · {new Date(run.startedAt).toLocaleTimeString()}
-                  </option>
-                ))}
-              </Select>
-            ) : null}
-          </Bar>
+          </TabBar>
           {bottom(item, doc)}
         </div>
       </View>

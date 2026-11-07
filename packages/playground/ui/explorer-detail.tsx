@@ -1,5 +1,5 @@
 import { useId, useState } from "react";
-import { Bar, BarLabel, Button, EmptyState, TabButton, View } from "./components";
+import { Bar, BarLabel, Button, EmptyState, Tab, TabBar, View } from "./components";
 import { evidenceText, type InspectionTarget, objectLabel, objectPresence, propertyChanges } from "./explorer-model";
 import type { ExplorerCatalog, ExplorerEvent, ExplorerValue } from "./explorer-types";
 import { Icon } from "./icon";
@@ -310,9 +310,8 @@ export function ExplorerDetail({
               </Button>
             ) : null}
           </div>
-          <Bar
+          <TabBar
             className="inspection-tabs"
-            role="tablist"
             aria-label="Inspection sections"
             onKeyDown={(event) => {
               if (
@@ -335,7 +334,7 @@ export function ExplorerDetail({
               event.currentTarget.querySelector<HTMLButtonElement>(`[data-section="${next}"]`)?.focus();
             }}
           >
-            <TabButton
+            <Tab
               aria-selected={section === "definition"}
               id={`${sectionId}-definition`}
               data-section="definition"
@@ -344,8 +343,8 @@ export function ExplorerDetail({
               onClick={() => setSection("definition")}
             >
               {object ? "Definition" : "Overview"}
-            </TabButton>
-            <TabButton
+            </Tab>
+            <Tab
               aria-selected={section === "history"}
               id={`${sectionId}-history`}
               data-section="history"
@@ -353,9 +352,9 @@ export function ExplorerDetail({
               tabIndex={section === "history" ? 0 : -1}
               onClick={() => setSection("history")}
             >
-              History <span>{events.length}</span>
-            </TabButton>
-          </Bar>
+              History <span className="ui-tab-count">{events.length}</span>
+            </Tab>
+          </TabBar>
           <div
             className="inspection-content"
             id={`${sectionId}-panel`}

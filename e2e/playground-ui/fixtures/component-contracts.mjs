@@ -41,6 +41,23 @@ export async function componentContract(page) {
       adapterIcons: collect('.cm-search button[name="close"],.react-flow__controls-button'),
       raw,
       reference: collect(".tree-heading,.pane-tabbar"),
+      tabs: [...document.querySelectorAll('[role="tab"]')].filter(visible).map((tab) => {
+        const container = tab.closest(".ui-tab");
+        const style = container ? getComputedStyle(container) : null;
+        const indicator = container ? getComputedStyle(container, "::before") : null;
+        return {
+          label: tab.textContent,
+          shared: !!container?.closest(".ui-tabs"),
+          height: container?.getBoundingClientRect().height,
+          border: style?.borderRightWidth,
+          bottomBorder: getComputedStyle(tab).borderBottomWidth,
+          selected: tab.getAttribute("aria-selected") === "true",
+          indicator: indicator?.height,
+          indicatorTop: indicator?.top,
+          closable: !!container?.querySelector(".tab-close"),
+          workspace: !!container?.classList.contains("pane-tab"),
+        };
+      }),
       collapsedSections: [...document.querySelectorAll(".project-sidebar .explorer-section")]
         .filter(
           (element) =>
@@ -59,6 +76,17 @@ export async function componentContract(page) {
     assert.equal(header.height, 36, `Screenshot reference alignment: ${header.label}`);
   for (const section of evidence.collapsedSections)
     assert.equal(section.height, 36, `Collapsed sections must not add another separator: ${section.label}`);
+  for (const tab of evidence.tabs) {
+    assert.ok(tab.shared, `Shared tab and bar: ${tab.label}`);
+    assert.equal(tab.height, 35, `Tab fills the bar inside its separator: ${tab.label}`);
+    assert.equal(tab.border, "1px", `Tab separator: ${tab.label}`);
+    assert.equal(tab.bottomBorder, "0px", `No legacy bottom selection underline: ${tab.label}`);
+    assert.equal(tab.closable, tab.workspace, `Only workspace tabs have a close control: ${tab.label}`);
+    if (tab.selected) {
+      assert.equal(tab.indicator, "2px", `Shared selection indicator: ${tab.label}`);
+      assert.equal(tab.indicatorTop, "0px", `Top selection indicator: ${tab.label}`);
+    }
+  }
   for (const button of evidence.buttons) {
     if (button.icon) {
       assert.equal(button.width, 26, `Square icon width: ${button.label}`);
