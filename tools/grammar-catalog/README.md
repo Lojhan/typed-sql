@@ -115,8 +115,10 @@ for every exact retained MySQL version. Explicit refresh requires Python 3.12 or
 generation consumes committed facts with Node only. Keyword reservation follows the pinned vendor
 keyword-list generator and must match every retained native keyword inventory. Factory registrations
 and lexer-classified function names remain separate. Recognized factory macros supply partial
-argument-count ranges, parity and internal-call restrictions; specialized factories retain unknown
-arity, and preprocessor conditions are preserved without claiming build availability. Formal types,
+argument-count ranges, parity and internal-call restrictions. Specialized factories with unconditional
+literal class bounds can supply ranges through alias chains, retaining declaration locations.
+Dependent bounds, class specializations and guarded declarations retain unknown arity;
+preprocessor conditions are preserved without claiming build availability. Formal types,
 defaults, result types, nullability, special syntax and decoding require further qualification.
 Vendor license notices and immutable source/member digests are retained with these facts.
 

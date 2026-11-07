@@ -12,6 +12,7 @@
       "functions": {
         "registrations": 347,
         "macroArityKnown": 291,
+        "instantiatorArityKnown": 50,
         "conditionalRegistrations": [
           {
             "name": "LIKE_RANGE_MIN",
@@ -25,7 +26,8 @@
             "maximumExpression": "2",
             "parity": "any",
             "internal": false,
-            "arityKnowledge": "macro"
+            "arityKnowledge": "macro",
+            "arityEvidence": []
           },
           {
             "name": "LIKE_RANGE_MAX",
@@ -39,118 +41,11 @@
             "maximumExpression": "2",
             "parity": "any",
             "internal": false,
-            "arityKnowledge": "macro"
+            "arityKnowledge": "macro",
+            "arityEvidence": []
           }
         ],
         "unresolvedFactories": [
-          {
-            "name": "BIN",
-            "builder": "SQL_FACTORY(Bin_instantiator)",
-            "line": 1384,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "DATEDIFF",
-            "builder": "SQL_FACTORY(Datediff_instantiator)",
-            "line": 1403,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "DAYOFWEEK",
-            "builder": "SQL_FACTORY(Dayofweek_instantiator)",
-            "line": 1407,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "FROM_UNIXTIME",
-            "builder": "SQL_FACTORY(From_unixtime_instantiator)",
-            "line": 1422,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "JSON_LENGTH",
-            "builder": "SQL_FACTORY(Json_length_instantiator)",
-            "line": 1444,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "LOCATE",
-            "builder": "SQL_FACTORY(Locate_instantiator)",
-            "line": 1491,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "MAKE_SET",
-            "builder": "SQL_FACTORY(Make_set_instantiator)",
-            "line": 1500,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "OCT",
-            "builder": "SQL_FACTORY(Oct_instantiator)",
-            "line": 1515,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ROUND",
-            "builder": "SQL_FACTORY(Round_instantiator)",
-            "line": 1537,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
           {
             "name": "ST_ENDPOINT",
             "builder": "SQL_FACTORY(Endpoint_instantiator)",
@@ -161,7 +56,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           },
           {
             "name": "ST_EXTERIORRING",
@@ -173,91 +69,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMCOLLFROMTEXT",
-            "builder": "SQL_FACTORY(Geomcollfromtext_instantiator)",
-            "line": 1580,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMCOLLFROMTXT",
-            "builder": "SQL_FACTORY(Geomcollfromtxt_instantiator)",
-            "line": 1581,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMCOLLFROMWKB",
-            "builder": "SQL_FACTORY(Geomcollfromwkb_instantiator)",
-            "line": 1582,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMETRYCOLLECTIONFROMTEXT",
-            "builder": "SQL_FACTORY(Geometrycollectionfromtext_instantiator)",
-            "line": 1583,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMETRYCOLLECTIONFROMWKB",
-            "builder": "SQL_FACTORY(Geometrycollectionfromwkb_instantiator)",
-            "line": 1585,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMETRYFROMTEXT",
-            "builder": "SQL_FACTORY(Geometryfromtext_instantiator)",
-            "line": 1587,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMETRYFROMWKB",
-            "builder": "SQL_FACTORY(Geometryfromwkb_instantiator)",
-            "line": 1588,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           },
           {
             "name": "ST_GEOMETRYN",
@@ -269,31 +82,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMFROMTEXT",
-            "builder": "SQL_FACTORY(Geomfromtext_instantiator)",
-            "line": 1592,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMFROMWKB",
-            "builder": "SQL_FACTORY(Geomfromwkb_instantiator)",
-            "line": 1593,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           },
           {
             "name": "ST_INTERIORRINGN",
@@ -305,247 +95,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LATITUDE",
-            "builder": "SQL_FACTORY(Latitude_instantiator)",
-            "line": 1604,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LINEFROMTEXT",
-            "builder": "SQL_FACTORY(Linefromtext_instantiator)",
-            "line": 1606,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LINEFROMWKB",
-            "builder": "SQL_FACTORY(Linefromwkb_instantiator)",
-            "line": 1607,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LINESTRINGFROMTEXT",
-            "builder": "SQL_FACTORY(Linestringfromtext_instantiator)",
-            "line": 1610,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LINESTRINGFROMWKB",
-            "builder": "SQL_FACTORY(Linestringfromwkb_instantiator)",
-            "line": 1611,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LONGITUDE",
-            "builder": "SQL_FACTORY(Longitude_instantiator)",
-            "line": 1613,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MLINEFROMTEXT",
-            "builder": "SQL_FACTORY(Mlinefromtext_instantiator)",
-            "line": 1615,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MLINEFROMWKB",
-            "builder": "SQL_FACTORY(Mlinefromwkb_instantiator)",
-            "line": 1616,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MPOINTFROMTEXT",
-            "builder": "SQL_FACTORY(Mpointfromtext_instantiator)",
-            "line": 1617,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MPOINTFROMWKB",
-            "builder": "SQL_FACTORY(Mpointfromwkb_instantiator)",
-            "line": 1618,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MPOLYFROMTEXT",
-            "builder": "SQL_FACTORY(Mpolyfromtext_instantiator)",
-            "line": 1619,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MPOLYFROMWKB",
-            "builder": "SQL_FACTORY(Mpolyfromwkb_instantiator)",
-            "line": 1620,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTILINESTRINGFROMTEXT",
-            "builder": "SQL_FACTORY(Multilinestringfromtext_instantiator)",
-            "line": 1621,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTILINESTRINGFROMWKB",
-            "builder": "SQL_FACTORY(Multilinestringfromwkb_instantiator)",
-            "line": 1623,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTIPOINTFROMTEXT",
-            "builder": "SQL_FACTORY(Multipointfromtext_instantiator)",
-            "line": 1625,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTIPOINTFROMWKB",
-            "builder": "SQL_FACTORY(Multipointfromwkb_instantiator)",
-            "line": 1626,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTIPOLYGONFROMTEXT",
-            "builder": "SQL_FACTORY(Multipolygonfromtext_instantiator)",
-            "line": 1627,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTIPOLYGONFROMWKB",
-            "builder": "SQL_FACTORY(Multipolygonfromwkb_instantiator)",
-            "line": 1628,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POINTFROMTEXT",
-            "builder": "SQL_FACTORY(Pointfromtext_instantiator)",
-            "line": 1636,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POINTFROMWKB",
-            "builder": "SQL_FACTORY(Pointfromwkb_instantiator)",
-            "line": 1637,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           },
           {
             "name": "ST_POINTN",
@@ -557,67 +108,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POLYFROMTEXT",
-            "builder": "SQL_FACTORY(Polyfromtext_instantiator)",
-            "line": 1639,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POLYFROMWKB",
-            "builder": "SQL_FACTORY(Polyfromwkb_instantiator)",
-            "line": 1640,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POLYGONFROMTEXT",
-            "builder": "SQL_FACTORY(Polygonfromtext_instantiator)",
-            "line": 1641,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POLYGONFROMWKB",
-            "builder": "SQL_FACTORY(Polygonfromwkb_instantiator)",
-            "line": 1642,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_SRID",
-            "builder": "SQL_FACTORY(Srid_instantiator)",
-            "line": 1644,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           },
           {
             "name": "ST_STARTPOINT",
@@ -629,91 +121,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_X",
-            "builder": "SQL_FACTORY(X_instantiator)",
-            "line": 1653,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_Y",
-            "builder": "SQL_FACTORY(Y_instantiator)",
-            "line": 1654,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "SUBTIME",
-            "builder": "SQL_FACTORY(Subtime_instantiator)",
-            "line": 1656,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "TIME_FORMAT",
-            "builder": "SQL_FACTORY(Time_format_instantiator)",
-            "line": 1659,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "WEEKDAY",
-            "builder": "SQL_FACTORY(Weekday_instantiator)",
-            "line": 1677,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "WEEKOFYEAR",
-            "builder": "SQL_FACTORY(Weekofyear_instantiator)",
-            "line": 1678,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "YEARWEEK",
-            "builder": "SQL_FACTORY(Yearweek_instantiator)",
-            "line": 1679,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           }
         ],
         "lexicalFunctionNames": [
@@ -893,7 +302,7 @@
             "code": 882
           }
         ],
-        "qualification": "registration and partial macro arity only; build conditions, formal names/types, defaults, result types, nullability, special syntax and decoding unqualified"
+        "qualification": "registration and partial macro/instantiator arity only; build conditions, formal names/types, defaults, result types, nullability, special syntax and decoding unqualified"
       }
     },
     "sha256:91613a41f6a63405d11159463ff9af5e4e2de00e79a0489c72a0f06b8cd65ea8": {
@@ -906,6 +315,7 @@
       "functions": {
         "registrations": 347,
         "macroArityKnown": 291,
+        "instantiatorArityKnown": 50,
         "conditionalRegistrations": [
           {
             "name": "LIKE_RANGE_MIN",
@@ -919,7 +329,8 @@
             "maximumExpression": "2",
             "parity": "any",
             "internal": false,
-            "arityKnowledge": "macro"
+            "arityKnowledge": "macro",
+            "arityEvidence": []
           },
           {
             "name": "LIKE_RANGE_MAX",
@@ -933,118 +344,11 @@
             "maximumExpression": "2",
             "parity": "any",
             "internal": false,
-            "arityKnowledge": "macro"
+            "arityKnowledge": "macro",
+            "arityEvidence": []
           }
         ],
         "unresolvedFactories": [
-          {
-            "name": "BIN",
-            "builder": "SQL_FACTORY(Bin_instantiator)",
-            "line": 1384,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "DATEDIFF",
-            "builder": "SQL_FACTORY(Datediff_instantiator)",
-            "line": 1403,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "DAYOFWEEK",
-            "builder": "SQL_FACTORY(Dayofweek_instantiator)",
-            "line": 1407,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "FROM_UNIXTIME",
-            "builder": "SQL_FACTORY(From_unixtime_instantiator)",
-            "line": 1422,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "JSON_LENGTH",
-            "builder": "SQL_FACTORY(Json_length_instantiator)",
-            "line": 1444,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "LOCATE",
-            "builder": "SQL_FACTORY(Locate_instantiator)",
-            "line": 1491,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "MAKE_SET",
-            "builder": "SQL_FACTORY(Make_set_instantiator)",
-            "line": 1500,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "OCT",
-            "builder": "SQL_FACTORY(Oct_instantiator)",
-            "line": 1515,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ROUND",
-            "builder": "SQL_FACTORY(Round_instantiator)",
-            "line": 1537,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
           {
             "name": "ST_ENDPOINT",
             "builder": "SQL_FACTORY(Endpoint_instantiator)",
@@ -1055,7 +359,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           },
           {
             "name": "ST_EXTERIORRING",
@@ -1067,91 +372,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMCOLLFROMTEXT",
-            "builder": "SQL_FACTORY(Geomcollfromtext_instantiator)",
-            "line": 1580,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMCOLLFROMTXT",
-            "builder": "SQL_FACTORY(Geomcollfromtxt_instantiator)",
-            "line": 1581,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMCOLLFROMWKB",
-            "builder": "SQL_FACTORY(Geomcollfromwkb_instantiator)",
-            "line": 1582,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMETRYCOLLECTIONFROMTEXT",
-            "builder": "SQL_FACTORY(Geometrycollectionfromtext_instantiator)",
-            "line": 1583,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMETRYCOLLECTIONFROMWKB",
-            "builder": "SQL_FACTORY(Geometrycollectionfromwkb_instantiator)",
-            "line": 1585,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMETRYFROMTEXT",
-            "builder": "SQL_FACTORY(Geometryfromtext_instantiator)",
-            "line": 1587,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMETRYFROMWKB",
-            "builder": "SQL_FACTORY(Geometryfromwkb_instantiator)",
-            "line": 1588,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           },
           {
             "name": "ST_GEOMETRYN",
@@ -1163,31 +385,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMFROMTEXT",
-            "builder": "SQL_FACTORY(Geomfromtext_instantiator)",
-            "line": 1592,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMFROMWKB",
-            "builder": "SQL_FACTORY(Geomfromwkb_instantiator)",
-            "line": 1593,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           },
           {
             "name": "ST_INTERIORRINGN",
@@ -1199,247 +398,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LATITUDE",
-            "builder": "SQL_FACTORY(Latitude_instantiator)",
-            "line": 1604,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LINEFROMTEXT",
-            "builder": "SQL_FACTORY(Linefromtext_instantiator)",
-            "line": 1606,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LINEFROMWKB",
-            "builder": "SQL_FACTORY(Linefromwkb_instantiator)",
-            "line": 1607,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LINESTRINGFROMTEXT",
-            "builder": "SQL_FACTORY(Linestringfromtext_instantiator)",
-            "line": 1610,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LINESTRINGFROMWKB",
-            "builder": "SQL_FACTORY(Linestringfromwkb_instantiator)",
-            "line": 1611,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LONGITUDE",
-            "builder": "SQL_FACTORY(Longitude_instantiator)",
-            "line": 1613,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MLINEFROMTEXT",
-            "builder": "SQL_FACTORY(Mlinefromtext_instantiator)",
-            "line": 1615,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MLINEFROMWKB",
-            "builder": "SQL_FACTORY(Mlinefromwkb_instantiator)",
-            "line": 1616,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MPOINTFROMTEXT",
-            "builder": "SQL_FACTORY(Mpointfromtext_instantiator)",
-            "line": 1617,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MPOINTFROMWKB",
-            "builder": "SQL_FACTORY(Mpointfromwkb_instantiator)",
-            "line": 1618,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MPOLYFROMTEXT",
-            "builder": "SQL_FACTORY(Mpolyfromtext_instantiator)",
-            "line": 1619,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MPOLYFROMWKB",
-            "builder": "SQL_FACTORY(Mpolyfromwkb_instantiator)",
-            "line": 1620,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTILINESTRINGFROMTEXT",
-            "builder": "SQL_FACTORY(Multilinestringfromtext_instantiator)",
-            "line": 1621,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTILINESTRINGFROMWKB",
-            "builder": "SQL_FACTORY(Multilinestringfromwkb_instantiator)",
-            "line": 1623,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTIPOINTFROMTEXT",
-            "builder": "SQL_FACTORY(Multipointfromtext_instantiator)",
-            "line": 1625,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTIPOINTFROMWKB",
-            "builder": "SQL_FACTORY(Multipointfromwkb_instantiator)",
-            "line": 1626,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTIPOLYGONFROMTEXT",
-            "builder": "SQL_FACTORY(Multipolygonfromtext_instantiator)",
-            "line": 1627,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTIPOLYGONFROMWKB",
-            "builder": "SQL_FACTORY(Multipolygonfromwkb_instantiator)",
-            "line": 1628,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POINTFROMTEXT",
-            "builder": "SQL_FACTORY(Pointfromtext_instantiator)",
-            "line": 1636,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POINTFROMWKB",
-            "builder": "SQL_FACTORY(Pointfromwkb_instantiator)",
-            "line": 1637,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           },
           {
             "name": "ST_POINTN",
@@ -1451,67 +411,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POLYFROMTEXT",
-            "builder": "SQL_FACTORY(Polyfromtext_instantiator)",
-            "line": 1639,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POLYFROMWKB",
-            "builder": "SQL_FACTORY(Polyfromwkb_instantiator)",
-            "line": 1640,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POLYGONFROMTEXT",
-            "builder": "SQL_FACTORY(Polygonfromtext_instantiator)",
-            "line": 1641,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POLYGONFROMWKB",
-            "builder": "SQL_FACTORY(Polygonfromwkb_instantiator)",
-            "line": 1642,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_SRID",
-            "builder": "SQL_FACTORY(Srid_instantiator)",
-            "line": 1644,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           },
           {
             "name": "ST_STARTPOINT",
@@ -1523,91 +424,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_X",
-            "builder": "SQL_FACTORY(X_instantiator)",
-            "line": 1653,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_Y",
-            "builder": "SQL_FACTORY(Y_instantiator)",
-            "line": 1654,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "SUBTIME",
-            "builder": "SQL_FACTORY(Subtime_instantiator)",
-            "line": 1656,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "TIME_FORMAT",
-            "builder": "SQL_FACTORY(Time_format_instantiator)",
-            "line": 1659,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "WEEKDAY",
-            "builder": "SQL_FACTORY(Weekday_instantiator)",
-            "line": 1677,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "WEEKOFYEAR",
-            "builder": "SQL_FACTORY(Weekofyear_instantiator)",
-            "line": 1678,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "YEARWEEK",
-            "builder": "SQL_FACTORY(Yearweek_instantiator)",
-            "line": 1679,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           }
         ],
         "lexicalFunctionNames": [
@@ -1787,7 +605,7 @@
             "code": 882
           }
         ],
-        "qualification": "registration and partial macro arity only; build conditions, formal names/types, defaults, result types, nullability, special syntax and decoding unqualified"
+        "qualification": "registration and partial macro/instantiator arity only; build conditions, formal names/types, defaults, result types, nullability, special syntax and decoding unqualified"
       }
     },
     "sha256:ce5fd3aef1bd5dd3e2b7fc5f6c156b65dd579eebb596229bee41f59f9a5daf4e": {
@@ -1800,6 +618,7 @@
       "functions": {
         "registrations": 347,
         "macroArityKnown": 291,
+        "instantiatorArityKnown": 50,
         "conditionalRegistrations": [
           {
             "name": "LIKE_RANGE_MIN",
@@ -1813,7 +632,8 @@
             "maximumExpression": "2",
             "parity": "any",
             "internal": false,
-            "arityKnowledge": "macro"
+            "arityKnowledge": "macro",
+            "arityEvidence": []
           },
           {
             "name": "LIKE_RANGE_MAX",
@@ -1827,118 +647,11 @@
             "maximumExpression": "2",
             "parity": "any",
             "internal": false,
-            "arityKnowledge": "macro"
+            "arityKnowledge": "macro",
+            "arityEvidence": []
           }
         ],
         "unresolvedFactories": [
-          {
-            "name": "BIN",
-            "builder": "SQL_FACTORY(Bin_instantiator)",
-            "line": 1384,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "DATEDIFF",
-            "builder": "SQL_FACTORY(Datediff_instantiator)",
-            "line": 1403,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "DAYOFWEEK",
-            "builder": "SQL_FACTORY(Dayofweek_instantiator)",
-            "line": 1407,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "FROM_UNIXTIME",
-            "builder": "SQL_FACTORY(From_unixtime_instantiator)",
-            "line": 1422,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "JSON_LENGTH",
-            "builder": "SQL_FACTORY(Json_length_instantiator)",
-            "line": 1444,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "LOCATE",
-            "builder": "SQL_FACTORY(Locate_instantiator)",
-            "line": 1491,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "MAKE_SET",
-            "builder": "SQL_FACTORY(Make_set_instantiator)",
-            "line": 1500,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "OCT",
-            "builder": "SQL_FACTORY(Oct_instantiator)",
-            "line": 1515,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ROUND",
-            "builder": "SQL_FACTORY(Round_instantiator)",
-            "line": 1537,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
           {
             "name": "ST_ENDPOINT",
             "builder": "SQL_FACTORY(Endpoint_instantiator)",
@@ -1949,7 +662,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           },
           {
             "name": "ST_EXTERIORRING",
@@ -1961,91 +675,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMCOLLFROMTEXT",
-            "builder": "SQL_FACTORY(Geomcollfromtext_instantiator)",
-            "line": 1580,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMCOLLFROMTXT",
-            "builder": "SQL_FACTORY(Geomcollfromtxt_instantiator)",
-            "line": 1581,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMCOLLFROMWKB",
-            "builder": "SQL_FACTORY(Geomcollfromwkb_instantiator)",
-            "line": 1582,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMETRYCOLLECTIONFROMTEXT",
-            "builder": "SQL_FACTORY(Geometrycollectionfromtext_instantiator)",
-            "line": 1583,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMETRYCOLLECTIONFROMWKB",
-            "builder": "SQL_FACTORY(Geometrycollectionfromwkb_instantiator)",
-            "line": 1585,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMETRYFROMTEXT",
-            "builder": "SQL_FACTORY(Geometryfromtext_instantiator)",
-            "line": 1587,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMETRYFROMWKB",
-            "builder": "SQL_FACTORY(Geometryfromwkb_instantiator)",
-            "line": 1588,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           },
           {
             "name": "ST_GEOMETRYN",
@@ -2057,31 +688,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMFROMTEXT",
-            "builder": "SQL_FACTORY(Geomfromtext_instantiator)",
-            "line": 1592,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMFROMWKB",
-            "builder": "SQL_FACTORY(Geomfromwkb_instantiator)",
-            "line": 1593,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           },
           {
             "name": "ST_INTERIORRINGN",
@@ -2093,247 +701,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LATITUDE",
-            "builder": "SQL_FACTORY(Latitude_instantiator)",
-            "line": 1604,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LINEFROMTEXT",
-            "builder": "SQL_FACTORY(Linefromtext_instantiator)",
-            "line": 1606,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LINEFROMWKB",
-            "builder": "SQL_FACTORY(Linefromwkb_instantiator)",
-            "line": 1607,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LINESTRINGFROMTEXT",
-            "builder": "SQL_FACTORY(Linestringfromtext_instantiator)",
-            "line": 1610,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LINESTRINGFROMWKB",
-            "builder": "SQL_FACTORY(Linestringfromwkb_instantiator)",
-            "line": 1611,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LONGITUDE",
-            "builder": "SQL_FACTORY(Longitude_instantiator)",
-            "line": 1613,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MLINEFROMTEXT",
-            "builder": "SQL_FACTORY(Mlinefromtext_instantiator)",
-            "line": 1615,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MLINEFROMWKB",
-            "builder": "SQL_FACTORY(Mlinefromwkb_instantiator)",
-            "line": 1616,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MPOINTFROMTEXT",
-            "builder": "SQL_FACTORY(Mpointfromtext_instantiator)",
-            "line": 1617,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MPOINTFROMWKB",
-            "builder": "SQL_FACTORY(Mpointfromwkb_instantiator)",
-            "line": 1618,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MPOLYFROMTEXT",
-            "builder": "SQL_FACTORY(Mpolyfromtext_instantiator)",
-            "line": 1619,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MPOLYFROMWKB",
-            "builder": "SQL_FACTORY(Mpolyfromwkb_instantiator)",
-            "line": 1620,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTILINESTRINGFROMTEXT",
-            "builder": "SQL_FACTORY(Multilinestringfromtext_instantiator)",
-            "line": 1621,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTILINESTRINGFROMWKB",
-            "builder": "SQL_FACTORY(Multilinestringfromwkb_instantiator)",
-            "line": 1623,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTIPOINTFROMTEXT",
-            "builder": "SQL_FACTORY(Multipointfromtext_instantiator)",
-            "line": 1625,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTIPOINTFROMWKB",
-            "builder": "SQL_FACTORY(Multipointfromwkb_instantiator)",
-            "line": 1626,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTIPOLYGONFROMTEXT",
-            "builder": "SQL_FACTORY(Multipolygonfromtext_instantiator)",
-            "line": 1627,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTIPOLYGONFROMWKB",
-            "builder": "SQL_FACTORY(Multipolygonfromwkb_instantiator)",
-            "line": 1628,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POINTFROMTEXT",
-            "builder": "SQL_FACTORY(Pointfromtext_instantiator)",
-            "line": 1636,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POINTFROMWKB",
-            "builder": "SQL_FACTORY(Pointfromwkb_instantiator)",
-            "line": 1637,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           },
           {
             "name": "ST_POINTN",
@@ -2345,67 +714,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POLYFROMTEXT",
-            "builder": "SQL_FACTORY(Polyfromtext_instantiator)",
-            "line": 1639,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POLYFROMWKB",
-            "builder": "SQL_FACTORY(Polyfromwkb_instantiator)",
-            "line": 1640,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POLYGONFROMTEXT",
-            "builder": "SQL_FACTORY(Polygonfromtext_instantiator)",
-            "line": 1641,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POLYGONFROMWKB",
-            "builder": "SQL_FACTORY(Polygonfromwkb_instantiator)",
-            "line": 1642,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_SRID",
-            "builder": "SQL_FACTORY(Srid_instantiator)",
-            "line": 1644,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           },
           {
             "name": "ST_STARTPOINT",
@@ -2417,91 +727,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_X",
-            "builder": "SQL_FACTORY(X_instantiator)",
-            "line": 1653,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_Y",
-            "builder": "SQL_FACTORY(Y_instantiator)",
-            "line": 1654,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "SUBTIME",
-            "builder": "SQL_FACTORY(Subtime_instantiator)",
-            "line": 1656,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "TIME_FORMAT",
-            "builder": "SQL_FACTORY(Time_format_instantiator)",
-            "line": 1659,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "WEEKDAY",
-            "builder": "SQL_FACTORY(Weekday_instantiator)",
-            "line": 1677,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "WEEKOFYEAR",
-            "builder": "SQL_FACTORY(Weekofyear_instantiator)",
-            "line": 1678,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "YEARWEEK",
-            "builder": "SQL_FACTORY(Yearweek_instantiator)",
-            "line": 1679,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           }
         ],
         "lexicalFunctionNames": [
@@ -2681,7 +908,7 @@
             "code": 882
           }
         ],
-        "qualification": "registration and partial macro arity only; build conditions, formal names/types, defaults, result types, nullability, special syntax and decoding unqualified"
+        "qualification": "registration and partial macro/instantiator arity only; build conditions, formal names/types, defaults, result types, nullability, special syntax and decoding unqualified"
       }
     },
     "sha256:925464321e179c9d462a8f09f9c3a3665824bffffcef0c5bb6487b11974046d5": {
@@ -2694,6 +921,7 @@
       "functions": {
         "registrations": 353,
         "macroArityKnown": 297,
+        "instantiatorArityKnown": 50,
         "conditionalRegistrations": [
           {
             "name": "LIKE_RANGE_MIN",
@@ -2707,7 +935,8 @@
             "maximumExpression": "2",
             "parity": "any",
             "internal": false,
-            "arityKnowledge": "macro"
+            "arityKnowledge": "macro",
+            "arityEvidence": []
           },
           {
             "name": "LIKE_RANGE_MAX",
@@ -2721,118 +950,11 @@
             "maximumExpression": "2",
             "parity": "any",
             "internal": false,
-            "arityKnowledge": "macro"
+            "arityKnowledge": "macro",
+            "arityEvidence": []
           }
         ],
         "unresolvedFactories": [
-          {
-            "name": "BIN",
-            "builder": "SQL_FACTORY(Bin_instantiator)",
-            "line": 1375,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "DATEDIFF",
-            "builder": "SQL_FACTORY(Datediff_instantiator)",
-            "line": 1396,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "DAYOFWEEK",
-            "builder": "SQL_FACTORY(Dayofweek_instantiator)",
-            "line": 1400,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "FROM_UNIXTIME",
-            "builder": "SQL_FACTORY(From_unixtime_instantiator)",
-            "line": 1416,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "JSON_LENGTH",
-            "builder": "SQL_FACTORY(Json_length_instantiator)",
-            "line": 1438,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "LOCATE",
-            "builder": "SQL_FACTORY(Locate_instantiator)",
-            "line": 1485,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "MAKE_SET",
-            "builder": "SQL_FACTORY(Make_set_instantiator)",
-            "line": 1494,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "OCT",
-            "builder": "SQL_FACTORY(Oct_instantiator)",
-            "line": 1508,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ROUND",
-            "builder": "SQL_FACTORY(Round_instantiator)",
-            "line": 1530,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
           {
             "name": "ST_ENDPOINT",
             "builder": "SQL_FACTORY(Endpoint_instantiator)",
@@ -2843,7 +965,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           },
           {
             "name": "ST_EXTERIORRING",
@@ -2855,91 +978,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMCOLLFROMTEXT",
-            "builder": "SQL_FACTORY(Geomcollfromtext_instantiator)",
-            "line": 1571,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMCOLLFROMTXT",
-            "builder": "SQL_FACTORY(Geomcollfromtxt_instantiator)",
-            "line": 1572,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMCOLLFROMWKB",
-            "builder": "SQL_FACTORY(Geomcollfromwkb_instantiator)",
-            "line": 1573,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMETRYCOLLECTIONFROMTEXT",
-            "builder": "SQL_FACTORY(Geometrycollectionfromtext_instantiator)",
-            "line": 1574,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMETRYCOLLECTIONFROMWKB",
-            "builder": "SQL_FACTORY(Geometrycollectionfromwkb_instantiator)",
-            "line": 1576,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMETRYFROMTEXT",
-            "builder": "SQL_FACTORY(Geometryfromtext_instantiator)",
-            "line": 1578,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMETRYFROMWKB",
-            "builder": "SQL_FACTORY(Geometryfromwkb_instantiator)",
-            "line": 1579,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           },
           {
             "name": "ST_GEOMETRYN",
@@ -2951,31 +991,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMFROMTEXT",
-            "builder": "SQL_FACTORY(Geomfromtext_instantiator)",
-            "line": 1583,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMFROMWKB",
-            "builder": "SQL_FACTORY(Geomfromwkb_instantiator)",
-            "line": 1584,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           },
           {
             "name": "ST_INTERIORRINGN",
@@ -2987,247 +1004,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LATITUDE",
-            "builder": "SQL_FACTORY(Latitude_instantiator)",
-            "line": 1595,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LINEFROMTEXT",
-            "builder": "SQL_FACTORY(Linefromtext_instantiator)",
-            "line": 1597,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LINEFROMWKB",
-            "builder": "SQL_FACTORY(Linefromwkb_instantiator)",
-            "line": 1598,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LINESTRINGFROMTEXT",
-            "builder": "SQL_FACTORY(Linestringfromtext_instantiator)",
-            "line": 1601,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LINESTRINGFROMWKB",
-            "builder": "SQL_FACTORY(Linestringfromwkb_instantiator)",
-            "line": 1602,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LONGITUDE",
-            "builder": "SQL_FACTORY(Longitude_instantiator)",
-            "line": 1604,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MLINEFROMTEXT",
-            "builder": "SQL_FACTORY(Mlinefromtext_instantiator)",
-            "line": 1606,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MLINEFROMWKB",
-            "builder": "SQL_FACTORY(Mlinefromwkb_instantiator)",
-            "line": 1607,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MPOINTFROMTEXT",
-            "builder": "SQL_FACTORY(Mpointfromtext_instantiator)",
-            "line": 1608,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MPOINTFROMWKB",
-            "builder": "SQL_FACTORY(Mpointfromwkb_instantiator)",
-            "line": 1609,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MPOLYFROMTEXT",
-            "builder": "SQL_FACTORY(Mpolyfromtext_instantiator)",
-            "line": 1610,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MPOLYFROMWKB",
-            "builder": "SQL_FACTORY(Mpolyfromwkb_instantiator)",
-            "line": 1611,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTILINESTRINGFROMTEXT",
-            "builder": "SQL_FACTORY(Multilinestringfromtext_instantiator)",
-            "line": 1612,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTILINESTRINGFROMWKB",
-            "builder": "SQL_FACTORY(Multilinestringfromwkb_instantiator)",
-            "line": 1614,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTIPOINTFROMTEXT",
-            "builder": "SQL_FACTORY(Multipointfromtext_instantiator)",
-            "line": 1616,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTIPOINTFROMWKB",
-            "builder": "SQL_FACTORY(Multipointfromwkb_instantiator)",
-            "line": 1617,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTIPOLYGONFROMTEXT",
-            "builder": "SQL_FACTORY(Multipolygonfromtext_instantiator)",
-            "line": 1618,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTIPOLYGONFROMWKB",
-            "builder": "SQL_FACTORY(Multipolygonfromwkb_instantiator)",
-            "line": 1619,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POINTFROMTEXT",
-            "builder": "SQL_FACTORY(Pointfromtext_instantiator)",
-            "line": 1627,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POINTFROMWKB",
-            "builder": "SQL_FACTORY(Pointfromwkb_instantiator)",
-            "line": 1628,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           },
           {
             "name": "ST_POINTN",
@@ -3239,67 +1017,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POLYFROMTEXT",
-            "builder": "SQL_FACTORY(Polyfromtext_instantiator)",
-            "line": 1630,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POLYFROMWKB",
-            "builder": "SQL_FACTORY(Polyfromwkb_instantiator)",
-            "line": 1631,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POLYGONFROMTEXT",
-            "builder": "SQL_FACTORY(Polygonfromtext_instantiator)",
-            "line": 1632,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POLYGONFROMWKB",
-            "builder": "SQL_FACTORY(Polygonfromwkb_instantiator)",
-            "line": 1633,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_SRID",
-            "builder": "SQL_FACTORY(Srid_instantiator)",
-            "line": 1635,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           },
           {
             "name": "ST_STARTPOINT",
@@ -3311,91 +1030,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_X",
-            "builder": "SQL_FACTORY(X_instantiator)",
-            "line": 1644,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_Y",
-            "builder": "SQL_FACTORY(Y_instantiator)",
-            "line": 1645,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "SUBTIME",
-            "builder": "SQL_FACTORY(Subtime_instantiator)",
-            "line": 1647,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "TIME_FORMAT",
-            "builder": "SQL_FACTORY(Time_format_instantiator)",
-            "line": 1650,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "WEEKDAY",
-            "builder": "SQL_FACTORY(Weekday_instantiator)",
-            "line": 1673,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "WEEKOFYEAR",
-            "builder": "SQL_FACTORY(Weekofyear_instantiator)",
-            "line": 1674,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "YEARWEEK",
-            "builder": "SQL_FACTORY(Yearweek_instantiator)",
-            "line": 1675,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           }
         ],
         "lexicalFunctionNames": [
@@ -3580,7 +1216,7 @@
             "code": 882
           }
         ],
-        "qualification": "registration and partial macro arity only; build conditions, formal names/types, defaults, result types, nullability, special syntax and decoding unqualified"
+        "qualification": "registration and partial macro/instantiator arity only; build conditions, formal names/types, defaults, result types, nullability, special syntax and decoding unqualified"
       }
     },
     "sha256:d3a7e60b739d64954ac27665499c4203f39526eaedcc43acc81f60b1fbb77a17": {
@@ -3593,6 +1229,7 @@
       "functions": {
         "registrations": 353,
         "macroArityKnown": 297,
+        "instantiatorArityKnown": 50,
         "conditionalRegistrations": [
           {
             "name": "LIKE_RANGE_MIN",
@@ -3606,7 +1243,8 @@
             "maximumExpression": "2",
             "parity": "any",
             "internal": false,
-            "arityKnowledge": "macro"
+            "arityKnowledge": "macro",
+            "arityEvidence": []
           },
           {
             "name": "LIKE_RANGE_MAX",
@@ -3620,118 +1258,11 @@
             "maximumExpression": "2",
             "parity": "any",
             "internal": false,
-            "arityKnowledge": "macro"
+            "arityKnowledge": "macro",
+            "arityEvidence": []
           }
         ],
         "unresolvedFactories": [
-          {
-            "name": "BIN",
-            "builder": "SQL_FACTORY(Bin_instantiator)",
-            "line": 1375,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "DATEDIFF",
-            "builder": "SQL_FACTORY(Datediff_instantiator)",
-            "line": 1396,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "DAYOFWEEK",
-            "builder": "SQL_FACTORY(Dayofweek_instantiator)",
-            "line": 1400,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "FROM_UNIXTIME",
-            "builder": "SQL_FACTORY(From_unixtime_instantiator)",
-            "line": 1416,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "JSON_LENGTH",
-            "builder": "SQL_FACTORY(Json_length_instantiator)",
-            "line": 1438,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "LOCATE",
-            "builder": "SQL_FACTORY(Locate_instantiator)",
-            "line": 1485,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "MAKE_SET",
-            "builder": "SQL_FACTORY(Make_set_instantiator)",
-            "line": 1494,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "OCT",
-            "builder": "SQL_FACTORY(Oct_instantiator)",
-            "line": 1508,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ROUND",
-            "builder": "SQL_FACTORY(Round_instantiator)",
-            "line": 1530,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
           {
             "name": "ST_ENDPOINT",
             "builder": "SQL_FACTORY(Endpoint_instantiator)",
@@ -3742,7 +1273,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           },
           {
             "name": "ST_EXTERIORRING",
@@ -3754,91 +1286,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMCOLLFROMTEXT",
-            "builder": "SQL_FACTORY(Geomcollfromtext_instantiator)",
-            "line": 1571,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMCOLLFROMTXT",
-            "builder": "SQL_FACTORY(Geomcollfromtxt_instantiator)",
-            "line": 1572,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMCOLLFROMWKB",
-            "builder": "SQL_FACTORY(Geomcollfromwkb_instantiator)",
-            "line": 1573,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMETRYCOLLECTIONFROMTEXT",
-            "builder": "SQL_FACTORY(Geometrycollectionfromtext_instantiator)",
-            "line": 1574,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMETRYCOLLECTIONFROMWKB",
-            "builder": "SQL_FACTORY(Geometrycollectionfromwkb_instantiator)",
-            "line": 1576,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMETRYFROMTEXT",
-            "builder": "SQL_FACTORY(Geometryfromtext_instantiator)",
-            "line": 1578,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMETRYFROMWKB",
-            "builder": "SQL_FACTORY(Geometryfromwkb_instantiator)",
-            "line": 1579,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           },
           {
             "name": "ST_GEOMETRYN",
@@ -3850,31 +1299,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMFROMTEXT",
-            "builder": "SQL_FACTORY(Geomfromtext_instantiator)",
-            "line": 1583,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMFROMWKB",
-            "builder": "SQL_FACTORY(Geomfromwkb_instantiator)",
-            "line": 1584,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           },
           {
             "name": "ST_INTERIORRINGN",
@@ -3886,247 +1312,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LATITUDE",
-            "builder": "SQL_FACTORY(Latitude_instantiator)",
-            "line": 1595,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LINEFROMTEXT",
-            "builder": "SQL_FACTORY(Linefromtext_instantiator)",
-            "line": 1597,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LINEFROMWKB",
-            "builder": "SQL_FACTORY(Linefromwkb_instantiator)",
-            "line": 1598,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LINESTRINGFROMTEXT",
-            "builder": "SQL_FACTORY(Linestringfromtext_instantiator)",
-            "line": 1601,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LINESTRINGFROMWKB",
-            "builder": "SQL_FACTORY(Linestringfromwkb_instantiator)",
-            "line": 1602,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LONGITUDE",
-            "builder": "SQL_FACTORY(Longitude_instantiator)",
-            "line": 1604,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MLINEFROMTEXT",
-            "builder": "SQL_FACTORY(Mlinefromtext_instantiator)",
-            "line": 1606,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MLINEFROMWKB",
-            "builder": "SQL_FACTORY(Mlinefromwkb_instantiator)",
-            "line": 1607,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MPOINTFROMTEXT",
-            "builder": "SQL_FACTORY(Mpointfromtext_instantiator)",
-            "line": 1608,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MPOINTFROMWKB",
-            "builder": "SQL_FACTORY(Mpointfromwkb_instantiator)",
-            "line": 1609,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MPOLYFROMTEXT",
-            "builder": "SQL_FACTORY(Mpolyfromtext_instantiator)",
-            "line": 1610,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MPOLYFROMWKB",
-            "builder": "SQL_FACTORY(Mpolyfromwkb_instantiator)",
-            "line": 1611,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTILINESTRINGFROMTEXT",
-            "builder": "SQL_FACTORY(Multilinestringfromtext_instantiator)",
-            "line": 1612,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTILINESTRINGFROMWKB",
-            "builder": "SQL_FACTORY(Multilinestringfromwkb_instantiator)",
-            "line": 1614,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTIPOINTFROMTEXT",
-            "builder": "SQL_FACTORY(Multipointfromtext_instantiator)",
-            "line": 1616,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTIPOINTFROMWKB",
-            "builder": "SQL_FACTORY(Multipointfromwkb_instantiator)",
-            "line": 1617,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTIPOLYGONFROMTEXT",
-            "builder": "SQL_FACTORY(Multipolygonfromtext_instantiator)",
-            "line": 1618,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTIPOLYGONFROMWKB",
-            "builder": "SQL_FACTORY(Multipolygonfromwkb_instantiator)",
-            "line": 1619,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POINTFROMTEXT",
-            "builder": "SQL_FACTORY(Pointfromtext_instantiator)",
-            "line": 1627,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POINTFROMWKB",
-            "builder": "SQL_FACTORY(Pointfromwkb_instantiator)",
-            "line": 1628,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           },
           {
             "name": "ST_POINTN",
@@ -4138,67 +1325,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POLYFROMTEXT",
-            "builder": "SQL_FACTORY(Polyfromtext_instantiator)",
-            "line": 1630,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POLYFROMWKB",
-            "builder": "SQL_FACTORY(Polyfromwkb_instantiator)",
-            "line": 1631,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POLYGONFROMTEXT",
-            "builder": "SQL_FACTORY(Polygonfromtext_instantiator)",
-            "line": 1632,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POLYGONFROMWKB",
-            "builder": "SQL_FACTORY(Polygonfromwkb_instantiator)",
-            "line": 1633,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_SRID",
-            "builder": "SQL_FACTORY(Srid_instantiator)",
-            "line": 1635,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           },
           {
             "name": "ST_STARTPOINT",
@@ -4210,91 +1338,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_X",
-            "builder": "SQL_FACTORY(X_instantiator)",
-            "line": 1644,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_Y",
-            "builder": "SQL_FACTORY(Y_instantiator)",
-            "line": 1645,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "SUBTIME",
-            "builder": "SQL_FACTORY(Subtime_instantiator)",
-            "line": 1647,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "TIME_FORMAT",
-            "builder": "SQL_FACTORY(Time_format_instantiator)",
-            "line": 1650,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "WEEKDAY",
-            "builder": "SQL_FACTORY(Weekday_instantiator)",
-            "line": 1673,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "WEEKOFYEAR",
-            "builder": "SQL_FACTORY(Weekofyear_instantiator)",
-            "line": 1674,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "YEARWEEK",
-            "builder": "SQL_FACTORY(Yearweek_instantiator)",
-            "line": 1675,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           }
         ],
         "lexicalFunctionNames": [
@@ -4479,7 +1524,7 @@
             "code": 882
           }
         ],
-        "qualification": "registration and partial macro arity only; build conditions, formal names/types, defaults, result types, nullability, special syntax and decoding unqualified"
+        "qualification": "registration and partial macro/instantiator arity only; build conditions, formal names/types, defaults, result types, nullability, special syntax and decoding unqualified"
       }
     },
     "sha256:e42d81e9731e29df8a7d47ac1cb5b5a752e8e2fb0c492ac7432ddb1df2268b4e": {
@@ -4492,6 +1537,7 @@
       "functions": {
         "registrations": 353,
         "macroArityKnown": 297,
+        "instantiatorArityKnown": 50,
         "conditionalRegistrations": [
           {
             "name": "LIKE_RANGE_MIN",
@@ -4505,7 +1551,8 @@
             "maximumExpression": "2",
             "parity": "any",
             "internal": false,
-            "arityKnowledge": "macro"
+            "arityKnowledge": "macro",
+            "arityEvidence": []
           },
           {
             "name": "LIKE_RANGE_MAX",
@@ -4519,118 +1566,11 @@
             "maximumExpression": "2",
             "parity": "any",
             "internal": false,
-            "arityKnowledge": "macro"
+            "arityKnowledge": "macro",
+            "arityEvidence": []
           }
         ],
         "unresolvedFactories": [
-          {
-            "name": "BIN",
-            "builder": "SQL_FACTORY(Bin_instantiator)",
-            "line": 1375,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "DATEDIFF",
-            "builder": "SQL_FACTORY(Datediff_instantiator)",
-            "line": 1396,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "DAYOFWEEK",
-            "builder": "SQL_FACTORY(Dayofweek_instantiator)",
-            "line": 1400,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "FROM_UNIXTIME",
-            "builder": "SQL_FACTORY(From_unixtime_instantiator)",
-            "line": 1416,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "JSON_LENGTH",
-            "builder": "SQL_FACTORY(Json_length_instantiator)",
-            "line": 1438,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "LOCATE",
-            "builder": "SQL_FACTORY(Locate_instantiator)",
-            "line": 1485,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "MAKE_SET",
-            "builder": "SQL_FACTORY(Make_set_instantiator)",
-            "line": 1494,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "OCT",
-            "builder": "SQL_FACTORY(Oct_instantiator)",
-            "line": 1508,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ROUND",
-            "builder": "SQL_FACTORY(Round_instantiator)",
-            "line": 1530,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
           {
             "name": "ST_ENDPOINT",
             "builder": "SQL_FACTORY(Endpoint_instantiator)",
@@ -4641,7 +1581,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           },
           {
             "name": "ST_EXTERIORRING",
@@ -4653,91 +1594,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMCOLLFROMTEXT",
-            "builder": "SQL_FACTORY(Geomcollfromtext_instantiator)",
-            "line": 1571,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMCOLLFROMTXT",
-            "builder": "SQL_FACTORY(Geomcollfromtxt_instantiator)",
-            "line": 1572,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMCOLLFROMWKB",
-            "builder": "SQL_FACTORY(Geomcollfromwkb_instantiator)",
-            "line": 1573,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMETRYCOLLECTIONFROMTEXT",
-            "builder": "SQL_FACTORY(Geometrycollectionfromtext_instantiator)",
-            "line": 1574,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMETRYCOLLECTIONFROMWKB",
-            "builder": "SQL_FACTORY(Geometrycollectionfromwkb_instantiator)",
-            "line": 1576,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMETRYFROMTEXT",
-            "builder": "SQL_FACTORY(Geometryfromtext_instantiator)",
-            "line": 1578,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMETRYFROMWKB",
-            "builder": "SQL_FACTORY(Geometryfromwkb_instantiator)",
-            "line": 1579,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           },
           {
             "name": "ST_GEOMETRYN",
@@ -4749,31 +1607,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMFROMTEXT",
-            "builder": "SQL_FACTORY(Geomfromtext_instantiator)",
-            "line": 1583,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMFROMWKB",
-            "builder": "SQL_FACTORY(Geomfromwkb_instantiator)",
-            "line": 1584,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           },
           {
             "name": "ST_INTERIORRINGN",
@@ -4785,247 +1620,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LATITUDE",
-            "builder": "SQL_FACTORY(Latitude_instantiator)",
-            "line": 1595,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LINEFROMTEXT",
-            "builder": "SQL_FACTORY(Linefromtext_instantiator)",
-            "line": 1597,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LINEFROMWKB",
-            "builder": "SQL_FACTORY(Linefromwkb_instantiator)",
-            "line": 1598,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LINESTRINGFROMTEXT",
-            "builder": "SQL_FACTORY(Linestringfromtext_instantiator)",
-            "line": 1601,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LINESTRINGFROMWKB",
-            "builder": "SQL_FACTORY(Linestringfromwkb_instantiator)",
-            "line": 1602,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LONGITUDE",
-            "builder": "SQL_FACTORY(Longitude_instantiator)",
-            "line": 1604,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MLINEFROMTEXT",
-            "builder": "SQL_FACTORY(Mlinefromtext_instantiator)",
-            "line": 1606,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MLINEFROMWKB",
-            "builder": "SQL_FACTORY(Mlinefromwkb_instantiator)",
-            "line": 1607,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MPOINTFROMTEXT",
-            "builder": "SQL_FACTORY(Mpointfromtext_instantiator)",
-            "line": 1608,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MPOINTFROMWKB",
-            "builder": "SQL_FACTORY(Mpointfromwkb_instantiator)",
-            "line": 1609,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MPOLYFROMTEXT",
-            "builder": "SQL_FACTORY(Mpolyfromtext_instantiator)",
-            "line": 1610,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MPOLYFROMWKB",
-            "builder": "SQL_FACTORY(Mpolyfromwkb_instantiator)",
-            "line": 1611,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTILINESTRINGFROMTEXT",
-            "builder": "SQL_FACTORY(Multilinestringfromtext_instantiator)",
-            "line": 1612,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTILINESTRINGFROMWKB",
-            "builder": "SQL_FACTORY(Multilinestringfromwkb_instantiator)",
-            "line": 1614,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTIPOINTFROMTEXT",
-            "builder": "SQL_FACTORY(Multipointfromtext_instantiator)",
-            "line": 1616,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTIPOINTFROMWKB",
-            "builder": "SQL_FACTORY(Multipointfromwkb_instantiator)",
-            "line": 1617,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTIPOLYGONFROMTEXT",
-            "builder": "SQL_FACTORY(Multipolygonfromtext_instantiator)",
-            "line": 1618,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTIPOLYGONFROMWKB",
-            "builder": "SQL_FACTORY(Multipolygonfromwkb_instantiator)",
-            "line": 1619,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POINTFROMTEXT",
-            "builder": "SQL_FACTORY(Pointfromtext_instantiator)",
-            "line": 1627,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POINTFROMWKB",
-            "builder": "SQL_FACTORY(Pointfromwkb_instantiator)",
-            "line": 1628,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           },
           {
             "name": "ST_POINTN",
@@ -5037,67 +1633,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POLYFROMTEXT",
-            "builder": "SQL_FACTORY(Polyfromtext_instantiator)",
-            "line": 1630,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POLYFROMWKB",
-            "builder": "SQL_FACTORY(Polyfromwkb_instantiator)",
-            "line": 1631,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POLYGONFROMTEXT",
-            "builder": "SQL_FACTORY(Polygonfromtext_instantiator)",
-            "line": 1632,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POLYGONFROMWKB",
-            "builder": "SQL_FACTORY(Polygonfromwkb_instantiator)",
-            "line": 1633,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_SRID",
-            "builder": "SQL_FACTORY(Srid_instantiator)",
-            "line": 1635,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           },
           {
             "name": "ST_STARTPOINT",
@@ -5109,91 +1646,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_X",
-            "builder": "SQL_FACTORY(X_instantiator)",
-            "line": 1644,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_Y",
-            "builder": "SQL_FACTORY(Y_instantiator)",
-            "line": 1645,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "SUBTIME",
-            "builder": "SQL_FACTORY(Subtime_instantiator)",
-            "line": 1647,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "TIME_FORMAT",
-            "builder": "SQL_FACTORY(Time_format_instantiator)",
-            "line": 1650,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "WEEKDAY",
-            "builder": "SQL_FACTORY(Weekday_instantiator)",
-            "line": 1673,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "WEEKOFYEAR",
-            "builder": "SQL_FACTORY(Weekofyear_instantiator)",
-            "line": 1674,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "YEARWEEK",
-            "builder": "SQL_FACTORY(Yearweek_instantiator)",
-            "line": 1675,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           }
         ],
         "lexicalFunctionNames": [
@@ -5378,7 +1832,7 @@
             "code": 882
           }
         ],
-        "qualification": "registration and partial macro arity only; build conditions, formal names/types, defaults, result types, nullability, special syntax and decoding unqualified"
+        "qualification": "registration and partial macro/instantiator arity only; build conditions, formal names/types, defaults, result types, nullability, special syntax and decoding unqualified"
       }
     },
     "sha256:781b2fa0a469106f7d7db9ccf596a7d7f10d42aace45c3d7df97a8225ee1c876": {
@@ -5391,6 +1845,7 @@
       "functions": {
         "registrations": 353,
         "macroArityKnown": 297,
+        "instantiatorArityKnown": 50,
         "conditionalRegistrations": [
           {
             "name": "LIKE_RANGE_MIN",
@@ -5404,7 +1859,8 @@
             "maximumExpression": "2",
             "parity": "any",
             "internal": false,
-            "arityKnowledge": "macro"
+            "arityKnowledge": "macro",
+            "arityEvidence": []
           },
           {
             "name": "LIKE_RANGE_MAX",
@@ -5418,118 +1874,11 @@
             "maximumExpression": "2",
             "parity": "any",
             "internal": false,
-            "arityKnowledge": "macro"
+            "arityKnowledge": "macro",
+            "arityEvidence": []
           }
         ],
         "unresolvedFactories": [
-          {
-            "name": "BIN",
-            "builder": "SQL_FACTORY(Bin_instantiator)",
-            "line": 1375,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "DATEDIFF",
-            "builder": "SQL_FACTORY(Datediff_instantiator)",
-            "line": 1396,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "DAYOFWEEK",
-            "builder": "SQL_FACTORY(Dayofweek_instantiator)",
-            "line": 1400,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "FROM_UNIXTIME",
-            "builder": "SQL_FACTORY(From_unixtime_instantiator)",
-            "line": 1416,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "JSON_LENGTH",
-            "builder": "SQL_FACTORY(Json_length_instantiator)",
-            "line": 1438,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "LOCATE",
-            "builder": "SQL_FACTORY(Locate_instantiator)",
-            "line": 1485,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "MAKE_SET",
-            "builder": "SQL_FACTORY(Make_set_instantiator)",
-            "line": 1494,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "OCT",
-            "builder": "SQL_FACTORY(Oct_instantiator)",
-            "line": 1508,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ROUND",
-            "builder": "SQL_FACTORY(Round_instantiator)",
-            "line": 1530,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
           {
             "name": "ST_ENDPOINT",
             "builder": "SQL_FACTORY(Endpoint_instantiator)",
@@ -5540,7 +1889,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           },
           {
             "name": "ST_EXTERIORRING",
@@ -5552,91 +1902,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMCOLLFROMTEXT",
-            "builder": "SQL_FACTORY(Geomcollfromtext_instantiator)",
-            "line": 1571,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMCOLLFROMTXT",
-            "builder": "SQL_FACTORY(Geomcollfromtxt_instantiator)",
-            "line": 1572,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMCOLLFROMWKB",
-            "builder": "SQL_FACTORY(Geomcollfromwkb_instantiator)",
-            "line": 1573,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMETRYCOLLECTIONFROMTEXT",
-            "builder": "SQL_FACTORY(Geometrycollectionfromtext_instantiator)",
-            "line": 1574,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMETRYCOLLECTIONFROMWKB",
-            "builder": "SQL_FACTORY(Geometrycollectionfromwkb_instantiator)",
-            "line": 1576,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMETRYFROMTEXT",
-            "builder": "SQL_FACTORY(Geometryfromtext_instantiator)",
-            "line": 1578,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMETRYFROMWKB",
-            "builder": "SQL_FACTORY(Geometryfromwkb_instantiator)",
-            "line": 1579,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           },
           {
             "name": "ST_GEOMETRYN",
@@ -5648,31 +1915,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMFROMTEXT",
-            "builder": "SQL_FACTORY(Geomfromtext_instantiator)",
-            "line": 1583,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_GEOMFROMWKB",
-            "builder": "SQL_FACTORY(Geomfromwkb_instantiator)",
-            "line": 1584,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           },
           {
             "name": "ST_INTERIORRINGN",
@@ -5684,247 +1928,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LATITUDE",
-            "builder": "SQL_FACTORY(Latitude_instantiator)",
-            "line": 1595,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LINEFROMTEXT",
-            "builder": "SQL_FACTORY(Linefromtext_instantiator)",
-            "line": 1597,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LINEFROMWKB",
-            "builder": "SQL_FACTORY(Linefromwkb_instantiator)",
-            "line": 1598,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LINESTRINGFROMTEXT",
-            "builder": "SQL_FACTORY(Linestringfromtext_instantiator)",
-            "line": 1601,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LINESTRINGFROMWKB",
-            "builder": "SQL_FACTORY(Linestringfromwkb_instantiator)",
-            "line": 1602,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_LONGITUDE",
-            "builder": "SQL_FACTORY(Longitude_instantiator)",
-            "line": 1604,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MLINEFROMTEXT",
-            "builder": "SQL_FACTORY(Mlinefromtext_instantiator)",
-            "line": 1606,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MLINEFROMWKB",
-            "builder": "SQL_FACTORY(Mlinefromwkb_instantiator)",
-            "line": 1607,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MPOINTFROMTEXT",
-            "builder": "SQL_FACTORY(Mpointfromtext_instantiator)",
-            "line": 1608,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MPOINTFROMWKB",
-            "builder": "SQL_FACTORY(Mpointfromwkb_instantiator)",
-            "line": 1609,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MPOLYFROMTEXT",
-            "builder": "SQL_FACTORY(Mpolyfromtext_instantiator)",
-            "line": 1610,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MPOLYFROMWKB",
-            "builder": "SQL_FACTORY(Mpolyfromwkb_instantiator)",
-            "line": 1611,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTILINESTRINGFROMTEXT",
-            "builder": "SQL_FACTORY(Multilinestringfromtext_instantiator)",
-            "line": 1612,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTILINESTRINGFROMWKB",
-            "builder": "SQL_FACTORY(Multilinestringfromwkb_instantiator)",
-            "line": 1614,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTIPOINTFROMTEXT",
-            "builder": "SQL_FACTORY(Multipointfromtext_instantiator)",
-            "line": 1616,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTIPOINTFROMWKB",
-            "builder": "SQL_FACTORY(Multipointfromwkb_instantiator)",
-            "line": 1617,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTIPOLYGONFROMTEXT",
-            "builder": "SQL_FACTORY(Multipolygonfromtext_instantiator)",
-            "line": 1618,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_MULTIPOLYGONFROMWKB",
-            "builder": "SQL_FACTORY(Multipolygonfromwkb_instantiator)",
-            "line": 1619,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POINTFROMTEXT",
-            "builder": "SQL_FACTORY(Pointfromtext_instantiator)",
-            "line": 1627,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POINTFROMWKB",
-            "builder": "SQL_FACTORY(Pointfromwkb_instantiator)",
-            "line": 1628,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           },
           {
             "name": "ST_POINTN",
@@ -5936,67 +1941,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POLYFROMTEXT",
-            "builder": "SQL_FACTORY(Polyfromtext_instantiator)",
-            "line": 1630,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POLYFROMWKB",
-            "builder": "SQL_FACTORY(Polyfromwkb_instantiator)",
-            "line": 1631,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POLYGONFROMTEXT",
-            "builder": "SQL_FACTORY(Polygonfromtext_instantiator)",
-            "line": 1632,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_POLYGONFROMWKB",
-            "builder": "SQL_FACTORY(Polygonfromwkb_instantiator)",
-            "line": 1633,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_SRID",
-            "builder": "SQL_FACTORY(Srid_instantiator)",
-            "line": 1635,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           },
           {
             "name": "ST_STARTPOINT",
@@ -6008,91 +1954,8 @@
             "maximumExpression": null,
             "parity": "unknown",
             "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_X",
-            "builder": "SQL_FACTORY(X_instantiator)",
-            "line": 1644,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "ST_Y",
-            "builder": "SQL_FACTORY(Y_instantiator)",
-            "line": 1645,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "SUBTIME",
-            "builder": "SQL_FACTORY(Subtime_instantiator)",
-            "line": 1647,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "TIME_FORMAT",
-            "builder": "SQL_FACTORY(Time_format_instantiator)",
-            "line": 1650,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "WEEKDAY",
-            "builder": "SQL_FACTORY(Weekday_instantiator)",
-            "line": 1673,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "WEEKOFYEAR",
-            "builder": "SQL_FACTORY(Weekofyear_instantiator)",
-            "line": 1674,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
-          },
-          {
-            "name": "YEARWEEK",
-            "builder": "SQL_FACTORY(Yearweek_instantiator)",
-            "line": 1675,
-            "conditions": [],
-            "minimum": null,
-            "maximum": null,
-            "maximumExpression": null,
-            "parity": "unknown",
-            "internal": null,
-            "arityKnowledge": "specialized-unknown"
+            "arityKnowledge": "specialized-unknown",
+            "arityEvidence": []
           }
         ],
         "lexicalFunctionNames": [
@@ -6277,7 +2140,7 @@
             "code": 882
           }
         ],
-        "qualification": "registration and partial macro arity only; build conditions, formal names/types, defaults, result types, nullability, special syntax and decoding unqualified"
+        "qualification": "registration and partial macro/instantiator arity only; build conditions, formal names/types, defaults, result types, nullability, special syntax and decoding unqualified"
       }
     }
   }

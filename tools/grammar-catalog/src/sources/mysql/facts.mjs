@@ -31,7 +31,8 @@ export const MySQLSourceFactsSchema = object({
       maximumExpression: Type.Union([text, Type.Null()]),
       parity: Type.Union(["any", "odd", "even", "unknown"].map((value) => Type.Literal(value))),
       internal: Type.Union([Type.Boolean(), Type.Null()]),
-      arityKnowledge: Type.Union([Type.Literal("macro"), Type.Literal("specialized-unknown")]),
+      arityKnowledge: Type.Union(["macro", "instantiator", "specialized-unknown"].map((value) => Type.Literal(value))),
+      arityEvidence: Type.Array(object({ symbol: text, line: Type.Integer({ minimum: 1 }) })),
     }),
     { minItems: 1 },
   ),
@@ -41,7 +42,7 @@ export const extractorId = "mysql/vendor-registration-v1";
 export async function extractorRevision() {
   return hash(
     await Promise.all(
-      ["facts.mjs", "parse.mjs", "refresh.mjs", "extract-archive.py"].map(async (path) => [
+      ["facts.mjs", "parse.mjs", "instantiators.mjs", "refresh.mjs", "extract-archive.py"].map(async (path) => [
         path,
         await readFile(new URL(path, import.meta.url), "utf8"),
       ]),
@@ -60,8 +61,13 @@ export function validateSourceFacts(value) {
       throw new TypeError("Unsafe MySQL source arity");
     if (row.minimum !== null && row.maximum !== null && row.maximum < row.minimum)
       throw new TypeError("Invalid MySQL source arity");
-    if (row.arityKnowledge === "macro" && (row.minimum === null || row.parity === "unknown" || row.internal === null))
+    if (
+      row.arityKnowledge !== "specialized-unknown" &&
+      (row.minimum === null || row.parity === "unknown" || row.internal === null)
+    )
       throw new TypeError("Incomplete MySQL macro arity");
+    if ((row.arityKnowledge === "instantiator") !== row.arityEvidence.length > 0)
+      throw new TypeError("Inconsistent MySQL arity evidence");
   }
   return value;
 }

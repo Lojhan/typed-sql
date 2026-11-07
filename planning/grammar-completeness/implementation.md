@@ -536,6 +536,18 @@ MySQL locked registration-source and deadline checkpoint:
   Documentation build passes. The performance gate reached its final report after all budget
   assertions passed. New-head CI remains required before promotion.
 
+MySQL literal instantiator bounds checkpoint:
+
+- Specialized factory interpretation follows unconditional public literal `Min_argcount` and
+  `Max_argcount` declarations through source alias chains. Each inferred range retains symbol/line
+  evidence. It rejects private, conditional, dependent and specialized class interpretations;
+  aliases that select template parameters and cyclic aliases cannot silently acquire global bounds.
+- All three retained versions resolve 50 additional registration bounds each. Six factories per
+  version still require template-specialization interpretation and retain unknown arity. This
+  changes source audit facts only, not runtime function policy or semantic qualification.
+- All 66 contract files, repository typecheck and quality pass locally. Cached source replay
+  reproduces facts/locks byte-for-byte with network disabled. Full requirements below remain open.
+
 ## Requirements still open
 
 

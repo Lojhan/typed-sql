@@ -3,7 +3,7 @@
   "grammar": "mysql",
   "extractor": {
     "id": "mysql/vendor-registration-v1",
-    "revision": "sha256:a3e1519f0628c1d05d9546e90774d3b5777954751999741bb51258d2fb67f5d9"
+    "revision": "sha256:93f6a4bbe1a98ccb82e4d401ca7ebf0edb4bb987316e8d6caff880875dae4d72"
   },
   "sources": [
     {
@@ -55,7 +55,7 @@
         "path": "mysql-server-06a5c1c99c377fc41b2eba1ea244e8b220bdc3c8/LICENSE"
       },
       "defines": [],
-      "factsDigest": "sha256:a8d8240511c0f3dcb6a21eeadceff60965ff5a9a64eade58561303709e80053a"
+      "factsDigest": "sha256:97966ca9fdd25e1dd462dc2ea2d61e7d607604e32e7dcef3006aec65d27c1056"
     },
     {
       "version": "8.4.11",
@@ -106,7 +106,7 @@
         "path": "mysql-server-99960bf74fa919347e4f4e3ca47672f333d6e91f/LICENSE"
       },
       "defines": [],
-      "factsDigest": "sha256:42480e31c5d721a5152bce25f0ef0384fbd1649da273871e8408957120ea890a"
+      "factsDigest": "sha256:2790de7b1c01a88915ab5544b2f8971244dc47db80724cbd7a9c2d6f966be1a4"
     },
     {
       "version": "9.7.2",
@@ -157,7 +157,7 @@
         "path": "mysql-server-008e09c2834b98143a8c067d4d225c90953050cf/LICENSE"
       },
       "defines": [],
-      "factsDigest": "sha256:cefd4bfbbaf22449c276b02c14487a638691ca5266acd6695314afe1893e7d57"
+      "factsDigest": "sha256:9f1835e8159a09deff222b4920b2ea37c523d52607d58ac56756430410b998e4"
     }
   ]
 }

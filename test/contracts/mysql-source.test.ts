@@ -4,6 +4,7 @@ import { expandTarget, readCorpus } from "../../scripts/catalog-generation/corpu
 import { checkLockedFacts } from "../../tools/grammar-catalog/src/provenance/source-lock.mjs";
 import { sourceCoverage } from "../../tools/grammar-catalog/src/sources/mysql/coverage.mjs";
 import { extractorRevision, validateSourceFacts } from "../../tools/grammar-catalog/src/sources/mysql/facts.mjs";
+import { instantiatorBounds } from "../../tools/grammar-catalog/src/sources/mysql/instantiators.mjs";
 import { functions, keywords } from "../../tools/grammar-catalog/src/sources/mysql/parse.mjs";
 
 const lock = JSON.parse(await readFile(new URL("../../grammar/mysql/sources.lock.json", import.meta.url), "utf8"));
@@ -30,6 +31,10 @@ await describe("locked MySQL registration and keyword facts", async () => {
       strict.ok(source.functions.length > 300);
       strict.ok(source.functions.some(({ conditions }) => conditions.length > 0));
       strict.ok(source.functions.some(({ arityKnowledge }) => arityKnowledge === "specialized-unknown"));
+      strict.ok(source.functions.filter(({ arityKnowledge }) => arityKnowledge === "instantiator").length >= 50);
+      strict.equal(source.functions.find(({ name }) => name === "ROUND")?.minimum, 1);
+      strict.equal(source.functions.find(({ name }) => name === "ROUND")?.maximum, 2);
+      strict.equal(source.functions.find(({ name }) => name === "ST_GEOMFROMTEXT")?.maximum, 3);
       const concat = source.functions.find(({ name }) => name === "CONCAT")!;
       strict.equal(concat.minimum, 1);
       strict.equal(concat.maximum, null);
@@ -110,5 +115,56 @@ await describe("locked MySQL registration and keyword facts", async () => {
     strict.equal(facts.symbols.length, 4);
     strict.throws(() => keywords(lex, yacc.replace("FRESH_TOKEN 1", "FRESH_TOKEN")), /token declaration/u);
     strict.throws(() => keywords(lex.replace("SYM_FN", "NEW_GROUP"), yacc), /lexical record/u);
+  });
+
+  await it("follows literal class bounds and alias chains while retaining ambiguous C++ as unknown", () => {
+    const source = `class Fresh_class {
+ public:
+  static const uint Min_argcount = 2;
+  static const uint Max_argcount = MAX_ARGLIST_SIZE;
+  void instantiate() { const char *ignored = "}"; }
+};
+template <typename T> using Fresh_template = Fresh_class;
+using Fresh_alias = Fresh_template<Other_class>;
+#define SQL_FACTORY(INSTANTIATOR) &Function_factory<INSTANTIATOR>::s_singleton
+static const pair func_array[] = {{"FRESH", SQL_FACTORY(Fresh_alias)}};`;
+    const [row] = functions(source);
+    strict.equal(row!.minimum, 2);
+    strict.equal(row!.maximum, null);
+    strict.equal(row!.maximumExpression, "MAX_ARGLIST_SIZE");
+    strict.equal(row!.arityKnowledge, "instantiator");
+    strict.deepEqual(
+      row!.arityEvidence.map(({ symbol }) => symbol),
+      ["Fresh_alias", "Fresh_template", "Fresh_class"],
+    );
+    for (const changed of [
+      source.replace("public:", "private:"),
+      source.replace("= 2;", "= dependent_value;"),
+      source.replace("static const uint Min_argcount", "uint Min_argcount"),
+      source
+        .replace("class Fresh_class", "#ifdef UNKNOWN\nclass Fresh_class")
+        .replace("template <", "#endif\ntemplate <"),
+      source.replace(" public:", " public:\n#ifdef UNKNOWN\n#endif"),
+      source.replace("&Function_factory<", "&Other_factory<"),
+      source.replace("using Fresh_template = Fresh_class", "using Fresh_template = T"),
+      `${source}\ntemplate <> class Fresh_class<Other_class> {};`,
+    ])
+      strict.equal(functions(changed)[0]!.arityKnowledge, "specialized-unknown");
+    const shadow = `${source}\ntemplate <typename Fresh_class> using Shadow = Fresh_class;`;
+    strict.equal(instantiatorBounds(shadow)("Shadow"), undefined);
+    strict.equal(
+      instantiatorBounds(
+        'const char *text = "class Fake { public: static const uint Min_argcount = 1; static const uint Max_argcount = 2; };";',
+      )("Fake"),
+      undefined,
+    );
+    strict.throws(() => instantiatorBounds("using A = B; using B = A;")("A"), /Cyclic/u);
+    strict.equal(
+      instantiatorBounds(`${source}\ntemplate <template <typename> class Fresh_class> using Shadow = Fresh_class;`)(
+        "Shadow",
+      ),
+      undefined,
+    );
+    strict.throws(() => functions(source.replace("MAX_ARGLIST_SIZE", "1")), /Invalid MySQL instantiator range/u);
   });
 });

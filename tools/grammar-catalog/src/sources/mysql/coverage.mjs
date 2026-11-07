@@ -25,11 +25,15 @@ export function sourceCoverage(facts, groups) {
         functions: {
           registrations: source.functions.length,
           macroArityKnown: source.functions.filter(({ arityKnowledge }) => arityKnowledge === "macro").length,
+          instantiatorArityKnown: source.functions.filter(({ arityKnowledge }) => arityKnowledge === "instantiator")
+            .length,
           conditionalRegistrations: source.functions.filter(({ conditions }) => conditions.length),
-          unresolvedFactories: source.functions.filter(({ arityKnowledge }) => arityKnowledge !== "macro"),
+          unresolvedFactories: source.functions.filter(
+            ({ arityKnowledge }) => arityKnowledge === "specialized-unknown",
+          ),
           lexicalFunctionNames: source.lexicalFunctions,
           qualification:
-            "registration and partial macro arity only; build conditions, formal names/types, defaults, result types, nullability, special syntax and decoding unqualified",
+            "registration and partial macro/instantiator arity only; build conditions, formal names/types, defaults, result types, nullability, special syntax and decoding unqualified",
         },
       };
     }

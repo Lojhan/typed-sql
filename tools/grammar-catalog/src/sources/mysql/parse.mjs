@@ -1,3 +1,5 @@
+import { instantiatorBounds } from "./instantiators.mjs";
+
 /** Preserve offsets while removing C comments; strings and character literals remain opaque. */
 export const uncomment = (body) =>
   body.replace(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\/\*[\s\S]*?\*\/|\/\/[^\n]*/gu, (value) =>
@@ -102,7 +104,8 @@ export function keywords(lex, yacc) {
 /** All records are retained; specialized factories keep explicitly unknown arity. */
 export function functions(body) {
   const source = uncomment(body),
-    macros = new Map();
+    macros = new Map(),
+    bounds = instantiatorBounds(source);
   for (const match of source
     .replace(/\\\r?\n/gu, " ")
     .matchAll(/^#define[ \t]+(SQL_[A-Z_]+)\(([^)]*)\)[ \t]+([^\n]*)/gmu))
@@ -120,7 +123,8 @@ export function functions(body) {
       maximumExpression = null,
       parity = "unknown",
       internal = null,
-      arityKnowledge = "specialized-unknown";
+      arityKnowledge = "specialized-unknown",
+      arityEvidence = [];
     const call = /^(SQL_[A-Z_]+)\(([^()]*)\)$/u.exec(builder),
       macro = call && macros.get(call[1]);
     const supported =
@@ -145,6 +149,22 @@ export function functions(body) {
           : "any";
       internal = macro.body.includes("Internal_function_factory");
       arityKnowledge = "macro";
+    } else if (
+      macro &&
+      macro.parameters.join(",") === "INSTANTIATOR" &&
+      macro.body.replace(/\s/gu, "") === "&Function_factory<INSTANTIATOR>::s_singleton" &&
+      /^[A-Za-z_]\w*$/u.test(call[2])
+    ) {
+      const declaration = bounds(call[2]);
+      if (declaration) {
+        minimum = Number(declaration.minimum);
+        maximumExpression = declaration.maximum;
+        maximum = /^\d+$/u.test(maximumExpression) ? Number(maximumExpression) : null;
+        parity = "any";
+        internal = false;
+        arityKnowledge = "instantiator";
+        arityEvidence = declaration.evidence;
+      }
     }
     return {
       name,
@@ -157,6 +177,7 @@ export function functions(body) {
       parity,
       internal,
       arityKnowledge,
+      arityEvidence,
     };
   });
   if (new Set(rows.map(({ name }) => name)).size !== rows.length)
