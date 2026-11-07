@@ -98,11 +98,14 @@ and schemas share unchanged data between versions; source line locations remain 
 catalog entry. Generation validates the fact closure and lock without Python, Perl or network access.
 
 The PostgreSQL emitter compares source keyword names/categories with retained native inventories
-and rejects disagreement. Its generated source coverage report distinguishes that comparison from
-name-only procedure/type inventory comparisons. SQL installation scripts and grammar productions
-remain uninterpreted inputs; configuration, extension availability, full overload semantics and
-runtime decoding require separate extraction and qualification. Bootstrap catalogs alone do not
-establish complete engine coverage.
+and rejects disagreement. Routine descriptors incorporate installation-SQL parameter headers,
+unconditional type aliases extracted from grammar actions, and bootstrap default-constant counts.
+Source descriptors must match native parameter/result/property metadata before their validated
+routine models drive emission. Canonical type spellings come from independent native type metadata;
+canonical default-expression rendering, execution, nullability and decoding remain unqualified.
+SQL-installed routines absent from bootstrap data retain their native metadata and remain explicit
+source gaps. Full grammar productions, SQL bodies, configuration and extension profiles still need
+separate interpretation and qualification. Committed source text includes the upstream license notice.
 
 The SQLite catalog refresh also locks the full vendor archive and builds its amalgamation in a
 fresh temporary directory. Archive members must agree with the separately pinned files before

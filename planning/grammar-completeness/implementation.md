@@ -457,6 +457,38 @@ Pinned PostgreSQL bootstrap-source checkpoint:
 - Prior reference-owner checkpoint `da17b810` passed full CI run 42409489345 and both integration
   workflows. The source checkpoint requires its own exact-head CI before promotion.
 
+PostgreSQL source-routine projection checkpoint:
+
+- Bootstrap source descriptors initially disagreed with native captures on 41-84 routines per
+  version. Independent comparison exposed installation-SQL name/default overlays, unquoted array
+  whitespace rules and PostgreSQL 19 bootstrap constant-array default expansion. These are now
+  interpreted from pinned inputs; no per-function exception list is introduced.
+- Source facts retain content-addressed installation SQL, grammar/bootstrap inputs and the full
+  upstream license notice. Every interpreted text blob is checked against the locked archive
+  member's raw byte digest/length. Explicit refresh can add selected members from an unchanged
+  pinned archive but rejects any changed or removed existing member pin.
+- A bounded SQL-header lexer retains unsupported header forms as gaps, with strings/comments
+  excluded from declaration discovery. Unconditional SQL type aliases are extracted from
+  grammar actions; conditional actions remain unqualified. Source/default-expression evidence
+  stays distinct from native canonical rendering and runtime semantics.
+- All 19,827 bootstrap routine descriptors across six native contexts agree on parameter vectors,
+  names/modes/default counts, result/set behavior, variadic metadata, strictness, volatility and
+  parallel flags. Type spellings are bridged through captured native type catalogs, not a host
+  parser. Canonical default rendering, result nullability, execution and decoding remain
+  unqualified. Five SQL-installed handlers per context remain explicit native-only source gaps.
+- PostgreSQL native-signature emission now consumes validated source routine models where that
+  comparison succeeds. Cross-profile disagreement, unsupported installation headers or source/native
+  descriptor drift fail generation. Native-only handlers retain native metadata and their source
+  gap is reported. The generated runtime catalog bytes are unchanged.
+- New contracts compare every projected runtime signature with native-derived metadata across all
+  six versions, preserve unknown nullability/decoding policy, reject descriptor corruption and
+  source/member text mismatches, and exercise SQL/array/grammar parsing boundaries. Focused tests
+  and typecheck pass. All 65 contract files pass, including clean-room generation, packed
+  consumers and the full source-routine comparisons. Quality and network-disabled cached source
+  replay pass. Exact-head CI remains required.
+- Prior checkpoint `64ad63ca` passed full CI run 42410652224. Remaining full-goal requirements
+  below are unchanged; this is not complete grammar/source/semantic parity.
+
 ## Requirements still open
 
 

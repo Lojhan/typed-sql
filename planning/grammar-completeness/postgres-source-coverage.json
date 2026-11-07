@@ -496,6 +496,22 @@
         "sourceOnlyNames": [],
         "qualification": "name inventory only; overloads, runtime types, nullability and decoding unqualified"
       },
+      "routineDescriptors": {
+        "scope": "catalog descriptors with installation parameter overlays; canonical type spellings come from native type metadata; canonical default rendering, execution, nullability and decoding unqualified",
+        "matched": 3186,
+        "matchedPairsDigest": "sha256:189e638336ac69e6ac65266e4efc86683b05fbf49e39f32ebeaa43d1501bf847",
+        "installationHeaders": 75,
+        "installationGaps": [],
+        "sourceOnly": [],
+        "nativeOnly": [
+          "pg_catalog.dsnowball_init(internal)",
+          "pg_catalog.dsnowball_lexize(internal, internal, internal, internal)",
+          "pg_catalog.plpgsql_call_handler()",
+          "pg_catalog.plpgsql_inline_handler(internal)",
+          "pg_catalog.plpgsql_validator(oid)"
+        ],
+        "mismatches": []
+      },
       "types": {
         "sourceRegistrations": 193,
         "nativeRegistrations": 453,
@@ -1269,6 +1285,22 @@
         ],
         "sourceOnlyNames": [],
         "qualification": "name inventory only; overloads, runtime types, nullability and decoding unqualified"
+      },
+      "routineDescriptors": {
+        "scope": "catalog descriptors with installation parameter overlays; canonical type spellings come from native type metadata; canonical default rendering, execution, nullability and decoding unqualified",
+        "matched": 3228,
+        "matchedPairsDigest": "sha256:dc469add7d652e07ddc78844c4bfa70d5cdc67074c562beadc5841102a47a7d2",
+        "installationHeaders": 75,
+        "installationGaps": [],
+        "sourceOnly": [],
+        "nativeOnly": [
+          "pg_catalog.dsnowball_init(internal)",
+          "pg_catalog.dsnowball_lexize(internal, internal, internal, internal)",
+          "pg_catalog.plpgsql_call_handler()",
+          "pg_catalog.plpgsql_inline_handler(internal)",
+          "pg_catalog.plpgsql_validator(oid)"
+        ],
+        "mismatches": []
       },
       "types": {
         "sourceRegistrations": 193,
@@ -2064,6 +2096,22 @@
         ],
         "sourceOnlyNames": [],
         "qualification": "name inventory only; overloads, runtime types, nullability and decoding unqualified"
+      },
+      "routineDescriptors": {
+        "scope": "catalog descriptors with installation parameter overlays; canonical type spellings come from native type metadata; canonical default rendering, execution, nullability and decoding unqualified",
+        "matched": 3281,
+        "matchedPairsDigest": "sha256:d43a803714e54582ae084c3e485e22a4ec0c32bb1da6b56c7e00d1db4531de58",
+        "installationHeaders": 76,
+        "installationGaps": [],
+        "sourceOnly": [],
+        "nativeOnly": [
+          "pg_catalog.dsnowball_init(internal)",
+          "pg_catalog.dsnowball_lexize(internal, internal, internal, internal)",
+          "pg_catalog.plpgsql_call_handler()",
+          "pg_catalog.plpgsql_inline_handler(internal)",
+          "pg_catalog.plpgsql_validator(oid)"
+        ],
+        "mismatches": []
       },
       "types": {
         "sourceRegistrations": 193,
@@ -2881,6 +2929,22 @@
         ],
         "sourceOnlyNames": [],
         "qualification": "name inventory only; overloads, runtime types, nullability and decoding unqualified"
+      },
+      "routineDescriptors": {
+        "scope": "catalog descriptors with installation parameter overlays; canonical type spellings come from native type metadata; canonical default rendering, execution, nullability and decoding unqualified",
+        "matched": 3314,
+        "matchedPairsDigest": "sha256:0894d89191086469d6700abd878e37df98492126f622f7ca205f9f1048d907a7",
+        "installationHeaders": 80,
+        "installationGaps": [],
+        "sourceOnly": [],
+        "nativeOnly": [
+          "pg_catalog.dsnowball_init(internal)",
+          "pg_catalog.dsnowball_lexize(internal, internal, internal, internal)",
+          "pg_catalog.plpgsql_call_handler()",
+          "pg_catalog.plpgsql_inline_handler(internal)",
+          "pg_catalog.plpgsql_validator(oid)"
+        ],
+        "mismatches": []
       },
       "types": {
         "sourceRegistrations": 193,
@@ -3704,6 +3768,22 @@
         ],
         "sourceOnlyNames": [],
         "qualification": "name inventory only; overloads, runtime types, nullability and decoding unqualified"
+      },
+      "routineDescriptors": {
+        "scope": "catalog descriptors with installation parameter overlays; canonical type spellings come from native type metadata; canonical default rendering, execution, nullability and decoding unqualified",
+        "matched": 3397,
+        "matchedPairsDigest": "sha256:f624dfef19b274f7ff57705039280064a236cab6fea0ff696c5f4d831bedcab3",
+        "installationHeaders": 82,
+        "installationGaps": [],
+        "sourceOnly": [],
+        "nativeOnly": [
+          "pg_catalog.dsnowball_init(internal)",
+          "pg_catalog.dsnowball_lexize(internal, internal, internal, internal)",
+          "pg_catalog.plpgsql_call_handler()",
+          "pg_catalog.plpgsql_inline_handler(internal)",
+          "pg_catalog.plpgsql_validator(oid)"
+        ],
+        "mismatches": []
       },
       "types": {
         "sourceRegistrations": 193,
@@ -4548,6 +4628,22 @@
         ],
         "sourceOnlyNames": [],
         "qualification": "name inventory only; overloads, runtime types, nullability and decoding unqualified"
+      },
+      "routineDescriptors": {
+        "scope": "catalog descriptors with installation parameter overlays; canonical type spellings come from native type metadata; canonical default rendering, execution, nullability and decoding unqualified",
+        "matched": 3421,
+        "matchedPairsDigest": "sha256:75aea18ae6ea6ede3ec26707d52ea7c6fcd7c470cecc754eb15470296b540f05",
+        "installationHeaders": 45,
+        "installationGaps": [],
+        "sourceOnly": [],
+        "nativeOnly": [
+          "pg_catalog.dsnowball_init(internal)",
+          "pg_catalog.dsnowball_lexize(internal, internal, internal, internal)",
+          "pg_catalog.plpgsql_call_handler()",
+          "pg_catalog.plpgsql_inline_handler(internal)",
+          "pg_catalog.plpgsql_validator(oid)"
+        ],
+        "mismatches": []
       },
       "types": {
         "sourceRegistrations": 197,

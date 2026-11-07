@@ -19,7 +19,8 @@ with tarfile.open(archive_path, "r:gz") as archive:
         local = pathlib.PurePosixPath(*path.parts[1:])
         needed = (
             local.as_posix() in ("COPYRIGHT", "configure.ac", "src/backend/catalog/Catalog.pm",
-                                 "src/include/parser/kwlist.h", "src/backend/parser/gram.y")
+                                 "src/include/parser/kwlist.h", "src/backend/parser/gram.y",
+                                 "src/backend/bootstrap/bootstrap.c")
             or (local.parent.as_posix() == "src/include/catalog" and local.suffix in (".dat", ".h"))
             or (local.parent.as_posix() == "src/backend/catalog" and local.suffix in (".sql", ".txt"))
         )

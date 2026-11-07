@@ -5,7 +5,14 @@ import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { hash } from "../../model/canonical.mjs";
 import { parseSourceLock, verifySourceFiles } from "../../provenance/source-lock.mjs";
-import { addCatalogFacts, extractorId, extractorRevision, parseKeywords, validateSourceFacts } from "./facts.mjs";
+import {
+  addCatalogFacts,
+  checkSourceTexts,
+  extractorId,
+  extractorRevision,
+  parseKeywords,
+  validateSourceFacts,
+} from "./facts.mjs";
 
 const execFile = promisify(callback);
 const repository = "https://github.com/postgres/postgres";
@@ -40,7 +47,7 @@ export async function refreshPostgresSources({ root, perl = "perl", python = "py
   } catch (error) {
     if (error.code !== "ENOENT") throw error;
   }
-  const facts = { formatVersion: 1, grammar: "postgres", schemas: {}, rows: {}, versions: {} };
+  const facts = { formatVersion: 1, grammar: "postgres", schemas: {}, rows: {}, texts: {}, versions: {} };
   const sources = [];
   for (const version of versions) {
     const reference = `REL_${version.replaceAll(".", "_").replace("beta", "_BETA")}`;
@@ -80,7 +87,8 @@ export async function refreshPostgresSources({ root, perl = "perl", python = "py
       const content = await readFile(join(sourceRoot, path));
       files[`${prefix}/${path}`] = { digest: bytesDigest(content), bytes: content.length };
     }
-    if (existing && hash(existing.files) !== hash(files)) throw new TypeError("Locked PostgreSQL source bytes changed");
+    if (existing && Object.entries(existing.files).some(([path, pin]) => hash(pin) !== hash(files[path])))
+      throw new TypeError("Locked PostgreSQL source bytes changed");
     await verifySourceFiles(directory, files);
     const configure = await readFile(join(sourceRoot, "configure.ac"), "utf8");
     if (/AC_INIT\(\[PostgreSQL\],\s*\[([^\]]+)\]/u.exec(configure)?.[1] !== version)
@@ -93,7 +101,23 @@ export async function refreshPostgresSources({ root, perl = "perl", python = "py
     const uninterpretedInputs = paths.filter(
       (path) => path.endsWith(".sql") || path.endsWith(".txt") || path.endsWith("gram.y"),
     );
-    const value = addCatalogFacts(facts, { version, revision, catalogs, keywords, uninterpretedInputs });
+    const textInputs = Object.fromEntries(
+      await Promise.all(
+        paths
+          .filter((path) => path.endsWith(".sql") || path.endsWith("gram.y") || path.endsWith("bootstrap.c"))
+          .map(async (path) => [path, await readFile(join(sourceRoot, path), "utf8")]),
+      ),
+    );
+    const licenseNotice = await readFile(join(sourceRoot, "COPYRIGHT"), "utf8");
+    const value = addCatalogFacts(facts, {
+      version,
+      revision,
+      catalogs,
+      keywords,
+      uninterpretedInputs,
+      textInputs,
+      licenseNotice,
+    });
     sources.push({
       version,
       reference,
@@ -116,6 +140,7 @@ export async function refreshPostgresSources({ root, perl = "perl", python = "py
     extractor: { id: extractorId, revision: await extractorRevision() },
     sources,
   });
+  checkSourceTexts(lock, facts);
   await mkdir(join(root, "grammar/postgres/facts"), { recursive: true });
   await writeFile(join(root, "grammar/postgres/facts/catalog.json"), `${JSON.stringify(facts)}\n`);
   await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`);

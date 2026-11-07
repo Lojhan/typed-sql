@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { Type } from "@sinclair/typebox";
 import { TypeCompiler } from "@sinclair/typebox/compiler";
@@ -23,10 +24,13 @@ export const PostgresSourceVersionSchema = object({
   ),
   keywords: Type.Array(object({ name: text, token: text, category: text, label: text }), { minItems: 1 }),
   uninterpretedInputs: Type.Array(text, { uniqueItems: true }),
+  textInputs: Type.Record(text, digest),
+  licenseNotice: digest,
 });
 export const PostgresSourceFactsSchema = object({
   formatVersion: Type.Literal(1),
   grammar: Type.Literal("postgres"),
+  texts: Type.Record(digest, text),
   // Vendor schema and rows are retained JSON, not interpreted semantic claims.
   schemas: Type.Record(
     digest,
@@ -72,8 +76,25 @@ export function parseKeywords(body) {
 }
 
 /** Factor source locations out of row identity while retaining every vendor field. */
-export function addCatalogFacts(envelope, { version, revision, catalogs, keywords, uninterpretedInputs }) {
-  const fact = { version, revision, defines: [], catalogs: {}, keywords, uninterpretedInputs };
+export function addCatalogFacts(
+  envelope,
+  { version, revision, catalogs, keywords, uninterpretedInputs, textInputs, licenseNotice },
+) {
+  const storeText = (value) => {
+    const id = hash(value);
+    envelope.texts[id] = value;
+    return id;
+  };
+  const fact = {
+    version,
+    revision,
+    defines: [],
+    catalogs: {},
+    keywords,
+    uninterpretedInputs,
+    textInputs: Object.fromEntries(Object.entries(textInputs).map(([path, body]) => [path, storeText(body)])),
+    licenseNotice: storeText(licenseNotice),
+  };
   for (const [name, value] of Object.entries(catalogs)) {
     const schema = hash(value.schema);
     envelope.schemas[schema] = value.schema;
@@ -110,11 +131,18 @@ export function validateSourceFacts(value) {
     if (hash(schema) !== id) throw new TypeError("PostgreSQL catalog schema digest differs");
   for (const [id, row] of Object.entries(value.rows))
     if (hash(row) !== id) throw new TypeError("PostgreSQL catalog row digest differs");
+  for (const [id, body] of Object.entries(value.texts))
+    if (hash(body) !== id) throw new TypeError("PostgreSQL source text digest differs");
   const usedSchemas = new Set(),
-    usedRows = new Set();
+    usedRows = new Set(),
+    usedTexts = new Set();
   for (const [version, fact] of Object.entries(value.versions)) {
     validateSourceVersion(fact);
     if (version !== fact.version) throw new TypeError("PostgreSQL source version identity differs");
+    for (const id of [fact.licenseNotice, ...Object.values(fact.textInputs)]) {
+      if (!value.texts[id]) throw new TypeError("Missing PostgreSQL source text");
+      usedTexts.add(id);
+    }
     for (const [name, catalog] of Object.entries(fact.catalogs)) {
       const schema = value.schemas[catalog.schema];
       if (schema?.catname !== name || !Array.isArray(schema.columns) || !schema.columns.length)
@@ -132,7 +160,11 @@ export function validateSourceFacts(value) {
       }
     }
   }
-  if (usedSchemas.size !== Object.keys(value.schemas).length || usedRows.size !== Object.keys(value.rows).length)
+  if (
+    usedSchemas.size !== Object.keys(value.schemas).length ||
+    usedRows.size !== Object.keys(value.rows).length ||
+    usedTexts.size !== Object.keys(value.texts).length
+  )
     throw new TypeError("Orphaned PostgreSQL source facts");
   return value;
 }
@@ -143,9 +175,32 @@ export async function readLockedSources(root) {
     readFile(join(root, "grammar/postgres/sources.lock.json"), "utf8").then(JSON.parse),
     readFile(join(root, "grammar/postgres/facts/catalog.json"), "utf8").then(JSON.parse),
   ]);
-  validateSourceFacts(facts);
-  checkLockedFacts(lock, facts, validateSourceVersion);
+  const checked = validateSourceFacts(facts),
+    checkedLock = parseSourceLock(lock);
+  checkLockedFacts(checkedLock, checked, validateSourceVersion);
+  checkSourceTexts(checkedLock, checked);
   if (lock.extractor.id !== extractorId || lock.extractor.revision !== (await extractorRevision()))
     throw new TypeError("PostgreSQL source extractor revision differs");
-  return { lock: parseSourceLock(lock), facts: validateSourceFacts(facts) };
+  return { lock: checkedLock, facts: checked };
+}
+
+/** Bind every interpreted text blob and distributed notice to its locked archive member bytes. */
+export function checkSourceTexts(lock, facts) {
+  for (const source of lock.sources) {
+    const version = facts.versions[source.version];
+    for (const [path, id] of [
+      [source.license.path, version.licenseNotice],
+      ...Object.entries(version.textInputs).map(([path, id]) => [`postgres-${source.revision}/${path}`, id]),
+    ]) {
+      const body = facts.texts[id],
+        pin = source.files[path];
+      if (
+        typeof body !== "string" ||
+        !pin ||
+        pin.bytes !== Buffer.byteLength(body) ||
+        pin.digest !== `sha256:${createHash("sha256").update(body).digest("hex")}`
+      )
+        throw new TypeError(`PostgreSQL source text bytes disagree: ${source.version}/${path}`);
+    }
+  }
 }

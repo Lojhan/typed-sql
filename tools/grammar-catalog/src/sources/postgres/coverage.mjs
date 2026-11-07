@@ -1,3 +1,6 @@
+import { hash } from "../../model/canonical.mjs";
+import { compareRoutines } from "./model.mjs";
+
 const categoryCodes = Object.freeze({
   UNRESERVED_KEYWORD: "U",
   COL_NAME_KEYWORD: "C",
@@ -18,7 +21,7 @@ function nameInventory(source, native) {
   };
 }
 
-function profileCoverage(facts, capture, parserKeywords) {
+function profileCoverage(facts, capture, parserKeywords, prepared) {
   const version = sourceVersion(capture.target.version),
     source = facts.versions[version];
   if (!source) throw new TypeError(`Missing pinned PostgreSQL source version: ${capture.target.version}`);
@@ -43,6 +46,7 @@ function profileCoverage(facts, capture, parserKeywords) {
   if (nativeRoutines?.status !== "observed" || nativeTypes?.status !== "observed")
     throw new TypeError("PostgreSQL routine/type inventory is unqualified");
   const parser = new Set(parserKeywords.map((name) => name.toLowerCase()));
+  const comparison = prepared?.comparison ?? compareRoutines(facts, source, capture);
   return {
     version,
     sourceRevision: source.revision,
@@ -61,6 +65,16 @@ function profileCoverage(facts, capture, parserKeywords) {
       nativeRegistrations: nativeRoutines.rows.length,
       ...nameInventory(names(routines, "proname"), names(nativeRoutines.rows, "name")),
     },
+    routineDescriptors: {
+      scope: comparison.qualification,
+      matched: comparison.matched.length,
+      matchedPairsDigest: hash(comparison.matched),
+      installationHeaders: comparison.installationHeaders,
+      installationGaps: comparison.installationGaps,
+      sourceOnly: comparison.sourceOnly,
+      nativeOnly: comparison.nativeOnly,
+      mismatches: comparison.mismatches,
+    },
     types: {
       sourceRegistrations: types.length,
       nativeRegistrations: nativeTypes.rows.length,
@@ -71,11 +85,12 @@ function profileCoverage(facts, capture, parserKeywords) {
 }
 
 /** Compare independent captured inventories without importing a generated parser or grammar. */
-export function sourceCoverage(facts, groups, parserKeywords) {
+export function sourceCoverage(facts, groups, parserKeywords, prepared = new Map()) {
   /** @type {Record<string, ReturnType<typeof profileCoverage>>} */
   const profiles = {};
   for (const group of groups)
-    for (const { id, capture } of group.contexts) profiles[id] = profileCoverage(facts, capture, parserKeywords);
+    for (const { id, capture } of group.contexts)
+      profiles[id] = profileCoverage(facts, capture, parserKeywords, prepared.get(id));
 
   return {
     formatVersion: 1,

@@ -3,7 +3,7 @@
   "grammar": "postgres",
   "extractor": {
     "id": "postgres/vendor-bootstrap-v1",
-    "revision": "sha256:d3ee03f86e2e56c32513d3384224c280e53fbb22dabca0e96d0e42922a26da15"
+    "revision": "sha256:d8c2d9e24389b10ee07e585bf7650e83c4b3c8f83cb4d7ad6543c4005e7203a8"
   },
   "sources": [
     {
@@ -24,6 +24,10 @@
         "postgres-6b3806732b7c5df06bdd0ed150e8a07b4ad62315/configure.ac": {
           "digest": "sha256:56e80bedf949d37f1a7aec97bc33f922908148f130bcb0f6fd8d1c258d3a768f",
           "bytes": 88600
+        },
+        "postgres-6b3806732b7c5df06bdd0ed150e8a07b4ad62315/src/backend/bootstrap/bootstrap.c": {
+          "digest": "sha256:2f383ac07ff62c7c2507c2b95a8937e25e90ac783af8e3d5a492e80e302475ce",
+          "bytes": 30383
         },
         "postgres-6b3806732b7c5df06bdd0ed150e8a07b4ad62315/src/backend/catalog/Catalog.pm": {
           "digest": "sha256:6ec2a8745b3ce5f4f7f3757d3ea998cfd20694b73fd71e239203396d036ed5d1",
@@ -475,7 +479,7 @@
         "path": "postgres-6b3806732b7c5df06bdd0ed150e8a07b4ad62315/COPYRIGHT"
       },
       "defines": [],
-      "factsDigest": "sha256:79e18378a6b78345b6b3bd53f96e17be380ecbd4ef9c005514a0b70d45c33c3e"
+      "factsDigest": "sha256:a1dc89649169f794a549054bcdf2c178a1bce8bf400c198b61569c52a51857e4"
     },
     {
       "version": "15.19",
@@ -495,6 +499,10 @@
         "postgres-2ff1375b5dd8bf09d8cb0e795974528180fd75ca/configure.ac": {
           "digest": "sha256:d35aec02e01d17f44b2093b3473d043b708a104b4546f5074d676ac226c96088",
           "bytes": 91272
+        },
+        "postgres-2ff1375b5dd8bf09d8cb0e795974528180fd75ca/src/backend/bootstrap/bootstrap.c": {
+          "digest": "sha256:8b5d7b77a5970bb2db18da5d601998162f5cbd96d53652acf9d97a8b1d8139c6",
+          "bytes": 26046
         },
         "postgres-2ff1375b5dd8bf09d8cb0e795974528180fd75ca/src/backend/catalog/Catalog.pm": {
           "digest": "sha256:1a75258ce11613ab3d4478fd16d63a8f800b4145915d6ce0897c900e8c7d0274",
@@ -954,7 +962,7 @@
         "path": "postgres-2ff1375b5dd8bf09d8cb0e795974528180fd75ca/COPYRIGHT"
       },
       "defines": [],
-      "factsDigest": "sha256:0a054a532b20aea780bd96afba9b01d6e2733aebd5ff7df6a4352faa0acc26a4"
+      "factsDigest": "sha256:c10942d0778c205151092361e57c1a71e872354f9846cfc32d0a8b2f1a1d84aa"
     },
     {
       "version": "16.15",
@@ -974,6 +982,10 @@
         "postgres-7d3e000c5961a544302072058a1184e9a588837b/configure.ac": {
           "digest": "sha256:2872810e4a69e51a89e151079be3cc14c8b31bd215434d5f8720c763483f015f",
           "bytes": 88126
+        },
+        "postgres-7d3e000c5961a544302072058a1184e9a588837b/src/backend/bootstrap/bootstrap.c": {
+          "digest": "sha256:d82b523b04f511d2fe4080589c650339edbbf6a5360da92544e8d04f017b732a",
+          "bytes": 26043
         },
         "postgres-7d3e000c5961a544302072058a1184e9a588837b/src/backend/catalog/Catalog.pm": {
           "digest": "sha256:c20004147bf98cb15e2426aa393633d9233bb64b5ebe3149c9aa25ad409f76c8",
@@ -1433,7 +1445,7 @@
         "path": "postgres-7d3e000c5961a544302072058a1184e9a588837b/COPYRIGHT"
       },
       "defines": [],
-      "factsDigest": "sha256:17464e4ef253854f2308be1add25cf0a5a38f6ae22065ba039a6e7e814140f6c"
+      "factsDigest": "sha256:1e0340f8f92d108c92418bb73e3d7cb56aa2bbc7e72fabd8a2739d55ec6a7890"
     },
     {
       "version": "17.11",
@@ -1453,6 +1465,10 @@
         "postgres-083ac033419f690758508e08c1736089384bbee8/configure.ac": {
           "digest": "sha256:b5b16a9a49270a05847e153aa1646790e3be2e491e0015ee0f2dfcb7a6040f5c",
           "bytes": 89111
+        },
+        "postgres-083ac033419f690758508e08c1736089384bbee8/src/backend/bootstrap/bootstrap.c": {
+          "digest": "sha256:5099c720afd06694afbfa2a6b39439abef5974484824e30975d7cec74f942613",
+          "bytes": 25605
         },
         "postgres-083ac033419f690758508e08c1736089384bbee8/src/backend/catalog/Catalog.pm": {
           "digest": "sha256:4aadd828b2cb97ea84f7ba898c53b142f6d739cabeeef4412db2950bcb5986ef",
@@ -1908,7 +1924,7 @@
         "path": "postgres-083ac033419f690758508e08c1736089384bbee8/COPYRIGHT"
       },
       "defines": [],
-      "factsDigest": "sha256:b84532f337a0c4eb3d31c5ceb071e82fade2cd8acfed3b26c97fceef3035bf15"
+      "factsDigest": "sha256:f1094414e61d877cf9491cc5a806d0d6ae111c13075f5d3fabcbe5b0279e9ebb"
     },
     {
       "version": "18.6",
@@ -1928,6 +1944,10 @@
         "postgres-724edf9bde9d356724ad384a2e196edc3c9f80f7/configure.ac": {
           "digest": "sha256:fd3c68ae628f6d65dab78aa7dec05c711833017349d7a50391b7e93b9f927aa1",
           "bytes": 89300
+        },
+        "postgres-724edf9bde9d356724ad384a2e196edc3c9f80f7/src/backend/bootstrap/bootstrap.c": {
+          "digest": "sha256:123467913f07da174c3deacca0bd5181792c0ded7f3c5d8fabf3ccc401228e6d",
+          "bytes": 26625
         },
         "postgres-724edf9bde9d356724ad384a2e196edc3c9f80f7/src/backend/catalog/Catalog.pm": {
           "digest": "sha256:33bfd16e978a2462131643e66d4dad8878b448965292f8748e4d7b2d4b387bf1",
@@ -2383,7 +2403,7 @@
         "path": "postgres-724edf9bde9d356724ad384a2e196edc3c9f80f7/COPYRIGHT"
       },
       "defines": [],
-      "factsDigest": "sha256:12ad2759f9818d655ff4e6dafd96e37f49b6a9a80bbe11f9b52032bd149d1d7c"
+      "factsDigest": "sha256:e614a2c757be283c3e70c248371d56722eb51850b72a7bf2cc65d21da951c062"
     },
     {
       "version": "19beta3",
@@ -2403,6 +2423,10 @@
         "postgres-3638289fb57bdabec00deda98ee9624a35f5d66a/configure.ac": {
           "digest": "sha256:cd2f3d4917c2964caa09762739252ce65922c098ebf84d574bd28e29cc0f191d",
           "bytes": 91658
+        },
+        "postgres-3638289fb57bdabec00deda98ee9624a35f5d66a/src/backend/bootstrap/bootstrap.c": {
+          "digest": "sha256:f89e20601e1f455dc417a611b2e5494d9421e23c779c8323d52805f293dfad0f",
+          "bytes": 32998
         },
         "postgres-3638289fb57bdabec00deda98ee9624a35f5d66a/src/backend/catalog/Catalog.pm": {
           "digest": "sha256:fc10697d8cc6e357556c3cb067a29bbfb6d113b8b0bf4c800f7660957e42f603",
@@ -2882,7 +2906,7 @@
         "path": "postgres-3638289fb57bdabec00deda98ee9624a35f5d66a/COPYRIGHT"
       },
       "defines": [],
-      "factsDigest": "sha256:63055f0ff0b47d67b9bc0340a6a44a15cc2fb96d47632519eef5be8ecfec95c4"
+      "factsDigest": "sha256:75faf6dcac1361d8b77e0b140f9481b5be07a41ec0009efc6d4dbf65aa755125"
     }
   ]
 }
