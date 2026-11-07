@@ -83,6 +83,13 @@ its engine connection, add inventory metadata through `completeInventory`, and r
 discovery and analysis owners. Inventory augmentation runs before provenance is attached and cannot
 change the captured engine identity. Native SDK capture targets run in separate processes.
 
+Documentation reference owners live under `reference-sources/` and register their version lists,
+capture-file versions, collection rules, minimum inventory size and evidence scope. Contributions
+can inherit an owner and supply a matching mapper; `refreshReferences` and `loadReferences` accept
+the composed registry. Keep upstream URL and markup rules in the owner. The shared downloader
+rejects HTTP failures and redirects to a different manual. Documentation inventories retain their
+recognition-only scope and do not qualify native signatures or semantics.
+
 Use `pnpm audit:language shapes --dialect <owner> --version <version> --output <path>` to derive live
 binding probes from discovered routine metadata. Reports retain source records, controls, native
 rejections and explicit qualification gaps. A zero-failure result does not qualify return types,

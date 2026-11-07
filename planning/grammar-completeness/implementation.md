@@ -405,6 +405,28 @@ Metadata-derived spelling qualification checkpoint:
   consumer checks. New-head CI is still required before promotion. Function spelling probes
   do not yet constitute automated keyword/type/operator/identifier qualification across engines.
 
+Registered documentation-reference checkpoint:
+
+- Reference version targets, native-capture file lists, upstream URL/markup rules, minimum function
+  counts and reference scope now belong to registered source owners. The shared refresh/load
+  runner contains no grammar implementation imports or engine-ID dispatch. Signature decoration
+  continues through an injectable mapper registry. Composition order preserves existing reports.
+- Contributions inherit source contracts, supply their own mapper, refresh into namespaced files
+  and load their captures through the same runner. Registry construction snapshots version lists
+  and rejects invalid paths, duplicate/overlapping versions, cycles, absent collectors and invalid
+  policies. Collection rejects category replacement and propagates upstream failures.
+- The original and registered collectors produce byte-identical JSON for all 14 documentation
+  targets against synthetic upstream pages. `reference-owner-review.json` retains their digests;
+  a contract replays every registered documentation target against those fixtures. This is
+  refactor evidence, not a new upstream acquisition or native qualification claim. Existing
+  reference/capture files and generated catalogs are unchanged.
+- Focused source contracts exercise inherited graph collection, mapping, download reuse, hashes,
+  persisted/loadable records, lost inventories and HTTP/redirect rejection. The remaining full
+  source extraction and semantic requirements below remain open. All 63 contract files,
+  repository typechecking and quality checks pass locally; generated artifacts remain unchanged.
+- Prior checkpoint `03025aaa` passed full CI run 42408681922 and both integration workflows.
+  New reference-owner commit CI remains required.
+
 ## Requirements still open
 
 

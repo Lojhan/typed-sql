@@ -167,6 +167,8 @@ await describe("registered grammar auditing", async () => {
       "grammars/registry.ts",
       "run.ts",
       "connections/registry.ts",
+      "references.ts",
+      "reference-sources/registry.ts",
     ]) {
       const source = await readFile(new URL(`../../scripts/language-audit/${file}`, import.meta.url), "utf8");
       strict.doesNotMatch(source, /packages\/(?!core\/)/u, file);
