@@ -1,5 +1,15 @@
 # @typed-sql/conformance
 
+## 2.6.0-rc.0
+
+### Patch Changes
+
+- Updated dependencies [4de04fc]
+- Updated dependencies [825eba3]
+- Updated dependencies [825eba3]
+  - @typed-sql/core@2.6.0-rc.0
+  - @typed-sql/compiler@2.6.0-rc.0
+
 ## 2.5.0
 
 Promote the qualified `2.5.0-rc.0` candidate to stable. See that entry below for the included features and fixes.

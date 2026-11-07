@@ -1,5 +1,28 @@
 # @typed-sql/cli
 
+## 2.6.0-rc.0
+
+### Minor Changes
+
+- 4de04fc: Add explicit SQL and TypeScript migration control with independently replayed schema evidence, blocking drift detection, global/local checks, PostgreSQL locking and history, schema reconciliation, baseline adoption and inspected recovery.
+- 825eba3: Add an optional local dev workspace with captured schema relationships, real project file editing, inferred SQL contracts, and checked TypeScript/SQL execution through explicit lazy targets. Include an application-owned PostgreSQL adapter with bounded cursor results, cancellation and read-only execution, plus loopback session protection and lossless result export. Keep query files in a repository folder across sessions, reuse the docs playground file tree and resizable split-editor interactions, page cursor results on demand without a fixed row cutoff, compare captured runs, and connect explicitly configured local ACP agents with private user configuration and reviewed repository-file proposals.
+  
+  Provide a headerless workspace with a command palette, editor search, layout shortcuts and theme controls. Format editor buffers through repository-configured, locally installed Biome or Prettier without automatically saving files or installing tools.
+  
+  Connect an optional local language-server companion for hover, completions, definitions, quick fixes and inline diagnostics with full unsaved working-copy context. Preserve TypeScript runtime import resolution across JS/TS source families and bind sanitized PostgreSQL diagnostics to proven captured SQL spans.
+
+### Patch Changes
+
+- Updated dependencies [4de04fc]
+- Updated dependencies [825eba3]
+- Updated dependencies [825eba3]
+- Updated dependencies [825eba3]
+  - @typed-sql/migrations@2.6.0-rc.0
+  - @typed-sql/core@2.6.0-rc.0
+  - @typed-sql/compiler@2.6.0-rc.0
+  - @typed-sql/config@2.6.0-rc.0
+  - @typed-sql/schema@2.6.0-rc.0
+
 ## 2.5.0
 
 Promote the qualified `2.5.0-rc.0` candidate to stable. See that entry below for the included features and fixes.
