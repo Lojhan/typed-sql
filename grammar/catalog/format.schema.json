@@ -514,6 +514,7 @@
                       "inputPosition",
                       "name",
                       "mode",
+                      "passing",
                       "nativeMode",
                       "type",
                       "default"
@@ -675,6 +676,67 @@
                           {
                             "const": "unknown",
                             "type": "string"
+                          }
+                        ]
+                      },
+                      "passing": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "status",
+                              "value"
+                            ],
+                            "properties": {
+                              "status": {
+                                "const": "known",
+                                "type": "string"
+                              },
+                              "value": {
+                                "anyOf": [
+                                  {
+                                    "const": "positional-only",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "positional-or-named",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "named-only",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "variadic-positional",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "variadic-named",
+                                    "type": "string"
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "status",
+                              "reason"
+                            ],
+                            "properties": {
+                              "status": {
+                                "const": "unknown",
+                                "type": "string"
+                              },
+                              "reason": {
+                                "minLength": 1,
+                                "pattern": "\\S",
+                                "type": "string"
+                              }
+                            }
                           }
                         ]
                       },

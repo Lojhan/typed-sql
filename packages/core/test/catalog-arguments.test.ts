@@ -87,4 +87,21 @@ await describe("grammar-neutral routine slot binding", async () => {
       [0, 1, 1],
     );
   });
+  await it("skips named-only slots during positional assignment and still enforces required names", () => {
+    const parameters = [
+      { name: "input", optional: false },
+      { name: "option", optional: false, positional: false },
+    ];
+    strict.equal(bindRoutineArguments(parameters, call(2), policy), undefined);
+    strict.equal(bindRoutineArguments(parameters, call(1), policy), undefined);
+    strict.deepEqual(
+      bindRoutineArguments(parameters, call(2, [undefined, "option"]), policy)?.map(
+        (binding) => binding.parameterIndex,
+      ),
+      [0, 1],
+    );
+    strict.deepEqual(bindRoutineArguments([{ ...parameters[1]!, optional: true }, parameters[0]!], call(1), policy), [
+      { parameterIndex: 1, variadicElement: false },
+    ]);
+  });
 });

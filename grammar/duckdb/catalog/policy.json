@@ -23,6 +23,7 @@
   },
   "namedArgumentBinding": {
     "1.5.6": {
+      "parameterModes": "version-policy",
       "scalar": "labels",
       "macro": "formal",
       "overrides": {
@@ -30,9 +31,58 @@
       }
     },
     "2.0.0": {
+      "parameterModes": "vendor-signatures",
       "scalar": "formal",
       "macro": "formal",
       "overrides": {}
     }
-  }
+  },
+  "tableConstantNullTyping": {
+    "1.5.6": "untyped",
+    "2.0.0": "declared"
+  },
+  "explicitInvocationArity": {
+    "if": 3,
+    "ifnull": 2,
+    "nullif": 2,
+    "json": 1,
+    "json_group_array": 1,
+    "json_group_object": 2,
+    "quantile": 2,
+    "quantile_disc": 2
+  },
+  "literalConstraints": [
+    {
+      "rule": "non-null-literal",
+      "functions": [
+        "regexp_split_to_array",
+        "regexp_extract",
+        "regexp_extract_all",
+        "regexp_replace",
+        "regexp_matches"
+      ],
+      "parameters": ["options"]
+    },
+    {
+      "rule": "non-null-literal",
+      "functions": ["regexp_full_match"],
+      "parametersByVersion": {
+        "1.5.6": ["col2"],
+        "2.0.0": ["options"]
+      }
+    },
+    {
+      "rule": "non-null-literal",
+      "functions": ["quantile_disc"],
+      "parametersByVersion": {
+        "1.5.6": ["pos"],
+        "2.0.0": ["quantile"]
+      }
+    },
+    {
+      "rule": "non-null-literal",
+      "functions": ["reservoir_quantile"],
+      "parameters": ["sample_size"]
+    }
+  ]
 }

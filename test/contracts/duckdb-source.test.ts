@@ -1,11 +1,16 @@
 import { readFile } from "node:fs/promises";
 import { describe, it, strict } from "poku";
+import {
+  duckdbBindingKey,
+  duckdbSourceBinding,
+} from "../../tools/grammar-catalog/src/generate/facts/duckdb-binding.mjs";
 import { checkLockedFacts } from "../../tools/grammar-catalog/src/provenance/source-lock.mjs";
 import {
   extractorRevision,
   parseSignatureOutput,
   validateSourceFacts,
 } from "../../tools/grammar-catalog/src/sources/duckdb/facts.mjs";
+import { sourceRoutine } from "../../tools/grammar-catalog/src/sources/duckdb/model.mjs";
 
 await describe("DuckDB vendor signatures", async () => {
   await it("retains passing modes, defaults and table-option boundaries from locked vendor bytes", async () => {
@@ -84,5 +89,46 @@ await describe("DuckDB vendor signatures", async () => {
         ),
       /Noncontiguous/u,
     );
+  });
+  await it("normalizes all vendor parameter modes without reading opaque payloads during binding projection", async () => {
+    const catalog = JSON.parse(
+      await readFile(new URL("../../grammar/duckdb/facts/catalog.json", import.meta.url), "utf8"),
+    );
+    const facts = validateSourceFacts(catalog.versions["2.0.0"]);
+    const routines = facts.registrations.map((registration) => ({
+      registration,
+      routine: sourceRoutine(registration),
+    }));
+    strict.equal(routines.length, facts.registrations.length);
+    const mod = routines.find(({ registration }) => registration.name === "mod")!;
+    strict.equal(duckdbSourceBinding(mod.routine).status, "known");
+    strict.ok(mod.routine.parameters.status === "known");
+    if (mod.routine.parameters.status !== "known") throw new Error("Missing MOD parameters");
+    strict.ok(
+      mod.routine.parameters.value.every(
+        (parameter) => parameter.passing.status === "known" && parameter.passing.value === "positional-only",
+      ),
+    );
+    const macro = routines.find(({ registration }) => registration.name === "generate_subscripts")!;
+    strict.ok(macro.routine.parameters.status === "known");
+    if (macro.routine.parameters.status !== "known") throw new Error("Missing macro parameters");
+    strict.ok(
+      macro.routine.parameters.value.some(
+        (parameter) =>
+          parameter.default.kind === "expression" && "sql" in parameter.default && parameter.default.sql === "1",
+      ),
+    );
+    const erased = { ...mod.routine, properties: {} };
+    strict.deepEqual(duckdbSourceBinding(erased), duckdbSourceBinding(mod.routine));
+    strict.equal(duckdbBindingKey("mod", erased), duckdbBindingKey("mod", mod.routine));
+    const missing = structuredClone(mod.routine);
+    if (missing.parameters.status !== "known") throw new Error("missing source parameters");
+    missing.parameters.value[0]!.passing = { status: "unknown", reason: "withheld evidence" };
+    strict.throws(() => duckdbSourceBinding(missing), /Unqualified/u);
+    missing.parameters.value[0]!.passing = { status: "known", value: "positional-only" };
+    missing.parameters.value[0]!.default = { kind: "unknown", reason: "withheld evidence" };
+    strict.throws(() => duckdbSourceBinding(missing), /Unqualified/u);
+    const greatest = routines.find(({ registration }) => registration.name === "greatest")!;
+    strict.deepEqual(duckdbSourceBinding(greatest.routine), { status: "unsupported", reason: "variadic-keyword-slot" });
   });
 });

@@ -1,4 +1,5 @@
 import type { DialectAnalysis, DialectServerEvidence } from "../../../packages/core/src/index.js";
+import type { InvocationShapeSyntax } from "../invocation-shapes.js";
 import type { DiscoveredFunction } from "../invocations.js";
 
 export interface AuditableGrammar {
@@ -12,6 +13,7 @@ export interface AuditGrammar {
   createAnalysis(version: string, server?: DialectServerEvidence): AuditableGrammar;
   tokenize(sql: string): readonly { kind: string }[];
   planInvocations(row: DiscoveredFunction): string[];
+  invocationShapeSyntax?: InvocationShapeSyntax;
   planEntity(category: string, name: string): string | undefined;
 }
 

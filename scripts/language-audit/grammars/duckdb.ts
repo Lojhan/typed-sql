@@ -5,10 +5,35 @@ import { duckDBServerEvidence } from "../../../packages/duckdb/src/support.js";
 import { numericVersionBand } from "../../../tools/grammar-catalog/src/registry.mjs";
 import { callProbeQueries } from "../invocations.js";
 import type { AuditGrammar } from "./contracts.js";
+import { sqlInvocationShapeSyntax } from "./shape-syntax.js";
 import { standardEntityProbe } from "./sql-probes.js";
 
 export const duckdbAudit: AuditGrammar = {
   id: "duckdb",
+  invocationShapeSyntax: sqlInvocationShapeSyntax({
+    quote: (name) => `"${name.replaceAll('"', '""')}"`,
+    named: (name, value) => `"${name.replaceAll('"', '""')}" := ${value}`,
+    kind: (row) =>
+      row.kind === "table" || row.kind === "table_macro" || row.returns_set
+        ? "table"
+        : row.kind === "window" || row.kind === "w"
+          ? "window"
+          : "scalar",
+    parameterRoleLimitation: (row) =>
+      row.kind === "table" || row.kind === "pragma"
+        ? "table-positional-option-boundary-not-qualified-by-duckdb-functions-metadata"
+        : undefined,
+    rejection: (reason) =>
+      /^(?:Parser|Binder|Catalog|Type Mismatch) Error:/iu.test(reason) ||
+      reason.startsWith("Invalid Error: Unnamed parameters cannot come after named parameters")
+        ? "binding"
+        : /^(?:Invalid Input|Conversion|Out of Range) Error:/iu.test(reason)
+          ? "value"
+          : "unclassified",
+    sample: (name) => (/\[\]$/u.test(name) ? "[0.5]" : "NULL"),
+    dynamicType: (name) => /^(?:ANY(?:\[\])?|LAMBDA|UNKNOWN|TABLE)$/iu.test(name),
+  }),
+
   versionBand: numericVersionBand(3),
   tokenize: tokenizeDuckDB,
   planEntity: standardEntityProbe,

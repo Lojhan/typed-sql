@@ -14,6 +14,7 @@ import { attachNativeProvenance } from "./provenance.mjs";
 import { recognizeLive } from "./recognition.js";
 import { directory, liveDuckDBTargets, refreshReferences } from "./references.js";
 import { renderReport } from "./report.js";
+import { auditInvocationShapes } from "./shape-audit.js";
 
 const args = process.argv.slice(2);
 const valuedOptions = new Set(["--dialect", "--version", "--output", "--baseline", "--before", "--after", "--input"]);
@@ -64,6 +65,41 @@ if (mode === "refresh") {
   const changes = diffInventory(before, after);
   console.log(JSON.stringify(changes, null, 2));
   if (changes.length) process.exitCode = 1;
+} else if (mode === "shapes") {
+  const dialect = option("--dialect"),
+    output = option("--output");
+  if (!dialect || !output) throw new Error("shapes requires --dialect and --output");
+  const live = await connect(dialect);
+  try {
+    const capture = await collectLive(dialect, live.query, live.target);
+    await attachNativeProvenance(capture);
+    const report = await auditInvocationShapes(
+      dialect,
+      String(live.target.version),
+      capture.categories.functions?.rows ?? [],
+      live.prepare,
+      live.server,
+    );
+    await mkdir(dirname(resolve(output)), { recursive: true });
+    await writeFile(`${output}.inventory.json`, `${serialize(capture)}\n`);
+    await writeFile(output, `${serialize(report)}\n`);
+    console.log(
+      JSON.stringify({
+        grammar: dialect,
+        version: report.version,
+        qualification: report.qualification,
+        entities: report.entities.length,
+        entitiesWithGaps: report.entities.filter((entity) => entity.gaps.length > 0).length,
+        counts: report.counts,
+        failures: report.failures,
+        uniqueStatements: report.uniqueStatements,
+      }),
+    );
+    if (report.failures)
+      throw new Error(`Native invocation shapes expose ${report.failures} invalid typed invocations: ${output}`);
+  } finally {
+    await live.close();
+  }
 } else if (mode === "live") {
   const dialect = option("--dialect");
   const output = option("--output");
@@ -287,6 +323,7 @@ async function connect(dialect: string, selected = option("--version")) {
         } catch (error) {
           const message = String((error as Error).message);
           if (
+            !message.startsWith("Invalid Error: Unnamed parameters cannot come after named parameters") &&
             !/(?:Parser|Binder|Catalog|Invalid Input|Not implemented|Conversion|IO|Invalid Type|Out of Range|Type Mismatch|Invalid Configuration|Parameter Not Allowed|Parameter Not Resolved) Error/iu.test(
               message,
             )

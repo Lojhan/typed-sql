@@ -64,6 +64,9 @@ const parameter = object({
   inputPosition: fact(Type.Integer({ minimum: 1 })),
   name: fact(Type.Union([text, Type.Null()])),
   mode: enumeration(["input", "output", "inout", "variadic", "named-only", "unknown"]),
+  passing: fact(
+    enumeration(["positional-only", "positional-or-named", "named-only", "variadic-positional", "variadic-named"]),
+  ),
   nativeMode: fact(text),
   type: Type.Ref(TypeExpressionSchema),
   default: Type.Union([
@@ -234,6 +237,13 @@ export const CATALOG_SCHEMA_DOCUMENT = {
 };
 export const CATALOG_SCHEMA_DIGEST = hash(CATALOG_SCHEMA_DOCUMENT);
 const checker = TypeCompiler.Compile(CatalogSchema, references);
+const routineChecker = TypeCompiler.Compile(RoutineSchema, references);
+/** @param {unknown} value @returns {import('@sinclair/typebox').Static<typeof RoutineSchema>} */
+export function parseRoutine(value) {
+  assertJson(value);
+  if (!routineChecker.Check(value)) throw new TypeError("Invalid catalog routine facts");
+  return value;
+}
 
 /**
  * Validates shape AND content-addressed references. No engine names or inference policies.

@@ -5,10 +5,21 @@ import { tokenize as tokenizeMySql } from "../../../packages/mysql/src/parser/to
 import { numericVersionBand } from "../../../tools/grammar-catalog/src/registry.mjs";
 import { callProbeQueries } from "../invocations.js";
 import type { AuditGrammar } from "./contracts.js";
+import { sqlInvocationShapeSyntax } from "./shape-syntax.js";
 import { standardEntityProbe } from "./sql-probes.js";
 
 export const mysqlAudit: AuditGrammar = {
   id: "mysql",
+  invocationShapeSyntax: sqlInvocationShapeSyntax({
+    quote: (name) => `\`${name.replaceAll("`", "``")}\``,
+    named: (name, value) => `\`${name.replaceAll("`", "``")}\` => ${value}`,
+    rejection: (reason) =>
+      /ER_(?:PARSE_ERROR|WRONG_PARAMCOUNT_TO_NATIVE_FCT|SP_WRONG_NO_OF_ARGS)/u.test(reason)
+        ? "binding"
+        : "unclassified",
+    kind: () => "scalar",
+  }),
+
   versionBand: numericVersionBand(2),
   tokenize: tokenizeMySql,
   planEntity: standardEntityProbe,

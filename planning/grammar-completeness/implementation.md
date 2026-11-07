@@ -290,6 +290,52 @@ DuckDB source-signature extraction checkpoint:
   workflows passed. A local projection-test optimization and the broader audit/runtime fixes
   remain uncommitted and require fresh full verification. The PR remains a draft.
 
+Generated invocation and vendor-mode binding checkpoint:
+
+- The neutral routine model now represents parameter passing separately from input/output mode.
+  Older captures have explicit unknown passing facts; DuckDB source registrations normalize all
+  five vendor modes through the same validated routine contract. Macro defaults and typed-option
+  metadata are preserved. Binding projection requires known passing modes/default availability.
+- DuckDB generation consumes locked source facts offline and joins overloads by normalized
+  namespace/kind/input/result/variadic types. The 2.0 policy requires vendor mode evidence and
+  rejects a missing source profile. Generated eligibility feeds slot assignment and restricts
+  subsequent type matching to the same eligible overloads. Core supports named-only input slots.
+  Existing seven-field public tuples remain compatible. Each generated binding row uses a
+  TypeScript `satisfies` check followed by widening to avoid an unrepresentable inferred union;
+  this has no runtime helper calls and does not disable validation.
+- Full local generated binding runs now have zero failures: 2.0.0 covers 3,235 registrations and
+  20,587 distinct statements; 1.5.6 covers 2,945 registrations and 19,279 statements; Node 24.22.2
+  SQLite 3.53.4 covers 196 registrations and 413 statements. Reports retain accepted controls,
+  rejected cases, source records, normalized signatures, unqualified host results and explicit
+  metadata/rendering gaps. Console output includes qualification and entities with gaps.
+  These runs are incomplete qualification, not 100% semantic parity or distinct-function counts.
+- The 427 prior 2.0 named-control failures are resolved. More native-valid calls now remain
+  unknown because an ineligible overload can no longer provide an optimistic type. A native AVG
+  witness demonstrates that an eligible DECIMAL catalog overload can bind to a DOUBLE result;
+  the host leaves that dynamic result unknown. The native signature is not treated as a proof
+  of bind-callback semantics.
+- Current source binding projection still reports 206 unmatched table/pragma shapes and eight
+  scalar keyword-rest slots unsupported by the host binder. Source records retain all their
+  facts. The legacy table inventory's positional/option boundary and unavailable return schema
+  cannot be silently repaired from parameter spelling. Named-only/default/keyword-rest/table
+  output migration and independent semantic qualification remain required.
+- DuckDB 1.5 folds constant NULL table arguments to untyped SQLNULL before overload selection
+  (vendor bind_table_function.cpp); the host lacks its overload-cost evidence. Such bindings now
+  diagnose instead of claiming a timestamp type. The regression corpus retains these witnesses
+  and separately verifies concrete BIGINT/TIMESTAMP/TIMESTAMPTZ table results in both versions.
+- Parser quoting, duplicate constructor names, ambiguous NULL overloads, unresolved MAP returns,
+  range arity/types and native alias/name-based literal constraints have regression witnesses.
+  The grammar-neutral shape planner derives cases from discovered metadata rather than a
+  maintained function list; the embedded CI matrix requires its live runs and retains reports.
+- Local checks pass: 61 contract files, 42 DuckDB files with coverage thresholds, 22 core files
+  with coverage thresholds, repository typecheck/quality/build/documentation and unchanged performance budgets.
+  Projection tests normalize the
+  corpus once rather than four times and avoid cloning the full entity table per negative check.
+- Pushed source-only `760e493a` failed CI because its normalizer source digest changed while the
+  generated manifest was not included; both integration workflows passed. This checkpoint
+  refreshes the generated schema, runtime modules, reports and manifest together. Fresh exact-head
+  CI remains required, including packed-consumer timeout qualification. The PR remains a draft.
+
 ## Requirements still open
 
 

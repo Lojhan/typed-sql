@@ -5,10 +5,22 @@ import { tokenize as tokenizeSqlServer } from "../../../packages/sqlserver/src/p
 import { numericVersionBand } from "../../../tools/grammar-catalog/src/registry.mjs";
 import { callProbeQueries } from "../invocations.js";
 import type { AuditGrammar } from "./contracts.js";
+import { sqlInvocationShapeSyntax } from "./shape-syntax.js";
 import { standardEntityProbe } from "./sql-probes.js";
 
 export const sqlserverAudit: AuditGrammar = {
   id: "sqlserver",
+  invocationShapeSyntax: sqlInvocationShapeSyntax({
+    quote: (name) => `[${name.replaceAll("]", "]]")}]`,
+    named: (name, value) => {
+      if (!/^@?[a-z_][a-z_0-9]*$/iu.test(name)) throw new TypeError("Unrenderable SQL Server parameter name");
+      return `@${name.replace(/^@/u, "")} = ${value}`;
+    },
+    rejection: (reason) =>
+      /(?:^|,)[^:]*:(?:195|174|313|8144|102|156|201|137)(?:,|$)/u.test(reason) ? "binding" : "unclassified",
+    kind: () => "scalar",
+  }),
+
   versionBand: numericVersionBand(1),
   tokenize: tokenizeSqlServer,
   planEntity: standardEntityProbe,

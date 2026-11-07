@@ -3,6 +3,7 @@ export interface RoutineParameterSlot {
   readonly name?: string;
   readonly optional: boolean;
   readonly variadic?: boolean;
+  readonly positional?: boolean;
 }
 
 export interface RoutineCallShape {
@@ -54,7 +55,11 @@ export function bindRoutineArguments(
     if (name === undefined && named && !policy.positionalAfterNamed) return undefined;
     let parameterIndex: number;
     if (name === undefined) {
-      while (used.has(positional) && !(expanded && positional === variadicIndex)) positional++;
+      while (
+        parameters[positional]?.positional === false ||
+        (used.has(positional) && !(expanded && positional === variadicIndex))
+      )
+        positional++;
       parameterIndex = expanded && positional >= variadicIndex ? variadicIndex : positional++;
     } else {
       named = true;

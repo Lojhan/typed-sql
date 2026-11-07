@@ -259,6 +259,7 @@ export class DuckDBParser {
     const token = this.take(),
       range = token.range,
       upper = token.value.toUpperCase();
+    if (token.kind === "quoted") return this.nameExpression(token);
     if (token.kind === "number" || token.kind === "string" || ["NULL", "TRUE", "FALSE"].includes(upper))
       return {
         kind: "literal",
@@ -413,8 +414,7 @@ export class DuckDBParser {
       this.expect(")");
       return { kind: "cast", value: upper, left, nativeType, range: this.range(range) };
     }
-    if (token.kind !== "word" && token.kind !== "quoted")
-      throw new DuckDBParseError(`Expected SQL expression, found ${token.text}`, range);
+    if (token.kind !== "word") throw new DuckDBParseError(`Expected SQL expression, found ${token.text}`, range);
     if (
       [
         "DATE",
@@ -437,6 +437,10 @@ export class DuckDBParser {
         range: this.range(range),
       };
     }
+    return this.nameExpression(token);
+  }
+  nameExpression(token: Token): Expression {
+    const range = token.range;
     const names = [token.value];
     let functionNameQuoted = token.kind === "quoted";
     while (this.is(".") && ["word", "quoted"].includes(this.token(1).kind)) {

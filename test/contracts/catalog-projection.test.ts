@@ -20,9 +20,10 @@ import {
 import { groupCatalog } from "../../tools/grammar-catalog/src/model/groups.mjs";
 import { commonEntities, nativeIdentity, requireKnown } from "../../tools/grammar-catalog/src/model/projection.mjs";
 
+const catalogFixture = readCorpus().then((corpus) => normalizedCorpus(corpus).catalog);
 await describe("validated catalog projections", async () => {
   await it("uses semantic facts and never recovers missing facts from opaque native payloads", async () => {
-    const { catalog } = normalizedCorpus(await readCorpus());
+    const catalog = await catalogFixture;
     const policy = JSON.parse(
       await readFile(new URL("../../grammar/postgres/catalog/core.json", import.meta.url), "utf8"),
     );
@@ -104,7 +105,7 @@ await describe("validated catalog projections", async () => {
     );
   });
   await it("projects every DuckDB routine from typed facts and reports data absent from runtime tuples", async () => {
-    const { catalog } = normalizedCorpus(await readCorpus());
+    const catalog = await catalogFixture;
     const policy = JSON.parse(
       await readFile(new URL("../../grammar/duckdb/catalog/policy.json", import.meta.url), "utf8"),
     );
@@ -140,15 +141,20 @@ await describe("validated catalog projections", async () => {
         const erased = { ...entity, native: {} };
         strict.deepEqual(duckdbRoutineProjection(erased), accounting);
         named += accounting.namedOnlyParameters;
-        const removed = structuredClone(entity);
-        removed.routine!.parameters = { status: "unknown", reason: "withheld native parameter evidence" };
+        const removed = {
+          ...entity,
+          routine: {
+            ...entity.routine!,
+            parameters: { status: "unknown" as const, reason: "withheld native parameter evidence" },
+          },
+        };
         strict.throws(() => duckdbSemanticSignature(removed, policy.macroSignatures), /Unqualified/u);
       }
     }
     strict.ok(named > 0, "named-only facts must be retained and accounted for");
   });
   await it("rejects DuckDB projections that the runtime cannot represent instead of reading raw fallback data", async () => {
-    const { catalog } = normalizedCorpus(await readCorpus());
+    const catalog = await catalogFixture;
     const group = groupCatalog(catalog).find((group) => group.grammar === "duckdb")!;
     const entity = structuredClone(
       commonEntities(group, "functions").find(
@@ -173,7 +179,7 @@ await describe("validated catalog projections", async () => {
     strict.throws(() => duckdbSemanticSignature(badMode), /Unsupported DuckDB parameter mode/u);
   });
   await it("requires SQL Server storage and dimension evidence without reading raw payloads", async () => {
-    const { catalog } = normalizedCorpus(await readCorpus());
+    const catalog = await catalogFixture;
     const groups = groupCatalog(catalog).filter((group) => group.grammar === "sqlserver");
     const policy = JSON.parse(
       await readFile(new URL("../../grammar/sqlserver/catalog/policy.json", import.meta.url), "utf8"),

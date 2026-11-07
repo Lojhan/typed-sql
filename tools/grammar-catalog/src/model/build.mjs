@@ -44,6 +44,7 @@ export function describeRoutine(signature, mapper) {
               inputPosition: position(parameter.inputPosition),
               name: known(parameter.name ?? null),
               mode: mapper.parameterMode?.(parameter.mode) ?? "unknown",
+              passing: optional(parameter.passing, "Native parameter passing mode is unavailable"),
               nativeMode: optional(parameter.mode, "Native parameter mode is unavailable"),
               type: nativeType(parameter.nativeType, mapper),
               default:

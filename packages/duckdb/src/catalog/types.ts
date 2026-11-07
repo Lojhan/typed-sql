@@ -8,3 +8,9 @@ export type DuckDBBuiltinSignature = readonly [
   stability: string | null,
   sideEffects: boolean | null,
 ];
+
+export interface DuckDBFormalParameter {
+  readonly name: string | null;
+  readonly passing: "positional-only" | "positional-or-named" | "named-only" | "variadic-positional";
+  readonly optional: boolean;
+}

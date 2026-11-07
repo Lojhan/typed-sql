@@ -3,19 +3,27 @@ import {
   nativeImplicitCasts,
   nativeKeywordInvocationForms,
   nativeNamedArgumentBinding,
+  nativeNonNullLiteralArguments,
+  nativeParameterBindings,
   nativeParameterNames,
 } from "./generated/registry.js";
-import type { DuckDBBuiltinSignature } from "./types.js";
+import type { DuckDBBuiltinSignature, DuckDBFormalParameter } from "./types.js";
 
 export type { DuckDBBuiltinSignature } from "./types.js";
 
 type FormalNames = readonly (readonly (string | null)[])[];
 const formalNames = new WeakMap<DuckDBBuiltinSignature, FormalNames>();
+const literalConstraints = new WeakMap<DuckDBBuiltinSignature, readonly number[]>();
+const parameterBindings = new WeakMap<DuckDBBuiltinSignature, readonly (readonly DuckDBFormalParameter[])[]>();
+const noLiteralConstraints: readonly number[] = Object.freeze([]);
 function owned(
   values: readonly DuckDBBuiltinSignature[],
   names: readonly FormalNames[],
+  constraints: Readonly<Record<number, readonly number[]>>,
+  parameters: readonly (readonly (readonly DuckDBFormalParameter[])[])[],
 ): readonly DuckDBBuiltinSignature[] {
-  if (values.length !== names.length) throw new TypeError("DuckDB formal-name inventory does not match signatures");
+  if (values.length !== names.length || values.length !== parameters.length)
+    throw new TypeError("DuckDB parameter inventory does not match signatures");
   return Object.freeze(
     values.map((value, index) => {
       const signature = Object.freeze([
@@ -27,7 +35,14 @@ function owned(
         value[5],
         value[6],
       ]) as DuckDBBuiltinSignature;
+      if (constraints[index]?.length) literalConstraints.set(signature, Object.freeze([...constraints[index]!]));
       formalNames.set(signature, Object.freeze(names[index]!.map((row) => Object.freeze([...row]))));
+      parameterBindings.set(
+        signature,
+        Object.freeze(
+          parameters[index]!.map((row) => Object.freeze(row.map((parameter) => Object.freeze({ ...parameter })))),
+        ),
+      );
       return signature;
     }),
   );
@@ -35,7 +50,12 @@ function owned(
 const catalogs = new Map(
   Object.entries(nativeCatalogs).map(([version, values]) => [
     version,
-    owned(values, nativeParameterNames[version as keyof typeof nativeParameterNames]),
+    owned(
+      values,
+      nativeParameterNames[version as keyof typeof nativeParameterNames],
+      nativeNonNullLiteralArguments[version]!,
+      nativeParameterBindings[version as keyof typeof nativeParameterBindings],
+    ),
   ]),
 );
 const casts = new Map(
@@ -69,9 +89,18 @@ export function duckDBScalarImplicitCast(version: string, source: string, target
 export function duckDBBuiltinFormalNames(signature: DuckDBBuiltinSignature): FormalNames {
   return formalNames.get(signature) ?? [];
 }
+export function duckDBBuiltinParameterBindings(
+  signature: DuckDBBuiltinSignature,
+): readonly (readonly DuckDBFormalParameter[])[] {
+  return parameterBindings.get(signature) ?? [];
+}
 export function duckDBNamedArgumentBinding(version: string) {
   return nativeNamedArgumentBinding[version as keyof typeof nativeNamedArgumentBinding];
 }
 export function duckDBKeywordInvocationForms(version: string): readonly string[] {
   return nativeKeywordInvocationForms[version as keyof typeof nativeKeywordInvocationForms] ?? [];
+}
+
+export function duckDBBuiltinNonNullLiteralArguments(signature: DuckDBBuiltinSignature): readonly number[] {
+  return literalConstraints.get(signature) ?? noLiteralConstraints;
 }

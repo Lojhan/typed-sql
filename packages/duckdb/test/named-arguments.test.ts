@@ -32,6 +32,7 @@ await it(`binds generated formal names using native DuckDB ${version} rules`, as
     { sql: "SELECT concat(value := 'a') AS value", valid: true },
     { sql: "SELECT struct_pack(a := 1, b := 'x') AS value", valid: true },
     { sql: "SELECT union_value(n := 1) AS value", valid: true },
+    { sql: 'SELECT "mod"("left" := CAST(5 AS BIGINT), "right" := CAST(2 AS BIGINT)) AS value', valid: legacy },
   ];
   try {
     for (const { sql, valid } of cases) {
@@ -88,8 +89,24 @@ await it(`binds generated formal names using native DuckDB ${version} rules`, as
     );
     strict.equal(parameters.columns[0]?.databaseType, "INTEGER");
     strict.equal(parameters.columns[0]?.nullable, true);
-    strict.deepEqual(duckDBNamedArgumentOrder(version, "power", ["y", "x"], false), legacy ? [0, 1] : [1, 0]);
+    strict.deepEqual(duckDBNamedArgumentOrder(version, "power", ["y", "x"], false)?.order, legacy ? [0, 1] : [1, 0]);
     strict.equal(duckDBNamedArgumentOrder("unqualified", "power", ["x", "y"], false), undefined);
+    if (!legacy) {
+      const candidates = duckDBNamedArgumentOrder(version, "avg", ["x"], false)?.signatures;
+      strict.ok(candidates && candidates.size > 0);
+      if (!candidates) throw new Error("Missing named AVG candidates");
+      strict.ok([...candidates].every((signature) => signature[2][0] !== "BIGINT"));
+      const sql = "SELECT avg(x := CAST(1 AS BIGINT)) AS value";
+      const native = await connection.prepare(sql);
+      try {
+        strict.equal(native.columnTypeId(0), sdk.DuckDBTypeId.DOUBLE);
+      } finally {
+        native.destroySync();
+      }
+      const result = duckdb().analyze(sql, snapshot);
+      // The eligible DECIMAL overload has a bind callback whose result differs from its catalog return type.
+      strict.ok(result.columns.every((column) => column.tsType === "unknown"));
+    }
   } finally {
     connection.closeSync();
     instance.closeSync();

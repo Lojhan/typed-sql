@@ -44,6 +44,11 @@ jobs:
           else
             pnpm audit:language live --dialect "$AUDIT_DIALECT" --require-reviewed --output "artifacts/language-audit/$AUDIT_DIALECT-$AUDIT_VERSION.json"
           fi
+      - name: Audit generated native invocation shapes
+        env:
+          AUDIT_DIALECT: ${{ matrix.dialect }}
+          AUDIT_VERSION: ${{ matrix.version }}
+        run: pnpm audit:language shapes --dialect "$AUDIT_DIALECT" --version "$AUDIT_VERSION" --output "artifacts/language-audit/$AUDIT_DIALECT-$AUDIT_VERSION.shapes.json"
       - name: Verify generated catalog inputs against the native capture
         env:
           AUDIT_DIALECT: ${{ matrix.dialect }}

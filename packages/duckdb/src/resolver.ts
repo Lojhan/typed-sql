@@ -8,8 +8,13 @@ import {
   type SourceRange,
   type SqlDiagnostic,
 } from "@typed-sql/core";
-import { nativeCommonTypes, nativeExpressionTypes } from "./catalog/generated/registry.js";
-import { duckDBBuiltinSignatures } from "./catalog/index.js";
+import {
+  explicitInvocationArity,
+  nativeCommonTypes,
+  nativeExpressionTypes,
+  tableConstantNullTyping,
+} from "./catalog/generated/registry.js";
+import { duckDBBuiltinNonNullLiteralArguments, duckDBBuiltinSignatures } from "./catalog/index.js";
 import { duckDBNamedArgumentOrder } from "./catalog/named-arguments.js";
 import { matchDuckDBBuiltin } from "./catalog/resolution.js";
 import {
@@ -204,6 +209,12 @@ function nullableUnion(values: readonly Value[], version = "2.0.0", mode: "expre
   return { type: combined.type, nullable: values.some((value) => value.nullable) };
 }
 const emptyScope = (): Scope => ({ fields: [], aliases: new Map(), ctes: new Map() });
+function isSqlNullLiteral(expression: Expression): boolean {
+  return expression.kind === "cast" && expression.left
+    ? isSqlNullLiteral(expression.left)
+    : expression.kind === "literal" && expression.value === "NULL";
+}
+
 export class DuckDBResolver {
   readonly diagnostics: SqlDiagnostic[] = [];
   readonly parameters = new Map<number, { value: Value; range: SourceRange }>();
@@ -888,6 +899,7 @@ export class DuckDBResolver {
       return this.call(expr, scope.aggregateScope, expected);
     const name = expr.names?.at(-1)?.toLowerCase() ?? "";
     let args = expr.args ?? [];
+    let namedCandidates: ReadonlySet<import("./catalog/types.js").DuckDBBuiltinSignature> | undefined;
     const namespaces = this.functionNamespaces(expr);
     if (namespaces === undefined) return unknown;
     if (expr.argumentNames?.some((name) => name !== undefined) && !["struct_pack", "union_value"].includes(name)) {
@@ -901,7 +913,8 @@ export class DuckDBResolver {
         this.error("No qualified DuckDB named-argument binding matches this invocation", expr.range, "TSQ201");
         return unknown;
       }
-      args = order.map((index) => args[index]!);
+      namedCandidates = order.signatures;
+      args = order.order.map((index) => args[index]!);
     }
     if (expr.filter) this.infer(expr.filter, scope, bool(true));
     for (const expression of expr.context ?? []) this.infer(expression, scope);
@@ -926,20 +939,22 @@ export class DuckDBResolver {
       this.error(`${name} requires an OVER window clause`, expr.range, "TSQ201");
       return unknown;
     }
-    const arity: Readonly<Record<string, number>> = {
-      if: 3,
-      ifnull: 2,
-      nullif: 2,
-      json: 1,
-      json_group_array: 1,
-      json_group_object: 2,
-    };
+    const arity = explicitInvocationArity;
     if (
       (arity[name] !== undefined && args.length !== arity[name]) ||
       (["coalesce", "array_value", "struct_pack"].includes(name) && !args.length)
     ) {
       this.error(`Invalid ${name} argument count`, expr.range, "TSQ201");
       return unknown;
+    }
+    if (name === "struct_pack") {
+      const names = (expr.argumentNames ?? [])
+        .filter((name): name is string => name !== undefined)
+        .map(duckDBAsciiFold);
+      if (new Set(names).size !== names.length) {
+        this.error("Duplicate named STRUCT field", expr.range, "TSQ201");
+        return unknown;
+      }
     }
     if (name === "struct_pack" && args.some((_, i) => !expr.argumentNames?.[i])) {
       this.error("struct_pack requires named fields", expr.range, "TSQ201");
@@ -988,7 +1003,9 @@ export class DuckDBResolver {
       return unknown;
     }
     const builtinName = name === "count" && (!args.length || args[0]?.kind === "star") ? "count_star" : name;
-    const signatures = duckDBBuiltinSignatures(version, builtinName);
+    const signatures = duckDBBuiltinSignatures(version, builtinName).filter(
+      (signature) => !namedCandidates || namedCandidates.has(signature),
+    );
     const aggregate =
       signatures.some((signature) => signature[1] === "aggregate") ||
       ["json_group_array", "json_group_object"].includes(name);
@@ -1021,7 +1038,20 @@ export class DuckDBResolver {
       version,
       builtinName,
       values.map((value) => combination ?? value.type),
+      signatures,
     );
+    const bestMatches = matches.filter((match) => match.score === matches[0]!.score);
+    if (
+      bestMatches.length &&
+      bestMatches.every((match) =>
+        duckDBBuiltinNonNullLiteralArguments(match.signature).some(
+          (index) => args[index] && isSqlNullLiteral(args[index]!),
+        ),
+      )
+    ) {
+      this.error("This DuckDB argument does not accept a NULL literal", expr.range, "TSQ201");
+      return unknown;
+    }
     this.dependencies.push({
       kind: "function",
       access: "execute",
@@ -1354,7 +1384,20 @@ export class DuckDBResolver {
     if (name === "nextval" || name === "currval") return { type: scalar("BIGINT"), nullable: false };
     if (name === "generate_subscripts") return { type: scalar("BIGINT"), nullable: values.some((x) => x.nullable) };
     if (matches.length) {
-      const best = matches.filter((match) => match.score === matches[0]!.score);
+      const best = bestMatches;
+      const untyped = values.flatMap((value, index) =>
+        value.type.kind === "scalar" && ["NULL", "ANY"].includes(value.type.name) ? [index] : [],
+      );
+      if (
+        untyped.length &&
+        new Set(
+          best.map((match) => JSON.stringify(untyped.map((index) => match.signature[2][index] ?? match.signature[4]))),
+        ).size > 1
+      ) {
+        this.error("Ambiguous DuckDB overload for untyped arguments; add explicit casts", expr.range, "TSQ201");
+        return unknown;
+      }
+
       const result = best[0]?.result;
       if (result && best.every((match) => match.result && same(match.result, result))) {
         return { type: result, nullable: true };
@@ -1515,10 +1558,53 @@ export class DuckDBResolver {
     } else if (relation.expression?.kind === "call") {
       const name = relation.expression.names?.at(-1)?.toLowerCase();
       if (name === "range" || name === "generate_series") {
-        for (const arg of relation.expression.args ?? [])
-          this.infer(arg, scope, { type: scalar("BIGINT"), nullable: false });
-        fields = [{ name: name, type: scalar("BIGINT"), nullable: false }];
+        const call = relation.expression,
+          args = call.args ?? [];
+        if (call.argumentNames?.some((name) => name !== undefined)) {
+          this.error("This table function does not accept named arguments", relation.range, "TSQ201");
+          return [];
+        }
+        if (
+          tableConstantNullTyping[this.snapshot.server?.versionKey ?? ""] === "untyped" &&
+          args.some(isSqlNullLiteral)
+        ) {
+          this.error(
+            "Constant-NULL table binding needs qualified native overload-cost evidence",
+            relation.range,
+            "TSQ401",
+          );
+          return [];
+        }
+        const values = args.map((arg) => this.infer(arg, scope));
+        // These table functions share input overloads with their scalar LIST-returning forms.
+        const matches = matchDuckDBBuiltin(
+          this.snapshot.server?.versionKey ?? "",
+          name,
+          values.map((value) => value.type),
+        ).filter((match) => match.signature[1] === "scalar" && match.result?.kind === "list");
+        const best = matches.filter((match) => match.score === matches[0]!.score);
+        const resultTypes = new Map(
+          best.flatMap((match) =>
+            match.result?.kind === "list"
+              ? [[formatDuckDBType(match.result.element), match.result.element] as const]
+              : [],
+          ),
+        );
+        if (resultTypes.size !== 1) {
+          this.error("No unambiguous qualified overload matches this table function", relation.range, "TSQ201");
+          return [];
+        }
+        for (const [index, arg] of args.entries()) {
+          if (arg.kind !== "parameter") continue;
+          const targets = new Set(best.map((match) => match.signature[2][index]));
+          if (targets.size === 1) this.infer(arg, scope, { type: parseDuckDBType([...targets][0]!), nullable: false });
+        }
+        fields = [{ name, type: [...resultTypes.values()][0]!, nullable: false }];
       } else if (name === "unnest") {
+        if (relation.expression.argumentNames?.some((name) => name !== undefined)) {
+          this.error("UNNEST table function does not accept named arguments", relation.range, "TSQ201");
+          return [];
+        }
         if (relation.expression.args?.length !== 1)
           this.error("UNNEST table function accepts exactly one LIST/ARRAY argument", relation.range, "TSQ201");
         const value = this.infer(

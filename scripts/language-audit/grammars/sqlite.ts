@@ -4,10 +4,21 @@ import { sqlite } from "../../../packages/sqlite/src/index.js";
 import { tokenize as tokenizeSqlite } from "../../../packages/sqlite/src/parser/tokenizer.js";
 import { callProbeQueries } from "../invocations.js";
 import type { AuditGrammar } from "./contracts.js";
+import { sqlInvocationShapeSyntax } from "./shape-syntax.js";
 import { standardEntityProbe } from "./sql-probes.js";
 
 export const sqliteAudit: AuditGrammar = {
   id: "sqlite",
+  invocationShapeSyntax: sqlInvocationShapeSyntax({
+    quote: (name) => `"${name.replaceAll('"', '""')}"`,
+    named: (name, value) => `"${name.replaceAll('"', '""')}" => ${value}`,
+    rejection: (reason) =>
+      /(?:syntax error|no such function|wrong number of arguments|ambiguous column|no such column)/iu.test(reason)
+        ? "binding"
+        : "unclassified",
+    kind: (row) => (row.kind === "w" ? "window" : "scalar"),
+  }),
+
   versionBand: (version: string) => version.replace(/^reference-/u, ""),
   tokenize: tokenizeSqlite,
   planEntity: standardEntityProbe,

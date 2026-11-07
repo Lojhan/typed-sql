@@ -5,10 +5,35 @@ import { tokenize as tokenizePostgres } from "../../../packages/postgres/src/par
 import { numericVersionBand } from "../../../tools/grammar-catalog/src/registry.mjs";
 import { callProbeQueries } from "../invocations.js";
 import type { AuditGrammar } from "./contracts.js";
+import { sqlInvocationShapeSyntax } from "./shape-syntax.js";
 import { standardEntityProbe } from "./sql-probes.js";
 
 export const postgresAudit: AuditGrammar = {
   id: "postgres",
+  invocationShapeSyntax: sqlInvocationShapeSyntax({
+    quote: (name) => `"${name.replaceAll('"', '""')}"`,
+    named: (name, value) =>
+      value.startsWith("VARIADIC ")
+        ? `VARIADIC "${name.replaceAll('"', '""')}" => ${value.slice(9)}`
+        : `"${name.replaceAll('"', '""')}" => ${value}`,
+    kind: (row) =>
+      row.kind === "p" || row.result_type_kind === "p"
+        ? "unavailable"
+        : row.returns_set
+          ? "table"
+          : row.kind === "w"
+            ? "window"
+            : "scalar",
+    dynamicType: (name) => /^(?:any[a-z]*|record|internal|cstring|void|trigger|event_trigger)$/iu.test(name),
+    rejection: (reason) =>
+      /^(?:42883|42725|42601|42703|42P01|42804|42P18|42846):/u.test(reason)
+        ? "binding"
+        : /^22[A-Z0-9]{3}:/u.test(reason)
+          ? "value"
+          : "unclassified",
+    variadicPrefix: "VARIADIC ",
+  }),
+
   versionBand: numericVersionBand(1),
   tokenize: tokenizePostgres,
   planEntity: standardEntityProbe,

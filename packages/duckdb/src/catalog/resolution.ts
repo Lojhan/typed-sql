@@ -128,7 +128,7 @@ function match(
 }
 function resultType(expected: Pattern, bindings: Map<string, DuckDBType>): DuckDBType | undefined {
   if (
-    ["ANY", "DECIMAL", "STRUCT", "UNION", "TUPLE", "LAMBDA", "TABLE", "LIST"].includes(expected.name) &&
+    ["ANY", "DECIMAL", "STRUCT", "UNION", "MAP", "TUPLE", "LAMBDA", "TABLE", "LIST"].includes(expected.name) &&
     !expected.children
   )
     return undefined;
@@ -166,9 +166,10 @@ export function matchDuckDBBuiltin(
   version: string,
   name: string,
   args: readonly DuckDBType[],
+  candidates: readonly DuckDBBuiltinSignature[] = duckDBBuiltinSignatures(version, name),
 ): readonly DuckDBBuiltinMatch[] {
   const matches: DuckDBBuiltinMatch[] = [];
-  for (const signature of duckDBBuiltinSignatures(version, name)) {
+  for (const signature of candidates) {
     if (args.length < signature[2].length || (!signature[4] && args.length !== signature[2].length)) continue;
     const bindings = new Map<string, DuckDBType>();
     let score = 0,
