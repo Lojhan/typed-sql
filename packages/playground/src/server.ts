@@ -1,13 +1,16 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { readFile, realpath, stat } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { homedir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { analyzeSource } from "@typed-sql/compiler";
 import { loadConfig } from "@typed-sql/config";
 import { calculateSchemaHash, calculateTypePolicyHash } from "@typed-sql/schema";
 import { AgentWorkspaceToolServer } from "./agent-tools.js";
-import { AgentRoutes } from "./agents.js";
+import { AgentRoutes, agentConfigurationDirectory } from "./agents.js";
+import { AnalysisRoutes } from "./analysis-routes.js";
+import { AnalysisStore } from "./analysis-store.js";
 import { validatePlaygroundConfiguration } from "./configuration.js";
 import type { PlaygroundLimits, PlaygroundOptions, PlaygroundTarget } from "./contracts.js";
 import { EditorRoutes } from "./editor-service.js";
@@ -148,7 +151,10 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
   const token = randomBytes(32).toString("base64url");
   const assets = await assetDirectory();
   let origin = "";
+  const analyses = new AnalysisStore(files.root, agentConfigurationDirectory(process.env.XDG_CONFIG_HOME, homedir()));
   const workspaceTools = new AgentWorkspaceToolServer({
+    analyses,
+    targetName: options.target ?? "offline",
     files,
     trusted: () => manager.trusted,
     origin: () => origin,
@@ -159,6 +165,16 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
     ...(selected ? { target: selected } : {}),
     explorer: () => explorer.get(),
     runs: manager,
+  });
+  const analysisRoutes = new AnalysisRoutes({
+    store: analyses,
+    files,
+    trusted: () => manager.trusted,
+    schemaHash: () => calculateSchemaHash(schema),
+    typePolicyHash: () => calculateTypePolicyHash(loaded.config.typePolicy ?? loaded.config.dialect.defaultTypePolicy),
+    target: options.target ?? "offline",
+    query: (source, values, signal, identity) =>
+      workspaceTools.query(source, values, signal, 1000, 512 * 1024, identity),
   });
   const withTarget = async (fn: (target: PlaygroundTarget) => Promise<void>) => {
     if (!selected) throw new WorkspaceError("OFFLINE", "Configure a target and relaunch with --target to connect");
@@ -217,11 +233,13 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
       const url = new URL(request.url ?? "/", origin);
       if (!url.pathname.startsWith("/api/")) {
         if (request.method !== "GET") throw new WorkspaceError("METHOD", "Method not allowed", 405);
-        const name = new Map([
-          ["/", "index.html"],
-          ["/app.js", "app.js"],
-          ["/app.css", "app.css"],
-        ]).get(url.pathname);
+        const name =
+          new Map([
+            ["/", "index.html"],
+            ["/app.js", "app.js"],
+            ["/app.css", "app.css"],
+          ]).get(url.pathname) ??
+          (/^\/chunks\/[a-zA-Z0-9_-]+\.(?:js|css)$/u.test(url.pathname) ? url.pathname.slice(1) : undefined);
         if (!name) throw new WorkspaceError("NOT_FOUND", "Not found", 404);
         const bytes = await readFile(join(assets, name));
         response.writeHead(200, {
@@ -242,6 +260,17 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
         !timingSafeEqual(Buffer.from(supplied), Buffer.from(token))
       )
         throw new WorkspaceError("SESSION", "Playground session authorization is required", 403);
+      if (url.pathname === "/api/analyses" || url.pathname.startsWith("/api/analyses/")) {
+        json(
+          response,
+          await analysisRoutes.handle(
+            url,
+            request.method ?? "GET",
+            request.method === "POST" ? await payload(request) : undefined,
+          ),
+        );
+        return;
+      }
       if (url.pathname === "/api/agents" || url.pathname.startsWith("/api/agents/")) {
         const method = ["/api/agents", "/api/agents/conversation"].includes(url.pathname) ? "GET" : "POST";
         if (request.method !== method) throw new WorkspaceError("METHOD", "Method not allowed", 405);

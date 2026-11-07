@@ -1,8 +1,9 @@
+import { type AnalysisTab, analysisId, analysisTitle } from "./analysis-tabs";
 import { type InspectionTab, inspectionTarget } from "./explorer-model.js";
 
 /** Framework-neutral counterpart of the docs playground's recursive editor layout. */
 export type Edge = "center" | "left" | "right" | "top" | "bottom";
-export type ToolTab = "@schema" | "@compare" | "@agent" | InspectionTab;
+export type ToolTab = "@schema" | "@compare" | "@agent" | InspectionTab | AnalysisTab;
 export interface Pane {
   kind: "pane";
   id: string;
@@ -22,14 +23,15 @@ export interface Split {
 }
 export type Layout = Pane | Split;
 export const FILE_MIME = "application/x-typed-sql-file";
-export const toolTabs: Readonly<Record<Exclude<ToolTab, InspectionTab>, string>> = {
+export const toolTabs: Readonly<Record<Exclude<ToolTab, InspectionTab | AnalysisTab>, string>> = {
   "@schema": "Schema",
   "@compare": "Compare",
   "@agent": "Agent",
 };
 export const isTool = (tab: string): tab is ToolTab =>
-  Object.hasOwn(toolTabs, tab) || inspectionTarget(tab) !== undefined;
+  Object.hasOwn(toolTabs, tab) || inspectionTarget(tab) !== undefined || analysisId(tab) !== undefined;
 export const title = (tab: string) =>
+  analysisTitle(tab) ??
   inspectionTarget(tab)?.label ??
   (Object.hasOwn(toolTabs, tab) ? toolTabs[tab as keyof typeof toolTabs] : (tab.split("/").at(-1) ?? tab));
 const id = () => crypto.randomUUID();

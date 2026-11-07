@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { AgentPanel } from "./agent";
+import { analysisId, analysisTab } from "./analysis-tabs";
 import { api, token } from "./api";
 import { SchemaBoard } from "./board";
 import { CommandPalette, type PaletteCommand } from "./command-palette.js";
@@ -67,6 +68,10 @@ import { ThemeMenu, useTheme } from "./theme";
 import type { Analysis, State, Value } from "./types";
 import "./style.css";
 
+const AnalysisWorkspace = lazy(() =>
+  import("./analysis-card").then((module) => ({ default: module.AnalysisWorkspace })),
+);
+const SavedAnalysis = lazy(() => import("./analysis-card").then((module) => ({ default: module.SavedAnalysis })));
 interface WorkspaceProblem {
   code: string;
   message: string;
@@ -269,7 +274,7 @@ function App() {
         analysisTimers.current.delete(file);
       }
     for (const doc of Object.values(documents)) {
-      if (doc.definition) continue;
+      if (doc.definition || doc.file.endsWith(".analysis.json")) continue;
       const identity = analysisKey(doc, epoch);
       if (analysisSources.current.get(doc.file) === identity) continue;
       analysisSources.current.set(doc.file, identity);
@@ -897,10 +902,24 @@ function App() {
       );
     if (item.active === "@compare")
       return <ComparePanel runs={state.runs} {...(compareA ? { initialA: compareA } : {})} />;
+    const artifactId = analysisId(item.active);
+    if (artifactId)
+      return (
+        <Suspense fallback={<EmptyState>Loading analysis…</EmptyState>}>
+          <AnalysisWorkspace id={artifactId} onSaved={(file) => void action(() => changeFile(file))} />
+        </Suspense>
+      );
+    if (item.active.endsWith(".analysis.json"))
+      return (
+        <Suspense fallback={<EmptyState>Loading analysis…</EmptyState>}>
+          <SavedAnalysis file={item.active} onOpen={(id, title) => openTab(item.id, analysisTab(id, title))} />
+        </Suspense>
+      );
     if (item.active === "@agent")
       return (
         <AgentPanel
           state={state}
+          onAnalysis={(id, title) => openTab(item.id, analysisTab(id, title))}
           {...(selectedDoc
             ? {
                 source: {

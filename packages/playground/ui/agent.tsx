@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./api";
 import {
   Bar,
   BarLabel,
   Button,
   ControlGroup,
+  EmptyState,
   FieldLabel,
   FormField,
   FormPanel,
@@ -16,9 +17,12 @@ import {
   View,
 } from "./components";
 import { Icon } from "./icon";
+import { RichOutputBoundary } from "./rich-output-boundary";
 import type { State, Value } from "./types";
 import "./agent.css";
 
+const AgentMarkdown = lazy(() => import("./agent-markdown"));
+const AnalysisCard = lazy(() => import("./analysis-card").then((module) => ({ default: module.AnalysisCard })));
 interface Profile {
   id: string;
   name: string;
@@ -28,9 +32,10 @@ interface Profile {
 interface Conversation {
   id: string;
   title: string;
+  updatedAt?: string;
   profileId: string;
   status: "idle" | "running" | "failed" | "cancelled";
-  messages: { id: string; role: string; text: string; createdAt: string }[];
+  messages: { id: string; role: string; text: string; createdAt: string; order?: number }[];
   proposals: {
     id: string;
     file: string;
@@ -39,6 +44,8 @@ interface Conversation {
     revision: string | null;
     status: "pending" | "accepted" | "rejected";
     description: string;
+    createdAt?: string;
+    order?: number;
   }[];
   error?: string;
   toolCalls?: {
@@ -47,6 +54,9 @@ interface Conversation {
     state: "running" | "completed" | "failed";
     createdAt: string;
     updatedAt: string;
+    details?: string;
+    origin?: "agent" | "workspace";
+    order?: number;
   }[];
 }
 const toolLabels: Record<string, string> = {
@@ -58,6 +68,9 @@ const toolLabels: Record<string, string> = {
   typed_sql_analyze_sql: "Analyze SQL",
   typed_sql_query_readonly: "Query read only",
   typed_sql_get_result: "Get captured result",
+  typed_sql_query_analysis: "Capture analysis data",
+  typed_sql_get_analysis_data: "Read analysis data",
+  typed_sql_present: "Present analysis",
   typed_sql_propose_file: "Propose file",
 };
 interface Agents {
@@ -72,6 +85,7 @@ export function AgentPanel({
   onOpen,
   onChanged,
   onTrust,
+  onAnalysis,
 }: {
   state: State;
   source?: { file: string; source: string; revision: string | null };
@@ -79,6 +93,7 @@ export function AgentPanel({
   onOpen: (file: string) => void;
   onChanged: (file: string) => void;
   onTrust: () => void;
+  onAnalysis: (id: string, title?: string) => void;
 }) {
   const [agents, setAgents] = useState<Agents | null>(null),
     [profile, setProfile] = useState(""),
@@ -95,6 +110,7 @@ export function AgentPanel({
     [includeResult, setIncludeResult] = useState(false),
     [workspaceTools, setWorkspaceTools] = useState(false),
     [review, setReview] = useState<string | null>(null);
+  const [artifacts, setArtifacts] = useState<{ id: string; title: string; createdAt: string; order?: number }[]>([]);
   const [resultRun, setResultRun] = useState("");
   useEffect(() => {
     if (!state.trusted || !agents?.workspaceToolsAvailable) setWorkspaceTools(false);
@@ -102,6 +118,22 @@ export function AgentPanel({
   const selectedRun = state.runs.find((run) => run.id === resultRun);
   const result = selectedRun?.results[0]?.value;
   const end = useRef<HTMLDivElement>(null);
+  const transcript = useRef<HTMLDivElement>(null);
+  const followEnd = useRef(true);
+  const [visibleEntries, setVisibleEntries] = useState(100);
+  useEffect(() => {
+    if (!conversation?.id) return;
+    setVisibleEntries(100);
+    followEnd.current = true;
+  }, [conversation?.id]);
+  useEffect(() => {
+    if (!transcript.current) return;
+    const observer = new ResizeObserver(() => {
+      if (followEnd.current) end.current?.scrollIntoView({ block: "nearest" });
+    });
+    observer.observe(transcript.current);
+    return () => observer.disconnect();
+  }, []);
   const selectionKey = `typed-sql-agent-selection-v1:${state.project.name}:${state.project.config}:${state.target ?? "offline"}`;
   const selectionVersion = useRef(0);
   const mounted = useRef(true);
@@ -199,13 +231,43 @@ export function AgentPanel({
       clearInterval(interval);
     };
   }, [conversation?.id, conversation?.status, state.trusted]);
+  useEffect(() => {
+    setArtifacts([]);
+    if (!state.trusted || !conversation?.id) return;
+    let cancelled = false;
+    const fetch = () =>
+      void api<{ id: string; title: string; createdAt: string; order?: number }[]>(
+        `analyses?conversation=${encodeURIComponent(conversation.id)}`,
+      ).then(
+        (next) => {
+          if (!cancelled) setArtifacts(next);
+        },
+        () => {},
+      );
+    fetch();
+    const interval = conversation.status === "running" ? setInterval(fetch, 700) : undefined;
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [conversation?.id, conversation?.status, state.trusted]);
+  const timeline = [
+    ...(conversation?.messages ?? []).map((value) => ({ kind: "message" as const, value, at: value.createdAt })),
+    ...(conversation?.toolCalls ?? []).map((value) => ({ kind: "tool" as const, value, at: value.createdAt })),
+    ...(conversation?.proposals ?? []).map((value) => ({
+      kind: "proposal" as const,
+      value,
+      at: value.createdAt ?? conversation?.updatedAt ?? "",
+    })),
+    ...artifacts.map((value) => ({ kind: "analysis" as const, value, at: value.createdAt })),
+  ].toSorted((a, b) => a.at.localeCompare(b.at) || (a.value.order ?? 0) - (b.value.order ?? 0));
   const lastMessage = conversation?.messages.at(-1)?.text;
   const activity = [
     ...(conversation?.toolCalls?.map((call) => `${call.id}:${call.state}`) ?? []),
     ...(conversation?.proposals.map((proposal) => `${proposal.id}:${proposal.status}`) ?? []),
   ].join("|");
   useEffect(() => {
-    if (lastMessage || activity) end.current?.scrollIntoView({ block: "nearest" });
+    if (followEnd.current && (lastMessage || activity)) end.current?.scrollIntoView({ block: "nearest" });
   }, [lastMessage, activity]);
   const pendingActions = useRef(0);
   const perform = async (fn: () => Promise<void>) => {
@@ -440,89 +502,145 @@ export function AgentPanel({
           </ControlGroup>
         </FormPanel>
       ) : null}
-      <div className="agent-messages" role="log" aria-label="Agent conversation">
-        {!conversation?.messages.length ? (
-          <div className="agent-empty">
-            <Icon name="agent" />
-            <strong>{profile ? "Start a conversation" : "Choose a local ACP agent"}</strong>
-            <p>
-              {profile
-                ? "Ask about a query, inspect a result, or propose a change."
-                : "Connect an installed agent to work with the selected project."}
-            </p>
-          </div>
-        ) : (
-          conversation.messages.map((item) => (
-            <article className={`agent-message ${item.role}`} key={item.id}>
-              <header>
-                {item.role === "user" ? "You" : item.role === "assistant" ? "Agent" : "Tool"}
-                <time>{new Date(item.createdAt).toLocaleTimeString()}</time>
-              </header>
-              <div>{item.text}</div>
-            </article>
-          ))
-        )}
-        {conversation?.toolCalls?.map((call) => (
-          <Bar
-            wrap
-            separator="frame"
-            className={`agent-tool-call ${call.state}`}
-            role="status"
-            aria-label={`Workspace tool: ${toolLabels[call.name] ?? call.name}`}
-            key={call.id}
-          >
-            <Icon name={call.state === "completed" ? "check" : call.state === "failed" ? "warning" : "play"} />
-            <span>{toolLabels[call.name] ?? call.name}</span>
-            <small>{call.state === "running" ? "Running" : call.state === "completed" ? "Completed" : "Failed"}</small>
-            <time>{new Date(call.createdAt).toLocaleTimeString()}</time>
-          </Bar>
-        ))}
-        {conversation?.proposals.map((proposal) => (
-          <Panel className={`agent-proposal ${proposal.status}`} key={proposal.id}>
-            <Bar as="header" separator="none" padding="none">
-              <BarLabel as="strong" truncate title={proposal.file}>
-                {proposal.file}
-              </BarLabel>
-              <span>{proposal.status}</span>
-            </Bar>
-            <p>{proposal.description}</p>
-            {review === proposal.id ? (
-              <div className="proposal-diff">
-                <div>
-                  <small>Current</small>
-                  <pre>{proposal.before ?? "(new file)"}</pre>
-                </div>
-                <div>
-                  <small>Proposed</small>
-                  <pre>{proposal.after}</pre>
-                </div>
-              </div>
-            ) : null}
-            <ControlGroup wrap className="proposal-actions">
-              <Button onClick={() => setReview((current) => (current === proposal.id ? null : proposal.id))}>
-                {review === proposal.id ? "Hide diff" : "Review diff"}
-              </Button>
-              {proposal.status === "pending" ? (
-                <>
-                  <Button disabled={busy} onClick={() => void perform(() => decide(proposal.id, "reject"))}>
-                    Reject
-                  </Button>
-                  <Button
-                    variant="primary"
-                    disabled={busy || review !== proposal.id}
-                    onClick={() => void perform(() => decide(proposal.id, "accept"))}
+      <div
+        className="agent-messages"
+        role="log"
+        aria-label="Agent conversation"
+        onScroll={(event) => {
+          const el = event.currentTarget;
+          followEnd.current = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+        }}
+      >
+        <div ref={transcript}>
+          {timeline.length > visibleEntries ? (
+            <Button onClick={() => setVisibleEntries((count) => count + 100)}>Show earlier activity</Button>
+          ) : null}
+          {!conversation?.messages.length ? (
+            <div className="agent-empty">
+              <Icon name="agent" />
+              <strong>{profile ? "Start a conversation" : "Choose a local ACP agent"}</strong>
+              <p>
+                {profile
+                  ? "Ask about a query, inspect a result, or propose a change."
+                  : "Connect an installed agent to work with the selected project."}
+              </p>
+            </div>
+          ) : null}
+          {timeline.slice(-visibleEntries).map((entry) => {
+            if (entry.kind === "message") {
+              const item = entry.value;
+              return (
+                <article className={`agent-message ${item.role}`} key={item.id}>
+                  <header>
+                    {item.role === "user" ? "You" : item.role === "assistant" ? "Agent" : "Tool"}
+                    <time>{new Date(item.createdAt).toLocaleTimeString()}</time>
+                  </header>
+                  <RichOutputBoundary fallback={<pre>{item.text}</pre>}>
+                    <Suspense fallback={<div>{item.text}</div>}>
+                      <AgentMarkdown
+                        text={item.text}
+                        streaming={
+                          item.id === conversation?.messages.at(-1)?.id &&
+                          item.role === "assistant" &&
+                          conversation?.status === "running"
+                        }
+                      />
+                    </Suspense>
+                  </RichOutputBoundary>
+                </article>
+              );
+            }
+            if (entry.kind === "tool") {
+              const call = entry.value;
+              return (
+                <Panel padding="none" key={call.id}>
+                  <Bar
+                    wrap
+                    separator="none"
+                    className={`agent-tool-call ${call.state}`}
+                    role="status"
+                    aria-label={`${call.origin === "agent" ? "Agent tool" : "Workspace tool"}: ${toolLabels[call.name] ?? call.name}`}
+                    key={call.id}
                   >
-                    Apply reviewed change
+                    <Icon name={call.state === "completed" ? "check" : call.state === "failed" ? "warning" : "play"} />
+                    <span>{toolLabels[call.name] ?? call.name}</span>
+                    <small>
+                      {call.state === "running" ? "Running" : call.state === "completed" ? "Completed" : "Failed"}
+                    </small>
+                    <time>{new Date(call.createdAt).toLocaleTimeString()}</time>
+                  </Bar>
+                  {call.details ? (
+                    <details className="agent-tool-details">
+                      <summary>Result details</summary>
+                      {call.origin === "agent" ? (
+                        <Suspense fallback={<pre>{call.details}</pre>}>
+                          <AgentMarkdown text={call.details} />
+                        </Suspense>
+                      ) : (
+                        <pre>{call.details}</pre>
+                      )}
+                    </details>
+                  ) : null}
+                </Panel>
+              );
+            }
+            if (entry.kind === "analysis")
+              return (
+                <Suspense key={entry.value.id} fallback={<EmptyState>Loading analysis…</EmptyState>}>
+                  <RichOutputBoundary>
+                    <AnalysisCard id={entry.value.id} onOpen={onAnalysis} onSaved={onChanged} />
+                  </RichOutputBoundary>
+                </Suspense>
+              );
+            const proposal = entry.value;
+            return (
+              <Panel className={`agent-proposal ${proposal.status}`} key={proposal.id}>
+                <Bar as="header" separator="none" padding="none">
+                  <BarLabel as="strong" truncate title={proposal.file}>
+                    {proposal.file}
+                  </BarLabel>
+                  <span>{proposal.status}</span>
+                </Bar>
+                <p>{proposal.description}</p>
+                {review === proposal.id ? (
+                  <div className="proposal-diff">
+                    <div>
+                      <small>Current</small>
+                      <pre>{proposal.before ?? "(new file)"}</pre>
+                    </div>
+                    <div>
+                      <small>Proposed</small>
+                      <pre>{proposal.after}</pre>
+                    </div>
+                  </div>
+                ) : null}
+                <ControlGroup wrap className="proposal-actions">
+                  <Button onClick={() => setReview((current) => (current === proposal.id ? null : proposal.id))}>
+                    {review === proposal.id ? "Hide diff" : "Review diff"}
                   </Button>
-                </>
-              ) : proposal.status === "accepted" || proposal.before !== null ? (
-                <Button onClick={() => onOpen(proposal.file)}>Open file</Button>
-              ) : null}
-            </ControlGroup>
-          </Panel>
-        ))}
-        {conversation?.error ? <Notice tone="error">{error}</Notice> : null}
-        <div ref={end} />
+                  {proposal.status === "pending" ? (
+                    <>
+                      <Button disabled={busy} onClick={() => void perform(() => decide(proposal.id, "reject"))}>
+                        Reject
+                      </Button>
+                      <Button
+                        variant="primary"
+                        disabled={busy || review !== proposal.id}
+                        onClick={() => void perform(() => decide(proposal.id, "accept"))}
+                      >
+                        Apply reviewed change
+                      </Button>
+                    </>
+                  ) : proposal.status === "accepted" || proposal.before !== null ? (
+                    <Button onClick={() => onOpen(proposal.file)}>Open file</Button>
+                  ) : null}
+                </ControlGroup>
+              </Panel>
+            );
+          })}
+          {conversation?.error ? <Notice tone="error">{conversation.error}</Notice> : null}
+          <div ref={end} />
+        </div>
       </div>
       <FormPanel
         padding="none"

@@ -7,6 +7,20 @@ import { type Grid, jsonValue, milliseconds, resultGrid, totalTime, valueText } 
 import type { Run, Value } from "./types";
 
 export { valueText } from "./result-model";
+export function ValueInspector({ value, onClose }: { value: Value; onClose: () => void }) {
+  return (
+    <Modal className="value-dialog" label="Inspect value" onClose={onClose}>
+      <Bar as="header" separator="none" padding="none">
+        <BarLabel as="strong">Value</BarLabel>
+        <IconButton aria-label="Close value inspector" onClick={onClose}>
+          <Icon name="close" />
+        </IconButton>
+      </Bar>
+      <pre>{JSON.stringify(jsonValue(value), null, 2)}</pre>
+      <Button onClick={() => void navigator.clipboard.writeText(valueText(value))}>Copy</Button>
+    </Modal>
+  );
+}
 export interface ResultPage {
   value: Value;
   hasPage?: boolean;
@@ -488,18 +502,7 @@ export function ResultPanel({
           </ControlGroup>
         </Bar>
       ) : null}
-      {inspect !== undefined ? (
-        <Modal className="value-dialog" label="Inspect value" onClose={() => setInspect(undefined)}>
-          <Bar as="header" separator="none" padding="none">
-            <BarLabel as="strong">Value</BarLabel>
-            <IconButton aria-label="Close value inspector" onClick={() => setInspect(undefined)}>
-              <Icon name="close" />
-            </IconButton>
-          </Bar>
-          <pre>{JSON.stringify(jsonValue(inspect), null, 2)}</pre>
-          <Button onClick={() => void navigator.clipboard.writeText(valueText(inspect))}>Copy</Button>
-        </Modal>
-      ) : null}
+      {inspect !== undefined ? <ValueInspector value={inspect} onClose={() => setInspect(undefined)} /> : null}
     </View>
   );
 }
