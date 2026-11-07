@@ -524,7 +524,19 @@ await describe("local ACP agents and reviewed repository tools", async () => {
     await fixture(
       async (_root, agents) => {
         const created = (await api(agents, "/new", { profileId: "local" })) as AgentConversation;
-        await api(agents, "/prompt", { conversationId: created.id, message: "Chart", toolMode: "ask" });
+        const prompt = async (message: string) => {
+          // A terminal outcome can precede final lease cleanup; wait for its reservation.
+          for (let attempt = 0; attempt < 100; attempt++) {
+            try {
+              return await api(agents, "/prompt", { conversationId: created.id, message, toolMode: "ask" });
+            } catch (error) {
+              if (!(error instanceof Error) || !("code" in error) || error.code !== "AGENT_BUSY") throw error;
+              await new Promise((resolve) => setTimeout(resolve, 10));
+            }
+          }
+          throw new Error("Prior agent lease did not finish closing");
+        };
+        await prompt("Chart");
         const first = await waitFor(agents, created.id, (value) => !!value.permissions?.length);
         strict.equal(operations, 0);
         await api(agents, "/permission", {
@@ -554,7 +566,7 @@ await describe("local ACP agents and reviewed repository tools", async () => {
           }),
           { code: "AGENT_PERMISSION" },
         );
-        await api(agents, "/prompt", { conversationId: created.id, message: "Denied", toolMode: "ask" });
+        await prompt("Denied");
         const denied = await waitFor(agents, created.id, (value) => !!value.permissions?.length);
         await api(agents, "/permission", {
           conversationId: created.id,
@@ -563,7 +575,7 @@ await describe("local ACP agents and reviewed repository tools", async () => {
         });
         await waitFor(agents, created.id, (value) => value.status !== "running");
         strict.equal(operations, 2);
-        await api(agents, "/prompt", { conversationId: created.id, message: "Cancel", toolMode: "ask" });
+        await prompt("Cancel");
         await waitFor(agents, created.id, (value) => !!value.permissions?.length);
         await api(agents, "/cancel", { conversationId: created.id });
         await waitFor(agents, created.id, (value) => !value.permissions?.length);
