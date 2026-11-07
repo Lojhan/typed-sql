@@ -257,6 +257,39 @@ DuckDB generated-name runtime binding checkpoint:
   Windows/macOS editor SDK lanes and native/distribution checks. The typed projection checkpoint
   `907be40a` is pushed; current behavior changes still require their own fresh CI qualification.
 
+DuckDB source-signature extraction checkpoint:
+
+- The expanded, still-uncommitted invocation audit reports zero binding failures for 1.5.6
+  across 19,279 distinct SQL statements. Its 2.0.0 run reports 427 named-control failures;
+  these remain unresolved and must not be represented as qualified coverage.
+- Vendor `FunctionParameter::GetKind()` distinguishes positional-only, standard, variadic
+  positional, keyword-only and variadic keyword parameters. `duckdb_functions()` omits this
+  information and combines positional table parameters with typed options. Parameter spelling
+  therefore cannot establish that an argument accepts a name. The previous name-only runtime
+  integration is incomplete, including overload selection when modes differ by overload.
+- A registered DuckDB acquisition owner now compiles a small catalog reader against headers
+  from immutable source revision `d54cbbe3df17e8e5ce68312f483b4155836112aa`, linking the locked
+  official 2.0.0 shared library. It verifies the library source ID, scans native registrations
+  and checks their count against the native SQL catalog. Retained facts contain all 3,235
+  registrations, parameter modes/types/default SQL, separate typed options and aliases,
+  macro bodies and macro-default expressions. Unknown macro types remain null.
+- The current retained extraction profile is darwin-arm64, without additionally loaded
+  extensions. It has 60 registrations with typed options, 23 with parameter defaults and four
+  with macro defaults. These counts describe registration metadata, not function semantics,
+  all-platform equivalence, extension coverage or native result/nullability qualification.
+- Source/archive/license/library bytes and extractor inputs are hashed. Source acquisition is
+  explicit (`pnpm catalog:source duckdb`); ordinary tests validate the retained JSON offline.
+  The extractor rejects truncated output, duplicate identities, unknown parameter kinds,
+  noncontiguous overloads and library/source identity mismatches. Test fixtures cover the
+  positional-only MOD and mixed-mode AVG overloads and the RANGE table-option boundary.
+- Still required: consume these source facts through the normalized model and generated runtime
+  binder, qualify overload selection with the full 2.0.0 audit, add the 1.5 source adapter,
+  and retain extension/platform comparisons. The existing generated-shape regression suite
+  also exposes a 1.5 constant-NULL table-result mismatch that remains open.
+- Last pushed `17d65575` failed source-quality CI on two contract test timeouts; both integration
+  workflows passed. A local projection-test optimization and the broader audit/runtime fixes
+  remain uncommitted and require fresh full verification. The PR remains a draft.
+
 ## Requirements still open
 
 
