@@ -50,10 +50,20 @@ collation properties, settings and extension versions. Missing properties stay e
 Keyword case folding belongs to each owner. MySQL HELP topics do not establish canonical native
 type identities, and a negative DuckDB implicit-cast observation does not establish an explicit
 cast. Syntax topic names do not establish productions. The native payload remains loss-preserving.
-PostgreSQL routine/type/cast generation and DuckDB cast generation consume these validated facts
-directly. Other projections still consume native payloads during migration; typed facets alone
+PostgreSQL routine/type/cast generation, DuckDB routine/cast generation and SQL Server type
+generation consume these validated facts directly. Other projections still consume native payloads during migration; typed facets alone
 do not establish complete semantic generation or qualification. Required projection facts reject
 unknown values and unsupported type expressions instead of falling back to an opaque native row.
+
+DuckDB routine emission requires typed parameter ordinals/modes, native kind, variadic evidence
+and validated property values. Missing required facts, incompatible macro overlays and type
+expressions that the runtime cannot express fail generation. Explicit unknown native types stay
+unknown. The legacy tuple projection remains a compatibility format; it cannot express formal
+names, named-only arguments, defaults, output columns or evidence conditions. The generated
+`planning/grammar-completeness/duckdb-routine-projection.json` accounts for these facts for every
+emitted routine. This report records the remaining host-format migration; it does not qualify
+those fields or make them available to the resolver. Legacy helper exports delegate to the same
+projector, and the generated runtime catalogs retain their prior contents.
 
 ## Vendor source locks
 

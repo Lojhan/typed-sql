@@ -1,7 +1,9 @@
 import { hash } from "../model/canonical.mjs";
 import { commonEntities, nativeIdentity } from "../model/projection.mjs";
+import { serialize } from "../model/serialize.mjs";
 import { literal, ordered, rowsLiteral } from "./common.mjs";
-import { duckdbCombinations, duckdbSignature } from "./facts/duckdb.mjs";
+import { duckdbCombinations } from "./facts/duckdb.mjs";
+import { duckdbRoutineProjection, duckdbSemanticSignature } from "./facts/duckdb-semantic.mjs";
 
 /** Canonical scalar keys come from captured aliases, never the generated runtime parser. */
 export function scalarTypeName(source, aliases, spellings) {
@@ -37,6 +39,7 @@ export async function generateCatalog({ groups, semanticGroups, input, emit, hea
   duckRegistry += `export const nativeExpressionTypes: Readonly<Record<string, Readonly<Record<string, string | null>>>> = {${duckdb.map((group, index) => `${JSON.stringify(group.version)}: expression${index}`).join(",")}};\n`;
   await emit("packages/duckdb/src/catalog/generated/registry.ts", duckRegistry);
   const duckAliases = {};
+  const routineProjections = {};
   for (const group of duckdb) {
     const semantic = semanticGroups.find((value) => value.band === group.version);
     if (!semantic) throw new Error(`Missing DuckDB semantic profile: ${group.version}`);
@@ -72,9 +75,12 @@ export async function generateCatalog({ groups, semanticGroups, input, emit, hea
       `packages/duckdb/src/catalog/generated/common-${group.version}.ts`,
       `${header}export const commonTypes: Readonly<Record<string, string | null>> = ${literal(matrices.set)};\nexport const expressionTypes: Readonly<Record<string, string | null>> = ${literal(matrices.expression)};\n`,
     );
-    const signatures = ordered(
-      group.categories.functions.rows.map((row) => duckdbSignature(row, duckPolicy.macroSignatures)),
-    );
+    const routines = commonEntities(semantic, "functions");
+    const signatures = ordered(routines.map((entity) => duckdbSemanticSignature(entity, duckPolicy.macroSignatures)));
+    routineProjections[group.version] = {
+      qualification: "projection accounting; does not establish semantic support",
+      routines: ordered(routines.map(duckdbRoutineProjection)),
+    };
     const typeNames = new Map(types.map((entity) => [entity.name, nativeName(entity.name)]));
     const casts = ordered(
       commonEntities(semantic, "casts")
@@ -98,6 +104,7 @@ export async function generateCatalog({ groups, semanticGroups, input, emit, hea
       `${header}// Captured facts ${revision}\nimport type { DuckDBBuiltinSignature } from "../types.js";\nexport const signatures: readonly DuckDBBuiltinSignature[] = ${rowsLiteral(signatures)};\nexport const implicitCasts: readonly (readonly [string, string])[] = ${rowsLiteral(casts)};\n`,
     );
   }
+  await emit("planning/grammar-completeness/duckdb-routine-projection.json", `${serialize(routineProjections)}\n`);
   await emit(
     "packages/duckdb/src/catalog/generated/aliases.ts",
     `${header}export const nativeTypeAliases: Readonly<Record<string, string>> = ${literal(Object.fromEntries(Object.entries(duckAliases).sort(([a], [b]) => a.localeCompare(b))))};\n`,

@@ -1,20 +1,17 @@
+// Compatibility adapter only; production emission consumes normalized routine entities.
+import { duckdbMapper } from "../../mappers/duckdb.mjs";
+import { describeRoutine } from "../../model/build.mjs";
+import { routineSignature } from "../../model/routines.mjs";
+import { duckdbSemanticSignature } from "./duckdb-semantic.mjs";
+
 export function duckdbSignature(row, macroPolicy = []) {
-  if (!Array.isArray(row.arguments)) throw new Error(`Missing native DuckDB parameter list: ${row.name}`);
-  const override = row.kind === "macro" ? macroPolicy.find((entry) => entry.name === row.name) : undefined;
-  if (
-    override &&
-    (override.semantics !== "specialized-resolver" || override.parameters.length !== row.arguments.length)
-  )
-    throw new Error(`Macro policy conflicts with native shape: ${row.name}`);
-  return [
-    row.name,
-    row.kind,
-    override?.parameters ?? row.arguments,
-    row.result,
-    row.varargs,
-    row.stability,
-    row.side_effects,
-  ];
+  return duckdbSemanticSignature(
+    {
+      name: row.name,
+      routine: describeRoutine(routineSignature(duckdbMapper, row), duckdbMapper),
+    },
+    macroPolicy,
+  );
 }
 
 export function duckdbCombinations(facts, version, canonicalName) {

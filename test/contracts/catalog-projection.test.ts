@@ -2,6 +2,11 @@ import { readFile } from "node:fs/promises";
 import { describe, it, strict } from "poku";
 import { readCorpus } from "../../scripts/catalog-generation/corpus.mjs";
 import { normalizedCorpus } from "../../scripts/catalog-generation/model.mjs";
+import { duckdbSignature } from "../../tools/grammar-catalog/src/generate/facts/duckdb.mjs";
+import {
+  duckdbRoutineProjection,
+  duckdbSemanticSignature,
+} from "../../tools/grammar-catalog/src/generate/facts/duckdb-semantic.mjs";
 import {
   postgresSemanticCasts,
   postgresSemanticSignature,
@@ -96,6 +101,69 @@ await describe("validated catalog projections", async () => {
         ),
       /Unavailable/u,
     );
+  });
+  await it("projects every DuckDB routine from typed facts and reports data absent from runtime tuples", async () => {
+    const { catalog } = normalizedCorpus(await readCorpus());
+    const policy = JSON.parse(
+      await readFile(new URL("../../grammar/duckdb/catalog/policy.json", import.meta.url), "utf8"),
+    );
+    let named = 0;
+    for (const group of groupCatalog(catalog).filter((group) => group.grammar === "duckdb")) {
+      for (const entity of commonEntities(group, "functions")) {
+        const raw = entity.native;
+        const override =
+          raw.kind === "macro"
+            ? policy.macroSignatures.find((entry: { name: string }) => entry.name === entity.name)
+            : undefined;
+        const expected = [
+          entity.name,
+          raw.kind,
+          override?.parameters ?? raw.arguments,
+          raw.result,
+          raw.varargs,
+          raw.stability,
+          raw.side_effects,
+        ];
+        const emitted = duckdbSemanticSignature(entity, policy.macroSignatures);
+        strict.deepEqual(emitted, expected);
+        strict.deepEqual(duckdbSignature(raw, policy.macroSignatures), emitted);
+        const forged = { ...entity, native: { forged: true } };
+        strict.deepEqual(duckdbSemanticSignature(forged, policy.macroSignatures), emitted);
+        const accounting = duckdbRoutineProjection(entity);
+        const erased = { ...entity, native: {} };
+        strict.deepEqual(duckdbRoutineProjection(erased), accounting);
+        named += accounting.namedOnlyParameters;
+        const removed = structuredClone(entity);
+        removed.routine!.parameters = { status: "unknown", reason: "withheld native parameter evidence" };
+        strict.throws(() => duckdbSemanticSignature(removed, policy.macroSignatures), /Unqualified/u);
+      }
+    }
+    strict.ok(named > 0, "named-only facts must be retained and accounted for");
+  });
+  await it("rejects DuckDB projections that the runtime cannot represent instead of reading raw fallback data", async () => {
+    const { catalog } = normalizedCorpus(await readCorpus());
+    const group = groupCatalog(catalog).find((group) => group.grammar === "duckdb")!;
+    const entity = structuredClone(
+      commonEntities(group, "functions").find(
+        (entity) =>
+          entity.routine?.parameters.status === "known" &&
+          entity.routine.parameters.value.some((parameter) => parameter.mode === "input"),
+      )!,
+    );
+    const malformed = structuredClone(entity);
+    malformed.routine!.result.type = { kind: "variable", name: "T", constraints: [] };
+    strict.throws(() => duckdbSemanticSignature(malformed), /Unsupported DuckDB runtime type expression/u);
+    const unordered = structuredClone(entity);
+    if (unordered.routine!.parameters.status !== "known") throw new Error("missing fixture parameters");
+    unordered.routine!.parameters.value[0]!.inputPosition = { status: "known", value: 999 };
+    strict.throws(() => duckdbSemanticSignature(unordered), /Noncontiguous/u);
+    const missing = structuredClone(entity);
+    delete missing.routine!.properties.volatility;
+    strict.throws(() => duckdbSemanticSignature(missing), /Unqualified/u);
+    const badMode = structuredClone(entity);
+    if (badMode.routine!.parameters.status !== "known") throw new Error("missing fixture parameters");
+    badMode.routine!.parameters.value[0]!.mode = "unknown";
+    strict.throws(() => duckdbSemanticSignature(badMode), /Unsupported DuckDB parameter mode/u);
   });
   await it("requires SQL Server storage and dimension evidence without reading raw payloads", async () => {
     const { catalog } = normalizedCorpus(await readCorpus());

@@ -9,3 +9,4 @@ planning/grammar-completeness/sqlite-keyword-coverage.json linguist-generated=tr
 planning/grammar-completeness/sqlite-function-coverage.json linguist-generated=true
 # Extractor revisions pin exact source bytes across checkouts.
 tools/grammar-catalog/src/sources/** text eol=lf
+planning/grammar-completeness/duckdb-routine-projection.json linguist-generated=true

@@ -205,6 +205,28 @@ SQLite source registration checkpoint:
   Runtime package catalogs are byte-identical; the work does not yet complete typed emitter/host
   migration or native qualification.
 
+DuckDB typed-routine projection checkpoint:
+
+- Production routine emission now consumes normalized routine entities, including ordered modes,
+  explicit variadic evidence and validated property values. The legacy helper delegates to the
+  same projector. Unknown native type facts remain null; unsupported rich type expressions,
+  unavailable parameter evidence, unknown modes, malformed ordinals and conflicting macro
+  policies fail closed rather than recovering data from raw payloads.
+- Generated runtime catalog files remain byte-identical. All 6,180 shared routine entities across
+  both retained DuckDB versions are checked against the previous raw-field projection. Poisoning
+  or deleting the opaque payload cannot affect projection or accounting results.
+- A generated per-routine projection report records formal-name/default/output/unknown facts
+  that the existing public tuple cannot represent. Version 1.5.6 retains 546 named-only parameter
+  entries and 5,360 known formal names; 2.0.0 retains 1,270 and 6,334. Default knowledge remains
+  unknown for those entries. These counts are per captured overload, not distinct functions.
+- Moved the existing metadata JSON formatter into the private neutral model workspace, preserving
+  its output format and audit re-export. The per-record report stays readable without expanding
+  every record over many lines. All 59 contract files, typecheck and quality pass locally.
+- Current pushed checkpoint `5011e007` passed migration and dev-workspace integrations. Its
+  Windows build/generation step now passes, qualifying the prior extractor-byte checkout fix;
+  the complete editor/CI workflows were still running at inspection. Native/distribution jobs
+  observed so far pass. These observations do not assert overall current-head CI success.
+
 ## Requirements still open
 
 
