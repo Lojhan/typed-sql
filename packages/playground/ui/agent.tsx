@@ -18,6 +18,7 @@ import {
 } from "./components";
 import { Icon } from "./icon";
 import { RichOutputBoundary } from "./rich-output-boundary";
+import { ToolbarActions } from "./toolbar-actions";
 import type { State, Value } from "./types";
 import "./agent.css";
 
@@ -409,7 +410,7 @@ export function AgentPanel({
   };
   return (
     <View className="agent-workspace" ref={workspace}>
-      <Bar wrap className="agent-toolbar">
+      <Bar className="agent-toolbar">
         <Select
           aria-label="Agent profile"
           value={profile}
@@ -464,17 +465,19 @@ export function AgentPanel({
               </option>
             ))}
         </Select>
-        <Button
-          disabled={!profile || busy || conversation?.status === "running"}
-          onClick={() =>
-            void perform(async () => {
-              await create();
-            })
-          }
-        >
-          New chat
-        </Button>
-        <Button onClick={() => setConfigure((value) => !value)}>Configure</Button>
+        <ToolbarActions label="Agent actions" collapseBelow={600}>
+          <Button
+            disabled={!profile || busy || conversation?.status === "running"}
+            onClick={() =>
+              void perform(async () => {
+                await create();
+              })
+            }
+          >
+            New chat
+          </Button>
+          <Button onClick={() => setConfigure((value) => !value)}>Configure</Button>
+        </ToolbarActions>
       </Bar>
       {error ? <Notice tone="error">{error}</Notice> : null}
       {configure || agents?.profiles.length === 0 ? (

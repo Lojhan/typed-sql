@@ -4,6 +4,7 @@ import { Bar, BarLabel, Button, ControlGroup, EmptyState, IconButton, Input, Sel
 import { Icon } from "./icon";
 import { Modal } from "./modal";
 import { type Grid, jsonValue, milliseconds, resultGrid, totalTime, valueText } from "./result-model";
+import { ToolbarActions } from "./toolbar-actions";
 import type { Run, Value } from "./types";
 
 export { valueText } from "./result-model";
@@ -344,7 +345,7 @@ export function ResultPanel({
   const next = captured.data?.nextPage !== null && captured.data?.nextPage !== undefined;
   return (
     <View className="result-panel" aria-label="Query results">
-      <Bar wrap className="result-controls">
+      <Bar className="result-controls">
         <ControlGroup className="result-control-left">
           {run ? (
             <>
@@ -385,18 +386,20 @@ export function ResultPanel({
             <span className="muted">No execution</span>
           )}
         </ControlGroup>
-        <ControlGroup className="result-control-right">
-          <Button className={log ? "selected" : ""} onClick={() => setLog((value) => !value)}>
-            Log
-          </Button>
-          {run && onCompare ? <Button onClick={() => onCompare(run.id)}>Compare</Button> : null}
-          <Button disabled={!captured.data} onClick={() => exportPage("json")}>
-            JSON
-          </Button>
-          <Button disabled={!data} onClick={() => exportPage("csv")}>
-            CSV
-          </Button>
-        </ControlGroup>
+        <ToolbarActions label="Result actions" collapseBelow={580}>
+          <ControlGroup className="result-control-right">
+            <Button className={log ? "selected" : ""} onClick={() => setLog((value) => !value)}>
+              Log
+            </Button>
+            {run && onCompare ? <Button onClick={() => onCompare(run.id)}>Compare</Button> : null}
+            <Button disabled={!captured.data} onClick={() => exportPage("json")}>
+              JSON
+            </Button>
+            <Button disabled={!data} onClick={() => exportPage("csv")}>
+              CSV
+            </Button>
+          </ControlGroup>{" "}
+        </ToolbarActions>
       </Bar>
       {log ? (
         <div className="run-log">
@@ -455,7 +458,7 @@ export function ResultPanel({
         </EmptyState>
       )}
       {run && result && !log ? (
-        <Bar separator="top" wrap className="result-pager">
+        <Bar separator="top" className="result-pager">
           <span>
             {data?.rows.length
               ? `${firstPage * (result.paging?.pageSize ?? data.rows.length) + 1}–${firstPage * (result.paging?.pageSize ?? data.rows.length) + data.rows.length}`
@@ -465,7 +468,7 @@ export function ResultPanel({
             {!complete ? " · partial capture" : ""}
             <span className="provenance"> · {result.provenance === "managed" ? "managed" : "target unverified"}</span>
           </span>
-          <ControlGroup wrap>
+          <ControlGroup>
             {result.paging && !complete && run.status === "running" ? (
               <Button
                 onClick={() =>

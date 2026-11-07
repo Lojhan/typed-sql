@@ -87,6 +87,8 @@ Use the file and folder buttons in **Files**, or right-click a folder or blank t
 
 Open files as tabs and split a group left, right, above or below. Drag tabs between groups and resize the file tree, editor groups, inspector and results. The same file can be viewed in multiple groups with a shared edit buffer. Schema, Compare and Agent are workspace views alongside query tabs.
 
+In narrow panes, secondary toolbar controls move into labeled overflow menus instead of wrapping onto extra rows. Agent selectors and primary query actions stay visible; expand the corresponding action menu for configuration, exports or additional operations. Escape or clicking outside dismisses these menus.
+
 Compact bottom-bar icons provide theme, connection, schema, comparison and agent controls without a global header. The theme icon offers **System**, **Light** and **Dark**. System follows OS changes; an explicit preference stays in browser storage. Scrollbars float over non-editor scroll areas and fade after interaction, without reserving container space. The editor remains scrollable with no visible scrollbar.
 
 ## Commands and file search

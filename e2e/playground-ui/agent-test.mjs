@@ -3,7 +3,7 @@ import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { join, resolve } from "node:path";
 import { command, consumer, server } from "../build/src/consumer.mjs";
-import { componentContract } from "./fixtures/component-contracts.mjs";
+import { componentContract, revealToolbarActions } from "./fixtures/component-contracts.mjs";
 
 const artifacts = resolve("artifacts/playground-ui/agent-browser");
 await rm(artifacts, { recursive: true, force: true });
@@ -119,6 +119,7 @@ try {
   await config.waitFor({ state: "detached" });
   assert.equal(await profile.inputValue(), "codex");
   check("Codex preset saves explicit codex-acp executable and empty arguments without starting a process");
+  await revealToolbarActions(page, "Agent actions");
   await page.getByRole("button", { name: "Configure", exact: true }).click();
   await config.getByRole("combobox", { name: "Agent preset", exact: true }).selectOption("custom");
   await config.getByRole("textbox", { name: "Agent name", exact: true }).fill("Fixture ACP");
@@ -190,6 +191,7 @@ try {
   check(
     "switching tabs and reloading restores selected conversation and messages while browser storage holds only IDs",
   );
+  await revealToolbarActions(page, "Agent actions");
   await page.getByRole("button", { name: "New chat", exact: true }).click();
   await page.waitForFunction(() => document.querySelectorAll(".agent-message").length === 0);
   const rejectedId = await conversations.inputValue();
@@ -236,6 +238,7 @@ try {
     "reviewed rejection leaves a new file absent and long proposal paths/code stay within narrow light/dark panels",
     geometry,
   );
+  await revealToolbarActions(page, "Agent actions");
   await page.getByRole("button", { name: "New chat", exact: true }).click();
   await page.waitForFunction(() => document.querySelectorAll(".agent-message").length === 0);
   const acceptedId = await conversations.inputValue();
@@ -334,6 +337,7 @@ try {
   assert.equal(await conversations.inputValue(), acceptedId);
   await page.unroute("**/api/agents/conversation?*");
   check("late conversation responses cannot replace a newer selected conversation");
+  await revealToolbarActions(page, "Agent actions");
   await page.getByRole("button", { name: "New chat", exact: true }).click();
   await page.waitForFunction(() => document.querySelectorAll(".agent-message").length === 0);
   await composer.fill("accept dirty race");
@@ -396,6 +400,7 @@ try {
   await page.locator(".agent-proposal.accepted").waitFor();
   await page.getByRole("button", { name: "Stop", exact: true }).waitFor({ state: "detached" });
 
+  await revealToolbarActions(page, "Agent actions");
   await page.getByRole("button", { name: "New chat", exact: true }).click();
   await page.waitForFunction(() => document.querySelectorAll(".agent-message").length === 0);
   await composer.fill("cancel proposal");
@@ -464,6 +469,21 @@ try {
   check("shared component geometry is consistent across rendered controls and section headers");
   await page.setViewportSize({ width: 720, height: 900 });
   await contextSettings.waitFor();
+  const agentActions = page.getByLabel("Agent actions", { exact: true });
+  await agentActions.waitFor();
+  const headerGeometry = await page.locator(".agent-toolbar").evaluate((element) => ({
+    height: element.clientHeight,
+    expected: Number.parseFloat(getComputedStyle(element).getPropertyValue("--bar-height")),
+    overflow: element.scrollWidth > element.clientWidth + 1,
+  }));
+  assert.ok(headerGeometry.height <= headerGeometry.expected + 1);
+  assert.equal(headerGeometry.overflow, false);
+  await agentActions.click();
+  await page.getByRole("button", { name: "Configure", exact: true }).waitFor();
+  await page.keyboard.press("Escape");
+  assert.equal(await page.getByRole("button", { name: "Configure", exact: true }).isVisible(), false);
+  await shot(page.locator(".agent-toolbar"), "agent-header-compact");
+  check("agent header keeps profile and conversation selectors on one row with a dismissible action group");
   const composerGeometry = await page.evaluate(() => {
     const messages = document.querySelector(".agent-messages"),
       composer = document.querySelector(".agent-composer"),

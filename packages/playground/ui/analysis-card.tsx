@@ -30,6 +30,7 @@ import {
 } from "./components";
 import { Modal } from "./modal";
 import { RichOutputBoundary } from "./rich-output-boundary";
+import { ToolbarActions } from "./toolbar-actions";
 import "./agent-rich.css";
 
 const Chart = lazy(() => import("./analysis-chart"));
@@ -136,25 +137,27 @@ function ViewContent({ view }: { view: AnalysisView }) {
           {view.title}
         </BarLabel>
         {view.kind !== "metric" ? (
-          <ControlGroup>
-            <Button onClick={() => setMode(mode === "data" ? "chart" : "data")}>
-              {mode === "data" ? "Chart" : "Data"}
-            </Button>
-            {view.kind !== "table" && mode === "chart" ? (
-              <Select
-                aria-label={`Export ${view.title}`}
-                disabled={!exportChart}
-                value=""
-                onChange={(event) => {
-                  if (event.target.value) exportChart?.(event.target.value as "png" | "svg");
-                }}
-              >
-                <option value="">Export image</option>
-                <option value="svg">SVG</option>
-                <option value="png">PNG</option>
-              </Select>
-            ) : null}
-          </ControlGroup>
+          <ToolbarActions label={`${view.title} actions`} collapseBelow={440}>
+            <ControlGroup>
+              <Button onClick={() => setMode(mode === "data" ? "chart" : "data")}>
+                {mode === "data" ? "Chart" : "Data"}
+              </Button>
+              {view.kind !== "table" && mode === "chart" ? (
+                <Select
+                  aria-label={`Export ${view.title}`}
+                  disabled={!exportChart}
+                  value=""
+                  onChange={(event) => {
+                    if (event.target.value) exportChart?.(event.target.value as "png" | "svg");
+                  }}
+                >
+                  <option value="">Export image</option>
+                  <option value="svg">SVG</option>
+                  <option value="png">PNG</option>
+                </Select>
+              ) : null}
+            </ControlGroup>
+          </ToolbarActions>
         ) : null}
       </Bar>
       {view.description ? <p className="analysis-note">{view.description}</p> : null}
@@ -307,43 +310,45 @@ export function AnalysisCard({
     });
   return (
     <Panel className={`analysis-card ${expanded ? "expanded" : ""}`} padding="none">
-      <Bar wrap>
+      <Bar>
         <BarLabel as="strong" truncate title={spec.title}>
           {spec.title}
         </BarLabel>
-        <ControlGroup wrap>
-          {onOpen ? <Button onClick={() => onOpen(id, spec.title)}>Open in workspace</Button> : null}
-          <Button disabled={busy} onClick={() => setSave((value) => !value)}>
-            Save analysis
-          </Button>
-          {expanded ? (
-            <Button variant="danger" disabled={busy} onClick={() => setRemove(true)}>
-              Remove analysis
+        <ToolbarActions label="Analysis actions" collapseBelow={650}>
+          <ControlGroup>
+            {onOpen ? <Button onClick={() => onOpen(id, spec.title)}>Open in workspace</Button> : null}
+            <Button disabled={busy} onClick={() => setSave((value) => !value)}>
+              Save analysis
             </Button>
-          ) : null}
-          <Select
-            aria-label="Export analysis"
-            value=""
-            onChange={(event) => {
-              const kind = event.target.value;
-              if (kind === "csv") download(`${spec.title}.csv`, capturedCsv(dataset.columns, rows), "text/csv");
-              if (kind === "json")
-                download(
-                  `${spec.title}.json`,
-                  JSON.stringify(
-                    { columns: dataset.columns, rows, complete: dataset.complete, capturedAt: dataset.capturedAt },
-                    null,
-                    2,
-                  ),
-                  "application/json",
-                );
-            }}
-          >
-            <option value="">Export captured data</option>
-            <option value="csv">CSV</option>
-            <option value="json">Lossless JSON</option>
-          </Select>
-        </ControlGroup>
+            {expanded ? (
+              <Button variant="danger" disabled={busy} onClick={() => setRemove(true)}>
+                Remove analysis
+              </Button>
+            ) : null}
+            <Select
+              aria-label="Export analysis"
+              value=""
+              onChange={(event) => {
+                const kind = event.target.value;
+                if (kind === "csv") download(`${spec.title}.csv`, capturedCsv(dataset.columns, rows), "text/csv");
+                if (kind === "json")
+                  download(
+                    `${spec.title}.json`,
+                    JSON.stringify(
+                      { columns: dataset.columns, rows, complete: dataset.complete, capturedAt: dataset.capturedAt },
+                      null,
+                      2,
+                    ),
+                    "application/json",
+                  );
+              }}
+            >
+              <option value="">Export captured data</option>
+              <option value="csv">CSV</option>
+              <option value="json">Lossless JSON</option>
+            </Select>
+          </ControlGroup>
+        </ToolbarActions>
       </Bar>
       <TabBar aria-label="Analysis sections">
         <Tab aria-selected={mode === "chart"} onClick={() => setMode("chart")}>
@@ -384,7 +389,7 @@ export function AnalysisCard({
         </Notice>
       ) : null}
       {save ? (
-        <Bar wrap>
+        <Bar className="analysis-save-toolbar">
           <Input
             aria-label="Analysis file path"
             placeholder="playground/users.analysis.json"

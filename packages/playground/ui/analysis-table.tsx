@@ -3,6 +3,7 @@ import type { AnalysisDataset } from "../src/analysis-contract";
 import { Bar, Button, FieldLabel, Input, Select, View } from "./components";
 import { Modal } from "./modal";
 import { ResultGrid, ValueInspector } from "./results";
+import { ToolbarActions } from "./toolbar-actions";
 import type { Value } from "./types";
 
 export function AnalysisTable({ dataset, rows }: { dataset: AnalysisDataset; rows: AnalysisDataset["rows"] }) {
@@ -23,29 +24,31 @@ export function AnalysisTable({ dataset, rows }: { dataset: AnalysisDataset; row
   );
   return (
     <View className="analysis-table">
-      <Bar wrap>
+      <Bar className="analysis-table-toolbar">
         <Input
           aria-label="Search analysis rows"
           placeholder="Search captured rows"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <Select
-          aria-label="Sort analysis rows"
-          value={sort ?? ""}
-          onChange={(e) => setSort(e.target.value === "" ? null : Number(e.target.value))}
-        >
-          <option value="">Source order</option>
-          {visible.map((i) => (
-            <option key={i} value={i}>
-              {dataset.columns[i]}
-            </option>
-          ))}
-        </Select>
-        <Button disabled={sort === null} onClick={() => setDescending((v) => !v)}>
-          {descending ? "Descending" : "Ascending"}
-        </Button>
-        <Button onClick={() => setColumns(true)}>Columns</Button>
+        <ToolbarActions label="Analysis table actions" collapseBelow={520}>
+          <Select
+            aria-label="Sort analysis rows"
+            value={sort ?? ""}
+            onChange={(e) => setSort(e.target.value === "" ? null : Number(e.target.value))}
+          >
+            <option value="">Source order</option>
+            {visible.map((i) => (
+              <option key={i} value={i}>
+                {dataset.columns[i]}
+              </option>
+            ))}
+          </Select>
+          <Button disabled={sort === null} onClick={() => setDescending((v) => !v)}>
+            {descending ? "Descending" : "Ascending"}
+          </Button>
+          <Button onClick={() => setColumns(true)}>Columns</Button>
+        </ToolbarActions>
       </Bar>
       <ResultGrid
         data={data}

@@ -65,6 +65,7 @@ import { PaneLayout, Resize } from "./panes";
 import { ResultPanel } from "./results";
 import { GlobalScrollbars } from "./scrollbars";
 import { ThemeMenu, useTheme } from "./theme";
+import { ToolbarActions } from "./toolbar-actions";
 import type { Analysis, State, Value } from "./types";
 import "./style.css";
 
@@ -866,36 +867,40 @@ function App() {
             identity={`${state.project.name}:${state.target ?? "offline"}`}
           />
           {selectedTable ? (
-            <Bar wrap className="schema-selection">
-              {state.board.tables.find((table) => table.id === selectedTable)?.name}
-              <span>
-                {state.board.tables
-                  .find((table) => table.id === selectedTable)
-                  ?.columns.map((column) => `${column.name}: ${column.databaseType}`)
-                  .join(" · ")}
-              </span>
-              {(["sql", "ts"] as const).map((extension) => (
-                <Button
-                  key={extension}
-                  disabled={busy}
-                  onClick={() =>
-                    void action(async () => {
-                      const table = state.board.tables.find((value) => value.id === selectedTable);
-                      if (!table) return;
-                      const base = table.name.replace(/[^a-zA-Z0-9_-]/gu, "_") || "query";
-                      let ordinal = 1;
-                      let file = `${state.scratchDirectory}/${base}.${extension}`;
-                      while (state.files.includes(file) || documentsRef.current[file])
-                        file = `${state.scratchDirectory}/${base}-${++ordinal}.${extension}`;
-                      await api("create-query", { table: table.id, file });
-                      await refresh();
-                      openTab(item.id, file);
-                    })
-                  }
-                >
-                  New {extension.toUpperCase()} query
-                </Button>
-              ))}
+            <Bar className="schema-selection">
+              <BarLabel truncate>
+                {state.board.tables.find((table) => table.id === selectedTable)?.name}
+                <span>
+                  {state.board.tables
+                    .find((table) => table.id === selectedTable)
+                    ?.columns.map((column) => `${column.name}: ${column.databaseType}`)
+                    .join(" · ")}
+                </span>
+              </BarLabel>
+              <ToolbarActions label="Create query" collapseBelow={480}>
+                {(["sql", "ts"] as const).map((extension) => (
+                  <Button
+                    key={extension}
+                    disabled={busy}
+                    onClick={() =>
+                      void action(async () => {
+                        const table = state.board.tables.find((value) => value.id === selectedTable);
+                        if (!table) return;
+                        const base = table.name.replace(/[^a-zA-Z0-9_-]/gu, "_") || "query";
+                        let ordinal = 1;
+                        let file = `${state.scratchDirectory}/${base}.${extension}`;
+                        while (state.files.includes(file) || documentsRef.current[file])
+                          file = `${state.scratchDirectory}/${base}-${++ordinal}.${extension}`;
+                        await api("create-query", { table: table.id, file });
+                        await refresh();
+                        openTab(item.id, file);
+                      })
+                    }
+                  >
+                    New {extension.toUpperCase()} query
+                  </Button>
+                ))}
+              </ToolbarActions>
             </Bar>
           ) : null}
         </View>
@@ -973,35 +978,37 @@ function App() {
           <BarLabel truncate className="document-path" title={doc.file}>
             {doc.file}
           </BarLabel>
-          <Select
-            aria-label={`Execution mode for ${doc.file}`}
-            value={doc.mode}
-            disabled={doc.file.endsWith(".sql")}
-            onChange={(event) => edit(doc.file, { mode: event.target.value as Document["mode"] })}
-          >
-            <option value="export">Export</option>
-            <option value="file">File</option>
-            <option value="sql">SQL</option>
-          </Select>
-          {doc.mode === "export" ? (
+          <ToolbarActions label="Execution settings" icon="settings" collapseBelow={700}>
             <Select
-              aria-label="Callable export"
-              value={doc.exportName}
-              onChange={(event) => edit(doc.file, { exportName: event.target.value })}
+              aria-label={`Execution mode for ${doc.file}`}
+              value={doc.mode}
+              disabled={doc.file.endsWith(".sql")}
+              onChange={(event) => edit(doc.file, { mode: event.target.value as Document["mode"] })}
             >
-              {(doc.analysis?.exports.length ? doc.analysis.exports : ["run"]).map((name) => (
-                <option key={name}>{name}</option>
-              ))}
+              <option value="export">Export</option>
+              <option value="file">File</option>
+              <option value="sql">SQL</option>
             </Select>
-          ) : null}
-          <FieldLabel className="checkbox-label read-only">
-            <Input
-              type="checkbox"
-              checked={doc.readOnly}
-              onChange={(event) => edit(doc.file, { readOnly: event.target.checked })}
-            />
-            Read only
-          </FieldLabel>
+            {doc.mode === "export" ? (
+              <Select
+                aria-label="Callable export"
+                value={doc.exportName}
+                onChange={(event) => edit(doc.file, { exportName: event.target.value })}
+              >
+                {(doc.analysis?.exports.length ? doc.analysis.exports : ["run"]).map((name) => (
+                  <option key={name}>{name}</option>
+                ))}
+              </Select>
+            ) : null}
+            <FieldLabel className="checkbox-label read-only">
+              <Input
+                type="checkbox"
+                checked={doc.readOnly}
+                onChange={(event) => edit(doc.file, { readOnly: event.target.checked })}
+              />
+              Read only
+            </FieldLabel>
+          </ToolbarActions>
           <Button
             disabled={busy || !dirty.has(doc.file)}
             onClick={() =>

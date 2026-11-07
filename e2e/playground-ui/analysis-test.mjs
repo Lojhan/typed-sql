@@ -4,6 +4,7 @@ import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { join, resolve } from "node:path";
 import { consumer, server } from "../build/src/consumer.mjs";
+import { revealToolbarActions } from "./fixtures/component-contracts.mjs";
 
 const artifacts = resolve("artifacts/playground-ui/analysis-browser");
 await rm(artifacts, { recursive: true, force: true });
@@ -157,6 +158,7 @@ try {
   await card.getByRole("img", { name: "Users by region and team", exact: true }).scrollIntoViewIfNeeded();
   for (const format of ["svg", "png"]) {
     const imageDownload = page.waitForEvent("download");
+    await revealToolbarActions(card, "Users by region and team actions");
     await card.getByRole("combobox", { name: "Export Users by region and team", exact: true }).selectOption(format);
     const image = await imageDownload;
     await image.saveAs(join(artifacts, `hierarchy.${format}`));
@@ -215,6 +217,20 @@ try {
   await page.getByRole("button", { name: "Run saved analysis", exact: true }).click();
   await page.locator(".analysis-workspace .analysis-metric strong").filter({ hasText: /^1$/u }).waitFor();
   check("a repository definition reopens and explicitly runs through the checked query path");
+  await revealToolbarActions(page.locator(".analysis-workspace"), "Analysis actions");
+  const compactHeader = await page
+    .locator(".analysis-workspace > .analysis-card > .ui-bar:first-child")
+    .evaluate((element) => ({
+      height: element.clientHeight,
+      expected: Number.parseFloat(getComputedStyle(element).getPropertyValue("--bar-height")),
+      overflow: element.scrollWidth > element.clientWidth + 1,
+    }));
+  assert.ok(compactHeader.height <= compactHeader.expected + 1);
+  assert.equal(compactHeader.overflow, false);
+  await page
+    .locator(".analysis-workspace > .analysis-card > .ui-bar:first-child")
+    .screenshot({ path: join(artifacts, "analysis-header-compact.png") });
+  check("narrow analysis titles and action groups remain one row without overflow");
   await page.getByRole("button", { name: "Remove analysis", exact: true }).click();
   await page
     .getByRole("dialog", { name: "Remove analysis", exact: true })
