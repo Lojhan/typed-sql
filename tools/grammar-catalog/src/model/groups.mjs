@@ -1,6 +1,10 @@
+/** @typedef {ReturnType<typeof import('./schema.mjs').parseCatalog>} Catalog */
+/** @typedef {{id: string, entity: Catalog['entities'][string], profiles: string[]}} Membership */
+/** @typedef {{grammar: string, band: string, profiles: {id: string, profile: Catalog['profiles'][string]}[], categories: Record<string, {common: Membership[], variants: Membership[], unavailable: {profile: string, reason: string}[]}>}} CatalogGroup */
 /**
  * Preserve the union and membership of profile-specific facts, alongside shared generation inputs.
  * @param {ReturnType<typeof import('./schema.mjs').parseCatalog>} catalog
+ * @returns {CatalogGroup[]}
  */
 export function groupCatalog(catalog) {
   const groups = new Map();

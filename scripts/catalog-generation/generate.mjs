@@ -3,6 +3,7 @@ import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { builtinGenerators } from "../../tools/grammar-catalog/src/generate/index.mjs";
+import { groupCatalog } from "../../tools/grammar-catalog/src/model/groups.mjs";
 import { CATALOG_SCHEMA_DOCUMENT } from "../../tools/grammar-catalog/src/model/schema.mjs";
 import { normalizedCorpus } from "./model.mjs";
 import { generationReport, renderGenerationReport } from "./report.mjs";
@@ -37,6 +38,7 @@ export async function generateCatalogs(corpus, options = {}) {
   const ownershipKey = (file) => file.replace(/[A-Z]/gu, (character) => character.toLowerCase());
   for (const path of reports) owners.set(ownershipKey(workspacePath(root, path)), "$report");
   const { catalog, groups } = normalizedCorpus(corpus, registry);
+  const semanticGroups = groupCatalog(catalog);
   inputs.model = {
     schemaDigest: catalog.schemaDigest,
     normalizerDigest: catalog.normalizerDigest,
@@ -65,6 +67,7 @@ export async function generateCatalogs(corpus, options = {}) {
       id,
       catalog,
       groups: groups.filter((group) => group.dialect === id),
+      semanticGroups: semanticGroups.filter((group) => group.grammar === id),
       header,
       supplemental,
       emit: (path, text) => emit(id, path, text),

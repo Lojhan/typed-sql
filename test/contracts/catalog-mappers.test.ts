@@ -124,7 +124,7 @@ await describe("grammar-independent catalog mapper registrations", async () => {
     if (!group) throw new Error("SQLite native contexts are missing");
     strict.equal(group.contexts.length, 4);
     strict.ok(group.categories.functions!.rows!.length >= 140);
-    strict.ok(group.categories.functions!.rows!.some((row: { name: string }) => row.name === "abs"));
+    strict.ok(group.categories.functions!.rows!.some((row) => row.name === "abs"));
     // Normalization changes the shared view, never the archived native capture.
     const rows = Object.values(corpus.rows) as { name: string; arity?: unknown }[];
     strict.ok(rows.some((row) => row.name === "abs" && typeof row.arity === "string"));

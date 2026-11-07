@@ -50,8 +50,10 @@ collation properties, settings and extension versions. Missing properties stay e
 Keyword case folding belongs to each owner. MySQL HELP topics do not establish canonical native
 type identities, and a negative DuckDB implicit-cast observation does not establish an explicit
 cast. Syntax topic names do not establish productions. The native payload remains loss-preserving.
-The compatibility emitters still consume native projections during migration; typed facets alone
-do not establish complete semantic generation or qualification.
+PostgreSQL routine/type/cast generation and DuckDB cast generation consume these validated facts
+directly. Other projections still consume native payloads during migration; typed facets alone
+do not establish complete semantic generation or qualification. Required projection facts reject
+unknown values and unsupported type expressions instead of falling back to an opaque native row.
 
 ## Offline generation
 

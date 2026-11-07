@@ -1,4 +1,5 @@
 import { hash } from "../model/canonical.mjs";
+import { commonEntities, nativeIdentity } from "../model/projection.mjs";
 import { literal, ordered, rowsLiteral } from "./common.mjs";
 import { duckdbCombinations, duckdbSignature } from "./facts/duckdb.mjs";
 
@@ -18,7 +19,7 @@ export function scalarTypeName(source, aliases, spellings) {
   return name;
 }
 
-export async function generateCatalog({ groups, input, emit, header }) {
+export async function generateCatalog({ groups, semanticGroups, input, emit, header }) {
   const policy = await input("policy", "grammar/duckdb/catalog/policy.json");
   if (policy.formatVersion !== 1) throw new Error("Unsupported duckdb generation policy");
   const duckTypeName = (source) => scalarTypeName(source, duckAliases, policy.typeSpellings);
@@ -37,6 +38,9 @@ export async function generateCatalog({ groups, input, emit, header }) {
   await emit("packages/duckdb/src/catalog/generated/registry.ts", duckRegistry);
   const duckAliases = {};
   for (const group of duckdb) {
+    const semantic = semanticGroups.find((value) => value.band === group.version);
+    if (!semantic) throw new Error(`Missing DuckDB semantic profile: ${group.version}`);
+    const types = commonEntities(semantic, "types");
     const combinations = await input(
       `combinations/${group.version}`,
       `grammar/duckdb/catalog/combinations-${group.version}.json`,
@@ -44,7 +48,11 @@ export async function generateCatalog({ groups, input, emit, header }) {
     const nativeName = (name) => {
       const descriptor = combinations.aliases[name];
       if (!descriptor || combinations.unavailable.some((entry) => entry.name === name)) {
-        const logical = group.categories.types.rows.find((entry) => entry.name === name)?.logical_type;
+        const descriptor = types.find((entry) => entry.name === name)?.semantic;
+        const logical =
+          descriptor?.kind === "type" && descriptor.canonical.kind === "native"
+            ? descriptor.canonical.identity
+            : undefined;
         return ["NULL", "ANY", "INVALID", "UNKNOWN"].includes(logical) ? logical : duckTypeName(name);
       }
       const spelling = descriptor.replace(/\(.*\)$/u, "");
@@ -67,12 +75,18 @@ export async function generateCatalog({ groups, input, emit, header }) {
     const signatures = ordered(
       group.categories.functions.rows.map((row) => duckdbSignature(row, duckPolicy.macroSignatures)),
     );
-    const typeNames = new Map(group.categories.types.rows.map((row) => [row.name, nativeName(row.name)]));
+    const typeNames = new Map(types.map((entity) => [entity.name, nativeName(entity.name)]));
     const casts = ordered(
-      group.categories.casts.rows
-        .filter((row) => row.implicit)
+      commonEntities(semantic, "casts")
+        .filter(
+          (entity) =>
+            entity.semantic.kind === "cast" &&
+            entity.semantic.context.status === "known" &&
+            entity.semantic.context.value === "implicit",
+        )
         .map((row) => {
-          const [source, target] = row.name.split(" -> ");
+          const source = nativeIdentity(row.semantic.from, row.name),
+            target = nativeIdentity(row.semantic.to, row.name);
           if (!typeNames.has(source) || !typeNames.has(target))
             throw new Error(`Missing DuckDB cast endpoint: ${row.name}`);
           return [typeNames.get(source), typeNames.get(target)];

@@ -114,7 +114,14 @@ remain unknown, including MySQL HELP type identities, explicit casts from negati
 observations, installation state and syntax productions. Case folding stays owner-controlled.
 All 55 contract files pass after the initial integration; final focused/type/quality checks also pass after
 the owner-controlled case-folding refinement. Runtime catalog outputs remain byte-identical.
-The compatibility emitters have not yet been migrated from native payloads to these typed facets.
+PostgreSQL routine/type/cast emission now consumes validated model entities directly. DuckDB cast
+emission consumes typed endpoints/contexts, and its type lookup uses typed canonical identities.
+Required type/cast facts fail closed without falling back to native payloads. Legacy PostgreSQL
+helper exports delegate to the same semantic projectors rather than maintaining a second mapping.
+Grouping/projection contracts expose statically typed entities instead of implicit `any` arrays.
+Other emitter projections still require migration; full projection-loss accounting remains open.
+All generated runtime catalogs are byte-identical. All 56 contract files passed; final focused
+checks cover required-fact removal and forged native payloads after grouping type annotations.
 
 - Native lanes for SQL Server 14/15/16/17 and PostgreSQL 14/16/17/18 passed on
   checkpoint `048d22ed` in CI run `42388317055`; migration run `42388316819` passed.

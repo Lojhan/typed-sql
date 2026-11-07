@@ -1,14 +1,14 @@
 import { createHash } from "node:crypto";
-import { postgresCasts, postgresTypes } from "./facts/postgres.mjs";
+import { commonEntities } from "../model/projection.mjs";
+import { postgresSemanticCasts, postgresSemanticTypes } from "./facts/postgres-semantic.mjs";
 
-export async function generateCore({ source, ledger, groups, emit, header }) {
+export async function generateCore({ source, ledger, semanticGroups, emit, header }) {
   const majors = [...ledger.dialects.postgres.stable, ...ledger.dialects.postgres.canary].map(
     ({ minimum, maximum }) => {
       if (minimum !== maximum) throw new Error("PostgreSQL catalog targets require an exact major");
       return Number(minimum);
     },
   );
-  const upstream = new Map(groups.map((group) => [Number(group.version), group]));
 
   function stable(value) {
     if (Array.isArray(value)) return value.map(stable);
@@ -89,16 +89,14 @@ export async function generateCore({ source, ledger, groups, emit, header }) {
   }
 
   function render(source, major) {
-    const nativeTypes = upstream.get(major)?.categories.types;
-    if (nativeTypes?.status !== "observed") throw new Error(`Missing native type evidence for PostgreSQL ${major}`);
-    const types = postgresTypes(
-      nativeTypes.rows,
+    const semantic = semanticGroups.find((group) => Number(group.band) === major);
+    if (!semantic) throw new Error(`Missing PostgreSQL semantic profile: ${major}`);
+    const types = postgresSemanticTypes(
+      commonEntities(semantic, "types"),
       source.types.filter((entry) => active(entry, major)).map(stripVersion),
       source.typeCategories,
     );
-    const evidence = upstream.get(major)?.categories.casts;
-    if (evidence?.status !== "observed") throw new Error(`Missing native cast evidence for PostgreSQL ${major}`);
-    const casts = postgresCasts(evidence.rows, types);
+    const casts = postgresSemanticCasts(commonEntities(semantic, "casts"), types);
     validateCasts(casts, source.types);
     const selected = stable({
       formatVersion: 1,

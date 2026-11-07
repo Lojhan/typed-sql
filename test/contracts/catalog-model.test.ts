@@ -91,10 +91,12 @@ await describe("validated provenance-rich catalog model", async () => {
   await it("keeps common and profile-specific facts with their memberships instead of dropping disagreements", () => {
     const model = createCatalog([capture(), capture("1.2.4", true)], registry, options);
     const [group] = groupCatalog(model);
+    if (!group || !group.categories.functions || !group.categories.types)
+      throw new Error("Fixture categories are missing");
     strict.equal(group.categories.functions.common.length, 1);
     strict.equal(group.categories.functions.variants.length, 1);
-    strict.equal(group.categories.functions.common[0].profiles.length, 2);
-    strict.equal(group.categories.functions.variants[0].profiles.length, 1);
+    strict.equal(group.categories.functions.common[0]?.profiles.length, 2);
+    strict.equal(group.categories.functions.variants[0]?.profiles.length, 1);
     strict.equal(group.categories.types.unavailable.length, 2);
     strict.equal(Object.keys(model.entities).length, 2);
     strict.throws(() => createCatalog([capture(), capture()], registry, options), /Duplicate catalog profile/u);
