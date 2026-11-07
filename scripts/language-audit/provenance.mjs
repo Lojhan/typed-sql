@@ -32,10 +32,12 @@ async function extractorManifest() {
     runtime: { name: "node", version: process.version },
   };
 }
-/** Attach only after all inventory mutations. Recognition is a separate qualification channel. */
-export async function attachNativeProvenance(input) {
+/** Attach only after all inventory mutations. Recognition is a separate qualification channel.
+ * @param {ReturnType<typeof import('../../tools/grammar-catalog/src/registry.mjs').createMapperRegistry> | undefined} [registry]
+ */
+export async function attachNativeProvenance(input, registry = undefined) {
   input.provenance = createCaptureProvenance(
-    { grammar: input.dialect, target: reviewTarget(input), categories: input.categories },
+    { grammar: input.dialect, target: reviewTarget(input, registry), categories: input.categories },
     await extractorManifest(),
   );
   return input.provenance;

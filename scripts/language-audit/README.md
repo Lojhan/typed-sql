@@ -6,6 +6,14 @@ The public grammar contracts and database adapters remain unchanged.
 
 ## Grammar contributions
 
+`discovery/index.mjs` composes native acquisition owners. The shared collector asks its registered
+owner for queries, row normalization, scope, limitations and derived inventories. Grammar IDs and
+the compatibility query map are derived from registrations. An injected discovery registry can
+inherit/override acquisition and routine extraction, then use the same provenance, corpus, review
+and diff helpers. Invalid plans or derived inventories fail before a capture is exposed.
+DuckDB's derived cast probing retains known unsupported type/driver descriptors as gaps;
+connection and unexpected driver failures propagate.
+
 `grammars/index.ts` composes registered audit adapters. Each owner supplies version selection,
 analysis construction, tokenization and invocation planning. `audit.ts` and `recognition.ts`
 use those contracts without selecting SQL behavior by grammar name. The registry accepts new

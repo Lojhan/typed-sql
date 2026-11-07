@@ -141,6 +141,17 @@ checks cover required-fact removal and forged native payloads after grouping typ
   catalog bytes are unchanged. This does not complete vendor locks, archive retention or the
   entire acquisition dependency closure.
 
+Native acquisition now uses registered owners for queries, row transforms, scope, limitations and
+derived inventories. Shared collection has no engine-name cases or closed grammar allowlist.
+Provenance, review and diff helpers accept the same injected registry. An inherited graph test
+exercises discovery through bound provenance, corpus import, normalized model and review.
+All 27 built-in query strings are byte-identical to their previous definitions. Independent old/new
+DuckDB 2.0 collections on fresh instances produced the same full capture hash
+(`e7f87506b96d01f1f1bac4c139f89f5dc48c42a9378bbafd409bbab6e86185cb`).
+Unexpected connection failures during derived probing now propagate; known unsupported native
+types/driver descriptors remain unprobeable evidence. Typecheck, quality and all 58 contract files pass locally.
+
+
 ## Requirements still open
 
 

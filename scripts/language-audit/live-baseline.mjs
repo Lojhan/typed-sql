@@ -38,8 +38,9 @@ export function summarizeLive(input, registry = undefined) {
   };
 }
 
-export function reviewLive(input, baseline) {
-  const summary = summarizeLive(input);
+/** @param {ReturnType<typeof import('../../tools/grammar-catalog/src/registry.mjs').createMapperRegistry> | undefined} [registry] */
+export function reviewLive(input, baseline, registry = undefined) {
+  const summary = summarizeLive(input, registry);
   const key = hash({ dialect: summary.dialect, target: summary.target });
   if (input.recognition?.counts?.["native-valid-type-mismatch"] > 0)
     return { status: "invalid-inference", key, reason: "Grammar and native type descriptions disagree", summary };
@@ -61,13 +62,13 @@ export function reviewLive(input, baseline) {
   return { status: changes.length ? "review-required" : "match", key, changedCategories: changes, summary };
 }
 
-export async function reviewLiveBaseline(input) {
-  return reviewLive(input, JSON.parse(await readFile(path, "utf8")));
+export async function reviewLiveBaseline(input, registry = undefined) {
+  return reviewLive(input, JSON.parse(await readFile(path, "utf8")), registry);
 }
 
-export async function acceptLiveBaseline(input) {
+export async function acceptLiveBaseline(input, registry = undefined) {
   const baseline = JSON.parse(await readFile(path, "utf8"));
-  const review = reviewLive(input, baseline);
+  const review = reviewLive(input, baseline, registry);
   if (review.status === "invalid-inference")
     throw new Error("Native type disagreements cannot be accepted as a baseline");
   baseline.targets[review.key] = review.summary;
@@ -78,13 +79,13 @@ export async function acceptLiveBaseline(input) {
   console.log(`${input.dialect} ${input.target.version}: recorded live inventory ${review.key}`);
 }
 
-export async function recordNativeFindings(input, recognition) {
+export async function recordNativeFindings(input, recognition, registry = undefined) {
   if (!recognition?.observations) return;
   if (hash(recognition.observations) !== input.recognition?.fingerprint)
     throw new Error("Native recognition fingerprint does not match the capture");
   const file = new URL("../../test/fixtures/language-audit/native-findings.json", import.meta.url);
   const data = expandFindings(JSON.parse(await readFile(file, "utf8")));
-  const target = liveTarget(input);
+  const target = liveTarget(input, registry);
   const key = hash({ dialect: input.dialect, target });
   const observations = recognition.observations.filter((row) =>
     ["native-valid-grammar-diagnostic", "native-valid-grammar-unknown"].includes(row.status),
