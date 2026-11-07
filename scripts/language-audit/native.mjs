@@ -1,6 +1,6 @@
-import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { attachNativeProvenance } from "./provenance.mjs";
+import { recognitionRows } from "./recognition-reference.mjs";
 
 const postgresTypeNames = new WeakMap();
 
@@ -156,29 +156,22 @@ export function recognitionSummary(recognition) {
   return { ...metadata, counts };
 }
 
-export async function enrichRecognition(input, prepare, server) {
+export async function enrichRecognition(input, prepare, server, options = {}) {
   await attachNativeProvenance(input);
   const { tsImport } = await import("tsx/esm/api");
   const { recognizeLive } = await tsImport("./recognition.ts", {
     parentURL: import.meta.url,
     tsconfig: fileURLToPath(new URL("tsconfig.json", import.meta.url)),
   });
-  const functions = input.categories.functions;
-  let rows = functions?.rows ?? [];
-  if (!rows.length || functions.scope === "system-objects-only") {
-    const version =
-      input.dialect === "mysql"
-        ? input.target.version.split(".").slice(0, 2).join(".")
-        : input.target.version.split(".")[0];
-    const reference = JSON.parse(
-      await readFile(
-        new URL(`../../test/fixtures/language-audit/${input.dialect}-${version}.json`, import.meta.url),
-        "utf8",
-      ),
-    );
-    rows = [...rows, ...reference.categories.functions.rows];
-  }
-  const recognition = await recognizeLive(input.dialect, input.target.version, rows, prepare, server);
+  const rows = await recognitionRows(input, options.references);
+  const recognition = await recognizeLive(
+    input.dialect,
+    input.target.version,
+    rows,
+    prepare,
+    server,
+    options.recognition,
+  );
   input.recognition = recognitionSummary(recognition);
   return recognition;
 }

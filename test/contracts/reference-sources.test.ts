@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it, strict } from "poku";
 import { hash, inventory } from "../../scripts/language-audit/inventory.mjs";
+import { recognitionRows } from "../../scripts/language-audit/recognition-reference.mjs";
 import type { ReferenceSource } from "../../scripts/language-audit/reference-sources/contracts.js";
 import { builtinReferenceSources } from "../../scripts/language-audit/reference-sources/index.js";
 import { createReferenceSourceRegistry } from "../../scripts/language-audit/reference-sources/registry.js";
@@ -32,6 +33,50 @@ const source: ReferenceSource = {
 };
 
 await describe("registered documentation reference sources", async () => {
+  await it("uses registered version bands for native recognition fallback and inherited contributions", async () => {
+    for (const [dialect, nativeVersion, version] of [
+      ["postgres", "14.24", "14"],
+      ["mysql", "8.4.11", "8.4"],
+      ["sqlserver", "17.0.5035.5", "17"],
+    ]) {
+      const expected = JSON.parse(
+        await readFile(new URL(`../fixtures/language-audit/${dialect}-${version}.json`, import.meta.url), "utf8"),
+      );
+      const rows = await recognitionRows({ dialect, target: { version: nativeVersion }, categories: {} });
+      strict.deepEqual(rows, expected.categories.functions.rows);
+    }
+    const mappers = createMapperRegistry([{ id: "vendor/base", versionBand: () => "family" }], {
+      methods: ["versionBand"],
+    }).extend([{ id: "vendor/graph", extends: "vendor/base" }]);
+    const input = {
+      dialect: "vendor/graph",
+      target: { version: "native-build" },
+      categories: { functions: { scope: "system-objects-only", rows: [{ name: "system_object" }] } },
+    };
+    const reference = async (dialect: string, version: string) => ({
+      dialect,
+      target: { version },
+      categories: { functions: { rows: [{ name: "graph_function" }] } },
+    });
+    strict.deepEqual(await recognitionRows(input, { mappers, reference }), [
+      { name: "system_object" },
+      { name: "graph_function" },
+    ]);
+    const retained = { ...input, categories: { functions: { scope: "engine", rows: [{ name: "native_function" }] } } };
+    strict.strictEqual(
+      await recognitionRows(retained, {
+        mappers,
+        reference: async () => {
+          throw new Error("Unexpected fallback");
+        },
+      }),
+      retained.categories.functions.rows,
+    );
+    await strict.rejects(
+      recognitionRows(input, { mappers, reference: async () => reference("other", "family") }),
+      /identity/u,
+    );
+  });
   await it("preserves the reviewed reference envelopes for every registered documentation target", async () => {
     const directory = await mkdtemp(join(tmpdir(), "typed-sql-builtin-references-"));
     try {

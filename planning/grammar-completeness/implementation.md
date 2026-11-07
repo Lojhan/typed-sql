@@ -583,6 +583,20 @@ SQL Server parser-source checkpoint:
 - Signature/type rule sourcing, semantic action interpretation, builtin generation and independent
   native qualification remain open together with all full requirements below.
 
+Recognition fallback ownership and MySQL semantic findings:
+
+- Shared live enrichment now obtains fallback reference bands from the registered mapper and
+  accepts contributed reference/recognition registries. The remaining MySQL-ID version-width
+  branch is removed. Builtin reference rows are preserved; inherited `vendor/graph` fallback and
+  retained native inventories are exercised without engine dispatch.
+- MySQL source inspection exposes existing coarse numeric-policy problems: `ABS` inherits the
+  numeric hybrid rule, while the manual catalog assigns it the shared DOUBLE rule. `Item_dec_func`
+  marks its results nullable, whereas the current shared numeric family only propagates argument
+  nullability. These require source-backed family migration and independent native regression
+  witnesses; they are not claimed fixed by source acquisition. Local MySQL/container services are
+  unavailable, but required native CI lanes remain available for qualification.
+- Focused reference contracts, all 67 contract files, repository typecheck and quality pass.
+
 ## Requirements still open
 
 
