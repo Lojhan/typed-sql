@@ -1,22 +1,27 @@
-import { type DragEvent, type ReactNode, useRef, useState } from "react";
+import { type DragEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { inspectionTarget } from "./explorer-model";
 import { fileIcon, Icon } from "./icon";
 import { type Edge, FILE_MIME, isTool, type Layout, type Pane, title } from "./layout";
+import { useMenu } from "./menu";
 export function Resize({
   axis,
   onChange,
   label,
+  value = 50,
 }: {
   axis: "horizontal" | "vertical";
   onChange: (delta: number, size: number) => void;
   label: string;
+  value?: number;
 }) {
   const element = useRef<HTMLHRElement>(null);
+  const cleanup = useRef<() => void>(() => {});
+  useEffect(() => () => cleanup.current(), []);
   return (
     <hr
       ref={element}
       className={`resize-handle ${axis}`}
-      aria-valuenow={50}
+      aria-valuenow={value}
       aria-valuemin={0}
       aria-valuemax={100}
       tabIndex={0}
@@ -35,12 +40,19 @@ export function Resize({
         }
       }}
       onPointerDown={(event) => {
+        if (event.button !== 0) return;
         event.preventDefault();
+        cleanup.current();
+        const pointerId = event.pointerId;
+        const handle = event.currentTarget;
+        // Capture real gestures so releasing outside the handle/window still ends the drag.
+        if (event.nativeEvent.isTrusted) handle.setPointerCapture(pointerId);
         const start = axis === "horizontal" ? event.clientX : event.clientY;
         const parent = element.current?.parentElement?.getBoundingClientRect();
         const size = axis === "horizontal" ? (parent?.width ?? 1000) : (parent?.height ?? 600);
         let last = start;
         const move = (next: PointerEvent) => {
+          if (next.pointerId !== pointerId) return;
           const current = axis === "horizontal" ? next.clientX : next.clientY;
           onChange(current - last, size);
           last = current;
@@ -48,11 +60,20 @@ export function Resize({
         const stop = () => {
           window.removeEventListener("pointermove", move);
           window.removeEventListener("pointerup", stop);
+          window.removeEventListener("pointercancel", stop);
+          window.removeEventListener("blur", stop);
+          handle.removeEventListener("lostpointercapture", stop);
+          if (handle.hasPointerCapture(pointerId)) handle.releasePointerCapture(pointerId);
           document.body.classList.remove("is-resizing");
+          cleanup.current = () => {};
         };
+        cleanup.current = stop;
         document.body.classList.add("is-resizing");
         window.addEventListener("pointermove", move);
         window.addEventListener("pointerup", stop, { once: true });
+        window.addEventListener("pointercancel", stop, { once: true });
+        window.addEventListener("blur", stop, { once: true });
+        handle.addEventListener("lostpointercapture", stop, { once: true });
       }}
     />
   );
@@ -74,6 +95,8 @@ export function PaneLayout(props: Props) {
   const root = useRef<HTMLDivElement>(null);
   const [edge, setEdge] = useState<Edge | undefined>();
   const [menu, setMenu] = useState(false);
+  const splitButton = useRef<HTMLButtonElement>(null);
+  const menuElement = useMenu(node.kind === "pane" && menu, () => setMenu(false), splitButton);
   if (node.kind === "split")
     return (
       <div className={`pane-split ${node.axis}`}>
@@ -83,6 +106,7 @@ export function PaneLayout(props: Props) {
         <Resize
           axis={node.axis}
           label="Resize editor split"
+          value={Math.round(node.ratio * 100)}
           onChange={(delta, size) => props.onRatio(node.id, delta, size)}
         />
         <div style={{ flex: `${1 - node.ratio} 1 0` }}>
@@ -187,16 +211,20 @@ export function PaneLayout(props: Props) {
             className="icon-button"
             title="Split editor"
             aria-label="Split editor"
+            aria-haspopup="menu"
+            aria-expanded={menu}
+            ref={splitButton}
             onClick={() => setMenu((value) => !value)}
           >
             <Icon name="split" />
           </button>
           {menu ? (
-            <div className="split-menu" role="menu">
+            <div className="split-menu" role="menu" aria-label="Split editor" ref={menuElement}>
               {(["left", "right", "top", "bottom"] as const).map((direction) => (
                 <button
                   type="button"
                   role="menuitem"
+                  tabIndex={-1}
                   key={direction}
                   onClick={() => {
                     props.onSplit(node.id, direction);

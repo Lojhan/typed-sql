@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { fileIcon, Icon } from "./icon";
 import { FILE_MIME, fileTree, type TreeNode } from "./layout";
+import { useMenu } from "./menu";
 
 interface Draft {
   parent: string;
@@ -33,6 +34,7 @@ export function WorkspaceFileTree({
     [menu, setMenu] = useState<{ x: number; y: number; parent: string } | null>(null),
     [busy, setBusy] = useState(false);
   const input = useRef<HTMLInputElement>(null);
+  const menuElement = useMenu(menu !== null, () => setMenu(null));
   const seenCreation = useRef("");
   useEffect(() => {
     if (!creation || seenCreation.current === creation.id) return;
@@ -52,16 +54,6 @@ export function WorkspaceFileTree({
     const end = current.folder ? current.name.length : current.name.lastIndexOf(".");
     input.current?.setSelectionRange(0, end > 0 ? end : current.name.length);
   }, [editIdentity]);
-  useEffect(() => {
-    if (!menu) return;
-    const close = () => setMenu(null);
-    window.addEventListener("pointerdown", close);
-    window.addEventListener("blur", close);
-    return () => {
-      window.removeEventListener("pointerdown", close);
-      window.removeEventListener("blur", close);
-    };
-  }, [menu]);
   const begin = (folder: boolean, where = parent) => {
     setCollapsed(false);
     setParent(where);
@@ -241,24 +233,15 @@ export function WorkspaceFileTree({
       {menu ? (
         <div
           className="tree-menu"
+          ref={menuElement}
           role="menu"
           style={{ left: Math.min(menu.x, window.innerWidth - 170), top: Math.min(menu.y, window.innerHeight - 90) }}
         >
-          <button
-            type="button"
-            role="menuitem"
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={() => begin(false, menu.parent)}
-          >
+          <button type="button" role="menuitem" tabIndex={-1} onClick={() => begin(false, menu.parent)}>
             <Icon name="new-file" />
             New File…
           </button>
-          <button
-            type="button"
-            role="menuitem"
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={() => begin(true, menu.parent)}
-          >
+          <button type="button" role="menuitem" tabIndex={-1} onClick={() => begin(true, menu.parent)}>
             <Icon name="new-folder" />
             New Folder…
           </button>
