@@ -22,6 +22,7 @@
       "!!grammar/catalog/format.schema.json",
       "!!grammar/duckdb/catalog/combinations-*.json",
       "!!packages/postgres/src/catalog/generated",
+      "!!packages/mysql/src/catalog/generated",
       "!!packages/duckdb/src/catalog/generated",
       "!!packages/sqlite/src/catalog/generated",
       "!!packages/sqlserver/src/catalog/generated",

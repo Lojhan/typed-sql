@@ -169,6 +169,11 @@ await describe("validated provenance-rich catalog model", async () => {
       normalizerDigest: hash("test"),
     });
     strict.equal(Object.keys(model.profiles).length, Object.keys(corpus.targets).length);
+    const pragmas = Object.values(model.entities).filter(
+      (entry) => entry.routine?.nativeKind.status === "known" && entry.routine.nativeKind.value === "pragma",
+    );
+    strict.ok(pragmas.length > 0);
+    strict.ok(pragmas.every((entry) => entry.routine!.result.returnsSet.status === "unknown"));
     for (const entry of Object.values(corpus.targets) as {
       dialect: string;
       target: Record<string, unknown>;

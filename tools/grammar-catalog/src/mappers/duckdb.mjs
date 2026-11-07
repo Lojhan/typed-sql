@@ -2,6 +2,11 @@ import { identityFields, numericVersionBand } from "../registry.mjs";
 
 export const duckdbMapper = Object.freeze({
   id: "duckdb",
+  routineEvidence(signature) {
+    return signature.kind === "pragma"
+      ? { returnsSet: { status: "unknown", reason: "PRAGMA invocation/result shape requires dedicated evidence" } }
+      : {};
+  },
   versionBand: numericVersionBand(3),
   normalizeRow: (_category, row) => row,
   parameterMode: (mode) => ({ positional: "input", named: "named-only" })[mode] ?? "unknown",

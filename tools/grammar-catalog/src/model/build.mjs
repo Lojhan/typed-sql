@@ -24,10 +24,14 @@ function position(value) {
 
 /** Adapters classify native modes/types; an unfamiliar mode cannot become a required input optimistically. */
 export function describeRoutine(signature, mapper) {
+  const evidence = mapper.routineEvidence?.(signature) ?? {};
   return {
     identity: signature.identity,
     identityKnowledge: signature.identityKnowledge,
-    namespace: known(signature.namespace),
+    namespace:
+      signature.namespace === null && mapper.namespacePolicy !== "global"
+        ? unknown("Native namespace is unavailable")
+        : known(signature.namespace),
     nativeKind: optional(signature.kind, "Native routine kind is unavailable"),
     parameters:
       signature.parameters === null
@@ -69,7 +73,7 @@ export function describeRoutine(signature, mapper) {
                 };
               }),
             ),
-      returnsSet: optional(signature.result.returnsSet, "Set-returning behavior is unverified"),
+      returnsSet: evidence.returnsSet ?? optional(signature.result.returnsSet, "Set-returning behavior is unverified"),
       nullable: optional(signature.result.nullable, "Result nullability is unverified"),
     },
     invocation: unknown("Invocation syntax requires source production evidence"),

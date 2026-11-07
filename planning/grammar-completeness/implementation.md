@@ -28,6 +28,19 @@ never grammar-name branches. Engine and extension meanings belong to their contr
   payloads, formal/default/output metadata and unresolved provenance are preserved.
 - Profile-specific variants and unavailable evidence retain explicit membership. Generated
   schema and normalizer/input digests participate in the generation evidence.
+- Moved catalog emission behind registered grammar owners. Shared generation has no grammar-name
+  dispatch, validates all output ownership before writes, stages replacements and writes reports
+  last. Per-output hashes and an artifact fingerprint record executable projection bytes.
+- Consolidated legacy PostgreSQL/MySQL generators into the pure Node offline pipeline. Build and
+  typecheck generate before compilation. Required endpoints derive from the feature ledger.
+- Removed DuckDB's generated-parser bootstrap dependency by interpreting captured aliases in its
+  generator. PostgreSQL/MySQL core catalogs now use statically checked object literals instead
+  of unchecked assertions or runtime JSON parsing. This is relocation/consolidation, not claimed
+  removal of maintained semantic policy.
+- Added a clean-room generation/check contract without grammar implementation sources or prior
+  outputs, external-emitter ownership/error contracts, and executed catalog revision checks.
+- SQLite global namespace knowledge is explicit mapper policy. DuckDB pragma set-return knowledge
+  remains unknown where the native evidence does not establish it.
 
 ## Validation observed
 
@@ -50,6 +63,11 @@ never grammar-name branches. Engine and extension meanings belong to their contr
   compiles under the separately installed Ajv 8.20.0 validator.
 - After the model integration, `pnpm typecheck`, `pnpm quality` and all 50 repository contract
   test files pass locally, including package graph and isolated packed consumers/editors.
+- Model checkpoint `6ef2a2bd` passed CI run `42382870026` and migration integration run
+  `42382870015`.
+- After registered emission and offline CLI consolidation, typecheck, quality, all 52 contract
+  files and PostgreSQL/MySQL package tests (including coverage gates) pass. The performance gate
+  also passes in isolation. These are local results; the next pushed head needs its own CI.
 
 ## Requirements still open
 
@@ -67,7 +85,8 @@ never grammar-name branches. Engine and extension meanings belong to their contr
 7. Extension contribution captures/qualification and third-party packed-consumer proof.
 8. Explicit analysis entrypoints/preloading and documented breaking root API transition.
 9. Offline deterministic build/typecheck bootstrap, disposable executable generated code and
-   correct compiled npm/editor artifacts.
+   correct compiled npm/editor artifacts. The pure Node path and clean-room generation proof are
+   implemented; deleting tracked outputs and qualifying the complete build/distribution remain open.
 10. Coverage ledger migration, current missing-feature documentation and public qualified scope.
 11. Full repository/native/packed/editor/performance verification, PR review resolution and
     final requirement-by-requirement completion audit.

@@ -12,7 +12,7 @@
     "node": ">=22.11"
   },
   "scripts": {
-    "build": "node scripts/clean-build.mjs && node scripts/require-typescript-7.mjs && tsc -b && pnpm editor:sdk:build:all && pnpm --filter ./editors/vscode build:bundle",
+    "build": "node scripts/clean-build.mjs && node scripts/require-typescript-7.mjs && node scripts/catalog-generation/run.mjs generate && tsc -b && pnpm editor:sdk:build:all && pnpm --filter ./editors/vscode build:bundle",
     "api:check": "poku test/contracts/public-api.test.ts --reporter=compact --enforce",
     "changeset": "changeset",
     "verify": "pnpm quality && pnpm test && pnpm build && pnpm docs:build && pnpm performance:gate",
@@ -72,7 +72,7 @@
     "release:check": "pnpm verify && pnpm --filter @typed-sql/e2e-packed e2e && pnpm audit --audit-level high",
     "coverage": "pnpm --filter @typed-sql/core coverage && pnpm --filter @typed-sql/ast coverage && pnpm --filter @typed-sql/schema coverage && pnpm --filter @typed-sql/config coverage && pnpm --filter @typed-sql/compiler coverage && pnpm --filter @typed-sql/conformance coverage && pnpm --filter @typed-sql/opentelemetry coverage && pnpm --filter @typed-sql/postgres coverage && pnpm --filter @typed-sql/mysql coverage && pnpm --filter @typed-sql/sqlite coverage && pnpm --filter @typed-sql/sqlserver coverage && pnpm --filter @typed-sql/duckdb coverage",
     "test:watch": "poku --config=poku.config.js --watch",
-    "typecheck": "node scripts/require-typescript-7.mjs && tsc -b --pretty false",
+    "typecheck": "node scripts/require-typescript-7.mjs && node scripts/catalog-generation/run.mjs generate && tsc -b --pretty false",
     "version-packages": "node scripts/version-packages.mjs",
     "editor:sdk:build": "node scripts/build-editor-sdk.mjs",
     "editor:sdk:build:all": "node scripts/build-editor-sdk.mjs --all",
@@ -81,10 +81,10 @@
     "docs:demos:check": "node --import tsx scripts/generate-readme-demos.ts --check",
     "e2e:sqlite-wasm": "pnpm typecheck && node --import tsx e2e/sqlite-wasm/test.mjs",
     "e2e:duckdb": "pnpm typecheck && pnpm --filter @typed-sql/e2e-duckdb e2e",
-    "catalog:generate": "pnpm postgres:catalog:generate && pnpm mysql:catalog:generate && tsx --tsconfig scripts/language-audit/tsconfig.json scripts/catalog-generation/run.ts generate",
-    "catalog:check": "pnpm postgres:catalog:check && pnpm mysql:catalog:check && tsx --tsconfig scripts/language-audit/tsconfig.json scripts/catalog-generation/run.ts check",
-    "catalog:import": "tsx --tsconfig scripts/language-audit/tsconfig.json scripts/catalog-generation/run.ts import",
-    "catalog:check-input": "tsx --tsconfig scripts/language-audit/tsconfig.json scripts/catalog-generation/run.ts check-input"
+    "catalog:generate": "node scripts/catalog-generation/run.mjs generate",
+    "catalog:check": "node scripts/catalog-generation/run.mjs check",
+    "catalog:import": "node scripts/catalog-generation/run.mjs import",
+    "catalog:check-input": "node scripts/catalog-generation/run.mjs check-input"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.3",

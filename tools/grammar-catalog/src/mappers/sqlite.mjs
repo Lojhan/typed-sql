@@ -4,6 +4,7 @@ const numericFields = Object.freeze({ functions: ["arity", "builtin", "flags"], 
 
 export const sqliteMapper = Object.freeze({
   id: "sqlite",
+  namespacePolicy: "global",
   versionBand: numericVersionBand(3),
   parameterMode: (mode) => (mode === "positional" ? "input" : "unknown"),
   entityIdentity: identityFields({ keywords: ["name"], types: ["name"], collations: ["name"], settings: ["name"] }),

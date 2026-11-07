@@ -43,3 +43,23 @@ declaration. Generation records that digest alongside schema and input digests.
 Parsing rejects invalid JSON carriers, malformed shapes, hash/reference disagreement, duplicate
 native row accounting, incomplete categories and orphaned data. These checks establish model
 integrity; they do not establish SQL behavior or support parity.
+
+## Offline generation
+
+`pnpm catalog:generate` uses the pure Node entrypoint in `scripts/catalog-generation/run.mjs`.
+Build and typecheck run it before compiling. Registered owners under `src/generate/` emit their
+grammar's catalogs; the shared runner owns input tracking, output ownership and deterministic I/O.
+The legacy PostgreSQL/MySQL commands delegate to this same pipeline. Required version endpoints
+come from the feature ledger rather than a second version list.
+
+Every emitter finishes planning before output files are staged. Duplicate or conflicting output
+paths fail before writes; check mode never writes. Output hashes and the artifact fingerprint join
+the model/input digests in the generation manifest. Each replacement is atomic and reports are
+written last; a filesystem failure during replacement can still require rerunning generation.
+
+DuckDB alias generation reads captured aliases directly, without importing the generated runtime
+parser. PostgreSQL/MySQL core outputs use statically checked object literals. A clean-room contract
+copies only generation sources and captured/policy inputs, generates without grammar implementation
+sources or existing outputs, then checks the result. Executed PostgreSQL/MySQL catalog values are
+also hashed against their declared content revisions. Executable outputs remain tracked during
+the migration; removing them requires the remaining distribution and clean-build checks.

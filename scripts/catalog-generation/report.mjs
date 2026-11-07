@@ -1,7 +1,7 @@
 import { hash } from "../language-audit/hash.mjs";
 import { CATEGORIES } from "../language-audit/inventory.mjs";
 
-export function generationReport(corpus, groups, inputs, outputs, catalog = undefined) {
+export function generationReport(corpus, groups, inputs, outputs, catalog = undefined, outputDigests = undefined) {
   return {
     formatVersion: 1,
     inputFingerprint: hash({ contexts: corpus.targets, inputs }),
@@ -19,6 +19,13 @@ export function generationReport(corpus, groups, inputs, outputs, catalog = unde
         }
       : {}),
     outputs: [...outputs].sort(),
+    ...(outputDigests
+      ? {
+          outputDigestFormat: "utf8-bytes-sha256",
+          outputDigests,
+          artifactFingerprint: hash({ input: hash({ contexts: corpus.targets, inputs }), outputDigests }),
+        }
+      : {}),
     bands: groups.map((group) => ({
       dialect: group.dialect,
       version: group.version,

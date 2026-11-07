@@ -9,6 +9,14 @@ pnpm catalog:generate
 pnpm catalog:check
 ```
 
+Generation and check run offline through a pure Node entrypoint. Build and typecheck generate
+before compilation, so prior executable catalogs are not bootstrap inputs. Registered grammar
+emitters own SQL interpretation and output shapes. The runner validates output ownership before
+writing and records each artifact's hash; `check` is read-only. The PostgreSQL/MySQL legacy
+generation commands delegate to the same pipeline. Required version endpoints come from the
+feature ledger. A clean-room contract verifies regeneration without grammar runtime source files
+or prior generated artifacts.
+
 DuckDB common-type derivations have their own reproducible capture because combination typing is
 not exposed as a catalog table. Run each SDK in a separate process:
 
@@ -64,6 +72,10 @@ also generates parameterized probes. Actual type disagreements fail review and c
 as a baseline. Unsupported calls and unavailable descriptions remain explicit verification gaps.
 DuckDB scalar arguments use typed parameters to avoid constant-NULL folding. SQL Server native
 result descriptions are also compared where the grammar supplies a concrete native type.
+
+The current native comparison still shares some type normalization with grammar implementations.
+Those lanes detect regressions but do not provide independent semantic qualification. Replacing
+that expected-side normalization and qualifying every category remain migration requirements.
 
 `grammar/catalog/generation.json` and `planning/language-audit/generation.md` record every version
 band/category, shared versus context-specific facts, unavailable evidence, generated outputs and
