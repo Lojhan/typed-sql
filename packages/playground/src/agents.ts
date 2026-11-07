@@ -52,6 +52,8 @@ export interface AgentConversation {
   readonly proposals: AgentProposal[];
   readonly toolCalls?: AgentToolCall[];
   workspaceTools?: boolean;
+  toolMode?: "off" | "ask" | "allow";
+  permissions?: { id: string; name: string; input: string }[];
   error?: string;
   stopReason?: "end_turn" | "max_tokens" | "max_turn_requests" | "refusal" | "cancelled";
 }
@@ -272,6 +274,7 @@ export interface AgentWorkspaceTools {
       readonly name: string;
       readonly state: AgentToolCall["state"];
       readonly details?: string;
+      readonly input?: string;
     }) => void | Promise<void>;
   }): Promise<{
     readonly mcpServers: readonly {
@@ -310,6 +313,7 @@ export class AgentRoutes {
   private readonly decisions = new Set<string>();
   private closed = false;
   private readonly approvals = new Map<string, { resolve: () => void; reject: (error: Error) => void }>();
+  private readonly toolApprovals = new Map<string, { conversationId: string; resolve: (allowed: boolean) => void }>();
   private persistence = Promise.resolve();
   private profiles: AgentProfile[] = [];
   private ready: Promise<void>;
@@ -440,11 +444,14 @@ export class AgentRoutes {
       }
       case "/api/agents/prompt": {
         const conversation = this.conversation(input.conversationId);
+        if (input.toolMode !== undefined && !["off", "ask", "allow"].includes(String(input.toolMode)))
+          throw new WorkspaceError("AGENT_REQUEST", "Choose an agent tool permission mode");
         if (input.workspaceTools !== undefined && typeof input.workspaceTools !== "boolean")
           throw new WorkspaceError("AGENT_REQUEST", "Workspace tools must be explicitly enabled or disabled");
-        if (input.workspaceTools === true && (conversation.toolCalls?.length ?? 0) >= 200)
+        const useTools = input.toolMode !== undefined ? input.toolMode !== "off" : input.workspaceTools === true;
+        if (useTools && (conversation.toolCalls?.length ?? 0) >= 200)
           throw new WorkspaceError("AGENT_STORAGE", "Start a new conversation after 200 workspace tool calls");
-        if (input.workspaceTools === true && this.options.workspaceTools === undefined)
+        if (useTools && this.options.workspaceTools === undefined)
           throw new WorkspaceError("AGENT_CAPABILITY", "This workspace does not expose agent tools", 409);
         if (conversation.status === "running" || this.active.has(conversation.id))
           throw new WorkspaceError("AGENT_BUSY", "Wait for or stop the current agent turn", 409);
@@ -476,7 +483,8 @@ export class AgentRoutes {
           createdAt: now(),
           order: timelineOrder(),
         });
-        conversation.workspaceTools = input.workspaceTools === true;
+        conversation.workspaceTools = useTools;
+        conversation.toolMode = input.toolMode === "ask" ? "ask" : useTools ? "allow" : "off";
         conversation.status = "running";
         delete conversation.error;
         delete conversation.stopReason;
@@ -490,7 +498,7 @@ export class AgentRoutes {
         }
         if (conversation.status !== "running" || this.closed) return structuredClone(conversation);
         // No process starts before configuration, project trust and an explicit prompt action.
-        const turn = this.turn(conversation, context, input.workspaceTools === true);
+        const turn = this.turn(conversation, context, useTools);
         this.turns.add(turn);
         void turn.catch(() => undefined).finally(() => this.turns.delete(turn));
         return structuredClone(conversation);
@@ -502,6 +510,30 @@ export class AgentRoutes {
           conversation.status = "cancelled";
           conversation.stopReason = "cancelled";
         }
+        await this.persist();
+        return structuredClone(conversation);
+      }
+      case "/api/agents/permission": {
+        const conversation = this.conversation(input.conversationId);
+        const permissionId = id(input.permissionId);
+        const pending = this.toolApprovals.get(permissionId);
+        if (
+          !pending ||
+          pending.conversationId !== conversation.id ||
+          conversation.status !== "running" ||
+          !conversation.permissions?.some((permission) => permission.id === permissionId)
+        )
+          throw new WorkspaceError("AGENT_PERMISSION", "This tool request is no longer pending", 409);
+        if (!["once", "allow", "deny"].includes(String(input.action)))
+          throw new WorkspaceError("AGENT_REQUEST", "Choose allow once, allow conversation or deny");
+        if (input.action === "allow") {
+          conversation.toolMode = "allow";
+          for (const approval of this.toolApprovals.values())
+            if (approval.conversationId === conversation.id) approval.resolve(true);
+        } else pending.resolve(input.action === "once");
+        conversation.permissions = (conversation.permissions ?? []).filter(
+          (permission) => input.action !== "allow" && permission.id !== permissionId,
+        );
         await this.persist();
         return structuredClone(conversation);
       }
@@ -788,6 +820,26 @@ export class AgentRoutes {
             }
             conversation.updatedAt = now();
             await this.persist();
+            if (event.state === "running" && conversation.toolMode === "ask") {
+              if ((conversation.permissions?.length ?? 0) >= 16)
+                throw new WorkspaceError("AGENT_PERMISSION", "Too many pending tool requests");
+              const permission = { id: callId, name, input: event.input ?? "No arguments" };
+              const waiting = new Promise<boolean>((resolve) =>
+                this.toolApprovals.set(callId, { conversationId: conversation.id, resolve }),
+              );
+              conversation.permissions ??= [];
+              conversation.permissions.push(permission);
+              await this.persist();
+              try {
+                const allowed = await untilAborted(waiting, controller.signal);
+                ensureActive();
+                if (!allowed) throw new WorkspaceError("AGENT_PERMISSION", "User denied this tool call");
+              } finally {
+                this.toolApprovals.delete(callId);
+                conversation.permissions = (conversation.permissions ?? []).filter((item) => item.id !== callId);
+                await this.persist();
+              }
+            }
           },
           propose: async (input) => {
             ensureActive();
@@ -979,6 +1031,10 @@ function parseConversation(value: unknown): AgentConversation {
     id: id(data.id),
     profileId: id(data.profileId),
     ...(typeof data.workspaceTools === "boolean" ? { workspaceTools: data.workspaceTools } : {}),
+    ...(Array.isArray(data.permissions) ? { permissions: [] } : {}),
+    ...(["off", "ask", "allow"].includes(String(data.toolMode))
+      ? { toolMode: data.toolMode as "off" | "ask" | "allow" }
+      : {}),
     title: string(data.title, "Title", 100),
     updatedAt: string(data.updatedAt, "Date", 100),
     status: ["idle", "running", "failed", "cancelled"].includes(String(data.status))

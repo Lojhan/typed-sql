@@ -507,6 +507,72 @@ await describe("local ACP agents and reviewed repository tools", async () => {
       { workspaceTools: tools },
     );
   });
+  await it("gates tools before execution, approves once or a conversation, and revokes pending requests", async () => {
+    let operations = 0,
+      invocation = 0;
+    const tools: AgentWorkspaceTools = {
+      open: async (options) => {
+        for (const name of ["typed_sql_get_schema", "typed_sql_query_analysis"]) {
+          const callId = `permission-${++invocation}`;
+          await options.onToolCall?.({ id: callId, name, state: "running", input: '{"sql":"select 1"}' });
+          operations++;
+          await options.onToolCall?.({ id: callId, name, state: "completed" });
+        }
+        return { mcpServers: [], close: async () => {} };
+      },
+    };
+    await fixture(
+      async (_root, agents) => {
+        const created = (await api(agents, "/new", { profileId: "local" })) as AgentConversation;
+        await api(agents, "/prompt", { conversationId: created.id, message: "Chart", toolMode: "ask" });
+        const first = await waitFor(agents, created.id, (value) => !!value.permissions?.length);
+        strict.equal(operations, 0);
+        await api(agents, "/permission", {
+          conversationId: created.id,
+          permissionId: first.permissions![0]!.id,
+          action: "once",
+        });
+        const second = await waitFor(
+          agents,
+          created.id,
+          (value) => value.permissions?.[0]?.id !== first.permissions![0]!.id && !!value.permissions?.length,
+        );
+        strict.equal(operations, 1);
+        await api(agents, "/permission", {
+          conversationId: created.id,
+          permissionId: second.permissions![0]!.id,
+          action: "allow",
+        });
+        const done = await waitFor(agents, created.id, (value) => value.status !== "running");
+        strict.equal(done.toolMode, "allow");
+        strict.equal(operations, 2);
+        await strict.rejects(
+          api(agents, "/permission", {
+            conversationId: created.id,
+            permissionId: first.permissions![0]!.id,
+            action: "once",
+          }),
+          { code: "AGENT_PERMISSION" },
+        );
+        await api(agents, "/prompt", { conversationId: created.id, message: "Denied", toolMode: "ask" });
+        const denied = await waitFor(agents, created.id, (value) => !!value.permissions?.length);
+        await api(agents, "/permission", {
+          conversationId: created.id,
+          permissionId: denied.permissions![0]!.id,
+          action: "deny",
+        });
+        await waitFor(agents, created.id, (value) => value.status !== "running");
+        strict.equal(operations, 2);
+        await api(agents, "/prompt", { conversationId: created.id, message: "Cancel", toolMode: "ask" });
+        await waitFor(agents, created.id, (value) => !!value.permissions?.length);
+        await api(agents, "/cancel", { conversationId: created.id });
+        await waitFor(agents, created.id, (value) => !value.permissions?.length);
+        strict.equal(operations, 2);
+      },
+      "mcp",
+      { workspaceTools: tools },
+    );
+  });
   await it("revokes scoped tools on cancellation and rejects stale proposal revisions", async () => {
     let opened!: () => void;
     const ready = new Promise<void>((resolve) => {

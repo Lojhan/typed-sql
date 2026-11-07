@@ -27,3 +27,33 @@
 .agent-tool-call.failed small {
   color: var(--danger);
 }
+
+.agent-activity {
+  margin: 8px 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+}
+.agent-activity > summary {
+  padding: 8px 10px;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 11px;
+}
+.agent-activity > summary .editor-icon {
+  vertical-align: middle;
+  margin-right: 6px;
+}
+.agent-activity .ui-panel {
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+}
+.agent-permission {
+  margin-block: 8px;
+}
+.agent-permission pre {
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

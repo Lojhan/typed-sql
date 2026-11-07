@@ -101,6 +101,8 @@ export default function AnalysisChart({
             dataZoom: [],
           });
         chart.setOption(option, true);
+        // The labeled chart container is the accessible image; avoid a nested duplicate.
+        element.querySelector("svg")?.setAttribute("aria-hidden", "true");
         drawn = true;
         renderedTheme = document.documentElement.dataset.theme;
         setError("");

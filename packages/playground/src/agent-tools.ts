@@ -32,6 +32,7 @@ interface Turn {
         name: string;
         state: "running" | "completed" | "failed";
         details?: string;
+        input?: string;
       }) => void | Promise<void>)
     | undefined;
   calls: number;
@@ -104,6 +105,7 @@ export class AgentWorkspaceToolServer {
       name: string;
       state: "running" | "completed" | "failed";
       details?: string;
+      input?: string;
     }) => void | Promise<void>;
   }) {
     if (!this.options.trusted() || input.signal.aborted)
@@ -203,7 +205,12 @@ export class AgentWorkspaceToolServer {
         async (input, context) => {
           const id = randomUUID();
           try {
-            await turn.onToolCall?.({ id, name, state: "running" });
+            await turn.onToolCall?.({
+              id,
+              name,
+              state: "running",
+              input: JSON.stringify(input, null, 2).slice(0, 65536),
+            });
             if (!this.options.trusted() || turn.controller.signal.aborted)
               throw new WorkspaceError("TRUST", "Workspace tool capability has been revoked", 403);
             const signal = AbortSignal.any([turn.controller.signal, context.mcpReq.signal, AbortSignal.timeout(5000)]);

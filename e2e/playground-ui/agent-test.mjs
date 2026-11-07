@@ -138,14 +138,14 @@ try {
   await page.getByRole("textbox", { name: "Query source editor", exact: true }).waitFor();
   await invoke(">Open agent", "Open agent");
   await page.getByRole("checkbox", { name: "Schema", exact: true }).check();
-  const workspaceTools = page.getByRole("checkbox", { name: "Workspace tools", exact: true });
-  assert.equal(await workspaceTools.isChecked(), false);
-  await workspaceTools.check();
+  const workspaceTools = page.getByRole("combobox", { name: "Workspace tools", exact: true });
+  assert.equal(await workspaceTools.inputValue(), "ask");
+  await workspaceTools.selectOption("allow");
   const promptRequest = page.waitForRequest((request) => request.url().endsWith("/api/agents/prompt"));
   await composer.fill("stream response");
   await page.getByRole("button", { name: "Send ↑", exact: true }).click();
   const sent = (await promptRequest).postDataJSON();
-  assert.equal(sent.workspaceTools, true);
+  assert.equal(sent.toolMode, "allow");
   assert.equal(sent.context.source.file, "playground/existing.sql");
   assert.ok(sent.context.schema.tables.length);
   await messages.getByText(/Partial response from/u).waitFor();
@@ -156,6 +156,7 @@ try {
   await page.getByRole("button", { name: "Stop", exact: true }).waitFor({ state: "detached" });
   const streamId = await conversations.inputValue();
   assert.ok(streamId);
+  await messages.locator(".agent-activity > summary").click();
   const toolCall = messages.getByRole("status", { name: "Workspace tool: Get schema", exact: true });
   await toolCall.waitFor();
   assert.match(await toolCall.textContent(), /Completed/u);
@@ -170,8 +171,8 @@ try {
   await messages.getByText(/Completed response/u).waitFor();
   assert.equal(await conversations.inputValue(), streamId);
   assert.equal(
-    await page.getByRole("checkbox", { name: "Workspace tools", exact: true }).isChecked(),
-    true,
+    await page.getByRole("combobox", { name: "Workspace tools", exact: true }).inputValue(),
+    "allow",
     "The explicitly granted tool setting is restored with the conversation",
   );
   await page.reload();

@@ -91,7 +91,7 @@ try {
   await page
     .getByRole("textbox", { name: "Message local agent", exact: true })
     .fill("How many users are active? Show their hierarchy and share.");
-  await page.getByRole("checkbox", { name: "Workspace tools", exact: true }).check();
+  await page.getByRole("combobox", { name: "Workspace tools", exact: true }).selectOption("allow");
   await page.getByRole("button", { name: "Send ↑", exact: true }).click();
   await messages.getByText("6 active users", { exact: true }).waitFor();
   await page.getByRole("button", { name: "Stop", exact: true }).waitFor({ state: "detached" });
@@ -228,13 +228,13 @@ try {
 
   await page.getByRole("button", { name: "Agent", exact: true }).click();
   await page.reload();
-  const toolsToggle = page.getByRole("checkbox", { name: "Workspace tools", exact: true });
+  const toolsToggle = page.getByRole("combobox", { name: "Workspace tools", exact: true });
   await toolsToggle.waitFor();
-  assert.equal(await toolsToggle.isChecked(), true);
+  assert.equal(await toolsToggle.inputValue(), "allow");
   await page.getByRole("textbox", { name: "Message local agent", exact: true }).fill("show me a random chart");
   const followupRequest = page.waitForRequest((request) => request.url().endsWith("/api/agents/prompt"));
   await page.getByRole("button", { name: "Send ↑", exact: true }).click();
-  assert.equal((await followupRequest).postDataJSON().workspaceTools, true);
+  assert.equal((await followupRequest).postDataJSON().toolMode, "allow");
   const followup = page
     .locator(".analysis-card")
     .filter({ has: page.getByText("Retained user status", { exact: true }) });
@@ -244,19 +244,46 @@ try {
   await followup.screenshot({ path: join(artifacts, "followup-chart.png") });
   evidence.screenshots.push("followup-chart.png");
   check("a simple chart follow-up after reload retains the tool grant and renders a real chart from stored data");
-  await toolsToggle.uncheck();
+  await toolsToggle.selectOption("off");
   await page
     .getByRole("textbox", { name: "Message local agent", exact: true })
     .fill("Continue without workspace tools");
   const disabledRequest = page.waitForRequest((request) => request.url().endsWith("/api/agents/prompt"));
   await page.getByRole("button", { name: "Send ↑", exact: true }).click();
-  assert.equal((await disabledRequest).postDataJSON().workspaceTools, false);
+  assert.equal((await disabledRequest).postDataJSON().toolMode, "off");
   await page.getByText("Workspace tools are disabled.", { exact: true }).waitFor();
   await page.getByRole("button", { name: "Stop", exact: true }).waitFor({ state: "detached" });
   await page.reload();
   await toolsToggle.waitFor();
-  assert.equal(await toolsToggle.isChecked(), false);
+  assert.equal(await toolsToggle.inputValue(), "off");
   check("explicitly disabling tools is sent and restored for the conversation");
+
+  assert.equal(await page.locator(".agent-activity[open]").count(), 0);
+  assert.ok(await page.locator(".agent-activity").count());
+  check("tool calls are grouped into collapsed activity while analysis cards remain visible");
+  await toolsToggle.selectOption("ask");
+  await page.getByRole("textbox", { name: "Message local agent", exact: true }).fill("show me a random chart");
+  await page.getByRole("button", { name: "Send ↑", exact: true }).click();
+  await page.getByRole("button", { name: "Allow once", exact: true }).waitFor();
+  const beforeApproval = await page.locator(".analysis-card").count();
+  await page.getByRole("button", { name: "Allow once", exact: true }).click();
+  await page.getByRole("button", { name: "Allow once", exact: true }).waitFor();
+  assert.equal(await page.locator(".analysis-card").count(), beforeApproval);
+  await page.getByRole("button", { name: "Allow for this conversation", exact: true }).click();
+  await page.getByRole("button", { name: "Stop", exact: true }).waitFor({ state: "detached" });
+  assert.equal(await page.locator(".analysis-card").count(), beforeApproval + 1);
+  assert.equal(await toolsToggle.inputValue(), "allow");
+  await page.reload();
+  await page.getByRole("textbox", { name: "Message local agent", exact: true }).waitFor();
+  assert.equal(await toolsToggle.inputValue(), "allow");
+  check("Ask pauses tool execution, Allow once covers one call, and conversation approval persists");
+  await toolsToggle.selectOption("ask");
+  await page.getByRole("textbox", { name: "Message local agent", exact: true }).fill("show me a random chart");
+  await page.getByRole("button", { name: "Send ↑", exact: true }).click();
+  await page.getByRole("button", { name: "Deny", exact: true }).click();
+  await page.getByRole("button", { name: "Stop", exact: true }).waitFor({ state: "detached" });
+  assert.equal(await page.locator(".analysis-card").count(), beforeApproval + 1);
+  check("denied tool calls do not publish or execute their requested operation");
 
   assert.deepEqual(evidence.errors, []);
 } catch (error) {

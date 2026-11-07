@@ -35,6 +35,8 @@ interface Conversation {
   updatedAt?: string;
   profileId: string;
   workspaceTools?: boolean;
+  toolMode?: "off" | "ask" | "allow";
+  permissions?: { id: string; name: string; input: string }[];
   status: "idle" | "running" | "failed" | "cancelled";
   messages: { id: string; role: string; text: string; createdAt: string; order?: number }[];
   proposals: {
@@ -109,15 +111,14 @@ export function AgentPanel({
     [includeSource, setIncludeSource] = useState(true),
     [includeSchema, setIncludeSchema] = useState(false),
     [includeResult, setIncludeResult] = useState(false),
-    [workspaceTools, setWorkspaceTools] = useState(false),
+    [toolMode, setToolMode] = useState<"off" | "ask" | "allow">("ask"),
     [review, setReview] = useState<string | null>(null);
   const [artifacts, setArtifacts] = useState<{ id: string; title: string; createdAt: string; order?: number }[]>([]);
   const [resultRun, setResultRun] = useState("");
+  const workspaceTools = toolMode !== "off";
   useEffect(() => {
-    setWorkspaceTools(
-      !!(conversation?.id && state.trusted && agents?.workspaceToolsAvailable && conversation.workspaceTools),
-    );
-  }, [conversation?.id, conversation?.workspaceTools, state.trusted, agents?.workspaceToolsAvailable]);
+    setToolMode(conversation?.id ? (conversation.toolMode ?? (conversation.workspaceTools ? "allow" : "off")) : "ask");
+  }, [conversation?.id, conversation?.toolMode, conversation?.workspaceTools]);
   const selectedRun = state.runs.find((run) => run.id === resultRun);
   const result = selectedRun?.results[0]?.value;
   const end = useRef<HTMLDivElement>(null);
@@ -254,7 +255,7 @@ export function AgentPanel({
       clearInterval(interval);
     };
   }, [conversation?.id, conversation?.status, state.trusted]);
-  const timeline = [
+  const rawTimeline = [
     ...(conversation?.messages ?? []).map((value) => ({ kind: "message" as const, value, at: value.createdAt })),
     ...(conversation?.toolCalls ?? []).map((value) => ({ kind: "tool" as const, value, at: value.createdAt })),
     ...(conversation?.proposals ?? []).map((value) => ({
@@ -264,6 +265,24 @@ export function AgentPanel({
     })),
     ...artifacts.map((value) => ({ kind: "analysis" as const, value, at: value.createdAt })),
   ].toSorted((a, b) => a.at.localeCompare(b.at) || (a.value.order ?? 0) - (b.value.order ?? 0));
+  type ToolCall = NonNullable<Conversation["toolCalls"]>[number];
+  const timeline: (
+    | Exclude<(typeof rawTimeline)[number], { kind: "tool" }>
+    | { kind: "tools"; value: { id: string; calls: ToolCall[] } }
+  )[] = [];
+  let group: { id: string; calls: ToolCall[] } | undefined;
+  for (const entry of rawTimeline) {
+    if (entry.kind === "message" && entry.value.role === "user") group = undefined;
+    if (entry.kind !== "tool") {
+      timeline.push(entry);
+      continue;
+    }
+    if (!group) {
+      group = { id: entry.value.id, calls: [] };
+      timeline.push({ kind: "tools", value: group });
+    }
+    group.calls.push(entry.value);
+  }
   const lastMessage = conversation?.messages.at(-1)?.text;
   const activity = [
     ...(conversation?.toolCalls?.map((call) => `${call.id}:${call.state}`) ?? []),
@@ -335,7 +354,7 @@ export function AgentPanel({
       conversationId: active.id,
       message: submittedMessage,
       context,
-      workspaceTools: !!(workspaceTools && agents?.workspaceToolsAvailable),
+      toolMode: agents?.workspaceToolsAvailable ? toolMode : "off",
     });
     if (mounted.current && trusted.current && selectionVersion.current === request) {
       setConversation(next);
@@ -515,6 +534,35 @@ export function AgentPanel({
         }}
       >
         <div ref={transcript}>
+          {conversation?.permissions?.map((permission) => (
+            <Panel key={permission.id} className="agent-permission">
+              <strong>Allow {toolLabels[permission.name] ?? permission.name}?</strong>
+              <details>
+                <summary>Tool arguments</summary>
+                <pre>{permission.input}</pre>
+              </details>
+              <ControlGroup>
+                {(["once", "allow", "deny"] as const).map((action) => (
+                  <Button
+                    key={action}
+                    disabled={busy}
+                    onClick={() =>
+                      void perform(async () => {
+                        const next = await api<Conversation>("agents/permission", {
+                          conversationId: conversation.id,
+                          permissionId: permission.id,
+                          action,
+                        });
+                        setConversation(next);
+                      })
+                    }
+                  >
+                    {action === "once" ? "Allow once" : action === "allow" ? "Allow for this conversation" : "Deny"}
+                  </Button>
+                ))}
+              </ControlGroup>
+            </Panel>
+          ))}
           {timeline.length > visibleEntries ? (
             <Button onClick={() => setVisibleEntries((count) => count + 100)}>Show earlier activity</Button>
           ) : null}
@@ -553,38 +601,60 @@ export function AgentPanel({
                 </article>
               );
             }
-            if (entry.kind === "tool") {
-              const call = entry.value;
+            if (entry.kind === "tools") {
+              const calls = entry.value.calls.filter(
+                (call) =>
+                  !(
+                    call.origin === "agent" &&
+                    call.state !== "failed" &&
+                    entry.value.calls.some(
+                      (other) => other.origin === "workspace" && call.name.endsWith(`.${other.name}`),
+                    )
+                  ),
+              );
+              const running = calls.some((call) => call.state === "running");
+              const failed = calls.filter((call) => call.state === "failed").length;
               return (
-                <Panel padding="none" key={call.id}>
-                  <Bar
-                    wrap
-                    separator="none"
-                    className={`agent-tool-call ${call.state}`}
-                    role="status"
-                    aria-label={`${call.origin === "agent" ? "Agent tool" : "Workspace tool"}: ${toolLabels[call.name] ?? call.name}`}
-                    key={call.id}
-                  >
-                    <Icon name={call.state === "completed" ? "check" : call.state === "failed" ? "warning" : "play"} />
-                    <span>{toolLabels[call.name] ?? call.name}</span>
-                    <small>
-                      {call.state === "running" ? "Running" : call.state === "completed" ? "Completed" : "Failed"}
-                    </small>
-                    <time>{new Date(call.createdAt).toLocaleTimeString()}</time>
-                  </Bar>
-                  {call.details ? (
-                    <details className="agent-tool-details">
-                      <summary>Result details</summary>
-                      {call.origin === "agent" ? (
-                        <Suspense fallback={<pre>{call.details}</pre>}>
-                          <AgentMarkdown text={call.details} />
-                        </Suspense>
-                      ) : (
-                        <pre>{call.details}</pre>
-                      )}
-                    </details>
-                  ) : null}
-                </Panel>
+                <details className="agent-activity" key={entry.value.id}>
+                  <summary>
+                    <Icon name={running ? "play" : failed ? "warning" : "check"} />
+                    {running ? "Working" : "Activity"} · {calls.length} tool {calls.length === 1 ? "call" : "calls"}
+                    {failed ? ` · ${failed} failed` : ""}
+                  </summary>
+                  {calls.map((call) => (
+                    <Panel padding="none" key={call.id}>
+                      <Bar
+                        wrap
+                        separator="none"
+                        className={`agent-tool-call ${call.state}`}
+                        role="status"
+                        aria-label={`${call.origin === "agent" ? "Agent tool" : "Workspace tool"}: ${toolLabels[call.name.split(".").at(-1)!] ?? call.name}`}
+                        key={call.id}
+                      >
+                        <Icon
+                          name={call.state === "completed" ? "check" : call.state === "failed" ? "warning" : "play"}
+                        />
+                        <span>{toolLabels[call.name.split(".").at(-1)!] ?? call.name}</span>
+                        <small>
+                          {call.state === "running" ? "Running" : call.state === "completed" ? "Completed" : "Failed"}
+                        </small>
+                        <time>{new Date(call.createdAt).toLocaleTimeString()}</time>
+                      </Bar>
+                      {call.details ? (
+                        <details className="agent-tool-details">
+                          <summary>Result details</summary>
+                          {call.origin === "agent" ? (
+                            <Suspense fallback={<pre>{call.details}</pre>}>
+                              <AgentMarkdown text={call.details} />
+                            </Suspense>
+                          ) : (
+                            <pre>{call.details}</pre>
+                          )}
+                        </details>
+                      ) : null}
+                    </Panel>
+                  ))}
+                </details>
               );
             }
             if (entry.kind === "analysis")
@@ -663,22 +733,18 @@ export function AgentPanel({
             />
             {source ? `${source.file.split("/").at(-1)}${source.revision ? "" : " · save to attach"}` : "Active file"}
           </FieldLabel>
-          <FieldLabel
-            title={
-              !agents?.workspaceToolsAvailable
-                ? "Workspace tools are unavailable from this host."
-                : !state.trusted
-                  ? "Enable trusted project execution to use workspace tools."
-                  : "Allow scoped file, schema and migration inspection, bounded read-only database queries, and reviewed file proposals."
-            }
-          >
-            <Input
-              type="checkbox"
-              checked={workspaceTools}
-              disabled={!agents?.workspaceToolsAvailable || !state.trusted}
-              onChange={(event) => setWorkspaceTools(event.target.checked)}
-            />
-            Workspace tools
+          <FieldLabel>
+            Tools
+            <Select
+              aria-label="Workspace tools"
+              value={toolMode}
+              disabled={!agents?.workspaceToolsAvailable || !state.trusted || conversation?.status === "running"}
+              onChange={(event) => setToolMode(event.target.value as "off" | "ask" | "allow")}
+            >
+              <option value="ask">Ask before use</option>
+              <option value="allow">Allow for this conversation</option>
+              <option value="off">Off</option>
+            </Select>
           </FieldLabel>
           <FieldLabel>
             <Input
@@ -715,8 +781,7 @@ export function AgentPanel({
         </Bar>
         {workspaceTools && agents?.workspaceToolsAvailable ? (
           <p className="agent-tools-scope">
-            Tools can inspect scoped files, schema and migration history, run bounded read-only queries, and propose
-            reviewed file changes.
+            Read-only queries and project inspection · file changes always require review.
           </p>
         ) : null}
         <TextArea

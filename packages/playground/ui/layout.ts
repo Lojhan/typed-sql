@@ -1,4 +1,4 @@
-import { type AnalysisTab, analysisId, analysisTitle } from "./analysis-tabs";
+import { type AnalysisTab, analysisId, analysisTitle } from "./analysis-tabs.js";
 import { type InspectionTab, inspectionTarget } from "./explorer-model.js";
 
 /** Framework-neutral counterpart of the docs playground's recursive editor layout. */

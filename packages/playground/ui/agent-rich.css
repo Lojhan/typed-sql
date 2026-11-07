@@ -214,10 +214,38 @@
 }
 .analysis-workspace {
   overflow: auto;
-  padding: 12px;
+  padding: 0;
 }
 .analysis-workspace > .analysis-card {
   flex: none;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+}
+.analysis-workspace .analysis-body {
+  padding: 0;
+}
+.analysis-workspace .analysis-view {
+  border-radius: 0;
+  border-inline: 0;
+}
+.analysis-workspace .analysis-stack,
+.analysis-workspace .analysis-grid {
+  gap: 0;
+}
+.analysis-workspace .analysis-provenance {
+  padding: 8px 12px;
+  margin: 0;
+  border-top: 1px solid var(--border);
+}
+.analysis-workspace .analysis-body > .agent-markdown {
+  padding: 8px 12px;
+  margin: 0;
+}
+.analysis-workspace .analysis-controls {
+  margin: 0;
+  border-inline: 0;
+  border-radius: 0;
 }
 .analysis-query {
   border: 1px solid var(--border);
