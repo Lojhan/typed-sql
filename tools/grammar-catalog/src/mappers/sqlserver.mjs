@@ -3,6 +3,11 @@ import { numericVersionBand } from "../registry.mjs";
 export const sqlServerMapper = Object.freeze({
   id: "sqlserver",
   versionBand: numericVersionBand(1),
+  reviewTarget(target) {
+    if (!target.settings) return target;
+    const { databaseName: _disposableDatabaseName, ...settings } = target.settings;
+    return { ...target, settings };
+  },
   normalizeRow: (_category, row) => row,
   routineFacts(row) {
     const returnsSet = row.kind === undefined ? null : ["IF", "TF", "FT"].includes(row.kind);

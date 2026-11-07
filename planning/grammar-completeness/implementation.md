@@ -15,6 +15,11 @@ never grammar-name branches. Engine and extension meanings belong to their contr
 - Removed physical-storage-based SQL Server alias inference. Explicit SYSNAME alias evidence
   remains policy; native dimensions are still generated. Unqualified VECTOR is unknown.
 - Added declaration versus CAST/CONVERT length context, with grammar-owned regression witnesses.
+- Added public, grammar-neutral `bindRoutineArguments` mechanics in core. PostgreSQL now uses
+  this contract while keeping native type binding, casts and overload ranking grammar-owned.
+- Removed the corpus's closed grammar-name allowlist and made mapper injection available across
+  capture import, validation, persistence and grouping. A synthetic graph contribution exercises
+  that full round trip. SQL Server's disposable-database identity rule belongs to its mapper.
 
 ## Validation observed
 
@@ -22,6 +27,14 @@ never grammar-name branches. Engine and extension meanings belong to their contr
 - SQL Server tests plus catalog generation, mapper and language audit contracts: 26 files passed.
 - `pnpm quality`: passed, including deterministic catalog checks and all 17 reference targets.
   Existing SVG style warnings remain non-blocking and are outside this implementation.
+- Core package tests: 22 files passed; the new argument-binding module has 100% statement,
+  branch, function and line coverage, and package coverage thresholds pass.
+- Public API and PostgreSQL native signature tests pass.
+- Packed consumer test passes with the new binder imported from the compiled public core
+  entrypoint in an isolated driver-free installation.
+- Documentation contracts pass. The performance gate passes in an isolated run without budget
+  changes. A preceding run during concurrent packaging failed the scanner budget and is not
+  used as performance evidence; both logs remain in local artifacts.
 
 ## Requirements still open
 

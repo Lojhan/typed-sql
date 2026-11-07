@@ -5,7 +5,7 @@ const path = new URL("../../test/fixtures/language-audit/live-baselines.json", i
 
 export const liveTarget = reviewTarget;
 
-export function summarizeLive(input) {
+export function summarizeLive(input, registry = undefined) {
   const categories = Object.fromEntries(
     CATEGORIES.map((name) => {
       const category = input.categories[name];
@@ -29,7 +29,7 @@ export function summarizeLive(input) {
   );
   return {
     dialect: input.dialect,
-    target: liveTarget(input),
+    target: liveTarget(input, registry),
     categories,
     recognition: input.recognition ?? {
       status: "unavailable",

@@ -15,7 +15,7 @@ export function groupCorpus(corpus, registry = builtinMappers) {
     const version = targetSeries(entry.dialect, entry.target.version, registry);
     const key = `${entry.dialect}/${version}`;
     const group = groups.get(key) ?? { dialect: entry.dialect, version, contexts: [], categories: {} };
-    group.contexts.push({ id, capture: expandTarget(corpus, entry) });
+    group.contexts.push({ id, capture: expandTarget(corpus, entry, registry) });
     groups.set(key, group);
   }
   for (const group of groups.values()) {

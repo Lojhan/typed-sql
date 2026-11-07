@@ -1081,6 +1081,7 @@ const expectedRuntimeExports = {
     "applyDialectCapabilityStates",
     "adapterCapabilities",
     "bindQueryRenderSkeleton",
+    "bindRoutineArguments",
     "compileQueryRenderSkeleton",
     "DIALECT_CONTRACT_VERSION",
     "ParameterCollector",

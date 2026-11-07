@@ -1,6 +1,16 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, it, strict } from "poku";
-import { readCorpus } from "../../scripts/catalog-generation/corpus.mjs";
+import {
+  addCapture,
+  emptyCorpus,
+  readCorpus,
+  verifyCaptureInput,
+  writeCorpus,
+} from "../../scripts/catalog-generation/corpus.mjs";
 import { groupCorpus } from "../../scripts/catalog-generation/model.mjs";
+import { CATEGORIES, inventory, unavailable } from "../../scripts/language-audit/inventory.mjs";
 import { builtinMappers } from "../../tools/grammar-catalog/src/mappers/index.mjs";
 import { routineSignature } from "../../tools/grammar-catalog/src/model/routines.mjs";
 import { createMapperRegistry, numericVersionBand } from "../../tools/grammar-catalog/src/registry.mjs";
@@ -57,6 +67,40 @@ await describe("grammar-independent catalog mapper registrations", async () => {
     strict.throws(() => numericVersionBand(0), /width/u);
     strict.throws(() => mapper.versionBand("7"), /version/u);
     strict.equal(builtinMappers.get("postgres").versionBand("19beta3"), "19");
+  });
+
+  await it("imports, verifies, writes and groups an external grammar contribution through the real corpus pipeline", async () => {
+    const registry = createMapperRegistry([mapper]).extend([{ id: "synthetic/graph", extends: "synthetic" }]);
+    const native = { name: "vertices", namespace: "graph", result: "vertex" };
+    const row = { ...native, signature: routineSignature(registry.get("synthetic/graph"), native) };
+    const input = {
+      dialect: "synthetic/graph",
+      target: { version: "7.2.3", extension: "graph-1" },
+      categories: Object.fromEntries(
+        CATEGORIES.map((name) => [
+          name,
+          name === "functions"
+            ? inventory([row], "external-native-registry")
+            : unavailable("No observations in fixture"),
+        ]),
+      ),
+    };
+    const corpus = emptyCorpus();
+    await addCapture(corpus, input, registry);
+    strict.equal((await verifyCaptureInput(input, corpus, registry)).status, "match");
+    const directory = await mkdtemp(join(tmpdir(), "typed-sql-external-catalog-"));
+    try {
+      const path = join(directory, "facts.json");
+      await writeCorpus(corpus, path, registry);
+      const restored = await readCorpus(path, registry);
+      const [group] = groupCorpus(restored, registry);
+      strict.equal(group.dialect, "synthetic/graph");
+      strict.equal(group.version, "7.2");
+      strict.deepEqual(group.categories.functions.rows, [row]);
+      await strict.rejects(readCorpus(path), /Unregistered/u);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
   });
 
   await it("normalizes SQLite wire integers without collapsing dynamic type knowledge", () => {

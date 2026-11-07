@@ -296,7 +296,7 @@ await describe("packed public packages", async () => {
         `
         import { createRequire } from "node:module";
         import { synthetic, sql as syntheticSql, typePolicy as syntheticTypePolicy } from "@acme/typed-sql-synthetic";
-        import { assertDialectPlugin, defineConfig, renderQuery } from "@typed-sql/core";
+        import { assertDialectPlugin, bindRoutineArguments, defineConfig, renderQuery } from "@typed-sql/core";
         import { postgres, sql as postgresSql, typePolicy as postgresTypePolicy } from "@typed-sql/postgres";
         import { postgresRenderer } from "@typed-sql/postgres/runtime";
         import { loadPgDriver } from "@typed-sql/postgres/pg";
@@ -327,6 +327,14 @@ await describe("packed public packages", async () => {
         import "@typed-sql/language-server";
 
         const require = createRequire(import.meta.url);
+        const contributedBinding = bindRoutineArguments(
+          [{ name: "graph", optional: false }, { name: "limit", optional: true }],
+          { argumentCount: 1, names: ["graph"], variadic: "expanded" },
+          { positionalAfterNamed: false, expandedVariadicNames: false, minimumVariadicElements: 1 },
+        );
+        if (JSON.stringify(contributedBinding) !== JSON.stringify([{ parameterIndex: 0, variadicElement: false }])) {
+          throw new Error("Third-party catalog argument binding failed through the packed public entrypoint");
+        }
         for (const driver of ["pg", "mysql2", "@libsql/client", "@neondatabase/serverless", "postgres", "mssql", "tedious", "koffi", "msnodesqlv8", "@duckdb/node-api", "@duckdb/node-bindings"]) {
           try { require.resolve(driver); throw new Error(driver + " was installed transitively"); }
           catch (error) { if (error.message === driver + " was installed transitively") throw error; }

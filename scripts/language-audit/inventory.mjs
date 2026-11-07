@@ -1,3 +1,4 @@
+import { builtinMappers } from "../../tools/grammar-catalog/src/mappers/index.mjs";
 import { canonical, hash } from "./hash.mjs";
 import { signatureFacts } from "./signatures.mjs";
 
@@ -17,10 +18,8 @@ export const CATEGORIES = Object.freeze([
 export const DIALECTS = Object.freeze(["postgres", "mysql", "sqlite", "sqlserver", "duckdb"]);
 const compare = (left, right) => (left < right ? -1 : left > right ? 1 : 0);
 
-export function reviewTarget(input) {
-  if (input.dialect !== "sqlserver" || !input.target.settings) return input.target;
-  const { databaseName: _disposableDatabaseName, ...settings } = input.target.settings;
-  return { ...input.target, settings };
+export function reviewTarget(input, registry = builtinMappers) {
+  return registry.get(input.dialect).reviewTarget?.(input.target) ?? input.target;
 }
 
 // One signature/observation per line keeps generated evidence reviewable.

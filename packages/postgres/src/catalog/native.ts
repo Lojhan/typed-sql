@@ -1,3 +1,4 @@
+import { bindRoutineArguments } from "@typed-sql/core";
 import type { SchemaSnapshot } from "@typed-sql/schema";
 import { POSTGRES_SUPPORT_POLICY, parsePostgresMajor } from "../support.js";
 import { nativeSignatures } from "./generated/native.js";
@@ -54,50 +55,25 @@ export function postgresNativeArguments(
   explicitVariadic = false,
 ): readonly string[] | undefined {
   const inputs = signature.arguments.filter((argument) => ["i", "b", "v"].includes(argument.mode));
-  const variadic = inputs.at(-1)?.mode === "v";
-  if (explicitVariadic && !variadic) return undefined;
-  let expected: readonly string[];
-  if (names !== undefined) {
-    if (names.length !== actualTypes.length) return undefined;
-    // Expanded elements have no formal names. Explicit VARIADIC binds the array itself.
-    if (variadic && !explicitVariadic) return undefined;
-    const used = new Set<number>();
-    let positional = 0;
-    let named = false;
-    const mapped = names.map((name) => {
-      if (name === undefined && named) return undefined;
-      if (name !== undefined) named = true;
-      const index = name === undefined ? positional++ : inputs.findIndex((argument) => argument.name === name);
-      if (index < 0 || index >= inputs.length || used.has(index)) return undefined;
-      used.add(index);
-      return inputs[index]!.nativeType;
-    });
-    if (
-      mapped.some((type) => type === undefined) ||
-      inputs.some((argument, index) => !used.has(index) && argument.hasDefault !== true)
-    )
-      return undefined;
-    expected = mapped as readonly string[];
-  } else if (variadic && !explicitVariadic) {
-    const fixed = inputs.slice(0, -1);
-    if (
-      actualTypes.length < inputs.length &&
-      inputs.slice(actualTypes.length).some((argument) => argument.hasDefault !== true)
-    )
-      return undefined;
-    const element = signature.variadicNativeType;
-    if (!element) return undefined;
-    expected = actualTypes.map((_type, index) => (index < fixed.length ? fixed[index]!.nativeType : element));
-  } else {
-    if (
-      actualTypes.length > inputs.length ||
-      (explicitVariadic && actualTypes.length !== inputs.length) ||
-      inputs.slice(actualTypes.length).some((argument) => argument.hasDefault !== true)
-    )
-      return undefined;
-    expected = inputs.slice(0, actualTypes.length).map((argument) => argument.nativeType);
-  }
+  const bindings = bindRoutineArguments(
+    inputs.map((argument) => ({
+      ...(argument.name === null ? {} : { name: argument.name }),
+      optional: argument.hasDefault === true,
+      variadic: argument.mode === "v",
+    })),
+    {
+      argumentCount: actualTypes.length,
+      ...(names === undefined ? {} : { names }),
+      variadic: explicitVariadic ? "explicit" : "expanded",
+    },
+    { positionalAfterNamed: false, expandedVariadicNames: false, minimumVariadicElements: 1 },
+  );
+  if (!bindings) return undefined;
+  const expected = bindings.map((binding) =>
+    binding.variadicElement ? signature.variadicNativeType : inputs[binding.parameterIndex]!.nativeType,
+  );
   const bound = expected.map((type, index) => {
+    if (type === null) return undefined;
     if (type !== '"any"' && type !== "any") return type;
     const actual = actualTypes[index];
     if (explicitVariadic && !actual?.endsWith("[]")) return undefined;
