@@ -41,6 +41,11 @@ never grammar-name branches. Engine and extension meanings belong to their contr
   outputs, external-emitter ownership/error contracts, and executed catalog revision checks.
 - SQLite global namespace knowledge is explicit mapper policy. DuckDB pragma set-return knowledge
   remains unknown where the native evidence does not establish it.
+- Replaced host-parser normalization on both sides of native type comparisons with independent
+  engine descriptions of claimed types. Registered description owners preserve PostgreSQL
+  OIDs/typmods, DuckDB nested structure/branding and SQL Server logical names/dimensions/user type
+  identities. Shared comparison has no grammar-name branches. Missing parameter descriptions now
+  prevent a complete identity claim even when parameter counts match.
 
 ## Validation observed
 
@@ -68,11 +73,22 @@ never grammar-name branches. Engine and extension meanings belong to their contr
 - After registered emission and offline CLI consolidation, typecheck, quality, all 52 contract
   files and PostgreSQL/MySQL package tests (including coverage gates) pass. The performance gate
   also passes in isolation. These are local results; the next pushed head needs its own CI.
+- Emission checkpoint `fe795982` passed CI run `42385784130` and migration integration run
+  `42385784108`.
+- Independent type-description comparison passed focused contracts and local native audits on
+  PostgreSQL 18.6 and DuckDB 1.5.6/2.0.0. PostgreSQL had 3,308 complete identity matches from
+  5,666 observations; DuckDB had 38/44 from 2,941/3,168 observations. Remaining observations include
+  rejected/unconstructible invocations, grammar gaps and missing parameter descriptors. No type
+  mismatches remain in these runs; these numbers are not full semantic coverage. A preceding PG
+  run exposed catalog-type identity versus SQL declaration defaults for BIT/CHARACTER; native
+  Parse/Describe confirmed the mapper's qualified unmodified identities preserve typmod -1.
 
 ## Requirements still open
 
-1. Independently decoded native type identities and modifiers; remove shared implementation
-   normalization from the expected side of native comparisons.
+1. Complete independent native comparison for MySQL/SQLite, SQL Server live validation of the
+   new comparison owner, modifier/identity regression witnesses across supported versions and
+   retained qualification evidence. PostgreSQL/DuckDB/SQL Server expected-side host parsers have
+   been removed; incomplete native descriptors remain explicit gaps.
 2. Complete semantic facets for every IR category, immutable upstream source locks and
    field/projection-loss accounting. The structural v2 model and legacy importer are implemented;
    unknown historical provenance is not upgraded to qualified source evidence.

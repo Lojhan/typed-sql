@@ -21,8 +21,6 @@ import {
 } from "../../scripts/catalog-generation/model.mjs";
 import { generationReport } from "../../scripts/catalog-generation/report.mjs";
 import { sqlServerTypeSource } from "../../scripts/catalog-generation/sqlserver.mjs";
-import { grammarFor } from "../../scripts/language-audit/audit.js";
-import { compareNativeDescription } from "../../scripts/language-audit/description.js";
 import { collectLive, hash, inventory } from "../../scripts/language-audit/inventory.mjs";
 import { acceptLiveBaseline, reviewLive } from "../../scripts/language-audit/live-baseline.mjs";
 import { preparePostgres } from "../../scripts/language-audit/native.mjs";
@@ -190,38 +188,6 @@ await describe("reproducible native catalog generation", async () => {
       () => sqlServerTypeSource({ ...policy, systemAliases: { absent: "varbinary" } }, groups, ""),
       /alias facts/u,
     );
-  });
-
-  await it("compares concrete native identities and leaves missing descriptions or unknown analysis unverified", () => {
-    for (const [dialect, version, sql, type, other] of [
-      ["postgres", "18", "SELECT 1::int AS value", "integer", "text"],
-      ["duckdb", "2.0.0", "SELECT 1::INTEGER AS value", "INTEGER", "VARCHAR"],
-      ["sqlserver", "17", "SELECT CAST(1 AS int) AS value", "int", "varchar(30)"],
-    ]) {
-      const result = grammarFor(dialect!, version!).analyze(sql!);
-      strict.equal(
-        compareNativeDescription(dialect!, version!, { columns: [{ nativeType: type }], parameterCount: 0 }, result)
-          .status,
-        "native-identities-match",
-      );
-      strict.equal(
-        compareNativeDescription(dialect!, version!, { columns: [{ nativeType: other }] }, result).status,
-        "mismatch",
-      );
-      strict.equal(
-        compareNativeDescription(dialect!, version!, { columns: [{ nativeType: null }] }, result).status,
-        "unverified",
-      );
-      strict.equal(
-        compareNativeDescription(
-          dialect!,
-          version!,
-          { columns: [{ nativeType: type }] },
-          { ...result, columns: result.columns.map((column) => ({ ...column, tsType: "unknown" })) },
-        ).status,
-        "unverified",
-      );
-    }
   });
 
   await it("describes PostgreSQL inputs and outputs without sending Bind or Execute", async () => {

@@ -7,6 +7,7 @@ import type {
 import { grammarFor } from "./audit.js";
 import { compareNativeDescription } from "./description.js";
 import { hash } from "./inventory.mjs";
+import { nativeDescriptionRegistry } from "./native-description/index.js";
 
 export type DiscoveredFunction = {
   name: string;
@@ -87,8 +88,9 @@ export async function recognizeLive(
     parameters?: readonly ResolvedParameter[];
     reason?: string;
     nativeMetadata?: unknown;
-    nativeTypeComparison?: ReturnType<typeof compareNativeDescription>;
+    nativeTypeComparison?: Awaited<ReturnType<typeof compareNativeDescription>>;
   }[] = [];
+  const oracle = nativeDescriptionRegistry.create(dialect, prepare);
   const seen = new Set<string>();
   for (const row of rows) {
     const candidates = recognitionQueries(row, dialect);
@@ -130,7 +132,7 @@ export async function recognizeLive(
           throw new Error(`Invalid analysis source span for ${sql}`);
       }
       const diagnostics = result.diagnostics.map((item) => `${item.code}: ${item.message}`);
-      const comparison = compareNativeDescription(dialect, version, native.metadata, result);
+      const comparison = await compareNativeDescription(native.metadata, result, oracle);
       const unknown =
         !result.columns.length ||
         result.columns.some((column) => column.tsType === "unknown" || column.tsType === "any");

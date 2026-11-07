@@ -73,9 +73,12 @@ as a baseline. Unsupported calls and unavailable descriptions remain explicit ve
 DuckDB scalar arguments use typed parameters to avoid constant-NULL folding. SQL Server native
 result descriptions are also compared where the grammar supplies a concrete native type.
 
-The current native comparison still shares some type normalization with grammar implementations.
-Those lanes detect regressions but do not provide independent semantic qualification. Replacing
-that expected-side normalization and qualifying every category remain migration requirements.
+Native type comparison asks the engine to describe each claimed type independently. Registered
+description owners compare PostgreSQL OIDs/modifiers, DuckDB logical structures/branding and SQL
+Server logical names/dimensions/user identities; they do not import the grammar's type parser.
+Missing result or parameter evidence stays unverified. This qualifies only the described type
+identity facets, not nullability, values, decoding or every inventory category. MySQL wire metadata
+and SQLite dynamic value classes still require their own independent comparison owners.
 
 `grammar/catalog/generation.json` and `planning/language-audit/generation.md` record every version
 band/category, shared versus context-specific facts, unavailable evidence, generated outputs and
