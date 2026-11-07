@@ -544,6 +544,21 @@ export default defineConfig({
   check("inspection tabs split, resize and restore without being treated as query files");
   evidence.components = await componentContract(page);
   check("shared component geometry is consistent across rendered controls and section headers");
+  for (const heading of ["Files", "Database", "Migrations"]) {
+    const toggle = page.locator(".tree-heading button").filter({ hasText: heading });
+    if ((await toggle.getAttribute("aria-expanded")) === "true") await toggle.click();
+  }
+  evidence.collapsedComponents = await componentContract(page);
+  assert.equal(evidence.collapsedComponents.collapsedSections.length, 3);
+  const headingTops = await page
+    .locator(".tree-heading")
+    .evaluateAll((headings) => headings.map((heading) => heading.getBoundingClientRect().top));
+  assert.deepEqual(
+    headingTops.map((top) => top - headingTops[0]),
+    [0, 36, 72],
+  );
+  await shot(page.locator(".workspace-body"), "collapsed-section-alignment", 700, 144);
+  check("collapsed sidebar sections occupy exactly one bar each without accumulating duplicate borders");
   assert.deepEqual(evidence.errors, []);
 } catch (error) {
   evidence.failure = error.stack ?? String(error);

@@ -41,6 +41,12 @@ export async function componentContract(page) {
       adapterIcons: collect('.cm-search button[name="close"],.react-flow__controls-button'),
       raw,
       reference: collect(".tree-heading,.pane-tabbar"),
+      collapsedSections: [...document.querySelectorAll(".project-sidebar .explorer-section")]
+        .filter(
+          (element) =>
+            ![...element.children].some((child) => child.matches(".explorer-section-body,nav") && visible(child)),
+        )
+        .map((element) => ({ height: element.getBoundingClientRect().height, label: element.className })),
       editorHeights: [...document.querySelectorAll(".document-workspace .document-editor")]
         .filter(visible)
         .map((element) => element.getBoundingClientRect().height),
@@ -51,6 +57,8 @@ export async function componentContract(page) {
     assert.ok(bar.wrap ? bar.height >= 36 : Math.abs(bar.height - 36) < 0.1, `Bar geometry: ${JSON.stringify(bar)}`);
   for (const header of evidence.reference)
     assert.equal(header.height, 36, `Screenshot reference alignment: ${header.label}`);
+  for (const section of evidence.collapsedSections)
+    assert.equal(section.height, 36, `Collapsed sections must not add another separator: ${section.label}`);
   for (const button of evidence.buttons) {
     if (button.icon) {
       assert.equal(button.width, 26, `Square icon width: ${button.label}`);

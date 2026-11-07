@@ -4,6 +4,9 @@
   min-height: 0;
   flex: none;
   overflow: hidden;
+}
+.project-sidebar .explorer-section.expanded,
+.project-sidebar .files-section:has(nav:not([hidden])) {
   border-bottom: 1px solid var(--border);
 }
 .project-sidebar .explorer-section.expanded,
