@@ -1,3 +1,4 @@
+import { sqliteAsciiUpper } from "../identifier-case.js";
 import type { SourceRange, Token, TokenKind } from "./types.js";
 import { parserKeywords, parserOperators } from "./vocabulary.generated.js";
 
@@ -139,7 +140,7 @@ class Scanner {
   #scanWord(start: Position): Token {
     while (isWordPart(this.#peek())) this.#advance();
     const text = this.#source.slice(start.index, this.#index);
-    const upper = text.toUpperCase();
+    const upper = sqliteAsciiUpper(text);
     const kind: TokenKind = keywords.has(upper) ? "keyword" : "identifier";
     return this.#token(kind, text, kind === "keyword" ? upper : text, start);
   }

@@ -4,6 +4,7 @@ import { createAuditGrammarRegistry } from "../../scripts/language-audit/grammar
 import { serialize } from "../../scripts/language-audit/inventory.mjs";
 import { planInvocationShapes } from "../../scripts/language-audit/invocation-shapes.js";
 import { auditInvocationShapes } from "../../scripts/language-audit/shape-audit.js";
+import { spellingVariants } from "../../scripts/language-audit/spellings.js";
 import { createMapperRegistry } from "../../tools/grammar-catalog/src/registry.mjs";
 
 const mapper = {
@@ -83,7 +84,39 @@ await describe("generated native invocation shapes", async () => {
     for (const probe of plan.cases)
       if (probe.control)
         strict.ok(plan.cases.some((control) => control.id === probe.control && control.role === "control"));
-    strict.ok(plan.cases.every((probe) => probe.sql.startsWith("GRAPH node(")));
+    strict.ok(plan.cases.every((probe) => probe.sql.startsWith("GRAPH ")));
+    strict.ok(
+      plan.cases.some((probe) => probe.kind === "function-name-uppercase" && probe.sql.startsWith("GRAPH NODE(")),
+    );
+  });
+  await it("derives Unicode casing collisions and associates every spelling with its matching control", () => {
+    const source = "string_kurtosis_fi";
+    const variants = spellingVariants(source);
+    strict.ok(variants.some((variant) => variant.spelling.includes("K")));
+    strict.ok(variants.some((variant) => variant.spelling.includes("ſ")));
+    strict.ok(variants.some((variant) => variant.spelling.includes("ı")));
+    strict.equal(new Set(variants.map((variant) => variant.spelling)).size, variants.length);
+    strict.ok(
+      variants.every(
+        (variant) =>
+          variant.spelling !== source &&
+          (variant.spelling.toUpperCase() === source.toUpperCase() ||
+            variant.spelling.toLowerCase() === source.toLowerCase()),
+      ),
+    );
+    const plan = planInvocationShapes(
+      { ...row, name: source },
+      mappers.get("vendor/graph"),
+      registry.get("vendor/graph").invocationShapeSyntax!,
+    );
+    const controls = plan.cases.filter((probe) => probe.role === "control");
+    strict.ok(controls.length > 1);
+    for (const control of controls)
+      strict.ok(
+        plan.cases.some(
+          (probe) => probe.control === control.id && probe.kind.startsWith("function-name-unicode-fold-"),
+        ),
+      );
   });
   await it("detects native-rejected typed mutations only after accepting the same-expression control", async () => {
     const report = await auditInvocationShapes(

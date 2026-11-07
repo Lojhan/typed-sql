@@ -14,6 +14,7 @@ export interface DuckDBTypeField {
   readonly type: DuckDBType;
 }
 export const duckDBAsciiFold = (value: string): string => value.replace(/[A-Z]/gu, (char) => char.toLowerCase());
+export const duckDBAsciiUpper = (value: string): string => value.replace(/[a-z]+/gu, (part) => part.toUpperCase());
 interface TypeToken {
   readonly value: string;
   readonly quoted: boolean;
@@ -66,7 +67,7 @@ class TypeReader {
   peek(value?: string): boolean {
     return value === undefined
       ? this.index < this.tokens.length
-      : this.tokens[this.index]?.value.toUpperCase() === value;
+      : duckDBAsciiUpper(this.tokens[this.index]?.value ?? "") === value;
   }
   take(): TypeToken {
     const token = this.tokens[this.index++];
@@ -91,10 +92,10 @@ class TypeReader {
   parse(depth = 0): DuckDBType {
     if (++this.nodes > 1024 || depth > 32) throw new TypeError("DuckDB native type expansion limit");
     const first = this.take();
-    let name = first.value.toUpperCase(),
+    let name = duckDBAsciiUpper(first.value),
       result: DuckDBType;
     if (!first.quoted && (name === "TIME" || name === "TIMESTAMP") && (this.peek("WITH") || this.peek("WITHOUT"))) {
-      const withZone = this.take().value.toUpperCase() === "WITH";
+      const withZone = duckDBAsciiUpper(this.take().value) === "WITH";
       this.expect("TIME");
       this.expect("ZONE");
       name = name === "TIME" ? (withZone ? "TIMETZ" : "TIME") : withZone ? "TIMESTAMPTZ" : "TIMESTAMP";

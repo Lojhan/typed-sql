@@ -181,6 +181,43 @@
           "nativeAccepted": true,
           "discoveredClass": "qualified-table-result",
           "requireNativeType": true
+        },
+        {
+          "sql": "SELECT \"\u212aurtosis\"(CAST(NULL AS DOUBLE)) AS value",
+          "nativeAccepted": false,
+          "discoveredClass": "identifier-keyword-type-spelling"
+        },
+        {
+          "sql": "SELECT CAST(1 AS \"\u0131nt\") AS value",
+          "nativeAccepted": false,
+          "discoveredClass": "identifier-keyword-type-spelling"
+        },
+        {
+          "sql": "SELECT ca\u017ft(1 AS INTEGER) AS value",
+          "nativeAccepted": false,
+          "discoveredClass": "identifier-keyword-type-spelling"
+        },
+        {
+          "sql": "\u017fELECT 1 AS value",
+          "nativeAccepted": false,
+          "discoveredClass": "identifier-keyword-type-spelling"
+        },
+        {
+          "sql": "SELECT CURRENT_T\u0131MESTAMP AS value",
+          "nativeAccepted": false,
+          "discoveredClass": "identifier-keyword-type-spelling"
+        },
+        {
+          "sql": "SELECT \"KURTOSIS\"(CAST(NULL AS DOUBLE)) AS value",
+          "nativeAccepted": true,
+          "requireNativeType": true,
+          "discoveredClass": "ascii-spelling-control"
+        },
+        {
+          "sql": "select cast(1 as \"INT\") as value",
+          "nativeAccepted": true,
+          "requireNativeType": true,
+          "discoveredClass": "ascii-spelling-control"
         }
       ]
     },
@@ -769,6 +806,43 @@
           "nativeAccepted": true,
           "discoveredClass": "qualified-table-result",
           "requireNativeType": true
+        },
+        {
+          "sql": "SELECT \"\u212aurtosis\"(CAST(NULL AS DOUBLE)) AS value",
+          "nativeAccepted": false,
+          "discoveredClass": "identifier-keyword-type-spelling"
+        },
+        {
+          "sql": "SELECT CAST(1 AS \"\u0131nt\") AS value",
+          "nativeAccepted": false,
+          "discoveredClass": "identifier-keyword-type-spelling"
+        },
+        {
+          "sql": "SELECT ca\u017ft(1 AS INTEGER) AS value",
+          "nativeAccepted": false,
+          "discoveredClass": "identifier-keyword-type-spelling"
+        },
+        {
+          "sql": "\u017fELECT 1 AS value",
+          "nativeAccepted": false,
+          "discoveredClass": "identifier-keyword-type-spelling"
+        },
+        {
+          "sql": "SELECT CURRENT_T\u0131MESTAMP AS value",
+          "nativeAccepted": false,
+          "discoveredClass": "identifier-keyword-type-spelling"
+        },
+        {
+          "sql": "SELECT \"KURTOSIS\"(CAST(NULL AS DOUBLE)) AS value",
+          "nativeAccepted": true,
+          "requireNativeType": true,
+          "discoveredClass": "ascii-spelling-control"
+        },
+        {
+          "sql": "select cast(1 as \"INT\") as value",
+          "nativeAccepted": true,
+          "requireNativeType": true,
+          "discoveredClass": "ascii-spelling-control"
         }
       ]
     }

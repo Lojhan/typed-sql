@@ -1,4 +1,4 @@
-import { formatDuckDBType, parseDuckDBType } from "../native-types.js";
+import { duckDBAsciiFold, formatDuckDBType, parseDuckDBType } from "../native-types.js";
 import type { Expression } from "./types.js";
 
 const reserved = new Set([
@@ -109,7 +109,7 @@ export function duckDBExpressionLabel(expression: Expression, version: string, d
       return undefined;
     case "call": {
       if (!all || expression.window || expression.filter || expression.context?.length) return undefined;
-      let name = expression.names?.at(-1)?.toLowerCase() ?? "";
+      let name = duckDBAsciiFold(expression.names?.at(-1) ?? "");
       if (name === "count" && (!expression.args?.length || expression.args?.[0]?.kind === "star"))
         return "count_star()";
       if (["if", "ifnull", "nullif", "between", "not between", "in", "not in"].includes(name)) return undefined;

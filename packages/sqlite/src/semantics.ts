@@ -9,6 +9,7 @@ import {
 } from "@typed-sql/core";
 import type { SchemaSnapshot } from "@typed-sql/schema";
 import { SQLITE_CURRENT_TIME_KEYWORDS, sqliteBuiltinVolatility } from "./catalog/index.js";
+import { sqliteAsciiFold, sqliteAsciiUpper } from "./identifier-case.js";
 import { type CallExpression, type Statement, type WithClause, walkStatement } from "./parser/index.js";
 
 const builtinVolatility: Readonly<Record<string, QueryVolatility>> = Object.freeze({
@@ -50,7 +51,7 @@ function functionVolatility(expression: CallExpression, index: ResolverSchemaInd
   const candidates = index.functions(expression.name.name, expression.arguments.length, expression.schema?.name);
   if (candidates.length === 1) return candidates[0]!.volatility ?? "unknown";
   const builtin =
-    builtinVolatility[expression.name.name.toUpperCase()] ?? sqliteBuiltinVolatility(expression.name.name);
+    builtinVolatility[sqliteAsciiUpper(expression.name.name)] ?? sqliteBuiltinVolatility(expression.name.name);
   return builtin !== undefined && expression.schema === undefined ? builtin : "unknown";
 }
 
@@ -75,7 +76,7 @@ function hasRecursiveCte(withClause: WithClause): boolean {
 }
 
 export function analyzeSqliteSemantics(statement: Statement, snapshot: SchemaSnapshot): QuerySemantics {
-  const index = ResolverSchemaIndex.for(snapshot);
+  const index = ResolverSchemaIndex.for(snapshot, sqliteAsciiFold);
   const dependencies = new Map<string, QueryDependency>();
   const capabilities = new Set<string>();
   const volatilities: QueryVolatility[] = [];
@@ -143,7 +144,7 @@ export function analyzeSqliteSemantics(statement: Statement, snapshot: SchemaSna
         if (
           expression.relation === undefined &&
           !expression.column.quoted &&
-          SQLITE_CURRENT_TIME_KEYWORDS.has(expression.column.name.toUpperCase())
+          SQLITE_CURRENT_TIME_KEYWORDS.has(sqliteAsciiUpper(expression.column.name))
         )
           volatilities.push("stable");
         const dependency: QueryDependency = {

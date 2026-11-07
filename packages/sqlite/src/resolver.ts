@@ -36,6 +36,7 @@ import {
   sqliteNumericOperands,
   sqliteOperator,
 } from "./catalog/index.js";
+import { sqliteAsciiFold, sqliteAsciiUpper } from "./identifier-case.js";
 import type {
   CallExpression,
   CommonTableExpression,
@@ -104,7 +105,7 @@ export interface ResolveSqliteOptions {
 }
 
 function name(identifier: Identifier): string {
-  return identifier.quoted ? identifier.name : identifier.name.toLowerCase();
+  return identifier.quoted ? identifier.name : sqliteAsciiFold(identifier.name);
 }
 
 function unionSqliteTypes(types: readonly string[]): string {
@@ -196,7 +197,7 @@ class Resolver {
     this.#projections = projections;
     this.#runtimeValidation = options.runtimeValidation === true;
     this.#schema = schema;
-    this.#index = ResolverSchemaIndex.for(schema);
+    this.#index = ResolverSchemaIndex.for(schema, sqliteAsciiFold);
     this.#policy = options.typePolicy ?? defaultSqliteTypePolicy;
     this.#strict = options.strictExpressions ?? true;
   }
@@ -914,7 +915,7 @@ class Resolver {
     if (reference.kind === "table-function") {
       if (reference.lateral) this.#unsupported("SQLite does not support the LATERAL keyword", reference.range);
       for (const argument of reference.arguments) this.#expression(argument, scope, ctes);
-      const functionName = reference.name.name.toUpperCase();
+      const functionName = sqliteAsciiUpper(reference.name.name);
       const definition = [...SQLITE_JSON_TABLE_FUNCTIONS, ...SQLITE_EXTENSION_TABLE_FUNCTIONS].find(
         ({ name }) => name === functionName,
       );
@@ -1094,7 +1095,7 @@ class Resolver {
       if (
         expression.relation === undefined &&
         !expression.column.quoted &&
-        SQLITE_CURRENT_TIME_KEYWORDS.has(expression.column.name.toUpperCase())
+        SQLITE_CURRENT_TIME_KEYWORDS.has(sqliteAsciiUpper(expression.column.name))
       )
         return { tsType: "string", nullable: false, databaseType: "text" };
       return this.#resolveColumn(expression.relation, expression.column, scope);
@@ -1347,7 +1348,7 @@ class Resolver {
     } else if (expression.over !== undefined && !this.#activeWindows.has(name(expression.over))) {
       this.#diagnostic("TSQ222", `Unknown window ${expression.over.name}`, expression.over.range);
     }
-    const functionName = expression.name.name.toUpperCase();
+    const functionName = sqliteAsciiUpper(expression.name.name);
     const routineCandidates = this.#index.routineOverloads(
       name(expression.name),
       values.length,

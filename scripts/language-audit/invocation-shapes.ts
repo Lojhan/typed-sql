@@ -5,6 +5,7 @@ import type { parseCatalog } from "../../tools/grammar-catalog/src/model/schema.
 import { parseRoutine } from "../../tools/grammar-catalog/src/model/schema.mjs";
 import { hash } from "./inventory.mjs";
 import type { DiscoveredFunction } from "./invocations.js";
+import { spellingVariants } from "./spellings.js";
 
 type Routine = NonNullable<ReturnType<typeof parseCatalog>["entities"][string]["routine"]>;
 export interface InvocationShapeSyntax {
@@ -68,15 +69,18 @@ export function planInvocationShapes(
     }
     args.push(value);
   }
+  const spellings = spellingVariants(row.name);
   const add = (
     kind: string,
     values: readonly string[],
     control?: string,
     role: "control" | "mutation" = control ? "mutation" : "control",
-  ) => {
+    callee = row.name,
+  ): string | undefined => {
     const sql = syntax.call(
       {
         ...row,
+        name: callee,
         ...(routine.namespace.status === "known" && routine.namespace.value !== null
           ? { namespace: routine.namespace.value }
           : {}),
@@ -90,6 +94,8 @@ export function planInvocationShapes(
     const id = hash({ kind, sql });
     if (!plan.cases.some((entry) => entry.id === id))
       plan.cases.push({ id, kind, sql, role, ...(control ? { control } : {}) });
+    if (role === "control")
+      for (const variant of spellings) add(`function-name-${variant.kind}`, values, id, "mutation", variant.spelling);
     return id;
   };
   const positional = add("positional-control", args);

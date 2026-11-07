@@ -1,5 +1,5 @@
 import type { SourceRange } from "@typed-sql/core";
-import { formatDuckDBType, parseDuckDBType } from "../native-types.js";
+import { duckDBAsciiUpper, formatDuckDBType, parseDuckDBType } from "../native-types.js";
 import { DuckDBParseError, tokenize } from "./tokenizer.js";
 import type { CommonTable, Expression, Projection, Relation, Statement, Token } from "./types.js";
 
@@ -96,7 +96,7 @@ export class DuckDBParser {
     return (
       this.token(offset).kind !== "quoted" &&
       this.token(offset).kind !== "string" &&
-      this.token(offset).value.toUpperCase() === value
+      duckDBAsciiUpper(this.token(offset).value) === value
     );
   }
   accept(value: string): boolean {
@@ -194,9 +194,9 @@ export class DuckDBParser {
           };
           continue;
         }
-        let op = this.token().value.toUpperCase();
+        let op = duckDBAsciiUpper(this.token().value);
         const negate = op === "NOT" && ["IN", "LIKE", "ILIKE", "BETWEEN"].some((word) => this.is(word, 1));
-        if (negate) op = this.token(1).value.toUpperCase();
+        if (negate) op = duckDBAsciiUpper(this.token(1).value);
         const power = precedence[op];
         if (power === undefined || power < min) break;
         this.take();
@@ -258,7 +258,7 @@ export class DuckDBParser {
   prefix(): Expression {
     const token = this.take(),
       range = token.range,
-      upper = token.value.toUpperCase();
+      upper = duckDBAsciiUpper(token.value);
     if (token.kind === "quoted") return this.nameExpression(token);
     if (token.kind === "number" || token.kind === "string" || ["NULL", "TRUE", "FALSE"].includes(upper))
       return {
@@ -604,8 +604,8 @@ export class DuckDBParser {
       if (this.accept("AS")) alias = this.identifier().value;
       else if (
         ["word", "quoted"].includes(this.token().kind) &&
-        !clauses.has(this.token().value.toUpperCase()) &&
-        !joinWords.has(this.token().value.toUpperCase())
+        !clauses.has(duckDBAsciiUpper(this.token().value)) &&
+        !joinWords.has(duckDBAsciiUpper(this.token().value))
       )
         alias = this.take().value;
       return {
@@ -635,8 +635,8 @@ export class DuckDBParser {
     if (this.accept("AS")) alias = this.identifier().value;
     else if (
       ["word", "quoted"].includes(this.token().kind) &&
-      !clauses.has(this.token().value.toUpperCase()) &&
-      !joinWords.has(this.token().value.toUpperCase())
+      !clauses.has(duckDBAsciiUpper(this.token().value)) &&
+      !joinWords.has(duckDBAsciiUpper(this.token().value))
     )
       alias = this.take().value;
     if (alias && this.accept("(")) columns = this.list(() => this.identifier().value, ")");
@@ -658,7 +658,7 @@ export class DuckDBParser {
         values.push({ ...this.relation(), join: "cross" });
         continue;
       }
-      if (!joinWords.has(this.token().value.toUpperCase())) break;
+      if (!joinWords.has(duckDBAsciiUpper(this.token().value))) break;
       const natural = this.accept("NATURAL");
       let asof = this.accept("ASOF");
       let kind: NonNullable<Relation["join"]> = "inner";

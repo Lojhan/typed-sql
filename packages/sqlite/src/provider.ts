@@ -9,6 +9,7 @@ import {
   type TypeSnapshot,
 } from "@typed-sql/schema";
 import { sqliteServerEvidence } from "./capabilities.js";
+import { sqliteAsciiUpper } from "./identifier-case.js";
 import {
   sqliteCheckExpressions,
   sqliteColumnCollation,
@@ -155,7 +156,7 @@ function indexOrigin(origin: IndexListRow["origin"]): SqliteIndexSnapshot["origi
 function foreignKeyAction(
   value: string,
 ): "no-action" | "restrict" | "cascade" | "set-null" | "set-default" | "unknown" {
-  const normalized = value.toUpperCase();
+  const normalized = sqliteAsciiUpper(value);
   if (normalized === "NO ACTION") return "no-action";
   if (normalized === "RESTRICT") return "restrict";
   if (normalized === "CASCADE") return "cascade";
@@ -295,7 +296,7 @@ export class SqliteSchemaProvider implements SchemaProvider<SqliteSchemaSnapshot
       const rowidAlias =
         !withoutRowid &&
         primaryColumns.length === 1 &&
-        primaryColumns[0]!.type.trim().toUpperCase() === "INTEGER" &&
+        sqliteAsciiUpper(primaryColumns[0]!.type.trim()) === "INTEGER" &&
         !tableIndexes.some(({ origin }) => origin === "primary-key")
           ? primaryColumns[0]!.name
           : undefined;
@@ -419,7 +420,7 @@ export class SqliteSchemaProvider implements SchemaProvider<SqliteSchemaSnapshot
                 name: column.name,
                 position,
                 databaseType: column.databaseType || "BLOB",
-                typeIdentity: `sqlite:${(column.databaseType || "BLOB").toUpperCase()}`,
+                typeIdentity: `sqlite:${sqliteAsciiUpper(column.databaseType || "BLOB")}`,
                 tsType: column.tsType,
                 nullable: column.nullable,
                 nullabilitySource: column.generated === undefined ? ("declared" as const) : ("generated" as const),
@@ -483,7 +484,7 @@ export class SqliteSchemaProvider implements SchemaProvider<SqliteSchemaSnapshot
       };
       for (const column of Object.values(table.columns)) {
         const databaseType = column.databaseType || "BLOB";
-        const typeKey = databaseType.trim().toUpperCase();
+        const typeKey = sqliteAsciiUpper(databaseType.trim());
         if (types[typeKey] !== undefined) continue;
         const tsType = mapSqliteType(databaseType, this.#policy);
         types[typeKey] =
@@ -491,7 +492,7 @@ export class SqliteSchemaProvider implements SchemaProvider<SqliteSchemaSnapshot
             ? {
                 kind: "opaque",
                 name: databaseType,
-                identity: `sqlite:${databaseType.toUpperCase()}`,
+                identity: `sqlite:${sqliteAsciiUpper(databaseType)}`,
                 databaseType,
                 tsType,
                 reason: "The SQLite declared type has no configured strict type-policy mapping.",
@@ -499,7 +500,7 @@ export class SqliteSchemaProvider implements SchemaProvider<SqliteSchemaSnapshot
             : {
                 kind: "scalar",
                 name: databaseType,
-                identity: `sqlite:${databaseType.toUpperCase()}`,
+                identity: `sqlite:${sqliteAsciiUpper(databaseType)}`,
                 databaseType,
                 tsType,
               };
@@ -515,14 +516,14 @@ export class SqliteSchemaProvider implements SchemaProvider<SqliteSchemaSnapshot
         kind: "function",
         arguments: fn.argumentTypes.map((databaseType) => ({
           mode: "in",
-          typeIdentity: `sqlite:${databaseType.toUpperCase()}`,
+          typeIdentity: `sqlite:${sqliteAsciiUpper(databaseType)}`,
           databaseType,
           tsType: mapSqliteType(databaseType, this.#policy),
           default: "unknown",
         })),
         result: {
           kind: fn.setReturning ? "set" : "scalar",
-          typeIdentity: `sqlite:${(fn.databaseReturnType ?? fn.returnType).toUpperCase()}`,
+          typeIdentity: `sqlite:${sqliteAsciiUpper(fn.databaseReturnType ?? fn.returnType)}`,
           databaseType: fn.databaseReturnType ?? fn.returnType,
           tsType: fn.returnType,
           nullable: fn.nullable,
@@ -545,14 +546,14 @@ export class SqliteSchemaProvider implements SchemaProvider<SqliteSchemaSnapshot
         kind: declaration.kind === "scalar" ? "function" : declaration.kind,
         arguments: declaration.arguments.map(({ databaseType, tsType }) => ({
           mode: "in",
-          typeIdentity: `sqlite:${databaseType.toUpperCase()}`,
+          typeIdentity: `sqlite:${sqliteAsciiUpper(databaseType)}`,
           databaseType,
           tsType: tsType ?? mapSqliteCastType(databaseType, this.#policy),
           default: "none",
         })),
         result: {
           kind: "scalar",
-          typeIdentity: `sqlite:${declaration.result.databaseType.toUpperCase()}`,
+          typeIdentity: `sqlite:${sqliteAsciiUpper(declaration.result.databaseType)}`,
           databaseType: declaration.result.databaseType,
           tsType: declaration.result.tsType ?? mapSqliteCastType(declaration.result.databaseType, this.#policy),
           nullable: declaration.result.nullable,

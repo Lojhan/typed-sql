@@ -376,6 +376,35 @@ Registered native connection and nullable-schema checkpoint:
   Fresh Darwin 1.5 and SQLite live captures match the reviewed baselines. The PR stays draft;
   the full remaining requirements below are unchanged.
 
+Metadata-derived spelling qualification checkpoint:
+
+- Commit `458d917b` passed full CI run 42405990382 and both integration workflows.
+  This qualifies the previous connection/nullable-schema checkpoint on the actual Linux lanes.
+- Function invocation controls now acquire uppercase/lowercase and Unicode collision probes
+  derived from the running JavaScript Unicode casing tables. No function or collision-character
+  allowlist is maintained. Every control receives its own spelling probes, including named-only
+  and variadic controls; native acceptance decides whether the spelling is supported.
+- Native DuckDB rejects Kelvin-sign routine spellings, dotless-i type spellings, long-s keywords
+  and Unicode lookalikes of current-time expressions that the host previously accepted.
+  Grammar-owned ASCII normalization fixes those paths. Both supported versions retain native
+  regression witnesses. Expanded binding audits pass with 35,465 distinct statements on 2.0.0
+  and 32,991 on 1.5.6; qualification remains incomplete because unresolved controls and semantic
+  facets are explicit gaps.
+- The expanded SQLite audit found 111 native-rejected/host-typed spellings. ASCII function,
+  keyword and type normalization removes those failures: the local Node 24 inventory produces
+  738 distinct statements across 196 entities with zero binding failures. Native regression tests
+  also preserve nullable primary keys whose declared type only resembles INTEGER, and distinguish
+  ASCII `k` from Kelvin-sign columns in STRICT tables. Flexible affinity remains conservative.
+- The neutral schema index accepts caller-owned folding and isolates cache entries by policy
+  identity. SQLite supplies its ASCII policy. Existing callers retain the historical default;
+  this is not evidence that PostgreSQL/MySQL identifier semantics have been fully migrated.
+- Core (23 files), SQLite (16) and DuckDB (42) package tests pass with their coverage
+  thresholds. All 62 contract files, typecheck, quality, build and unchanged performance
+  budgets, documentation build and the full workspace `pnpm test` pass locally, including
+  native TypeScript watch/SQL-file, language-server, editor, synthetic-grammar and packed
+  consumer checks. New-head CI is still required before promotion. Function spelling probes
+  do not yet constitute automated keyword/type/operator/identifier qualification across engines.
+
 ## Requirements still open
 
 

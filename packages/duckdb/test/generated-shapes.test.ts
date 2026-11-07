@@ -46,7 +46,7 @@ await it("retains every automatically discovered native binding/analysis regress
         accepted = true;
         prepared.destroySync();
       } catch (error) {
-        strict.match(String(error), /(?:Binder|Parser|Invalid Input) Error/u);
+        strict.match(String(error), /(?:Binder|Parser|Catalog|Invalid Input) Error/u);
       }
       strict.equal(accepted, witness.nativeAccepted, witness.sql);
       const analysis = grammar.analyze(witness.sql, snapshot);
