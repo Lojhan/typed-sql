@@ -1,5 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./api";
+import {
+  Bar,
+  BarLabel,
+  Button,
+  ControlGroup,
+  FieldLabel,
+  FormField,
+  FormPanel,
+  Input,
+  Notice,
+  Panel,
+  Select,
+  TextArea,
+  View,
+} from "./components";
 import { Icon } from "./icon";
 import type { State, Value } from "./types";
 import "./agent.css";
@@ -298,9 +313,9 @@ export function AgentPanel({
     if (action === "accept" && proposal) onChanged(proposal.file);
   };
   return (
-    <section className="agent-workspace">
-      <div className="agent-toolbar">
-        <select
+    <View className="agent-workspace">
+      <Bar wrap className="agent-toolbar">
+        <Select
           aria-label="Agent profile"
           value={profile}
           onChange={(event) => {
@@ -317,8 +332,8 @@ export function AgentPanel({
               {item.name}
             </option>
           ))}
-        </select>
-        <select
+        </Select>
+        <Select
           aria-label="Agent conversation"
           value={conversation?.id ?? ""}
           onChange={(event) => {
@@ -353,9 +368,8 @@ export function AgentPanel({
                 {item.id === conversation?.id ? conversation.title : item.title}
               </option>
             ))}
-        </select>
-        <button
-          type="button"
+        </Select>
+        <Button
           disabled={!profile || busy || conversation?.status === "running"}
           onClick={() =>
             void perform(async () => {
@@ -364,18 +378,12 @@ export function AgentPanel({
           }
         >
           New chat
-        </button>
-        <button type="button" onClick={() => setConfigure((value) => !value)}>
-          Configure
-        </button>
-      </div>
-      {error ? (
-        <div className="inline-error" role="alert">
-          {error}
-        </div>
-      ) : null}
+        </Button>
+        <Button onClick={() => setConfigure((value) => !value)}>Configure</Button>
+      </Bar>
+      {error ? <Notice tone="error">{error}</Notice> : null}
       {configure || agents?.profiles.length === 0 ? (
-        <form
+        <FormPanel
           className="agent-config"
           onSubmit={(event) => {
             event.preventDefault();
@@ -383,9 +391,8 @@ export function AgentPanel({
           }}
         >
           <h3>Connect an ACP agent</h3>
-          <label>
-            Preset
-            <select
+          <FormField label="Preset">
+            <Select
               aria-label="Agent preset"
               defaultValue="custom"
               onChange={(event) => {
@@ -403,38 +410,35 @@ export function AgentPanel({
               <option value="custom">Custom ACP process</option>
               <option value="codex">Codex</option>
               <option value="opencode">OpenCode</option>
-            </select>
-          </label>
-          <label>
-            Name
-            <input aria-label="Agent name" value={name} onChange={(event) => setName(event.target.value)} required />
-          </label>
-          <label>
-            Executable
-            <input
+            </Select>
+          </FormField>
+          <FormField label="Name">
+            <Input aria-label="Agent name" value={name} onChange={(event) => setName(event.target.value)} required />
+          </FormField>
+          <FormField label="Executable">
+            <Input
               aria-label="Agent executable"
               value={command}
               placeholder="Local ACP-compatible executable"
               onChange={(event) => setCommand(event.target.value)}
               required
             />
-          </label>
-          <label>
-            Arguments
-            <textarea
+          </FormField>
+          <FormField label="Arguments">
+            <TextArea
               aria-label="Agent arguments"
               rows={2}
               value={args}
               onChange={(event) => setArgs(event.target.value)}
             />
-          </label>
-          <div className="config-footer">
+          </FormField>
+          <ControlGroup wrap className="config-footer">
             <span>Starts a trusted local process. Configured globally for your account.</span>
-            <button type="submit" disabled={busy || !command}>
+            <Button type="submit" disabled={busy || !command}>
               Save profile
-            </button>
-          </div>
-        </form>
+            </Button>
+          </ControlGroup>
+        </FormPanel>
       ) : null}
       <div className="agent-messages" role="log" aria-label="Agent conversation">
         {!conversation?.messages.length ? (
@@ -459,7 +463,9 @@ export function AgentPanel({
           ))
         )}
         {conversation?.toolCalls?.map((call) => (
-          <div
+          <Bar
+            wrap
+            separator="frame"
             className={`agent-tool-call ${call.state}`}
             role="status"
             aria-label={`Workspace tool: ${toolLabels[call.name] ?? call.name}`}
@@ -469,14 +475,16 @@ export function AgentPanel({
             <span>{toolLabels[call.name] ?? call.name}</span>
             <small>{call.state === "running" ? "Running" : call.state === "completed" ? "Completed" : "Failed"}</small>
             <time>{new Date(call.createdAt).toLocaleTimeString()}</time>
-          </div>
+          </Bar>
         ))}
         {conversation?.proposals.map((proposal) => (
-          <section className={`agent-proposal ${proposal.status}`} key={proposal.id}>
-            <header>
-              <strong>{proposal.file}</strong>
+          <Panel className={`agent-proposal ${proposal.status}`} key={proposal.id}>
+            <Bar as="header" separator="none" padding="none">
+              <BarLabel as="strong" truncate title={proposal.file}>
+                {proposal.file}
+              </BarLabel>
               <span>{proposal.status}</span>
-            </header>
+            </Bar>
             <p>{proposal.description}</p>
             {review === proposal.id ? (
               <div className="proposal-diff">
@@ -490,60 +498,51 @@ export function AgentPanel({
                 </div>
               </div>
             ) : null}
-            <div className="proposal-actions">
-              <button
-                type="button"
-                onClick={() => setReview((current) => (current === proposal.id ? null : proposal.id))}
-              >
+            <ControlGroup wrap className="proposal-actions">
+              <Button onClick={() => setReview((current) => (current === proposal.id ? null : proposal.id))}>
                 {review === proposal.id ? "Hide diff" : "Review diff"}
-              </button>
+              </Button>
               {proposal.status === "pending" ? (
                 <>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void perform(() => decide(proposal.id, "reject"))}
-                  >
+                  <Button disabled={busy} onClick={() => void perform(() => decide(proposal.id, "reject"))}>
                     Reject
-                  </button>
-                  <button
-                    type="button"
-                    className="primary-button"
+                  </Button>
+                  <Button
+                    variant="primary"
                     disabled={busy || review !== proposal.id}
                     onClick={() => void perform(() => decide(proposal.id, "accept"))}
                   >
                     Apply reviewed change
-                  </button>
+                  </Button>
                 </>
               ) : proposal.status === "accepted" || proposal.before !== null ? (
-                <button type="button" onClick={() => onOpen(proposal.file)}>
-                  Open file
-                </button>
+                <Button onClick={() => onOpen(proposal.file)}>Open file</Button>
               ) : null}
-            </div>
-          </section>
+            </ControlGroup>
+          </Panel>
         ))}
-        {conversation?.error ? <div className="inline-error">{conversation.error}</div> : null}
+        {conversation?.error ? <Notice tone="error">{error}</Notice> : null}
         <div ref={end} />
       </div>
-      <form
+      <FormPanel
+        padding="none"
         className="agent-composer"
         onSubmit={(event) => {
           event.preventDefault();
           void perform(send);
         }}
       >
-        <div className="context-options">
-          <label>
-            <input
+        <Bar wrap className="context-options">
+          <FieldLabel>
+            <Input
               type="checkbox"
               checked={includeSource}
               disabled={!source?.revision}
               onChange={(event) => setIncludeSource(event.target.checked)}
             />
             {source ? `${source.file.split("/").at(-1)}${source.revision ? "" : " · save to attach"}` : "Active file"}
-          </label>
-          <label
+          </FieldLabel>
+          <FieldLabel
             title={
               !agents?.workspaceToolsAvailable
                 ? "Workspace tools are unavailable from this host."
@@ -552,32 +551,32 @@ export function AgentPanel({
                   : "Allow scoped file, schema and migration inspection, bounded read-only database queries, and reviewed file proposals."
             }
           >
-            <input
+            <Input
               type="checkbox"
               checked={workspaceTools}
               disabled={!agents?.workspaceToolsAvailable || !state.trusted}
               onChange={(event) => setWorkspaceTools(event.target.checked)}
             />
             Workspace tools
-          </label>
-          <label>
-            <input
+          </FieldLabel>
+          <FieldLabel>
+            <Input
               type="checkbox"
               checked={includeSchema}
               onChange={(event) => setIncludeSchema(event.target.checked)}
             />
             Schema
-          </label>
-          <label>
-            <input
+          </FieldLabel>
+          <FieldLabel>
+            <Input
               type="checkbox"
               checked={includeResult}
               disabled={result === undefined}
               onChange={(event) => setIncludeResult(event.target.checked)}
             />
             Captured result
-          </label>
-          <select
+          </FieldLabel>
+          <Select
             aria-label="Agent captured result context"
             value={resultRun}
             onChange={(event) => setResultRun(event.target.value)}
@@ -590,17 +589,18 @@ export function AgentPanel({
                   {run.file} · {run.sourceRevision.slice(0, 8)} · {run.target ?? "unverified"}
                 </option>
               ))}
-          </select>
+          </Select>
           <span>{conversation?.status === "running" ? "Agent is working…" : profile ? "ACP · local process" : ""}</span>
-        </div>
+        </Bar>
         {workspaceTools && agents?.workspaceToolsAvailable ? (
           <p className="agent-tools-scope">
             Tools can inspect scoped files, schema and migration history, run bounded read-only queries, and propose
             reviewed file changes.
           </p>
         ) : null}
-        <textarea
+        <TextArea
           aria-label="Message local agent"
+          variant="plain"
           value={message}
           rows={3}
           placeholder="Ask about your project…"
@@ -612,11 +612,10 @@ export function AgentPanel({
             }
           }}
         />
-        <div className="composer-actions">
-          <span>File changes require review. Queries run through the workspace controls.</span>
+        <Bar separator="none" wrap className="composer-actions">
+          <BarLabel>File changes require review. Queries run through the workspace controls.</BarLabel>
           {conversation?.status === "running" ? (
-            <button
-              type="button"
+            <Button
               onClick={() =>
                 void perform(async () => {
                   const id = conversation.id,
@@ -628,14 +627,14 @@ export function AgentPanel({
               }
             >
               Stop
-            </button>
+            </Button>
           ) : (
-            <button type="submit" className="primary-button" disabled={!profile || !message.trim() || busy}>
+            <Button variant="primary" type="submit" disabled={!profile || !message.trim() || busy}>
               Send ↑
-            </button>
+            </Button>
           )}
-        </div>
-      </form>
-    </section>
+        </Bar>
+      </FormPanel>
+    </View>
   );
 }

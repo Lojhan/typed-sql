@@ -6,6 +6,22 @@ import { SchemaBoard } from "./board";
 import { CommandPalette, type PaletteCommand } from "./command-palette.js";
 import { ComparePanel } from "./compare";
 import {
+  Bar,
+  BarLabel,
+  Button,
+  ControlGroup,
+  EmptyState,
+  FieldLabel,
+  IconButton,
+  Input,
+  MenuSurface,
+  MenuTrigger,
+  Notice,
+  Select,
+  TabButton,
+  View,
+} from "./components";
+import {
   analysisKey,
   clearDocumentAnalysis,
   currentRunDocument,
@@ -707,7 +723,9 @@ function App() {
               ) : null}
             </section>
           ))}
-          {!doc.analysis?.queries.length ? <div className="quiet-empty">No inferred SQL query.</div> : null}
+          {!doc.analysis?.queries.length ? (
+            <EmptyState className="quiet-empty">No inferred SQL query.</EmptyState>
+          ) : null}
         </div>
       );
     if (item.bottom === "problems")
@@ -724,7 +742,7 @@ function App() {
               </div>
             ))
           ) : (
-            <div className="quiet-empty">No compiler, editor or database diagnostics for this file.</div>
+            <EmptyState className="quiet-empty">No compiler, editor or database diagnostics for this file.</EmptyState>
           )}
         </div>
       );
@@ -735,11 +753,11 @@ function App() {
             param = doc.analysis?.queries[0]?.parameters?.find((value) => value.index === index);
           return (
             <div className="binding-row" key={`binding-${index}`}>
-              <label htmlFor={`${item.id}-param-${index}`}>
+              <FieldLabel htmlFor={`${item.id}-param-${index}`}>
                 {param?.name ?? `$${index}`}
                 <code>{param?.tsType ?? "unknown"}</code>
-              </label>
-              <input
+              </FieldLabel>
+              <Input
                 id={`${item.id}-param-${index}`}
                 disabled={doc.parameters[index]?.null}
                 value={doc.parameters[index]?.value ?? ""}
@@ -753,8 +771,8 @@ function App() {
                   })
                 }
               />
-              <label className="checkbox-label">
-                <input
+              <FieldLabel className="checkbox-label">
+                <Input
                   type="checkbox"
                   checked={doc.parameters[index]?.null ?? false}
                   onChange={(event) =>
@@ -767,14 +785,14 @@ function App() {
                   }
                 />
                 NULL
-              </label>
+              </FieldLabel>
             </div>
           );
         })}
         {!doc.analysis?.queries[0]?.parameterCount ? (
-          <div className="quiet-empty">
+          <EmptyState className="quiet-empty">
             {doc.file.endsWith(".sql") ? "No bound parameters." : "Parameters come from the TypeScript file."}
-          </div>
+          </EmptyState>
         ) : null}
       </div>
     );
@@ -798,19 +816,18 @@ function App() {
       );
     if (item.active === "@schema")
       return (
-        <div className="schema-tab">
-          <div className="tool-toolbar">
-            <input
+        <View className="schema-tab">
+          <Bar className="tool-toolbar">
+            <Input
               aria-label="Search schema"
               placeholder="Find relation or column"
               value={schemaSearch}
               onChange={(event) => setSchemaSearch(event.target.value)}
             />
-            <span>
+            <BarLabel>
               {state.board.tables.length} relations · {state.board.edges.length} foreign keys
-            </span>
-            <button
-              type="button"
+            </BarLabel>
+            <Button
               disabled={busy}
               onClick={() =>
                 void action(async () => {
@@ -820,8 +837,8 @@ function App() {
               }
             >
               Refresh
-            </button>
-          </div>
+            </Button>
+          </Bar>
           <SchemaBoard
             board={state.board}
             selected={selectedTable}
@@ -843,7 +860,7 @@ function App() {
             identity={`${state.project.name}:${state.target ?? "offline"}`}
           />
           {selectedTable ? (
-            <div className="schema-selection">
+            <Bar wrap className="schema-selection">
               {state.board.tables.find((table) => table.id === selectedTable)?.name}
               <span>
                 {state.board.tables
@@ -852,9 +869,8 @@ function App() {
                   .join(" · ")}
               </span>
               {(["sql", "ts"] as const).map((extension) => (
-                <button
+                <Button
                   key={extension}
-                  type="button"
                   disabled={busy}
                   onClick={() =>
                     void action(async () => {
@@ -872,11 +888,11 @@ function App() {
                   }
                 >
                   New {extension.toUpperCase()} query
-                </button>
+                </Button>
               ))}
-            </div>
+            </Bar>
           ) : null}
-        </div>
+        </View>
       );
     if (item.active === "@compare")
       return <ComparePanel runs={state.runs} {...(compareA ? { initialA: compareA } : {})} />;
@@ -900,16 +916,20 @@ function App() {
       );
     const doc = documents[item.active];
     if (!doc)
-      return <div className="quiet-empty">{item.active ? "Opening file…" : "Open a file from the project tree."}</div>;
+      return (
+        <EmptyState className="quiet-empty">
+          {item.active ? "Opening file…" : "Open a file from the project tree."}
+        </EmptyState>
+      );
     if (doc.definition)
       return (
-        <div className="document-workspace">
-          <div className="document-toolbar">
-            <span className="document-path" title={doc.file}>
+        <View className="document-workspace">
+          <Bar className="document-toolbar">
+            <BarLabel truncate className="document-path" title={doc.file}>
               {doc.file}
-            </span>
+            </BarLabel>
             <span>Read-only definition</span>
-          </div>
+          </Bar>
           <div className="document-editor" style={{ flex: "1 1 0" }}>
             <Editor
               session={`${state.project.name}:${item.id}:${doc.file}`}
@@ -924,16 +944,16 @@ function App() {
               onRun={() => {}}
             />
           </div>
-        </div>
+        </View>
       );
     const active = state.runs.find((run) => ["checking", "running", "cancelling"].includes(run.status));
     return (
-      <div className="document-workspace">
-        <div className="document-toolbar">
-          <span className="document-path" title={doc.file}>
+      <View className="document-workspace">
+        <Bar className="document-toolbar">
+          <BarLabel truncate className="document-path" title={doc.file}>
             {doc.file}
-          </span>
-          <select
+          </BarLabel>
+          <Select
             aria-label={`Execution mode for ${doc.file}`}
             value={doc.mode}
             disabled={doc.file.endsWith(".sql")}
@@ -942,9 +962,9 @@ function App() {
             <option value="export">Export</option>
             <option value="file">File</option>
             <option value="sql">SQL</option>
-          </select>
+          </Select>
           {doc.mode === "export" ? (
-            <select
+            <Select
               aria-label="Callable export"
               value={doc.exportName}
               onChange={(event) => edit(doc.file, { exportName: event.target.value })}
@@ -952,18 +972,17 @@ function App() {
               {(doc.analysis?.exports.length ? doc.analysis.exports : ["run"]).map((name) => (
                 <option key={name}>{name}</option>
               ))}
-            </select>
+            </Select>
           ) : null}
-          <label className="checkbox-label read-only">
-            <input
+          <FieldLabel className="checkbox-label read-only">
+            <Input
               type="checkbox"
               checked={doc.readOnly}
               onChange={(event) => edit(doc.file, { readOnly: event.target.checked })}
             />
             Read only
-          </label>
-          <button
-            type="button"
+          </FieldLabel>
+          <Button
             disabled={busy || !dirty.has(doc.file)}
             onClick={() =>
               void action(async () => {
@@ -973,21 +992,21 @@ function App() {
             title="Save (⌘S)"
           >
             Save
-          </button>
+          </Button>
           <details className="file-menu">
-            <summary aria-label="File actions">⋯</summary>
-            <div>
-              <button
-                type="button"
+            <MenuTrigger aria-label="File actions">
+              <Icon name="more" />
+            </MenuTrigger>
+            <MenuSurface>
+              <Button
                 disabled={busy || !doc.writable || state.classification === "production"}
                 onClick={() => void action(() => formatFile(doc.file))}
                 title="Format file (Shift+Alt+F)"
               >
                 Format file
-              </button>
+              </Button>
               {(["copy", "rename", "reload", ...(doc.file.endsWith(".sql") ? ["types"] : [])] as const).map((kind) => (
-                <button
-                  type="button"
+                <Button
                   key={kind}
                   onClick={() =>
                     void action(() => fileAction(doc.file, kind as "copy" | "rename" | "reload" | "types"))
@@ -1000,13 +1019,13 @@ function App() {
                       : kind === "reload"
                         ? "Reload from disk"
                         : "Generate TS types"}
-                </button>
+                </Button>
               ))}
-            </div>
+            </MenuSurface>
           </details>
           {active ? (
-            <button
-              type="button"
+            <Button
+              variant="danger"
               className="cancel-button"
               onClick={() =>
                 void action(async () => {
@@ -1015,20 +1034,20 @@ function App() {
                 })
               }
             >
-              ■ Stop
-            </button>
+              <Icon name="stop" /> Stop
+            </Button>
           ) : (
-            <button
-              type="button"
+            <Button
+              variant="primary"
               className="run-button"
               disabled={!state.target || busy}
               onClick={() => void action(() => run(doc.file))}
               title="Run (⌘Enter)"
             >
               <Icon name="play" /> Run
-            </button>
+            </Button>
           )}
-        </div>
+        </Bar>
         <div className="document-editor" style={{ flex: `${1 - item.bottomRatio} 1 0` }}>
           <Editor
             session={`${state.project.name}:${item.id}:${doc.file}`}
@@ -1095,11 +1114,9 @@ function App() {
           }
         />
         <div className="document-bottom" style={{ flex: `${item.bottomRatio} 1 0` }}>
-          <div className="bottom-tabs" role="tablist" aria-label="Query tools">
+          <Bar className="bottom-tabs" role="tablist" aria-label="Query tools">
             {(["results", "types", "bindings", "problems"] as const).map((tab) => (
-              <button
-                type="button"
-                role="tab"
+              <TabButton
                 aria-selected={item.bottom === tab}
                 className={item.bottom === tab ? "selected" : ""}
                 key={tab}
@@ -1109,10 +1126,10 @@ function App() {
               >
                 {tab[0]!.toUpperCase() + tab.slice(1)}
                 {tab === "problems" && problemsFor(doc).length ? <span>{problemsFor(doc).length}</span> : null}
-              </button>
+              </TabButton>
             ))}
             {item.bottom === "results" ? (
-              <select
+              <Select
                 aria-label="Captured execution"
                 value={item.runId ?? ""}
                 onChange={(event) =>
@@ -1130,12 +1147,12 @@ function App() {
                     {run.file.split("/").at(-1)} · {new Date(run.startedAt).toLocaleTimeString()}
                   </option>
                 ))}
-              </select>
+              </Select>
             ) : null}
-          </div>
+          </Bar>
           {bottom(item, doc)}
         </div>
-      </div>
+      </View>
     );
   };
   if (!state)
@@ -1340,25 +1357,13 @@ function App() {
     <div className="app-shell">
       <GlobalScrollbars />
       {error ? (
-        <div className="workspace-banner error" role="alert">
-          <span>{error}</span>
-          <button type="button" onClick={() => setError("")}>
-            <Icon name="close" />
-          </button>
-        </div>
+        <Notice tone="error" onDismiss={() => setError("")}>
+          {error}
+        </Notice>
       ) : null}
-      {notice ? (
-        <div className="workspace-banner" role="status">
-          <span>{notice}</span>
-          <button type="button" onClick={() => setNotice("")}>
-            <Icon name="close" />
-          </button>
-        </div>
-      ) : null}
+      {notice ? <Notice onDismiss={() => setNotice("")}>{notice}</Notice> : null}
       {state.executionSchemaStale ? (
-        <div className="workspace-banner warning">
-          Live schema changed. Generate the compiler snapshot and restart before running.
-        </div>
+        <Notice tone="warning">Live schema changed. Generate the compiler snapshot and restart before running.</Notice>
       ) : null}
       <div className="workspace-body">
         {sidebarVisible ? (
@@ -1398,7 +1403,7 @@ function App() {
             />
           </>
         ) : null}
-        <main className="editor-area">
+        <View as="main" className="editor-area">
           <PaneLayout
             node={layout}
             active={focused.id}
@@ -1421,12 +1426,11 @@ function App() {
             }
             render={renderPane}
           />
-        </main>
+        </View>
       </div>
-      <footer className="workspace-status">
-        <div className="status-actions">
-          <button
-            type="button"
+      <Bar separator="top" as="footer" className="workspace-status">
+        <ControlGroup className="status-actions">
+          <IconButton
             className="status-icon"
             aria-label="Toggle project tree"
             aria-keyshortcuts="Meta+B Control+B"
@@ -1434,19 +1438,19 @@ function App() {
             onClick={() => setSidebarVisible((value) => !value)}
           >
             <Icon name="sidebar" />
-          </button>
-          <button
-            type="button"
+          </IconButton>
+          <IconButton
             className="status-icon"
             aria-label="Command palette"
             title="Command palette (⌘K / Ctrl+K)"
             onClick={() => setPalette(true)}
           >
             <Icon name="command" />
-          </button>
-          <button
-            type="button"
+          </IconButton>
+          <Button
             className="status-diagnostics"
+            iconOnly={!problems && !dirty.size}
+            compact={!problems}
             aria-label="Show SQL diagnostics"
             title={`${problems} SQL diagnostics${dirty.size ? ` · ${dirty.size} unsaved files` : ""}`}
             onClick={() => {
@@ -1458,12 +1462,11 @@ function App() {
             <Icon name={problems ? "warning" : "check"} />
             {problems || ""}
             {dirty.size ? <span> · {dirty.size} unsaved</span> : null}
-          </button>
-        </div>
-        <div className="status-actions">
+          </Button>
+        </ControlGroup>
+        <ControlGroup className="status-actions">
           {state.target ? (
-            <button
-              type="button"
+            <IconButton
               className="status-icon status-connection"
               disabled={busy}
               aria-label={state.connection.state === "connected" ? "Refresh schema" : "Connect to target"}
@@ -1472,38 +1475,34 @@ function App() {
             >
               <span className={`status-dot ${state.connection.state === "connected" ? "succeeded" : ""}`} />
               <Icon name="connection" />
-            </button>
+            </IconButton>
           ) : null}
-          <button
-            type="button"
+          <IconButton
             className="status-icon"
             aria-label="Schema"
             title="Open schema"
             onClick={() => openTab(focused.id, "@schema")}
           >
             <Icon name="schema" />
-          </button>
-          <button
-            type="button"
+          </IconButton>
+          <IconButton
             className="status-icon"
             aria-label="Compare"
             title="Open compare"
             onClick={() => openTab(focused.id, "@compare")}
           >
             <Icon name="compare" />
-          </button>
-          <button
-            type="button"
+          </IconButton>
+          <IconButton
             className="status-icon"
             aria-label="Agent"
             title="Open agent"
             onClick={() => openTab(focused.id, "@agent")}
           >
             <Icon name="agent" />
-          </button>
+          </IconButton>
           {state.classification !== "production" ? (
-            <button
-              type="button"
+            <IconButton
               className={`status-icon ${state.trusted ? "trusted" : ""}`}
               aria-label={state.trusted ? "Disable trusted project execution" : "Enable trusted project execution"}
               title={state.trusted ? "Trusted project execution enabled" : "Project execution disabled"}
@@ -1517,11 +1516,11 @@ function App() {
               }}
             >
               <Icon name="lock" />
-            </button>
+            </IconButton>
           ) : null}
           <ThemeMenu theme={theme} onChange={setTheme} />
-        </div>
-      </footer>
+        </ControlGroup>
+      </Bar>
       {palette ? (
         <CommandPalette
           files={state.files.filter((file) => !/\.d\.[cm]?ts$/u.test(file))}
@@ -1537,13 +1536,10 @@ function App() {
             Project files, repository formatters and local agents can access your files, environment, network and
             private database clients. Managed read-only controls do not restrict those private clients.
           </p>
-          <div className="dialog-actions">
-            <button type="button" onClick={() => setTrust(false)}>
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="primary-button"
+          <ControlGroup wrap className="dialog-actions">
+            <Button onClick={() => setTrust(false)}>Cancel</Button>
+            <Button
+              variant="primary"
               onClick={() =>
                 void action(async () => {
                   await api("trust", { enable: true });
@@ -1553,30 +1549,26 @@ function App() {
               }
             >
               Enable for this session
-            </button>
-          </div>
+            </Button>
+          </ControlGroup>
         </Modal>
       ) : null}
       {closing ? (
         <Modal className="create-dialog" label="Unsaved changes" onClose={() => setClosing(null)}>
           <h3>Save {title(closing.tab)}?</h3>
           <p>This is the last open view of the unsaved file.</p>
-          <div className="dialog-actions">
-            <button type="button" onClick={() => setClosing(null)}>
-              Cancel
-            </button>
-            <button
-              type="button"
+          <ControlGroup wrap className="dialog-actions">
+            <Button onClick={() => setClosing(null)}>Cancel</Button>
+            <Button
               onClick={() => {
                 closeTab(closing.paneId, closing.tab, true);
                 setClosing(null);
               }}
             >
               Discard
-            </button>
-            <button
-              type="button"
-              className="primary-button"
+            </Button>
+            <Button
+              variant="primary"
               disabled={busy}
               onClick={() =>
                 void action(async () => {
@@ -1595,8 +1587,8 @@ function App() {
               }
             >
               Save and close
-            </button>
-          </div>
+            </Button>
+          </ControlGroup>
         </Modal>
       ) : null}
     </div>

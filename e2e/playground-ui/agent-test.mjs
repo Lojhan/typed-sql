@@ -3,6 +3,7 @@ import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { join, resolve } from "node:path";
 import { command, consumer, server } from "../build/src/consumer.mjs";
+import { componentContract } from "./fixtures/component-contracts.mjs";
 
 const artifacts = resolve("artifacts/playground-ui/agent-browser");
 await rm(artifacts, { recursive: true, force: true });
@@ -455,6 +456,8 @@ try {
     .map((line) => JSON.parse(line));
   assert.equal(trace.filter((entry) => entry.action === "prompt").length, 5);
   assert.ok(trace.some((entry) => entry.action === "read" && entry.success));
+  evidence.components = await componentContract(page);
+  check("shared component geometry is consistent across rendered controls and section headers");
   assert.deepEqual(evidence.errors, []);
 } catch (error) {
   evidence.failure = error.stack ?? String(error);

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Button } from "./components";
 import { evidenceText, type InspectionTarget, objectLabel, objectPresence } from "./explorer-model";
 import type { ExplorerCatalog, ExplorerObject, ExplorerValue } from "./explorer-types";
 import { Icon } from "./icon";
@@ -26,14 +27,14 @@ function ObjectLink({
   qualified?: boolean;
 }) {
   return (
-    <button
-      type="button"
+    <Button
+      variant="link"
       className="definition-link"
       onClick={() => onOpen({ kind: "object", id: object.id, label: objectLabel(object) })}
     >
       {qualified && object.namespace ? `${object.namespace}.` : ""}
       {objectLabel(object)}
-    </button>
+    </Button>
   );
 }
 function CellValue({ value }: { value: ExplorerValue | undefined }) {

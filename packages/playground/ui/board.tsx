@@ -12,6 +12,7 @@ import {
   type ReactFlowInstance,
 } from "@xyflow/react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Bar, BarLabel, Button, ControlGroup } from "./components";
 import { Icon } from "./icon.js";
 import type { Board, Table } from "./types";
 import "@xyflow/react/dist/style.css";
@@ -223,22 +224,20 @@ export function SchemaBoard({
   ];
   return (
     <div className="schema-canvas">
-      <div className="canvas-toolbar">
-        <span>
+      <Bar wrap className="canvas-toolbar">
+        <BarLabel truncate>
           <b>{visible.length}</b> of {board.tables.length} relations
-        </span>
-        <div>
-          <button
-            type="button"
+        </BarLabel>
+        <ControlGroup wrap>
+          <Button
             className={focus ? "active" : ""}
             aria-pressed={focus}
             onClick={() => setFocus((value) => !value)}
             disabled={!selected}
           >
             Focus neighbors
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
             onClick={() => {
               try {
                 localStorage.removeItem(storageKey);
@@ -254,9 +253,9 @@ export function SchemaBoard({
             }}
           >
             Reset layout
-          </button>
-        </div>
-      </div>
+          </Button>
+        </ControlGroup>
+      </Bar>
       <div className="canvas-viewport" ref={viewport}>
         <ReactFlow
           onInit={setFlow}

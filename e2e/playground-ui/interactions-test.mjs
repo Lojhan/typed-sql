@@ -36,17 +36,21 @@ function App(){const [show,setShow]=useState(true);return <>
     },
     bundle: true,
     write: false,
+    outdir: join(fixture.directory, "interactions-assets"),
     format: "esm",
     jsx: "automatic",
   });
   server = createServer((request, response) => {
     if (request.url === "/fixture.js") {
       response.setHeader("Content-Type", "text/javascript");
-      response.end(bundle.outputFiles[0].contents);
+      response.end(bundle.outputFiles.find((file) => file.path.endsWith(".js")).contents);
+    } else if (request.url === "/fixture.css") {
+      response.setHeader("Content-Type", "text/css");
+      response.end(bundle.outputFiles.find((file) => file.path.endsWith(".css")).contents);
     } else {
       response.setHeader("Content-Type", "text/html");
       response.end(
-        '<!doctype html><html><head><title>Workspace interaction fixture</title></head><body><div id="root"></div><script type="module" src="/fixture.js"></script></body></html>',
+        '<!doctype html><html><head><title>Workspace interaction fixture</title><link rel="stylesheet" href="/fixture.css"></head><body><div id="root"></div><script type="module" src="/fixture.js"></script></body></html>',
       );
     }
   });

@@ -1,4 +1,15 @@
 import { useEffect, useRef, useState } from "react";
+import {
+  Button,
+  IconButton,
+  Input,
+  MenuSurface,
+  SectionHeader,
+  TreeButton,
+  TreeDraftRow,
+  TreeLabel,
+  TreeSummary,
+} from "./components";
 import { fileIcon, Icon } from "./icon";
 import { FILE_MIME, fileTree, type TreeNode } from "./layout";
 import { useMenu } from "./menu";
@@ -84,10 +95,10 @@ export function WorkspaceFileTree({
   const editor = (where: string, depth: number) =>
     draft?.parent === where ? (
       <li className="tree-draft" key="draft">
-        <div className="tree-row" style={{ paddingLeft: 8 + depth * 14 }}>
-          <span />
+        <TreeDraftRow className="tree-row" style={{ paddingLeft: 8 + depth * 14 }}>
+          <span className="ui-tree-spacer" />
           <Icon name={draft.folder ? "folder" : fileIcon(draft.name)} />
-          <input
+          <Input
             ref={input}
             aria-label={draft.folder ? "New folder name" : "New file name"}
             aria-invalid={!!draft.error}
@@ -111,7 +122,7 @@ export function WorkspaceFileTree({
               if (!busy) setDraft(null);
             }}
           />
-        </div>
+        </TreeDraftRow>
         {draft.error ? (
           <p id="tree-name-error" role="alert">
             {draft.error}
@@ -125,8 +136,7 @@ export function WorkspaceFileTree({
       {nodes.map((node) => (
         <li key={node.path}>
           {node.file ? (
-            <button
-              type="button"
+            <TreeButton
               className={`tree-row ${selected === node.path ? "selected" : ""}`}
               style={{ paddingLeft: 8 + depth * 14 }}
               title={node.path}
@@ -147,14 +157,13 @@ export function WorkspaceFileTree({
                 setMenu({ x: event.clientX, y: event.clientY, parent: where });
               }}
             >
-              <span />
+              <span className="ui-tree-spacer" />
               <Icon name={fileIcon(node.path)} />
-              <span className="tree-name">{node.name}</span>
-            </button>
+              <TreeLabel className="tree-name">{node.name}</TreeLabel>
+            </TreeButton>
           ) : (
             <details open key={`${node.path}:${draft?.parent === node.path}`}>
-              {/* biome-ignore lint/a11y/noStaticElementInteractions: native summary supports keyboard activation and context menu. */}
-              <summary
+              <TreeSummary
                 className={`tree-row ${parent === node.path ? "selected-folder" : ""}`}
                 style={{ paddingLeft: 8 + depth * 14 }}
                 title={node.path}
@@ -168,8 +177,8 @@ export function WorkspaceFileTree({
               >
                 <Icon name="chevron" />
                 <Icon name="folder" />
-                <span className="tree-name">{node.name}</span>
-              </summary>
+                <TreeLabel className="tree-name">{node.name}</TreeLabel>
+              </TreeSummary>
               {rows(node.children, node.path, depth + 1)}
             </details>
           )}
@@ -179,39 +188,29 @@ export function WorkspaceFileTree({
   );
   return (
     <>
-      <div className="tree-heading">
-        <button
-          type="button"
-          className="explorer-section-toggle"
-          aria-expanded={!collapsed}
-          aria-controls="workspace-project-files"
-          onClick={() => {
-            setCollapsed((value) => !value);
-            setMenu(null);
-          }}
-        >
-          <Icon name="chevron" />
-          <span>Files</span>
-        </button>
-        <div className="tree-actions">
-          <button
-            type="button"
-            title={`New file in ${parent || project}`}
-            aria-label="New file"
-            onClick={() => begin(false)}
-          >
-            <Icon name="new-file" />
-          </button>
-          <button
-            type="button"
-            title={`New folder in ${parent || project}`}
-            aria-label="New folder"
-            onClick={() => begin(true)}
-          >
-            <Icon name="new-folder" />
-          </button>
-        </div>
-      </div>
+      <SectionHeader
+        label="Files"
+        expanded={!collapsed}
+        controls="workspace-project-files"
+        onToggle={() => {
+          setCollapsed((value) => !value);
+          setMenu(null);
+        }}
+        actions={
+          <>
+            <IconButton title={`New file in ${parent || project}`} aria-label="New file" onClick={() => begin(false)}>
+              <Icon name="new-file" />
+            </IconButton>
+            <IconButton
+              title={`New folder in ${parent || project}`}
+              aria-label="New folder"
+              onClick={() => begin(true)}
+            >
+              <Icon name="new-folder" />
+            </IconButton>
+          </>
+        }
+      />
       <nav
         id="workspace-project-files"
         hidden={collapsed}
@@ -231,21 +230,21 @@ export function WorkspaceFileTree({
         {rows(tree, "")}
       </nav>
       {menu ? (
-        <div
+        <MenuSurface
           className="tree-menu"
           ref={menuElement}
           role="menu"
           style={{ left: Math.min(menu.x, window.innerWidth - 170), top: Math.min(menu.y, window.innerHeight - 90) }}
         >
-          <button type="button" role="menuitem" tabIndex={-1} onClick={() => begin(false, menu.parent)}>
+          <Button variant="menu" role="menuitem" tabIndex={-1} onClick={() => begin(false, menu.parent)}>
             <Icon name="new-file" />
             New File…
-          </button>
-          <button type="button" role="menuitem" tabIndex={-1} onClick={() => begin(true, menu.parent)}>
+          </Button>
+          <Button variant="menu" role="menuitem" tabIndex={-1} onClick={() => begin(true, menu.parent)}>
             <Icon name="new-folder" />
             New Folder…
-          </button>
-        </div>
+          </Button>
+        </MenuSurface>
       ) : null}
     </>
   );

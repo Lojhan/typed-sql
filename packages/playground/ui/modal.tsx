@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useRef } from "react";
+import { Panel } from "./components";
 
 /** Keyboard focus stays inside the active local dialog and returns to its launcher. */
 export function Modal({
@@ -7,12 +8,16 @@ export function Modal({
   onClose,
   children,
   dismissOnBackdrop = false,
+  padding = "default",
+  size = "default",
 }: {
   label: string;
   className: string;
   onClose: () => void;
   children: ReactNode;
   dismissOnBackdrop?: boolean;
+  padding?: "default" | "none";
+  size?: "default" | "wide";
 }) {
   const element = useRef<HTMLElement>(null);
   const close = useRef(onClose);
@@ -66,9 +71,18 @@ export function Modal({
         if (dismissOnBackdrop && event.target === event.currentTarget) close.current();
       }}
     >
-      <section className={className} ref={element} role="dialog" aria-modal="true" aria-label={label} tabIndex={-1}>
+      <Panel
+        className={`ui-dialog ${className}`}
+        data-size={size}
+        padding={padding}
+        ref={element}
+        role="dialog"
+        aria-modal="true"
+        aria-label={label}
+        tabIndex={-1}
+      >
         {children}
-      </section>
+      </Panel>
     </div>
   );
 }

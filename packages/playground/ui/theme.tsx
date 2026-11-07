@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { Button, IconButton, MenuSurface } from "./components";
 import { Icon } from "./icon.js";
+import { useMenu } from "./menu";
 export type Theme = "system" | "light" | "dark";
 export function useTheme() {
   const [theme, setTheme] = useState<Theme>(() => {
@@ -26,44 +28,22 @@ export function useTheme() {
 }
 export function ThemeMenu({ theme, onChange }: { theme: Theme; onChange: (theme: Theme) => void }) {
   const [open, setOpen] = useState(false);
-  const root = useRef<HTMLDivElement>(null),
-    button = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    root.current?.querySelector<HTMLButtonElement>('[role="menuitemradio"][aria-checked="true"]')?.focus();
-    const outside = (event: PointerEvent) => {
-      if (!root.current?.contains(event.target as Node)) setOpen(false);
-    };
-    document.addEventListener("pointerdown", outside);
-    return () => document.removeEventListener("pointerdown", outside);
-  }, [open]);
+  const button = useRef<HTMLButtonElement>(null);
+  const menu = useMenu(open, () => setOpen(false), button);
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: key events bubble from native menu buttons.
     <div
       className="status-theme"
-      ref={root}
       onKeyDown={(event) => {
-        if (event.key === "Escape") {
+        if (!open && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
           event.preventDefault();
-          setOpen(false);
-          button.current?.focus();
-        }
-        if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-          event.preventDefault();
-          if (!open) {
-            setOpen(true);
-            return;
-          }
-          const items = [...root.current!.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]')];
-          const index = items.indexOf(document.activeElement as HTMLButtonElement);
-          items[(index + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length]?.focus();
+          setOpen(true);
         }
       }}
     >
-      <button
+      <IconButton
         ref={button}
         className="status-icon"
-        type="button"
         aria-label="Color theme"
         title={`Color theme: ${theme}`}
         aria-haspopup="menu"
@@ -71,13 +51,13 @@ export function ThemeMenu({ theme, onChange }: { theme: Theme; onChange: (theme:
         onClick={() => setOpen((value) => !value)}
       >
         <Icon name={theme === "system" ? "system" : theme === "dark" ? "moon" : "sun"} />
-      </button>
+      </IconButton>
       {open ? (
-        <div className="status-menu" role="menu" aria-label="Color theme">
+        <MenuSurface ref={menu} className="status-menu" role="menu" aria-label="Color theme">
           {(["system", "light", "dark"] as const).map((value) => (
-            <button
+            <Button
+              variant="menu"
               key={value}
-              type="button"
               role="menuitemradio"
               aria-label={`${value[0]!.toUpperCase() + value.slice(1)} theme`}
               aria-checked={theme === value}
@@ -90,9 +70,9 @@ export function ThemeMenu({ theme, onChange }: { theme: Theme; onChange: (theme:
               <Icon name={value === "system" ? "system" : value === "dark" ? "moon" : "sun"} />
               <span>{value[0]!.toUpperCase() + value.slice(1)}</span>
               {theme === value ? <Icon name="check" /> : null}
-            </button>
+            </Button>
           ))}
-        </div>
+        </MenuSurface>
       ) : null}
     </div>
   );

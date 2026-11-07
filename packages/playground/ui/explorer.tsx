@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { api } from "./api";
+import { IconButton, SectionHeader, TreeButton, TreeLabel } from "./components";
 import {
   type ExplorerNode,
   explorerTree,
@@ -112,8 +113,7 @@ function ObjectTree({
       const presence = objectPresence(node.object);
       return (
         <div role="none" key={node.id}>
-          <button
-            type="button"
+          <TreeButton
             role="treeitem"
             className={`explorer-row ${selected === node.id ? "selected" : ""} ${presence ?? ""}`}
             style={{ paddingLeft: 8 + depth * 14 }}
@@ -179,12 +179,12 @@ function ObjectTree({
               {node.children.length ? <Icon name="chevron" /> : null}
             </span>
             <Icon name={objectIcon(node.kind)} />
-            <span className="explorer-name">{node.label}</span>
+            <TreeLabel className="explorer-name">{node.label}</TreeLabel>
             {presence ? (
               <span className="explorer-presence">{presence === "removed" ? "Removed" : "History"}</span>
             ) : null}
             {node.kind === "group" ? <span className="explorer-count">{node.children.length}</span> : null}
-          </button>
+          </TreeButton>
           {node.children.length && expanded.has(node.id) ? (
             // biome-ignore lint/a11y/useSemanticElements: ARIA tree groups nest treeitems; a fieldset changes the tree keyboard model.
             <div role="group" id={`${treeId}-${encodeURIComponent(node.id)}`}>
@@ -238,28 +238,23 @@ export function ExplorerSidebar({
         className={`explorer-section database-section ${databaseOpen ? "expanded" : ""}`}
         aria-label="Database explorer"
       >
-        <div className="tree-heading">
-          <button
-            type="button"
-            className="explorer-section-toggle"
-            aria-expanded={databaseOpen}
-            aria-controls="database-explorer"
-            onClick={() => setDatabaseOpen((value) => !value)}
-          >
-            <Icon name="chevron" />
-            <span>Database</span>
-          </button>
-          <button
-            type="button"
-            className="explorer-refresh"
-            aria-label="Refresh database and migration explorers"
-            title="Refresh captured schema and migration history"
-            disabled={loading}
-            onClick={onRefresh}
-          >
-            <Icon name="refresh" />
-          </button>
-        </div>
+        <SectionHeader
+          label="Database"
+          expanded={databaseOpen}
+          controls="database-explorer"
+          onToggle={() => setDatabaseOpen((value) => !value)}
+          actions={
+            <IconButton
+              className="explorer-refresh"
+              aria-label="Refresh database and migration explorers"
+              title="Refresh captured schema and migration history"
+              disabled={loading}
+              onClick={onRefresh}
+            >
+              <Icon name="refresh" />
+            </IconButton>
+          }
+        />
         {databaseOpen ? (
           <div id="database-explorer" className="explorer-section-body">
             {error ? (
@@ -286,19 +281,13 @@ export function ExplorerSidebar({
         className={`explorer-section migrations-section ${migrationsOpen ? "expanded" : ""}`}
         aria-label="Migration explorer"
       >
-        <div className="tree-heading">
-          <button
-            type="button"
-            className="explorer-section-toggle"
-            aria-expanded={migrationsOpen}
-            aria-controls="migration-explorer"
-            onClick={() => setMigrationsOpen((value) => !value)}
-          >
-            <Icon name="chevron" />
-            <span>Migrations</span>
-            {catalog ? <span className="explorer-count">{catalog.migrations.entries.length}</span> : null}
-          </button>
-        </div>
+        <SectionHeader
+          label="Migrations"
+          expanded={migrationsOpen}
+          controls="migration-explorer"
+          onToggle={() => setMigrationsOpen((value) => !value)}
+          {...(catalog ? { count: catalog.migrations.entries.length } : {})}
+        />
         {migrationsOpen ? (
           <nav id="migration-explorer" className="explorer-section-body" aria-label="Project migrations">
             {catalog?.migrations.message && catalog.migrations.state !== "ready" ? (
@@ -307,8 +296,7 @@ export function ExplorerSidebar({
               </p>
             ) : null}
             {catalog?.migrations.entries.map((migration) => (
-              <button
-                type="button"
+              <TreeButton
                 className={`explorer-row migration-row ${selected?.kind === "migration" && selected.id === migration.id ? "selected" : ""}`}
                 key={migration.id}
                 title={`${migration.id} · ${migration.status}`}
@@ -326,9 +314,9 @@ export function ExplorerSidebar({
                 }}
               >
                 <Icon name="migration" />
-                <span className="explorer-name">{migration.id}</span>
+                <TreeLabel className="explorer-name">{migration.id}</TreeLabel>
                 <span className={`migration-status ${migration.status}`}>{migration.status}</span>
-              </button>
+              </TreeButton>
             ))}
             {catalog?.migrations.state === "ready" && !catalog.migrations.entries.length ? (
               <p className="explorer-message">No migrations found.</p>

@@ -1,4 +1,5 @@
 import { useId, useState } from "react";
+import { Bar, BarLabel, Button, EmptyState, TabButton, View } from "./components";
 import { evidenceText, type InspectionTarget, objectLabel, objectPresence, propertyChanges } from "./explorer-model";
 import type { ExplorerCatalog, ExplorerEvent, ExplorerValue } from "./explorer-types";
 import { Icon } from "./icon";
@@ -51,13 +52,13 @@ function EventChanges({
   return (
     <>
       {object ? (
-        <button
-          type="button"
+        <Button
+          variant="link"
           className="inspection-link"
           onClick={() => onOpen({ kind: "object", id: object.id, label: objectLabel(object) })}
         >
           Inspect {objectLabel(object)} <Icon name="schema" />
-        </button>
+        </Button>
       ) : null}
       {event.details !== "captured" ? (
         <p className="inspection-note">
@@ -173,13 +174,13 @@ function HistoryEntry({
                 Recorded as {event.origin}. This entry does not establish that migration SQL executed on this target.
               </p>
             ) : null}
-            <button
-              type="button"
+            <Button
+              variant="link"
               className="inspection-link"
               onClick={() => onOpen({ kind: "migration", id: event.migrationId, label: event.migrationId })}
             >
               Inspect migration <Icon name="migration" />
-            </button>
+            </Button>
             {event.changes?.length ? (
               <div className="migration-object-changes">
                 {event.changes.map((change) => (
@@ -216,7 +217,7 @@ function EventHistory({
   empty: string;
   catalog: ExplorerCatalog;
 }) {
-  if (!events.length) return <p className="inspection-empty">{empty}</p>;
+  if (!events.length) return <EmptyState className="inspection-empty">{empty}</EmptyState>;
   return (
     <ol className="inspection-timeline">
       {events.toReversed().map((event, index) => (
@@ -265,34 +266,34 @@ export function ExplorerDetail({
   const presence = objectPresence(object);
   const historical = presence === "removed";
   return (
-    <section
+    <View
       className="inspection-panel"
       aria-label={`${target.kind === "object" ? "Database object" : "Migration"} details`}
     >
-      <div className="tool-toolbar inspection-toolbar">
-        <span>
+      <Bar className="tool-toolbar inspection-toolbar">
+        <BarLabel>
           {object
             ? `${object.namespace ? `${object.namespace} / ` : ""}${object.kind}`
             : migration
               ? "Migration"
               : "Inspection"}
-        </span>
-        <button type="button" disabled={loading} onClick={onRefresh}>
+        </BarLabel>
+        <Button disabled={loading} onClick={onRefresh}>
           <Icon name="refresh" />
           Refresh
-        </button>
-      </div>
+        </Button>
+      </Bar>
       {error ? (
         <p role="alert" className="inspection-note">
           {error}
         </p>
       ) : null}
       {!object && !migration ? (
-        <div className="inspection-empty">
+        <EmptyState className="inspection-empty">
           {loading
             ? "Loading captured evidence…"
             : "This item is not available in the current captured schema or migration inventory. Refresh the explorer to check again."}
-        </div>
+        </EmptyState>
       ) : (
         <>
           <div className="inspection-title">
@@ -300,16 +301,16 @@ export function ExplorerDetail({
             {migration ? <span className={`migration-status ${migration.status}`}>{migration.status}</span> : null}
             {presence ? <span className="migration-status reverted">{historical ? "Removed" : "History"}</span> : null}
             {object && parent ? (
-              <button
-                type="button"
+              <Button
+                variant="link"
                 className="inspection-link"
                 onClick={() => onOpen({ kind: "object", id: parent.id, label: objectLabel(parent) })}
               >
                 {objectLabel(parent)}
-              </button>
+              </Button>
             ) : null}
           </div>
-          <div
+          <Bar
             className="inspection-tabs"
             role="tablist"
             aria-label="Inspection sections"
@@ -334,9 +335,7 @@ export function ExplorerDetail({
               event.currentTarget.querySelector<HTMLButtonElement>(`[data-section="${next}"]`)?.focus();
             }}
           >
-            <button
-              type="button"
-              role="tab"
+            <TabButton
               aria-selected={section === "definition"}
               id={`${sectionId}-definition`}
               data-section="definition"
@@ -345,10 +344,8 @@ export function ExplorerDetail({
               onClick={() => setSection("definition")}
             >
               {object ? "Definition" : "Overview"}
-            </button>
-            <button
-              type="button"
-              role="tab"
+            </TabButton>
+            <TabButton
               aria-selected={section === "history"}
               id={`${sectionId}-history`}
               data-section="history"
@@ -357,8 +354,8 @@ export function ExplorerDetail({
               onClick={() => setSection("history")}
             >
               History <span>{events.length}</span>
-            </button>
-          </div>
+            </TabButton>
+          </Bar>
           <div
             className="inspection-content"
             id={`${sectionId}-panel`}
@@ -460,9 +457,9 @@ export function ExplorerDetail({
                     {migration.files.map((file) => (
                       <li key={file}>
                         {files.includes(file) ? (
-                          <button type="button" className="inspection-link" onClick={() => onOpenFile(file)}>
+                          <Button variant="link" className="inspection-link" onClick={() => onOpenFile(file)}>
                             {file}
-                          </button>
+                          </Button>
                         ) : (
                           <code>{file}</code>
                         )}
@@ -470,7 +467,7 @@ export function ExplorerDetail({
                     ))}
                   </ul>
                 ) : (
-                  <p className="inspection-empty">No local definition file was found.</p>
+                  <EmptyState className="inspection-empty">No local definition file was found.</EmptyState>
                 )}
                 <p className="inspection-note">
                   History shows persisted attempt evidence. Files show the current local definition.
@@ -480,6 +477,6 @@ export function ExplorerDetail({
           </div>
         </>
       )}
-    </section>
+    </View>
   );
 }

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { flushSync } from "react-dom";
 import { matchCommand } from "./command-model.js";
+import { Bar, Button, EmptyState, Input } from "./components";
 import { fileIcon, Icon, type IconName } from "./icon.js";
 import { Modal } from "./modal.js";
 export interface PaletteCommand {
@@ -64,10 +65,18 @@ export function CommandPalette({
     item.run();
   };
   return (
-    <Modal label="Command palette" className="command-palette" onClose={onClose} dismissOnBackdrop>
-      <div className="palette-search">
+    <Modal
+      size="wide"
+      padding="none"
+      label="Command palette"
+      className="command-palette"
+      onClose={onClose}
+      dismissOnBackdrop
+    >
+      <Bar className="palette-search">
         <Icon name="search" />
-        <input
+        <Input
+          variant="plain"
           role="combobox"
           aria-label="Search files and commands"
           aria-expanded="true"
@@ -96,15 +105,15 @@ export function CommandPalette({
           }}
         />
         <kbd>esc</kbd>
-      </div>
+      </Bar>
       <div id="palette-options" className="palette-options" role="listbox" aria-label="Files and commands">
         {items.map((item, index) => (
           <div key={item.id}>
             {index === 0 || items[index - 1]?.group !== item.group ? (
               <div className="palette-group">{item.group}</div>
             ) : null}
-            <button
-              type="button"
+            <Button
+              variant="row"
               role="option"
               tabIndex={-1}
               aria-selected={active === index}
@@ -117,15 +126,15 @@ export function CommandPalette({
               <Icon name={item.icon} />
               <span>{item.label}</span>
               {item.shortcut ? <kbd>{item.shortcut}</kbd> : null}
-            </button>
+            </Button>
           </div>
         ))}
-        {!items.length ? <div className="quiet-empty">No matching files or commands.</div> : null}
+        {!items.length ? <EmptyState className="quiet-empty">No matching files or commands.</EmptyState> : null}
       </div>
-      <div className="palette-hint">
+      <Bar wrap separator="none" className="palette-hint">
         <span>↑ ↓ navigate · Enter open</span>
         <span>Type &gt; for commands</span>
-      </div>
+      </Bar>
     </Modal>
   );
 }

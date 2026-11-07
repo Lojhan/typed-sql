@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
+import { Bar, BarLabel, Button, ControlGroup, EmptyState, IconButton, Input, Select, View } from "./components";
 import { Icon } from "./icon";
 import { Modal } from "./modal";
 import { type Grid, jsonValue, milliseconds, resultGrid, totalTime, valueText } from "./result-model";
@@ -204,14 +205,14 @@ export function ResultGrid({
                 const value = column.index < row.length ? row[column.index]! : { kind: "undefined" as const };
                 return (
                   <td key={column.key} className={changedCells?.get(index)?.has(column.index) ? "diff-cell" : ""}>
-                    <button
-                      type="button"
+                    <Button
+                      variant="cell"
                       className={`cell ${value === null ? "null" : ""}`}
                       title={valueText(value)}
                       onClick={() => onInspect?.(value)}
                     >
                       {valueText(value).slice(0, 180)}
-                    </button>
+                    </Button>
                   </td>
                 );
               })}
@@ -224,7 +225,7 @@ export function ResultGrid({
           ) : null}
         </tbody>
       </table>
-      {!rows.length ? <div className="quiet-empty">No rows.</div> : null}
+      {!rows.length ? <EmptyState className="quiet-empty">No rows.</EmptyState> : null}
     </div>
   );
 }
@@ -328,9 +329,9 @@ export function ResultPanel({
   const total = captured.data?.rowCount ?? result?.paging?.rowCount ?? data?.rows.length ?? 0;
   const next = captured.data?.nextPage !== null && captured.data?.nextPage !== undefined;
   return (
-    <section className="result-panel" aria-label="Query results">
-      <div className="result-controls">
-        <div className="result-control-left">
+    <View className="result-panel" aria-label="Query results">
+      <Bar wrap className="result-controls">
+        <ControlGroup className="result-control-left">
           {run ? (
             <>
               <span className={`status-dot ${run.status}`} />
@@ -347,7 +348,7 @@ export function ResultPanel({
                 </span>
               ) : null}
               {run.results.length > 1 ? (
-                <select
+                <Select
                   aria-label="Result set"
                   value={index}
                   onChange={(event) => {
@@ -363,30 +364,26 @@ export function ResultPanel({
                       {item.name}
                     </option>
                   ))}
-                </select>
+                </Select>
               ) : null}
             </>
           ) : (
             <span className="muted">No execution</span>
           )}
-        </div>
-        <div className="result-control-right">
-          <button type="button" className={log ? "selected" : ""} onClick={() => setLog((value) => !value)}>
+        </ControlGroup>
+        <ControlGroup className="result-control-right">
+          <Button className={log ? "selected" : ""} onClick={() => setLog((value) => !value)}>
             Log
-          </button>
-          {run && onCompare ? (
-            <button type="button" onClick={() => onCompare(run.id)}>
-              Compare
-            </button>
-          ) : null}
-          <button type="button" disabled={!captured.data} onClick={() => exportPage("json")}>
+          </Button>
+          {run && onCompare ? <Button onClick={() => onCompare(run.id)}>Compare</Button> : null}
+          <Button disabled={!captured.data} onClick={() => exportPage("json")}>
             JSON
-          </button>
-          <button type="button" disabled={!data} onClick={() => exportPage("csv")}>
+          </Button>
+          <Button disabled={!data} onClick={() => exportPage("csv")}>
             CSV
-          </button>
-        </div>
-      </div>
+          </Button>
+        </ControlGroup>
+      </Bar>
       {log ? (
         <div className="run-log">
           <pre>{run?.logs || "No console output."}</pre>
@@ -397,13 +394,15 @@ export function ResultPanel({
           ) : null}
         </div>
       ) : captured.loading && !data ? (
-        <div className="quiet-empty">Fetching page…</div>
+        <EmptyState className="quiet-empty">Fetching page…</EmptyState>
       ) : captured.error || localError ? (
-        <div className="error-empty">{captured.error || localError}</div>
+        <EmptyState error className="error-empty">
+          {captured.error || localError}
+        </EmptyState>
       ) : data ? (
         <>
-          <div className="result-filter">
-            <input
+          <Bar className="result-filter">
+            <Input
               aria-label="Filter loaded result rows"
               value={filter}
               placeholder="Filter loaded rows"
@@ -414,7 +413,7 @@ export function ResultPanel({
               {data.affectedRows === undefined ? "" : ` · ${data.affectedRows} affected`}
               {result?.truncated ? " · truncated" : ""}
             </span>
-          </div>
+          </Bar>
           <ResultGrid
             data={data}
             offset={firstPage * (result?.paging?.pageSize ?? data.rows.length)}
@@ -431,7 +430,7 @@ export function ResultPanel({
       ) : captured.data ? (
         <pre className="structured-result">{JSON.stringify(jsonValue(captured.data.value), null, 2)}</pre>
       ) : (
-        <div className="quiet-empty">
+        <EmptyState className="quiet-empty">
           {run?.error ? (
             <span className="error-text">{run.error.message}</span>
           ) : run && ["checking", "running", "cancelling"].includes(run.status) ? (
@@ -439,10 +438,10 @@ export function ResultPanel({
           ) : (
             "No result set."
           )}
-        </div>
+        </EmptyState>
       )}
       {run && result && !log ? (
-        <div className="result-pager">
+        <Bar separator="top" wrap className="result-pager">
           <span>
             {data?.rows.length
               ? `${firstPage * (result.paging?.pageSize ?? data.rows.length) + 1}–${firstPage * (result.paging?.pageSize ?? data.rows.length) + data.rows.length}`
@@ -452,10 +451,9 @@ export function ResultPanel({
             {!complete ? " · partial capture" : ""}
             <span className="provenance"> · {result.provenance === "managed" ? "managed" : "target unverified"}</span>
           </span>
-          <div>
+          <ControlGroup wrap>
             {result.paging && !complete && run.status === "running" ? (
-              <button
-                type="button"
+              <Button
                 onClick={() =>
                   void api("results/close", { run: run.id, result: result.paging!.id }).catch((error) =>
                     setLocalError(error.message),
@@ -463,10 +461,9 @@ export function ResultPanel({
                 }
               >
                 Close cursor
-              </button>
+              </Button>
             ) : null}
-            <button
-              type="button"
+            <IconButton
               disabled={firstPage === 0 || captured.loading}
               onClick={() => {
                 setWindowPages([]);
@@ -474,38 +471,35 @@ export function ResultPanel({
               }}
               aria-label="Previous result page"
             >
-              ‹
-            </button>
+              <Icon name="previous" />
+            </IconButton>
             <span>
               {windowPages.length > 1
                 ? `Pages ${firstPage + 1}–${(windowPages.at(-1)?.page ?? firstPage) + 1}`
                 : `Page ${(windowPages.at(-1)?.page ?? firstPage) + 1}`}
             </span>
-            <button
-              type="button"
+            <IconButton
               disabled={captured.loading || (!next && !(result.paging && !complete && run.status === "running"))}
               onClick={() => setPage((value) => value + 1)}
               aria-label="Next result page"
             >
-              ›
-            </button>
-          </div>
-        </div>
+              <Icon name="chevron" />
+            </IconButton>
+          </ControlGroup>
+        </Bar>
       ) : null}
       {inspect !== undefined ? (
         <Modal className="value-dialog" label="Inspect value" onClose={() => setInspect(undefined)}>
-          <header>
-            <strong>Value</strong>
-            <button type="button" onClick={() => setInspect(undefined)}>
+          <Bar as="header" separator="none" padding="none">
+            <BarLabel as="strong">Value</BarLabel>
+            <IconButton aria-label="Close value inspector" onClick={() => setInspect(undefined)}>
               <Icon name="close" />
-            </button>
-          </header>
+            </IconButton>
+          </Bar>
           <pre>{JSON.stringify(jsonValue(inspect), null, 2)}</pre>
-          <button type="button" onClick={() => void navigator.clipboard.writeText(valueText(inspect))}>
-            Copy
-          </button>
+          <Button onClick={() => void navigator.clipboard.writeText(valueText(inspect))}>Copy</Button>
         </Modal>
       ) : null}
-    </section>
+    </View>
   );
 }

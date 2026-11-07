@@ -3,6 +3,7 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { join, resolve } from "node:path";
 import { command, consumer, server } from "../build/src/consumer.mjs";
+import { componentContract } from "./fixtures/component-contracts.mjs";
 
 const artifacts = resolve("artifacts/playground-ui/editor-browser");
 await rm(artifacts, { recursive: true, force: true });
@@ -327,6 +328,7 @@ ${ts}`;
     "Copy selection",
   ])
     await menu.getByRole("menuitem", { name: new RegExp(`^${label}`, "u") }).waitFor();
+  evidence.contextMenuComponents = await componentContract(page);
   await shot(menu, "editor-context-menu");
   await page.keyboard.press("Escape");
   await menu.waitFor({ state: "detached" });
@@ -791,6 +793,8 @@ ${ts}`;
   );
   check("EOL-only formatting is undoable and redo/save retain the formatter's configured CRLF bytes");
 
+  evidence.components = await componentContract(page);
+  check("shared component geometry is consistent across rendered controls and section headers");
   assert.deepEqual(evidence.errors, [], "Browser has no runtime exceptions");
   assert.equal(
     await readFile(join(root, "playground/query.sql"), "utf8"),

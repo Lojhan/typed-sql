@@ -14,6 +14,8 @@ export type IconName =
   | "file-json"
   | "file-sql"
   | "chevron"
+  | "previous"
+  | "stop"
   | "new-file"
   | "new-folder"
   | "sidebar"
@@ -43,6 +45,8 @@ export function fileIcon(file: string): IconName {
 /** Same 16px geometry as the documentation editor's EditorIcon. */
 export function Icon({ name }: { name: IconName }) {
   const paths: Partial<Record<IconName, string>> = {
+    previous: "M10 3 5 8l5 5",
+    stop: "M4 4h8v8H4z",
     database: "M2 4c0-3 12-3 12 0v8c0 3-12 3-12 0V4Zm0 0c0 3 12 3 12 0M2 8c0 3 12 3 12 0",
     table: "M2 2h12v12H2zM2 6h12M6 6v8",
     column: "M2 2h12v12H2zM6 2v12M10 2v12",

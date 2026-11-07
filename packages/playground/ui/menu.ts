@@ -10,8 +10,12 @@ export function useMenu(open: boolean, onClose: () => void, launcher?: RefObject
     const element = menu.current;
     const previous =
       launcher?.current ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
-    const items = () => [...element.querySelectorAll<HTMLButtonElement>('button[role="menuitem"]:not(:disabled)')];
-    items()[0]?.focus();
+    const items = () => [
+      ...element.querySelectorAll<HTMLButtonElement>(
+        'button:is([role="menuitem"],[role="menuitemradio"]):not(:disabled)',
+      ),
+    ];
+    (element.querySelector<HTMLButtonElement>('[role="menuitemradio"][aria-checked="true"]') ?? items()[0])?.focus();
     const key = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
@@ -20,6 +24,7 @@ export function useMenu(open: boolean, onClose: () => void, launcher?: RefObject
         if (previous?.isConnected) previous.focus();
       } else if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
         event.preventDefault();
+        event.stopPropagation();
         const choices = items();
         const index = choices.indexOf(document.activeElement as HTMLButtonElement);
         const next =

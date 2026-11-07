@@ -1,4 +1,5 @@
 import { type DragEvent, type ReactNode, useEffect, useRef, useState } from "react";
+import { Bar, Button, ControlGroup, IconButton, MenuSurface, View, WorkspaceTab } from "./components";
 import { inspectionTarget } from "./explorer-model";
 import { fileIcon, Icon } from "./icon";
 import { type Edge, FILE_MIME, isTool, type Layout, type Pane, title } from "./layout";
@@ -135,8 +136,7 @@ export function PaneLayout(props: Props) {
     );
   };
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: drop target contains focusable tabs and an editor.
-    <div
+    <View
       ref={root}
       className={`editor-pane ${props.active === node.id ? "active-pane" : ""}`}
       onPointerDownCapture={() => props.onActivate(node.id)}
@@ -156,59 +156,40 @@ export function PaneLayout(props: Props) {
         setEdge(undefined);
       }}
     >
-      <div className="pane-tabbar">
+      <Bar className="pane-tabbar">
         <div className="pane-tabs" role="tablist" aria-label="Open workspace tabs">
           {node.tabs.map((tab) => (
-            // biome-ignore lint/a11y/noStaticElementInteractions: draggable wrapper has separate native tab and close buttons.
-            <div
-              className={`pane-tab ${node.active === tab ? "selected" : ""}`}
+            <WorkspaceTab
               key={tab}
+              name={title(tab)}
+              path={isTool(tab) ? title(tab) : tab}
+              selected={node.active === tab}
+              dirty={props.dirty.has(tab)}
+              icon={
+                inspectionTarget(tab)?.kind === "migration"
+                  ? "migration"
+                  : inspectionTarget(tab)?.kind === "object"
+                    ? "database"
+                    : tab === "@schema"
+                      ? "schema"
+                      : tab === "@compare"
+                        ? "compare"
+                        : tab === "@agent"
+                          ? "agent"
+                          : fileIcon(tab)
+              }
               draggable
               onDragStart={(event) => {
                 event.dataTransfer.setData(FILE_MIME, JSON.stringify({ tab, source: node.id }));
                 event.dataTransfer.effectAllowed = "copyMove";
               }}
-            >
-              <button
-                type="button"
-                role="tab"
-                aria-selected={node.active === tab}
-                title={isTool(tab) ? title(tab) : tab}
-                onClick={() => props.onOpen(node.id, tab)}
-              >
-                <Icon
-                  name={
-                    inspectionTarget(tab)?.kind === "migration"
-                      ? "migration"
-                      : inspectionTarget(tab)?.kind === "object"
-                        ? "database"
-                        : tab === "@schema"
-                          ? "schema"
-                          : tab === "@compare"
-                            ? "compare"
-                            : tab === "@agent"
-                              ? "agent"
-                              : fileIcon(tab)
-                  }
-                />
-                {title(tab)}
-                {props.dirty.has(tab) ? <span className="dirty-mark">●</span> : null}
-              </button>
-              <button
-                type="button"
-                className="tab-close"
-                aria-label={`Close ${title(tab)}`}
-                onClick={() => props.onClose(node.id, tab)}
-              >
-                <Icon name="close" />
-              </button>
-            </div>
+              onOpen={() => props.onOpen(node.id, tab)}
+              onClose={() => props.onClose(node.id, tab)}
+            />
           ))}
         </div>
-        <div className="pane-actions">
-          <button
-            type="button"
-            className="icon-button"
+        <ControlGroup className="pane-actions">
+          <IconButton
             title="Split editor"
             aria-label="Split editor"
             aria-haspopup="menu"
@@ -217,12 +198,12 @@ export function PaneLayout(props: Props) {
             onClick={() => setMenu((value) => !value)}
           >
             <Icon name="split" />
-          </button>
+          </IconButton>
           {menu ? (
-            <div className="split-menu" role="menu" aria-label="Split editor" ref={menuElement}>
+            <MenuSurface className="split-menu" role="menu" aria-label="Split editor" ref={menuElement}>
               {(["left", "right", "top", "bottom"] as const).map((direction) => (
-                <button
-                  type="button"
+                <Button
+                  variant="menu"
                   role="menuitem"
                   tabIndex={-1}
                   key={direction}
@@ -232,12 +213,12 @@ export function PaneLayout(props: Props) {
                   }}
                 >
                   Split {direction}
-                </button>
+                </Button>
               ))}
-            </div>
+            </MenuSurface>
           ) : null}
-        </div>
-      </div>
+        </ControlGroup>
+      </Bar>
       <div className="pane-body" role="tabpanel">
         {props.render(node)}
       </div>
@@ -246,6 +227,6 @@ export function PaneLayout(props: Props) {
           <span>{edge === "center" ? "Open tab" : `Split ${edge}`}</span>
         </div>
       ) : null}
-    </div>
+    </View>
   );
 }

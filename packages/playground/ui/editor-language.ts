@@ -673,7 +673,7 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
     ) {
       dismissOpenMenu?.();
       const menu = document.createElement("div");
-      menu.className = "editor-context-menu";
+      menu.className = "editor-context-menu ui-menu";
       menu.setAttribute("role", "menu");
       menu.setAttribute("aria-label", "Editor actions");
       const close = () => {
@@ -709,9 +709,11 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
       for (const choice of choices) {
         const button = document.createElement("button");
         button.type = "button";
+        button.className = "ui-button";
+        button.dataset.variant = "menu";
         button.setAttribute("role", "menuitem");
         button.disabled = Boolean(choice.disabled);
-        if (choice.disabled) button.title = choice.disabled;
+        button.title = choice.disabled ?? choice.label;
         const label = document.createElement("span");
         label.textContent = choice.label;
         button.append(label);

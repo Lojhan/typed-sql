@@ -3,6 +3,7 @@ import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { createRequire } from "node:module";
 import { join, resolve } from "node:path";
 import { command, consumer, server } from "../build/src/consumer.mjs";
+import { componentContract } from "./fixtures/component-contracts.mjs";
 
 const artifacts = resolve("artifacts/playground-ui/browser");
 await mkdir(artifacts, { recursive: true });
@@ -434,6 +435,7 @@ export default {dialect:postgres(),schema:{file:'schema.json'},outDir:'generated
   await page.getByText("2 matching rows", { exact: true }).waitFor();
   await page.getByText("Column names differ", { exact: true }).waitFor();
   await page.getByText("Column types match", { exact: true }).waitFor();
+  evidence.compareComponents = await componentContract(page);
   const tables = page.locator(".comparison-grids table");
   assert.equal(await tables.count(), 2);
   const assertOrdered = async () => {
@@ -683,6 +685,7 @@ export default {dialect:postgres(),schema:{file:'schema.json'},outDir:'generated
     const nextPaint = await paint(next);
     assert.ok(nextPaint.contrast >= 4.5, `${mode} Find controls remain readable: ${JSON.stringify(nextPaint)}`);
     await screenshot(page.locator(".cm-search"), `find-panel-${mode}`);
+    evidence[`findComponents-${mode}`] = await componentContract(page);
     check(`actual Find controls respect ${mode} theme`, nextPaint);
   }
   await screenshot(page.locator(".document-editor"), "find-in-active-file");
@@ -757,7 +760,7 @@ export default {dialect:postgres(),schema:{file:'schema.json'},outDir:'generated
   check("command palette opens Agent/Compare/Schema, creates real paths and dispatches theme/connection actions");
   await invoke("playground/format.ts", "playground/format.ts");
   const fileMenu = page.locator(".file-menu");
-  const fileActions = page.getByText("⋯", { exact: true });
+  const fileActions = page.getByLabel("File actions", { exact: true });
   await fileActions.click();
   await page.locator(".file-menu[open]").waitFor();
   await editor.click();
@@ -1056,6 +1059,8 @@ export default {dialect:postgres(),schema:{file:'schema.json'},outDir:'generated
   } finally {
     await proofContext.close();
   }
+  evidence.components = await componentContract(page);
+  check("shared component geometry is consistent across rendered controls and section headers");
   assert.deepEqual(evidence.errors, [], "The real browser must have no runtime exceptions");
 } catch (error) {
   evidence.failure = error.stack ?? String(error);

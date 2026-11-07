@@ -18,55 +18,6 @@
 .project-sidebar [hidden] {
   display: none;
 }
-.project-sidebar .tree-heading {
-  flex: none;
-  height: 30px;
-  min-height: 30px;
-  padding: 0;
-  gap: 0;
-  border-bottom: 1px solid var(--border);
-}
-.tree-heading .explorer-section-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 5px;
-  min-width: 0;
-  flex: 1;
-  height: 100%;
-  padding: 0 8px;
-  text-align: left;
-  font-size: 11px;
-  letter-spacing: 0.2px;
-}
-.explorer-section-toggle > .icon-chevron {
-  width: 12px;
-  height: 12px;
-  flex: none;
-  transform: rotate(90deg);
-}
-.explorer-section-toggle[aria-expanded="false"] > .icon-chevron {
-  transform: rotate(0);
-}
-.project-sidebar .tree-heading:hover,
-.project-sidebar .tree-heading:focus-within {
-  background: var(--hover);
-}
-.tree-heading .explorer-section-toggle:hover,
-.tree-heading .explorer-refresh:hover {
-  background: transparent;
-}
-.project-sidebar .tree-actions {
-  margin-right: 4px;
-}
-.tree-heading .explorer-refresh {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  padding: 4px;
-  flex: none;
-}
 .explorer-section-body {
   flex: 1;
   min-height: 0;
@@ -80,57 +31,25 @@
   padding: 0;
 }
 .explorer-row {
-  display: flex;
-  align-items: center;
-  gap: 5px;
   box-sizing: border-box;
-  width: 100%;
   min-width: 0;
-  height: 28px;
-  min-height: 28px;
-  padding: 0 8px;
-  border: 0;
-  border-radius: 0;
-  text-align: left;
-  font-size: 11px;
   white-space: nowrap;
   color: var(--text);
   background: transparent;
 }
-.explorer-row:hover {
-  background: var(--hover);
-}
-.explorer-row.selected {
-  background: var(--selected);
-  color: var(--accent);
-}
-.explorer-row:focus-visible {
-  outline: 1px solid var(--accent);
-  outline-offset: -1px;
-}
 .explorer-row > .editor-icon {
-  width: 14px;
-  height: 14px;
-  flex: none;
   color: var(--muted);
 }
-
-.explorer-name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 .explorer-chevron {
-  width: 12px;
+  width: var(--disclosure-size);
   height: 20px;
   display: grid;
   place-items: center;
   flex: none;
 }
 .explorer-chevron .editor-icon {
-  width: 12px;
-  height: 12px;
+  width: var(--disclosure-size);
+  height: var(--disclosure-size);
 }
 .explorer-row.selected > .editor-icon {
   color: var(--accent);
@@ -151,9 +70,6 @@
   line-height: 1.5;
   margin: 8px 10px;
   overflow-wrap: anywhere;
-}
-.migration-row {
-  gap: 6px;
 }
 .migration-status {
   flex: none;
@@ -181,10 +97,6 @@
 }
 .inspection-panel {
   height: 100%;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
   background: var(--bg);
 }
 .inspection-toolbar {
@@ -196,11 +108,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.inspection-toolbar > button {
-  display: flex;
-  align-items: center;
-  gap: 4px;
 }
 .inspection-title {
   display: flex;
@@ -214,31 +121,6 @@
   font-weight: 500;
   margin: 0;
   overflow-wrap: anywhere;
-}
-.inspection-tabs {
-  display: flex;
-  gap: 0;
-  padding: 0 20px;
-  border-bottom: 1px solid var(--border);
-  flex: none;
-}
-.inspection-tabs button {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  height: 32px;
-  padding: 0 12px;
-  border-radius: 0;
-  border-bottom: 2px solid transparent;
-  font-size: 11px;
-  color: var(--muted);
-}
-.inspection-tabs button[aria-selected="true"] {
-  color: var(--accent);
-  border-bottom-color: var(--accent);
-}
-.inspection-tabs button:hover {
-  background: var(--hover);
 }
 .inspection-tabs button span {
   font-size: 10px;
@@ -257,15 +139,15 @@
   font-weight: 600;
   margin: 20px 0 8px;
 }
-.inspection-empty,
+.inspection-empty {
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
 .inspection-note {
   color: var(--muted);
   line-height: 1.6;
   font-size: 12px;
   overflow-wrap: anywhere;
-}
-.inspection-empty {
-  padding: 12px 20px;
 }
 .inspection-content .inspection-empty {
   padding: 0;
@@ -309,12 +191,7 @@
   tab-size: 2;
 }
 .inspection-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 0;
   color: var(--accent);
-  font-size: 11px;
   text-align: left;
   overflow-wrap: anywhere;
 }
@@ -328,12 +205,7 @@
   margin: 0;
 }
 .inspection-related button {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   width: 100%;
-  min-height: 30px;
-  padding: 4px 8px;
   text-align: left;
 }
 .inspection-related button:hover {
@@ -511,11 +383,8 @@
   font-variant-numeric: tabular-nums;
 }
 .definition-link {
-  padding: 0;
   min-width: 0;
   text-align: left;
-  font-size: 11px;
-  line-height: 1.5;
   color: var(--accent);
   overflow-wrap: anywhere;
   white-space: normal;

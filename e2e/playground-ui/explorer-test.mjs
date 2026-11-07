@@ -5,6 +5,7 @@ import { createRequire } from "node:module";
 import { join, resolve } from "node:path";
 import { command, consumer, server } from "../build/src/consumer.mjs";
 import { commerceNamespaces, writeCommerceMigrations } from "./fixtures/commerce.mjs";
+import { componentContract } from "./fixtures/component-contracts.mjs";
 
 const artifacts = resolve("artifacts/playground-ui/explorer-browser");
 await rm(artifacts, { recursive: true, force: true });
@@ -541,6 +542,8 @@ export default defineConfig({
   );
   assert.equal(await page.getByRole("heading", { name: "payments_pending_idx", exact: true }).count(), 2);
   check("inspection tabs split, resize and restore without being treated as query files");
+  evidence.components = await componentContract(page);
+  check("shared component geometry is consistent across rendered controls and section headers");
   assert.deepEqual(evidence.errors, []);
 } catch (error) {
   evidence.failure = error.stack ?? String(error);

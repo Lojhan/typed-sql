@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Bar, Button, ControlGroup, EmptyState, Select, View } from "./components";
 import { compareGrids, milliseconds, resultGrid, totalTime } from "./result-model";
 import { ResultGrid, useResultPage } from "./results";
 import type { Run } from "./types";
@@ -62,9 +63,9 @@ export function ComparePanel({ runs, initialA }: { runs: Run[]; initialA?: strin
     setResult: (index: number) => void,
     run: Run | undefined,
   ) => (
-    <div className="comparison-selector">
+    <ControlGroup className="comparison-selector">
       <span className="side-badge">{side}</span>
-      <select
+      <Select
         aria-label={`Run ${side}`}
         value={selected}
         onChange={(event) => {
@@ -79,9 +80,9 @@ export function ComparePanel({ runs, initialA }: { runs: Run[]; initialA?: strin
             {item.file.split("/").at(-1)} · {new Date(item.startedAt).toLocaleTimeString()} · {item.status}
           </option>
         ))}
-      </select>
+      </Select>
       {run && run.results.length > 1 ? (
-        <select
+        <Select
           aria-label={`Result ${side}`}
           value={result}
           onChange={(event) => {
@@ -95,9 +96,9 @@ export function ComparePanel({ runs, initialA }: { runs: Run[]; initialA?: strin
               {item.name}
             </option>
           ))}
-        </select>
+        </Select>
       ) : null}
-    </div>
+    </ControlGroup>
   );
   const provenance = (run: Run | undefined) =>
     run ? (
@@ -126,21 +127,21 @@ export function ComparePanel({ runs, initialA }: { runs: Run[]; initialA?: strin
     );
   };
   return (
-    <section className="comparison-workspace">
-      <div className="comparison-toolbar">
+    <View className="comparison-workspace">
+      <Bar wrap className="comparison-toolbar">
         <strong>Compare runs</strong>
-        <select
+        <Select
           aria-label="Row comparison mode"
           value={mode}
           onChange={(event) => setMode(event.target.value as typeof mode)}
         >
           <option value="ordered">Ordered rows</option>
           <option value="multiset">Unordered · preserve duplicates</option>
-        </select>
+        </Select>
         <span className="muted">
           {full ? "Complete captured results" : `Page ${page + 1} only · not full-query equivalence`}
         </span>
-      </div>
+      </Bar>
       <div className="comparison-heads">
         <div>
           {selector("A", leftId, setLeftId, leftResult, setLeftResult, left)}
@@ -167,7 +168,7 @@ export function ComparePanel({ runs, initialA }: { runs: Run[]; initialA?: strin
           execution time is unavailable; — means unavailable.
         </p>
       </div>
-      <div className="comparison-summary">
+      <Bar wrap className="comparison-summary">
         {leftId === rightId && leftId ? (
           <span className="warning-text">Select two different runs.</span>
         ) : difference ? (
@@ -190,13 +191,15 @@ export function ComparePanel({ runs, initialA }: { runs: Run[]; initialA?: strin
         ) : (
           <span>Select two captured result sets to compare.</span>
         )}
-      </div>
+      </Bar>
       <div className="comparison-grids">
         <div>
           {a.error ? (
-            <div className="error-empty">{a.error}</div>
+            <EmptyState error className="error-empty">
+              {a.error}
+            </EmptyState>
           ) : a.loading ? (
-            <div className="quiet-empty">Fetching A…</div>
+            <EmptyState className="quiet-empty">Fetching A…</EmptyState>
           ) : leftGrid ? (
             <ResultGrid
               data={leftGrid}
@@ -206,14 +209,16 @@ export function ComparePanel({ runs, initialA }: { runs: Run[]; initialA?: strin
               offset={page * (left?.results[leftResult]?.paging?.pageSize ?? 200)}
             />
           ) : (
-            <div className="quiet-empty">No tabular result in A.</div>
+            <EmptyState className="quiet-empty">No tabular result in A.</EmptyState>
           )}
         </div>
         <div>
           {b.error ? (
-            <div className="error-empty">{b.error}</div>
+            <EmptyState error className="error-empty">
+              {b.error}
+            </EmptyState>
           ) : b.loading ? (
-            <div className="quiet-empty">Fetching B…</div>
+            <EmptyState className="quiet-empty">Fetching B…</EmptyState>
           ) : rightGrid ? (
             <ResultGrid
               data={rightGrid}
@@ -223,11 +228,11 @@ export function ComparePanel({ runs, initialA }: { runs: Run[]; initialA?: strin
               offset={page * (right?.results[rightResult]?.paging?.pageSize ?? 200)}
             />
           ) : (
-            <div className="quiet-empty">No tabular result in B.</div>
+            <EmptyState className="quiet-empty">No tabular result in B.</EmptyState>
           )}
         </div>
       </div>
-      <div className="comparison-footer">
+      <Bar separator="top" wrap className="comparison-footer">
         <span>
           {mode === "ordered"
             ? "Highlighted cells changed; highlighted whole rows are missing from the other result."
@@ -235,23 +240,21 @@ export function ComparePanel({ runs, initialA }: { runs: Run[]; initialA?: strin
           Loaded pages only.
         </span>
         <div>
-          <button
-            type="button"
+          <Button
             disabled={page === 0 || a.loading || b.loading}
             onClick={() => setPage((value) => Math.max(0, value - 1))}
           >
             ‹ Previous
-          </button>
+          </Button>
           <span>Page {page + 1}</span>
-          <button
-            type="button"
+          <Button
             disabled={a.loading || b.loading || (!a.data?.nextPage && !b.data?.nextPage)}
             onClick={() => setPage((value) => value + 1)}
           >
             Next ›
-          </button>
+          </Button>
         </div>
-      </div>
-    </section>
+      </Bar>
+    </View>
   );
 }
