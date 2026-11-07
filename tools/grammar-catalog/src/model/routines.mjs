@@ -19,7 +19,7 @@ export function routineSignature(mapper, row) {
               position: parameter.inputPosition,
               ...(parameter.mode === "named" ? { name: parameter.name } : {}),
             })) ?? null,
-          variadic: row.variadic ?? row.varargs ?? Number(row.arity) === -1,
+          variadic: row.variadic ?? row.varargs ?? facts.variadic ?? false,
           arity: row.arity ?? null,
           encoding: row.encoding ?? null,
         })}`);

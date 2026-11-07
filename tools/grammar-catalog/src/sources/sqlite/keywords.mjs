@@ -6,10 +6,6 @@ import { promisify } from "node:util";
 import { hash } from "../../model/canonical.mjs";
 
 const execFile = promisify(execFileCallback);
-export const extractorId = "sqlite/vendor-keyword-table-v1";
-export async function extractorRevision() {
-  return hash(await readFile(new URL("./keywords.mjs", import.meta.url), "utf8"));
-}
 
 /** Compile the vendor's own preprocessor-controlled table; never regex C initializers. */
 export async function extractKeywords({ directory, version, revision, defines = [], compiler = "cc" }) {

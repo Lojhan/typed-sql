@@ -1,18 +1,23 @@
 import { checkLockedFacts } from "../provenance/source-lock.mjs";
-import { extractorId, extractorRevision, keywordCoverage, validateKeywordFacts } from "../sources/sqlite/keywords.mjs";
+import { extractorId, extractorRevision, functionCoverage, validateSourceFacts } from "../sources/sqlite/facts.mjs";
+import { keywordCoverage } from "../sources/sqlite/keywords.mjs";
 import { decodeFunctions, literal, parserVocabulary, rowsLiteral } from "./common.mjs";
 
 export async function generateCatalog({ input, emit, header, supplemental }) {
   const policy = await input("policy", "grammar/sqlite/catalog/policy.json");
   if (policy.formatVersion !== 1) throw new Error("Unsupported sqlite generation policy");
   const sourceLock = await input("vendor-source-lock", "grammar/sqlite/sources.lock.json");
-  const keywordFacts = await input("vendor-keywords", "grammar/sqlite/facts/keywords.json");
-  checkLockedFacts(sourceLock, keywordFacts, validateKeywordFacts);
+  const keywordFacts = await input("vendor-catalog", "grammar/sqlite/facts/catalog.json");
+  checkLockedFacts(sourceLock, keywordFacts, validateSourceFacts);
   if (sourceLock.extractor.id !== extractorId || sourceLock.extractor.revision !== (await extractorRevision()))
     throw new TypeError("SQLite source extractor differs from lock; explicitly refresh vendor facts");
   await emit(
     "planning/grammar-completeness/sqlite-keyword-coverage.json",
     `${JSON.stringify(keywordCoverage(keywordFacts, policy.parser.keywords), null, 2)}\n`,
+  );
+  await emit(
+    "planning/grammar-completeness/sqlite-function-coverage.json",
+    `${JSON.stringify(functionCoverage(keywordFacts, policy), null, 2)}\n`,
   );
   let strictTypes = supplemental.strictTypes;
   if (!strictTypes) {

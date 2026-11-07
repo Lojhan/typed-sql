@@ -70,8 +70,26 @@ requires a C11 compiler. Existing version pins are reused; changed acquired byte
 New retained/declared versions are discovered from the corpus and feature ledger. Normal build and
 check commands consume committed facts without network access or a compiler. Raw acquisitions
 remain under ignored artifacts; durable retention and full native compile-profile reconciliation
-are still required. `src/func.c` is locked for follow-on registration extraction, not treated as
-proof of function signatures or return semantics. Other vendor source owners remain to implement.
+are still required. Compiled registration facts carry arity and category evidence, with return
+semantics still unknown. Other vendor source owners remain to implement.
+
+The SQLite catalog refresh also locks the full vendor archive and builds its amalgamation in a
+fresh temporary directory. Archive members must agree with the separately pinned files before
+any vendor build step runs. The archive extractor rejects links, special files, duplicate paths
+and paths outside the expected revision root. Explicit refresh requires Python 3.12 or newer,
+a C compiler, make and the vendor's configure/Tcl requirements; ordinary generation remains
+Node-only and offline.
+
+Two explicit source profiles retain the default registry and a build requesting math, FTS5,
+RTREE, SOUNDEX, percentile and offset functions. Actual compile options, source identity, global
+registrations (including internal entries) and connection-visible functions are retained separately. A wrapper reads
+SQLite's own binder for minimum registration arity, including newer negative arity encodings;
+these minima do not prove argument-handler constraints. Neither profile represents every
+possible SQLite build or the settings of an application-installed wrapper. Return types,
+nullability and formal SQL parameter names remain unknown unless separate evidence supplies them.
+The generated function comparison accounts for every registration, name absent from policy,
+policy name absent from that source profile and connection-only registration. A name present
+in policy is a declaration, not semantic qualification.
 
 ## Native capture provenance
 

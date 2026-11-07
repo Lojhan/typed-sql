@@ -110,12 +110,31 @@ await describe("grammar-independent catalog mapper registrations", async () => {
     const numeric = sqlite.normalizeRow("functions", wire);
     strict.deepEqual(numeric, { name: "abs", arity: 1, builtin: 1, flags: 2099200 });
     strict.equal(wire.arity, "1");
+    strict.deepEqual(
+      sqlite.normalizeRow("functions", { name: "abs", arity: 1n, builtin: 1n, flags: 2099200n }),
+      numeric,
+    );
+    strict.equal(routineSignature(sqlite, { name: "iif", arity: -4n }).variadic, true);
     for (const arity of [null, true, "", "1junk", "1.5", Number.MAX_SAFE_INTEGER + 1])
       strict.throws(() => sqlite.normalizeRow("functions", { ...wire, arity }), /integer/u);
     const facts = routineSignature(sqlite, numeric);
     strict.equal(facts.result.typeKnowledge, "dynamic-or-unavailable");
     strict.equal(facts.parameters?.[0]?.nativeType, null);
     strict.equal(facts.result.nullable, null);
+    for (const arity of [-1, -3, -4]) {
+      const variadic = routineSignature(sqlite, sqlite.normalizeRow("functions", { ...wire, arity }));
+      strict.equal(variadic.variadic, true);
+      strict.equal(variadic.parameters, null);
+      strict.equal(variadic.result.typeKnowledge, "dynamic-or-unavailable");
+    }
+    for (const arity of [-2, -5, 32768])
+      strict.throws(() => sqlite.normalizeRow("functions", { ...wire, arity }), /arity/u);
+    // A foreign grammar's negative sentinel has no shared SQLite meaning.
+    const foreign = routineSignature(
+      { ...mapper, routineFacts: () => ({ parameters: null, registration: true }) },
+      { name: "foreign", arity: -1 },
+    );
+    strict.equal(foreign.variadic, null);
   });
 
   await it("validates every retained legacy signature and recovers shared SQLite facts across wrappers", async () => {

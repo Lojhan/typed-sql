@@ -3,10 +3,12 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { hash } from "../../model/canonical.mjs";
 import { parseSourceLock, verifySourceFiles } from "../../provenance/source-lock.mjs";
-import { extractKeywords, extractorId, extractorRevision } from "./keywords.mjs";
+import { extractorId, extractorRevision, validateSourceFacts } from "./facts.mjs";
+import { extractFunctions } from "./functions.mjs";
+import { extractKeywords } from "./keywords.mjs";
 
 const repository = "https://github.com/sqlite/sqlite";
-const paths = ["VERSION", "manifest.uuid", "LICENSE.md", "tool/mkkeywordhash.c", "src/func.c"];
+const paths = ["VERSION", "manifest.uuid", "LICENSE.md", "tool/mkkeywordhash.c", "src/func.c", "source.tar.gz"];
 const bytesDigest = (bytes) => `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
 async function download(url) {
   const response = await fetch(url, { headers: { "User-Agent": "typed-sql-catalog" } });
@@ -56,23 +58,30 @@ export async function refreshSQLiteSources({ root, compiler = "cc" }) {
         bytes = await readFile(file);
       } catch (error) {
         if (error.code !== "ENOENT") throw error;
-        bytes = await download(`https://raw.githubusercontent.com/sqlite/sqlite/${revision}/${path}`);
+        bytes = await download(
+          path === "source.tar.gz"
+            ? `https://codeload.github.com/sqlite/sqlite/tar.gz/${revision}`
+            : `https://raw.githubusercontent.com/sqlite/sqlite/${revision}/${path}`,
+        );
         await mkdir(join(file, ".."), { recursive: true });
         await writeFile(file, bytes);
       }
       files[path] = { digest: bytesDigest(bytes), bytes: bytes.length };
     }
-    if (existing && hash(existing.files) !== hash(files))
+    if (existing && Object.entries(existing.files).some(([path, pin]) => hash(pin) !== hash(files[path])))
       throw new TypeError(`Locked SQLite source bytes changed: ${version}`);
     await verifySourceFiles(directory, files);
     const value = await extractKeywords({ directory, version, revision, compiler });
+    const upstreamRevision = (await readFile(join(directory, "manifest.uuid"), "utf8")).trim();
+    value.functionProfiles = await extractFunctions({ directory, version, revision, upstreamRevision, compiler });
+    validateSourceFacts(value);
     facts.versions[version] = value;
     entries.push({
       version,
       reference,
       revision,
       repository,
-      upstreamRevision: (await readFile(join(directory, "manifest.uuid"), "utf8")).trim(),
+      upstreamRevision,
       files,
       license: { identifier: "LicenseRef-SQLite-Public-Domain", path: "LICENSE.md" },
       defines: value.defines,
@@ -86,7 +95,7 @@ export async function refreshSQLiteSources({ root, compiler = "cc" }) {
     sources: entries,
   });
   await mkdir(join(root, "grammar/sqlite/facts"), { recursive: true });
-  await writeFile(join(root, "grammar/sqlite/facts/keywords.json"), `${JSON.stringify(facts, null, 2)}\n`);
+  await writeFile(join(root, "grammar/sqlite/facts/catalog.json"), `${JSON.stringify(facts, null, 2)}\n`);
   await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`);
   return {
     versions: versions.length,

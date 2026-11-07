@@ -1,6 +1,6 @@
 {
   "formatVersion": 1,
-  "fingerprint": "sha256:82d240d81d57b738c6a711bd4dc1dbb303c745129d163e80b83c5b8c2f2d6780",
+  "fingerprint": "sha256:2ddabb29c63e85f1731d6d777691f466235128938e06ca6d526b4fdecbd556b6",
   "reports": [
     {
       "dialect": "postgres",
@@ -30736,7 +30736,7 @@
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:f12470edbbb60a3aa1bcce3a476ff5081911805627366ac141d23b31a532d0cd",
+          "fingerprint": "sha256:3b621ea200c8b63b9c96568858cf1669c234e22c68b880a6ab140c5d2f6020c7",
           "count": 196,
           "observations": [
             {"name":"->","status":"special-syntax-unverified"},

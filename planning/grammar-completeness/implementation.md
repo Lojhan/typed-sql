@@ -169,6 +169,42 @@ types/driver descriptors remain unprobeable evidence. Typecheck, quality and all
 - Pushed checkpoint `6ab73181` passed CI, migration integration and dev workspace integration.
   These results do not qualify the subsequent vendor-source changes or complete the full goal.
 
+SQLite source registration checkpoint:
+
+- Full source archives are byte-pinned for all five retained revisions. Fresh temporary builds
+  generate the vendor amalgamation and read its registration hash, argument binder and native
+  `function_list`. Independently pinned members must match the archive before executing build steps.
+  The archive helper rejects links, special entries, duplicate/noncanonical paths and root escapes.
+- Executable TypeBox schemas validate all keyword/function facts. Default and extended source
+  profiles retain exact source IDs, requested defines, observed compile options, native limits,
+  registration flags/encoding/kind, binder minima, internal/window metadata and visible connection
+  registrations. The extended profile requests math, FTS5, RTREE, SOUNDEX, percentile and offset
+  features; it is not an exhaustive set of possible native build configurations.
+- The latest extended profile contains 180 global registrations and 157 distinct visible names.
+  Every current function-policy name occurs in that profile. Nineteen visible names have no
+  ordinary-function policy, including operator/keyword forms and extension helpers. These remain
+  explicitly accounted for; name presence does not prove semantic support. Formal names, argument
+  types, handler-specific constraints, return types and nullability are not fabricated.
+- Source evidence exposed SQLite -3/-4 variadic registrations misclassified by the legacy mapper.
+  The owner now handles the registered sentinels and rejects unknown/impossible arities. Shared
+  signature identity consumes the owner's variadic fact, without interpreting SQLite arity codes.
+- Migrated seven derived flags per affected context across six retained SQLite contexts and the
+  standalone live fixture. All 33 contexts preserve exact native fields, order/counts, target
+  identity and non-function inventories. The reference audit changes only fingerprints; every
+  observation/status/count/limitation is identical. Detailed hashes and changes are retained in
+  `variadic-signature-migration.json`. Native recognition/inference findings are unchanged.
+- CI for keyword checkpoint `5fb2e603` exposed a Windows checkout issue: source files converted
+  to CRLF changed the exact-byte extractor revision. Source adapters now explicitly use LF in
+  `.gitattributes`; a contract protects that checkout requirement. Other source/native lanes were
+  not implicated by that failure; final Windows CI must still qualify the fix.
+- Vendor builds, final typecheck and quality pass. The full contract run passed 58 files and
+  exposed a native Node `bigint` arity path rejected by the new strict guard. The owner now
+  handles exact safe bigint wire values; targeted SQLite-matrix, mapper and source contracts all
+  pass after the fix. Other contract files passed in the full run. A simulated Git checkout with
+  `core.autocrlf=true` and `core.eol=crlf` retains exact bytes in all six source-adapter files.
+  Runtime package catalogs are byte-identical; the work does not yet complete typed emitter/host
+  migration or native qualification.
+
 ## Requirements still open
 
 
