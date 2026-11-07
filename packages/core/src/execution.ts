@@ -113,11 +113,7 @@ export async function runControlledExecution<Value>(
     if (deadline === undefined) return;
     const remaining = deadline - Date.now();
     if (remaining <= 0) requestCancellation("deadline");
-    else
-      deadlineTimer = setTimeout(
-        remaining > maximumTimerDelay ? armDeadline : () => requestCancellation("deadline"),
-        Math.min(remaining, maximumTimerDelay),
-      );
+    else deadlineTimer = setTimeout(armDeadline, Math.min(remaining, maximumTimerDelay));
   };
   armDeadline();
 
