@@ -4,6 +4,7 @@ import { readCorpus } from "../../scripts/catalog-generation/corpus.mjs";
 import { normalizedCorpus } from "../../scripts/catalog-generation/model.mjs";
 import { duckdbSignature } from "../../tools/grammar-catalog/src/generate/facts/duckdb.mjs";
 import {
+  duckdbFormalNames,
   duckdbRoutineProjection,
   duckdbSemanticSignature,
 } from "../../tools/grammar-catalog/src/generate/facts/duckdb-semantic.mjs";
@@ -129,6 +130,12 @@ await describe("validated catalog projections", async () => {
         strict.deepEqual(duckdbSignature(raw, policy.macroSignatures), emitted);
         const forged = { ...entity, native: { forged: true } };
         strict.deepEqual(duckdbSemanticSignature(forged, policy.macroSignatures), emitted);
+        strict.deepEqual(
+          duckdbFormalNames(entity),
+          (raw.arguments as unknown[]).map(
+            (_, index) => (raw.parameter_names as (string | null)[] | null)?.[index] ?? null,
+          ),
+        );
         const accounting = duckdbRoutineProjection(entity);
         const erased = { ...entity, native: {} };
         strict.deepEqual(duckdbRoutineProjection(erased), accounting);

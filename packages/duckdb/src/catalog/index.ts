@@ -1,25 +1,43 @@
-import { nativeCatalogs, nativeImplicitCasts } from "./generated/registry.js";
+import {
+  nativeCatalogs,
+  nativeImplicitCasts,
+  nativeKeywordInvocationForms,
+  nativeNamedArgumentBinding,
+  nativeParameterNames,
+} from "./generated/registry.js";
 import type { DuckDBBuiltinSignature } from "./types.js";
 
 export type { DuckDBBuiltinSignature } from "./types.js";
 
-function owned(values: readonly DuckDBBuiltinSignature[]): readonly DuckDBBuiltinSignature[] {
+type FormalNames = readonly (readonly (string | null)[])[];
+const formalNames = new WeakMap<DuckDBBuiltinSignature, FormalNames>();
+function owned(
+  values: readonly DuckDBBuiltinSignature[],
+  names: readonly FormalNames[],
+): readonly DuckDBBuiltinSignature[] {
+  if (values.length !== names.length) throw new TypeError("DuckDB formal-name inventory does not match signatures");
   return Object.freeze(
-    values.map(
-      (value) =>
-        Object.freeze([
-          value[0],
-          value[1],
-          Object.freeze([...value[2]]),
-          value[3],
-          value[4],
-          value[5],
-          value[6],
-        ]) as DuckDBBuiltinSignature,
-    ),
+    values.map((value, index) => {
+      const signature = Object.freeze([
+        value[0],
+        value[1],
+        Object.freeze([...value[2]]),
+        value[3],
+        value[4],
+        value[5],
+        value[6],
+      ]) as DuckDBBuiltinSignature;
+      formalNames.set(signature, Object.freeze(names[index]!.map((row) => Object.freeze([...row]))));
+      return signature;
+    }),
   );
 }
-const catalogs = new Map(Object.entries(nativeCatalogs).map(([version, values]) => [version, owned(values)]));
+const catalogs = new Map(
+  Object.entries(nativeCatalogs).map(([version, values]) => [
+    version,
+    owned(values, nativeParameterNames[version as keyof typeof nativeParameterNames]),
+  ]),
+);
 const casts = new Map(
   Object.entries(nativeImplicitCasts).map(([version, values]) => [
     version,
@@ -46,4 +64,14 @@ export function duckDBBuiltinSignatures(version: string, name: string): readonly
 }
 export function duckDBScalarImplicitCast(version: string, source: string, target: string): boolean {
   return source === target || (casts.get(version)?.has(`${source}\0${target}`) ?? false);
+}
+
+export function duckDBBuiltinFormalNames(signature: DuckDBBuiltinSignature): FormalNames {
+  return formalNames.get(signature) ?? [];
+}
+export function duckDBNamedArgumentBinding(version: string) {
+  return nativeNamedArgumentBinding[version as keyof typeof nativeNamedArgumentBinding];
+}
+export function duckDBKeywordInvocationForms(version: string): readonly string[] {
+  return nativeKeywordInvocationForms[version as keyof typeof nativeKeywordInvocationForms] ?? [];
 }

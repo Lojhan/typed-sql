@@ -86,6 +86,14 @@ accepted only for compatible 1.5.6 settings. Native JSON arrows remain JSON extr
 and UTF-8 behavior. The 1.5.6 parser rejects escaped non-ASCII bytes and `\u`/`\U` forms;
 queries using these forms receive version diagnostics.
 
+Named function arguments follow the selected engine's binding rules. DuckDB 2.0.0 binds formal
+names and rejects unknown names, duplicates and positional arguments after named arguments.
+On 1.5.6, ordinary scalar names act as labels; macros and special invocation forms have their own
+rules. Generated catalog names drive binding, while quoting preserves the distinction between
+keyword syntax and a quoted macro call. Calls whose slot assignment cannot be established receive
+a diagnostic. Named table-function options and unavailable default metadata remain subject to the
+grammar's qualified function support.
+
 The provider records catalog/schema identities, search paths, relations, constraints, types,
 routines/macros, loaded extensions, engine version and semantic settings. Quoted identifiers follow
 DuckDB's ASCII case folding. Qualification and search-path evidence determine relation lookup.

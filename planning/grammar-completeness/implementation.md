@@ -227,6 +227,36 @@ DuckDB typed-routine projection checkpoint:
   the complete editor/CI workflows were still running at inspection. Native/distribution jobs
   observed so far pass. These observations do not assert overall current-head CI success.
 
+DuckDB generated-name runtime binding checkpoint:
+
+- Generated parallel name indexes now feed the runtime binder. Names come from normalized formal
+  input slots for every emitted overload; no per-function parameter-name lists are maintained.
+  The public seven-field signature tuple remains compatible. The projection report now distinguishes
+  consumed positional names from named-only/default/output/evidence facts still absent from runtime.
+- Grammar-owned version policy preserves native distinctions: 1.5.6 scalar calls treat names as
+  labels, macros bind formal slots, and its parser-level IF construct has an explicit exception;
+  2.0.0 binds formal slots. Metadata does not establish these rules by itself. Independent native
+  regression witnesses prove the distinction (reversed POWER arguments yield 8 versus 9).
+- The resolver reuses core's grammar-neutral slot binder, folds names under DuckDB policy and
+  reorders expression nodes before inference. Unknown/duplicate names, invalid ordering and
+  ambiguous assignments fail closed when the engine version enforces slots. Parser nodes preserve
+  quoted function-name evidence; source keyword roles distinguish unqualified invocation forms.
+  Existing STRUCT/UNION constructor field semantics remain grammar-owned.
+- Separate SDK processes verify both native versions, quoted NULLIF macro binding, scalar/macro
+  name errors, variadic fixed slots, constructor fields, ordered parameter types, nullable result
+  types and diagnostic source spans. Projection contracts compare all captured positional names
+  against the generated facts. Remaining table options/defaults and full invocation-class auditing
+  still require the broader qualification work; these witnesses do not claim universal parity.
+- All 40 DuckDB test files pass with coverage thresholds (98.81% statements/lines, 97.78% functions,
+  90.86% branches). All 59 repository contract files pass; final focused checks also pass after
+  strengthening span/parameter assertions. Build, typecheck, quality and documentation build pass.
+- The first performance run, concurrent with docs building, missed PostgreSQL semantic-metadata
+  latency (p50 10.56 ms versus 10 ms). A repeat after docs completion passes unchanged default
+  budgets and unchanged code. Both logs are retained under ignored checkpoint artifacts.
+- Prior pushed `5011e007` completed full CI and both integration workflows successfully, including
+  Windows/macOS editor SDK lanes and native/distribution checks. The typed projection checkpoint
+  `907be40a` is pushed; current behavior changes still require their own fresh CI qualification.
+
 ## Requirements still open
 
 

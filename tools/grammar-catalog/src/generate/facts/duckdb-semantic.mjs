@@ -70,7 +70,7 @@ export function duckdbRoutineProjection(entity) {
   return {
     identity: routine.identity,
     name: entity.name,
-    runtimeFormat: "legacy-seven-field-tuple",
+    runtimeFormat: "seven-field-tuple-with-generated-formal-name-index",
     positionalParameters: positional.length,
     namedOnlyParameters: named.length,
     knownParameterNames: parameters.filter(
@@ -82,7 +82,6 @@ export function duckdbRoutineProjection(entity) {
     unresolvedParameterTypes: positional.filter((parameter) => parameter.type.kind === "unknown").length,
     unresolvedResultType: routine.result.type.kind === "unknown",
     modelFactsAbsentFromRuntime: [
-      "formal-parameter-names",
       "named-only-parameters",
       "parameter-defaults",
       "result-columns",
@@ -91,4 +90,11 @@ export function duckdbRoutineProjection(entity) {
       "availability-conditions",
     ],
   };
+}
+
+/** @param {RoutineEntity} entity */
+export function duckdbFormalNames(entity) {
+  return routineParameters(entity).positional.map((parameter) =>
+    requireKnown(parameter.name, `${entity.name} parameter name`),
+  );
 }

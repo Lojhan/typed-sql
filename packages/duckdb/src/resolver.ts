@@ -10,6 +10,7 @@ import {
 } from "@typed-sql/core";
 import { nativeCommonTypes, nativeExpressionTypes } from "./catalog/generated/registry.js";
 import { duckDBBuiltinSignatures } from "./catalog/index.js";
+import { duckDBNamedArgumentOrder } from "./catalog/named-arguments.js";
 import { matchDuckDBBuiltin } from "./catalog/resolution.js";
 import {
   type DuckDBType,
@@ -885,10 +886,23 @@ export class DuckDBResolver {
   call(expr: Expression, scope: Scope, expected?: Value): Value {
     if (scope.aggregateScope && (this.aggregate(expr) || expr.window))
       return this.call(expr, scope.aggregateScope, expected);
-    const name = expr.names?.at(-1)?.toLowerCase() ?? "",
-      args = expr.args ?? [];
+    const name = expr.names?.at(-1)?.toLowerCase() ?? "";
+    let args = expr.args ?? [];
     const namespaces = this.functionNamespaces(expr);
     if (namespaces === undefined) return unknown;
+    if (expr.argumentNames?.some((name) => name !== undefined) && !["struct_pack", "union_value"].includes(name)) {
+      const order = duckDBNamedArgumentOrder(
+        this.snapshot.server?.versionKey ?? "",
+        name,
+        expr.argumentNames,
+        expr.functionNameQuoted === true,
+      );
+      if (!order) {
+        this.error("No qualified DuckDB named-argument binding matches this invocation", expr.range, "TSQ201");
+        return unknown;
+      }
+      args = order.map((index) => args[index]!);
+    }
     if (expr.filter) this.infer(expr.filter, scope, bool(true));
     for (const expression of expr.context ?? []) this.infer(expression, scope);
     if (expr.windowName && !scope.windowNames?.has(duckDBAsciiFold(expr.windowName)))

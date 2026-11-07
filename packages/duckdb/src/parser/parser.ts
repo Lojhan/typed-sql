@@ -438,8 +438,10 @@ export class DuckDBParser {
       };
     }
     const names = [token.value];
+    let functionNameQuoted = token.kind === "quoted";
     while (this.is(".") && ["word", "quoted"].includes(this.token(1).kind)) {
       this.take();
+      functionNameQuoted = this.token().kind === "quoted";
       names.push(this.take().value);
     }
     if (this.accept("(")) {
@@ -463,7 +465,16 @@ export class DuckDBParser {
         } while (this.accept(",") && !this.is(")"));
         this.expect(")");
       }
-      return { kind: "call", names, args, argumentNames, distinct, context, range: this.range(range) };
+      return {
+        kind: "call",
+        names,
+        args,
+        argumentNames,
+        ...(functionNameQuoted ? { functionNameQuoted: true } : {}),
+        distinct,
+        context,
+        range: this.range(range),
+      };
     }
     return { kind: "name", names, range: this.range(range) };
   }
