@@ -84,6 +84,7 @@ await describe("MySQL numeric result families", async () => {
       ["ROUND(CAST(1 AS UNSIGNED),1)", "bigint", "bigint unsigned", false],
       ["ROUND(1.234,+1)", "string", "decimal(3,1)", false],
       ["RAND()", "number", "double", false],
+      ["RAND(NULL)", "number", "double", true],
     ] as const) {
       const result = resolve(expression);
       strict.deepEqual(result.diagnostics, [], expression);

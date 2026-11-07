@@ -676,3 +676,18 @@ consumer fixture. SQL Server/DuckDB retain their existing packed editor fixture.
 includes all three files. No timeout or performance budget is increased and no assertions are
 removed. All three packed partitions pass in the full local contract run (68 files, zero
 failures). The new partition still requires exact-head CI qualification.
+
+## RAND nullability matrix correction
+
+CI run `42423167189` on `1dfc25ac` reaches the MySQL differential review gate in all seven
+contexts: each reports 19 passing functional checks and one recognition-review failure. The new
+nine-query numeric preparation/runtime test passes in every context (8.4.11 default/lexical/
+numeric, 9.7.2 default/lexical/numeric and 26.7.0 canary).
+
+Compared complete captures with run `42419946846`: every observation is identical except
+`RAND(NULL)`'s inferred nullability. MySQL flags retain nullable metadata, while the new random
+family incorrectly forced non-null. Restoring argument nullability preserves conservative
+analysis and reproduces all seven existing observation fingerprints exactly. No baselines are
+accepted or weakened. `mysql-rand-native-review.json` retains before/after evidence and the
+fingerprint checks. The package coverage gate, typecheck and quality pass after correction;
+the corrected published head still needs CI.

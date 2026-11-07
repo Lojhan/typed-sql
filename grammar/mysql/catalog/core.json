@@ -652,7 +652,7 @@
       "result": "double",
       "minimumArguments": 0,
       "maximumArguments": 1,
-      "nullability": "never",
+      "nullability": "arguments",
       "introduced": "8.4"
     }
   ],
