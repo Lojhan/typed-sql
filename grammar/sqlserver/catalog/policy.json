@@ -1,0 +1,1698 @@
+{
+  "formatVersion": 1,
+  "functions": [
+    {
+      "name": "COUNT",
+      "rule": "count",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "aggregate",
+      "nullable": false,
+      "volatility": "immutable"
+    },
+    {
+      "name": "COUNT_BIG",
+      "rule": "countBig",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "aggregate",
+      "nullable": false,
+      "volatility": "immutable"
+    },
+    {
+      "name": "SUM",
+      "rule": "sum",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "aggregate",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "AVG",
+      "rule": "avg",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "aggregate",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "MIN",
+      "rule": "nullableSame",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "aggregate",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "MAX",
+      "rule": "nullableSame",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "aggregate",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "STDEV",
+      "rule": "float",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "aggregate",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "STDEVP",
+      "rule": "float",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "aggregate",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "VAR",
+      "rule": "float",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "aggregate",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "VARP",
+      "rule": "float",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "aggregate",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "STRING_AGG",
+      "rule": "nvarcharMax",
+      "minimumArguments": 2,
+      "maximumArguments": 2,
+      "kind": "aggregate",
+      "nullable": true,
+      "volatility": "immutable",
+      "since": 14
+    },
+    {
+      "name": "CHECKSUM_AGG",
+      "rule": "integer",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "aggregate",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "GROUPING",
+      "rule": "grouping",
+      "minimumArguments": 1,
+      "maximumArguments": 32,
+      "kind": "scalar",
+      "nullable": false,
+      "volatility": "immutable"
+    },
+    {
+      "name": "GROUPING_ID",
+      "rule": "grouping",
+      "minimumArguments": 1,
+      "maximumArguments": 32,
+      "kind": "scalar",
+      "nullable": false,
+      "volatility": "immutable"
+    },
+    {
+      "name": "ROW_NUMBER",
+      "rule": "bigint",
+      "minimumArguments": 0,
+      "maximumArguments": 0,
+      "kind": "window",
+      "nullable": false,
+      "volatility": "immutable"
+    },
+    {
+      "name": "RANK",
+      "rule": "bigint",
+      "minimumArguments": 0,
+      "maximumArguments": 0,
+      "kind": "window",
+      "nullable": false,
+      "volatility": "immutable"
+    },
+    {
+      "name": "DENSE_RANK",
+      "rule": "bigint",
+      "minimumArguments": 0,
+      "maximumArguments": 0,
+      "kind": "window",
+      "nullable": false,
+      "volatility": "immutable"
+    },
+    {
+      "name": "NTILE",
+      "rule": "bigint",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "window",
+      "nullable": false,
+      "volatility": "immutable"
+    },
+    {
+      "name": "PERCENT_RANK",
+      "rule": "float",
+      "minimumArguments": 0,
+      "maximumArguments": 0,
+      "kind": "window",
+      "nullable": false,
+      "volatility": "immutable"
+    },
+    {
+      "name": "CUME_DIST",
+      "rule": "float",
+      "minimumArguments": 0,
+      "maximumArguments": 0,
+      "kind": "window",
+      "nullable": false,
+      "volatility": "immutable"
+    },
+    {
+      "name": "LAG",
+      "rule": "nullableSame",
+      "minimumArguments": 1,
+      "maximumArguments": 3,
+      "kind": "window",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "LEAD",
+      "rule": "nullableSame",
+      "minimumArguments": 1,
+      "maximumArguments": 3,
+      "kind": "window",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "FIRST_VALUE",
+      "rule": "nullableSame",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "window",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "LAST_VALUE",
+      "rule": "nullableSame",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "window",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "PERCENTILE_CONT",
+      "rule": "float",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "window",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "PERCENTILE_DISC",
+      "rule": "float",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "window",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "COALESCE",
+      "rule": "coalesce",
+      "minimumArguments": 2,
+      "maximumArguments": 256,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "ISNULL",
+      "rule": "isnull",
+      "minimumArguments": 2,
+      "maximumArguments": 2,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "NULLIF",
+      "rule": "nullableSame",
+      "minimumArguments": 2,
+      "maximumArguments": 2,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "IIF",
+      "rule": "iif",
+      "minimumArguments": 3,
+      "maximumArguments": 3,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "CHOOSE",
+      "rule": "choose",
+      "minimumArguments": 2,
+      "maximumArguments": 256,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "ABS",
+      "rule": "abs",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "CEILING",
+      "rule": "same",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "FLOOR",
+      "rule": "same",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "SIGN",
+      "rule": "same",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "ROUND",
+      "rule": "same",
+      "minimumArguments": 2,
+      "maximumArguments": 3,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "SQUARE",
+      "rule": "float",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "SQRT",
+      "rule": "float",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "EXP",
+      "rule": "float",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "LOG10",
+      "rule": "float",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "COS",
+      "rule": "float",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "SIN",
+      "rule": "float",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "TAN",
+      "rule": "float",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "COT",
+      "rule": "float",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "ACOS",
+      "rule": "float",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "ASIN",
+      "rule": "float",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "ATAN",
+      "rule": "float",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "LOG",
+      "rule": "float",
+      "minimumArguments": 1,
+      "maximumArguments": 2,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "ATN2",
+      "rule": "float",
+      "minimumArguments": 2,
+      "maximumArguments": 2,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "POWER",
+      "rule": "abs",
+      "minimumArguments": 2,
+      "maximumArguments": 2,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "DEGREES",
+      "rule": "abs",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "RADIANS",
+      "rule": "abs",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "PI",
+      "rule": "float",
+      "minimumArguments": 0,
+      "maximumArguments": 0,
+      "kind": "scalar",
+      "nullable": false,
+      "volatility": "immutable"
+    },
+    {
+      "name": "RAND",
+      "rule": "float",
+      "minimumArguments": 0,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": false,
+      "volatility": "volatile"
+    },
+    {
+      "name": "LEN",
+      "rule": "integer",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "DATALENGTH",
+      "rule": "integer",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "ASCII",
+      "rule": "integer",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "UNICODE",
+      "rule": "integer",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "CHARINDEX",
+      "rule": "integer",
+      "minimumArguments": 2,
+      "maximumArguments": 3,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "PATINDEX",
+      "rule": "integer",
+      "minimumArguments": 2,
+      "maximumArguments": 2,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "DIFFERENCE",
+      "rule": "integer",
+      "minimumArguments": 2,
+      "maximumArguments": 2,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "SOUNDEX",
+      "rule": "string",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "CHAR",
+      "rule": "string",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "NCHAR",
+      "rule": "string",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "LEFT",
+      "rule": "string",
+      "minimumArguments": 2,
+      "maximumArguments": 2,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "RIGHT",
+      "rule": "string",
+      "minimumArguments": 2,
+      "maximumArguments": 2,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "REPLICATE",
+      "rule": "string",
+      "minimumArguments": 2,
+      "maximumArguments": 2,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "STRING_ESCAPE",
+      "rule": "string",
+      "minimumArguments": 2,
+      "maximumArguments": 2,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "SUBSTRING",
+      "rule": "string",
+      "minimumArguments": 3,
+      "maximumArguments": 3,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "REPLACE",
+      "rule": "string",
+      "minimumArguments": 3,
+      "maximumArguments": 3,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "TRANSLATE",
+      "rule": "string",
+      "minimumArguments": 3,
+      "maximumArguments": 3,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "STUFF",
+      "rule": "string",
+      "minimumArguments": 4,
+      "maximumArguments": 4,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "SPACE",
+      "rule": "string",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "LOWER",
+      "rule": "string",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "UPPER",
+      "rule": "string",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "REVERSE",
+      "rule": "string",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "LTRIM",
+      "rule": "string",
+      "minimumArguments": 1,
+      "maximumArguments": 2,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "RTRIM",
+      "rule": "string",
+      "minimumArguments": 1,
+      "maximumArguments": 2,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "TRIM",
+      "rule": "string",
+      "minimumArguments": 1,
+      "maximumArguments": 2,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "QUOTENAME",
+      "rule": "string",
+      "minimumArguments": 1,
+      "maximumArguments": 2,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "FORMAT",
+      "rule": "string",
+      "minimumArguments": 2,
+      "maximumArguments": 3,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "STR",
+      "rule": "string",
+      "minimumArguments": 1,
+      "maximumArguments": 3,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "CONCAT",
+      "rule": "nvarcharMax",
+      "minimumArguments": 2,
+      "maximumArguments": 256,
+      "kind": "scalar",
+      "nullable": false,
+      "volatility": "immutable"
+    },
+    {
+      "name": "CONCAT_WS",
+      "rule": "nvarcharMax",
+      "minimumArguments": 2,
+      "maximumArguments": 256,
+      "kind": "scalar",
+      "nullable": false,
+      "volatility": "immutable"
+    },
+    {
+      "name": "ISDATE",
+      "rule": "integer",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": false,
+      "volatility": "immutable"
+    },
+    {
+      "name": "ISNUMERIC",
+      "rule": "integer",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": false,
+      "volatility": "immutable"
+    },
+    {
+      "name": "ISJSON",
+      "rule": "integer",
+      "minimumArguments": 1,
+      "maximumArguments": 2,
+      "kind": "scalar",
+      "nullable": false,
+      "volatility": "immutable"
+    },
+    {
+      "name": "JSON_PATH_EXISTS",
+      "rule": "integer",
+      "minimumArguments": 2,
+      "maximumArguments": 2,
+      "kind": "scalar",
+      "nullable": false,
+      "volatility": "immutable",
+      "since": 16
+    },
+    {
+      "name": "GETDATE",
+      "rule": "datetime",
+      "minimumArguments": 0,
+      "maximumArguments": 0,
+      "kind": "scalar",
+      "nullable": false,
+      "volatility": "stable"
+    },
+    {
+      "name": "CURRENT_TIMESTAMP",
+      "rule": "datetime",
+      "minimumArguments": 0,
+      "maximumArguments": 0,
+      "kind": "scalar",
+      "nullable": false,
+      "volatility": "stable"
+    },
+    {
+      "name": "GETUTCDATE",
+      "rule": "datetime",
+      "minimumArguments": 0,
+      "maximumArguments": 0,
+      "kind": "scalar",
+      "nullable": false,
+      "volatility": "stable"
+    },
+    {
+      "name": "SYSDATETIME",
+      "rule": "datetime2",
+      "minimumArguments": 0,
+      "maximumArguments": 0,
+      "kind": "scalar",
+      "nullable": false,
+      "volatility": "stable"
+    },
+    {
+      "name": "SYSUTCDATETIME",
+      "rule": "datetime2",
+      "minimumArguments": 0,
+      "maximumArguments": 0,
+      "kind": "scalar",
+      "nullable": false,
+      "volatility": "stable"
+    },
+    {
+      "name": "SYSDATETIMEOFFSET",
+      "rule": "datetimeoffset",
+      "minimumArguments": 0,
+      "maximumArguments": 0,
+      "kind": "scalar",
+      "nullable": false,
+      "volatility": "stable"
+    },
+    {
+      "name": "DATEADD",
+      "rule": "dateadd",
+      "minimumArguments": 3,
+      "maximumArguments": 3,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "DATEDIFF",
+      "rule": "datediff",
+      "minimumArguments": 3,
+      "maximumArguments": 3,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "DATEDIFF_BIG",
+      "rule": "datediffBig",
+      "minimumArguments": 3,
+      "maximumArguments": 3,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "DATEPART",
+      "rule": "datepart",
+      "minimumArguments": 2,
+      "maximumArguments": 2,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "DATENAME",
+      "rule": "datename",
+      "minimumArguments": 2,
+      "maximumArguments": 2,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "YEAR",
+      "rule": "integer",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "MONTH",
+      "rule": "integer",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "DAY",
+      "rule": "integer",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "DATEFROMPARTS",
+      "rule": "date",
+      "minimumArguments": 3,
+      "maximumArguments": 3,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "DATETIMEFROMPARTS",
+      "rule": "datetime",
+      "minimumArguments": 7,
+      "maximumArguments": 7,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "DATETIME2FROMPARTS",
+      "rule": "datetime2",
+      "minimumArguments": 8,
+      "maximumArguments": 8,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "DATETIMEOFFSETFROMPARTS",
+      "rule": "datetimeoffset",
+      "minimumArguments": 10,
+      "maximumArguments": 10,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "EOMONTH",
+      "rule": "date",
+      "minimumArguments": 1,
+      "maximumArguments": 2,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "DATETRUNC",
+      "rule": "dateTrunc",
+      "minimumArguments": 2,
+      "maximumArguments": 2,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable",
+      "since": 16
+    },
+    {
+      "name": "DATE_BUCKET",
+      "rule": "dateBucket",
+      "minimumArguments": 3,
+      "maximumArguments": 4,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable",
+      "since": 16
+    },
+    {
+      "name": "SWITCHOFFSET",
+      "rule": "datetimeoffset",
+      "minimumArguments": 2,
+      "maximumArguments": 2,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "TODATETIMEOFFSET",
+      "rule": "datetimeoffset",
+      "minimumArguments": 2,
+      "maximumArguments": 2,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "NEWID",
+      "rule": "uuid",
+      "minimumArguments": 0,
+      "maximumArguments": 0,
+      "kind": "scalar",
+      "nullable": false,
+      "volatility": "volatile"
+    },
+    {
+      "name": "NEWSEQUENTIALID",
+      "rule": "uuid",
+      "minimumArguments": 0,
+      "maximumArguments": 0,
+      "kind": "scalar",
+      "nullable": false,
+      "volatility": "volatile"
+    },
+    {
+      "name": "SCOPE_IDENTITY",
+      "rule": "identity",
+      "minimumArguments": 0,
+      "maximumArguments": 0,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "volatile"
+    },
+    {
+      "name": "IDENT_CURRENT",
+      "rule": "identity",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "volatile"
+    },
+    {
+      "name": "CHECKSUM",
+      "rule": "integer",
+      "minimumArguments": 1,
+      "maximumArguments": 256,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "BINARY_CHECKSUM",
+      "rule": "integer",
+      "minimumArguments": 1,
+      "maximumArguments": 256,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "HASHBYTES",
+      "rule": "bytes",
+      "minimumArguments": 2,
+      "maximumArguments": 2,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "COMPRESS",
+      "rule": "bytes",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "DECOMPRESS",
+      "rule": "bytes",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "OBJECT_ID",
+      "rule": "integer",
+      "minimumArguments": 1,
+      "maximumArguments": 2,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "stable"
+    },
+    {
+      "name": "SCHEMA_ID",
+      "rule": "integer",
+      "minimumArguments": 0,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "stable"
+    },
+    {
+      "name": "DB_ID",
+      "rule": "integer",
+      "minimumArguments": 0,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "stable",
+      "resultType": "smallint",
+      "intrinsicNullable": true
+    },
+    {
+      "name": "COL_LENGTH",
+      "rule": "integer",
+      "minimumArguments": 2,
+      "maximumArguments": 2,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "stable",
+      "resultType": "smallint",
+      "intrinsicNullable": true
+    },
+    {
+      "name": "OBJECTPROPERTY",
+      "rule": "integer",
+      "minimumArguments": 2,
+      "maximumArguments": 2,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "stable"
+    },
+    {
+      "name": "COLUMNPROPERTY",
+      "rule": "integer",
+      "minimumArguments": 3,
+      "maximumArguments": 3,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "stable"
+    },
+    {
+      "name": "OBJECT_NAME",
+      "rule": "string",
+      "minimumArguments": 1,
+      "maximumArguments": 2,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "stable"
+    },
+    {
+      "name": "SCHEMA_NAME",
+      "rule": "string",
+      "minimumArguments": 0,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "stable"
+    },
+    {
+      "name": "DB_NAME",
+      "rule": "string",
+      "minimumArguments": 0,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "stable"
+    },
+    {
+      "name": "USER_NAME",
+      "rule": "string",
+      "minimumArguments": 0,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "stable"
+    },
+    {
+      "name": "SUSER_NAME",
+      "rule": "string",
+      "minimumArguments": 0,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "stable"
+    },
+    {
+      "name": "SUSER_SNAME",
+      "rule": "string",
+      "minimumArguments": 0,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "stable"
+    },
+    {
+      "name": "COL_NAME",
+      "rule": "string",
+      "minimumArguments": 2,
+      "maximumArguments": 2,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "stable"
+    },
+    {
+      "name": "TYPE_NAME",
+      "rule": "string",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "stable"
+    },
+    {
+      "name": "CURRENT_USER",
+      "rule": "string",
+      "minimumArguments": 0,
+      "maximumArguments": 0,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "stable"
+    },
+    {
+      "name": "SESSION_USER",
+      "rule": "string",
+      "minimumArguments": 0,
+      "maximumArguments": 0,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "stable"
+    },
+    {
+      "name": "SYSTEM_USER",
+      "rule": "string",
+      "minimumArguments": 0,
+      "maximumArguments": 0,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "stable"
+    },
+    {
+      "name": "USER",
+      "rule": "string",
+      "minimumArguments": 0,
+      "maximumArguments": 0,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "stable"
+    },
+    {
+      "name": "HOST_NAME",
+      "rule": "string",
+      "minimumArguments": 0,
+      "maximumArguments": 0,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "stable"
+    },
+    {
+      "name": "APP_NAME",
+      "rule": "string",
+      "minimumArguments": 0,
+      "maximumArguments": 0,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "stable"
+    },
+    {
+      "name": "ORIGINAL_LOGIN",
+      "rule": "string",
+      "minimumArguments": 0,
+      "maximumArguments": 0,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "stable"
+    },
+    {
+      "name": "SESSION_CONTEXT",
+      "rule": "variant",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "stable"
+    },
+    {
+      "name": "SERVERPROPERTY",
+      "rule": "variant",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "stable"
+    },
+    {
+      "name": "DATABASEPROPERTYEX",
+      "rule": "variant",
+      "minimumArguments": 2,
+      "maximumArguments": 2,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "stable"
+    },
+    {
+      "name": "SQL_VARIANT_PROPERTY",
+      "rule": "variant",
+      "minimumArguments": 2,
+      "maximumArguments": 2,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "stable"
+    },
+    {
+      "name": "OBJECTPROPERTYEX",
+      "rule": "variant",
+      "minimumArguments": 2,
+      "maximumArguments": 2,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "stable"
+    },
+    {
+      "name": "JSON_VALUE",
+      "rule": "jsonValue",
+      "minimumArguments": 2,
+      "maximumArguments": 2,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "JSON_QUERY",
+      "rule": "jsonQuery",
+      "minimumArguments": 1,
+      "maximumArguments": 2,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "JSON_MODIFY",
+      "rule": "jsonModify",
+      "minimumArguments": 3,
+      "maximumArguments": 3,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable"
+    },
+    {
+      "name": "JSON_OBJECT",
+      "rule": "jsonObject",
+      "minimumArguments": 0,
+      "maximumArguments": 256,
+      "kind": "scalar",
+      "nullable": false,
+      "volatility": "immutable",
+      "since": 16
+    },
+    {
+      "name": "JSON_ARRAY",
+      "rule": "jsonArray",
+      "minimumArguments": 0,
+      "maximumArguments": 256,
+      "kind": "scalar",
+      "nullable": false,
+      "volatility": "immutable",
+      "since": 16
+    },
+    {
+      "name": "GREATEST",
+      "rule": "leastGreatest",
+      "minimumArguments": 1,
+      "maximumArguments": 254,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable",
+      "since": 16
+    },
+    {
+      "name": "LEAST",
+      "rule": "leastGreatest",
+      "minimumArguments": 1,
+      "maximumArguments": 254,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable",
+      "since": 16
+    },
+    {
+      "name": "JSON_ARRAYAGG",
+      "rule": "jsonArray",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "kind": "aggregate",
+      "nullable": true,
+      "volatility": "immutable",
+      "since": 17
+    },
+    {
+      "name": "JSON_OBJECTAGG",
+      "rule": "jsonObject",
+      "minimumArguments": 2,
+      "maximumArguments": 2,
+      "kind": "aggregate",
+      "nullable": true,
+      "volatility": "immutable",
+      "since": 17
+    },
+    {
+      "name": "REGEXP_COUNT",
+      "rule": "integer",
+      "minimumArguments": 2,
+      "maximumArguments": 6,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable",
+      "since": 17,
+      "compatibility": 170
+    },
+    {
+      "name": "REGEXP_INSTR",
+      "rule": "integer",
+      "minimumArguments": 2,
+      "maximumArguments": 6,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable",
+      "since": 17,
+      "compatibility": 170
+    },
+    {
+      "name": "REGEXP_LIKE",
+      "rule": "bit",
+      "minimumArguments": 2,
+      "maximumArguments": 3,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable",
+      "since": 17,
+      "compatibility": 170
+    },
+    {
+      "name": "REGEXP_REPLACE",
+      "rule": "string",
+      "minimumArguments": 2,
+      "maximumArguments": 6,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable",
+      "since": 17,
+      "compatibility": 170
+    },
+    {
+      "name": "REGEXP_SUBSTR",
+      "rule": "string",
+      "minimumArguments": 2,
+      "maximumArguments": 6,
+      "kind": "scalar",
+      "nullable": true,
+      "volatility": "immutable",
+      "since": 17,
+      "compatibility": 170
+    }
+  ],
+  "dateparts": [
+    "YEAR",
+    "YY",
+    "YYYY",
+    "QUARTER",
+    "QQ",
+    "Q",
+    "MONTH",
+    "MM",
+    "M",
+    "DAYOFYEAR",
+    "DY",
+    "Y",
+    "DAY",
+    "DD",
+    "D",
+    "WEEK",
+    "WK",
+    "WW",
+    "WEEKDAY",
+    "DW",
+    "W",
+    "HOUR",
+    "HH",
+    "MINUTE",
+    "MI",
+    "N",
+    "SECOND",
+    "SS",
+    "S",
+    "MILLISECOND",
+    "MS",
+    "MICROSECOND",
+    "MCS",
+    "NANOSECOND",
+    "NS",
+    "ISO_WEEK",
+    "ISOWK",
+    "ISOWW",
+    "TZOFFSET",
+    "TZ"
+  ],
+  "types": [
+    {
+      "name": "bigint",
+      "form": "plain",
+      "mapping": "bigint",
+      "signed": true
+    },
+    {
+      "name": "int",
+      "form": "plain",
+      "mapping": "number",
+      "signed": true
+    },
+    {
+      "name": "smallint",
+      "form": "plain",
+      "mapping": "number",
+      "signed": true
+    },
+    {
+      "name": "tinyint",
+      "form": "plain",
+      "mapping": "number",
+      "signed": false
+    },
+    {
+      "name": "bit",
+      "form": "plain",
+      "mapping": "boolean"
+    },
+    {
+      "name": "money",
+      "form": "plain",
+      "mapping": "decimal"
+    },
+    {
+      "name": "smallmoney",
+      "form": "plain",
+      "mapping": "decimal"
+    },
+    {
+      "name": "real",
+      "form": "plain",
+      "mapping": "number"
+    },
+    {
+      "name": "date",
+      "form": "plain",
+      "mapping": "temporal"
+    },
+    {
+      "name": "datetime",
+      "form": "plain",
+      "mapping": "temporal"
+    },
+    {
+      "name": "smalldatetime",
+      "form": "plain",
+      "mapping": "temporal"
+    },
+    {
+      "name": "uniqueidentifier",
+      "form": "plain",
+      "mapping": "string"
+    },
+    {
+      "name": "xml",
+      "form": "plain",
+      "mapping": "string"
+    },
+    {
+      "name": "text",
+      "form": "plain",
+      "mapping": "string"
+    },
+    {
+      "name": "ntext",
+      "form": "plain",
+      "mapping": "string"
+    },
+    {
+      "name": "image",
+      "form": "plain",
+      "mapping": "Uint8Array"
+    },
+    {
+      "name": "sql_variant",
+      "form": "plain",
+      "mapping": "unknown"
+    },
+    {
+      "name": "json",
+      "form": "plain",
+      "mapping": "json"
+    },
+    {
+      "name": "rowversion",
+      "form": "plain",
+      "mapping": "Uint8Array",
+      "nativeName": "timestamp"
+    },
+    {
+      "name": "char",
+      "form": "sized",
+      "byteWidth": 1,
+      "allowsMax": false,
+      "mapping": "string"
+    },
+    {
+      "name": "varchar",
+      "form": "sized",
+      "byteWidth": 1,
+      "allowsMax": true,
+      "mapping": "string"
+    },
+    {
+      "name": "nchar",
+      "form": "sized",
+      "byteWidth": 2,
+      "allowsMax": false,
+      "mapping": "string"
+    },
+    {
+      "name": "nvarchar",
+      "form": "sized",
+      "byteWidth": 2,
+      "allowsMax": true,
+      "mapping": "string"
+    },
+    {
+      "name": "binary",
+      "form": "sized",
+      "byteWidth": 1,
+      "allowsMax": false,
+      "mapping": "Uint8Array"
+    },
+    {
+      "name": "varbinary",
+      "form": "sized",
+      "byteWidth": 1,
+      "allowsMax": true,
+      "mapping": "Uint8Array"
+    },
+    {
+      "name": "decimal",
+      "form": "decimal",
+      "mapping": "decimal"
+    },
+    {
+      "name": "time",
+      "form": "temporal",
+      "mapping": "temporal"
+    },
+    {
+      "name": "datetime2",
+      "form": "temporal",
+      "mapping": "temporal"
+    },
+    {
+      "name": "datetimeoffset",
+      "form": "temporal",
+      "mapping": "temporal"
+    },
+    {
+      "name": "float",
+      "form": "float",
+      "mapping": "number"
+    }
+  ],
+  "typeAliases": {
+    "integer": "int",
+    "dec": "decimal",
+    "numeric": "decimal",
+    "timestamp": "rowversion",
+    "double precision": "float",
+    "character varying": "varchar",
+    "character": "char"
+  },
+  "systemAliases": {
+    "sysname": "nvarchar"
+  },
+  "typeDefaults": {
+    "sized": {
+      "declaration": 1,
+      "cast": 30
+    }
+  }
+}

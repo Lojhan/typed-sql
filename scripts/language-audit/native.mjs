@@ -1,20 +1,77 @@
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { attachNativeProvenance } from "./provenance.mjs";
+
+const postgresTypeNames = new WeakMap();
 
 export async function preparePostgres(client, sql) {
+  let description;
   try {
-    await client.query(`PREPARE typed_sql_language_audit AS ${sql}`);
+    description = await new Promise((resolve, reject) => {
+      let fields = [],
+        parameters = [];
+      const connection = client.connection;
+      const parameterDescription = (message) => {
+        parameters = message.dataTypeIDs;
+      };
+      const cleanup = () => connection.removeListener("parameterDescription", parameterDescription);
+      client.query({
+        submit(wire) {
+          wire.once("parameterDescription", parameterDescription);
+          // Parse + Describe + Sync deliberately omit Bind and Execute. In particular,
+          // this cannot call a volatile/destructive function discovered in pg_proc.
+          wire.parse({ text: sql, name: "" });
+          wire.describe({ type: "S", name: "" });
+          wire.sync();
+        },
+        handleRowDescription(message) {
+          fields = message.fields;
+        },
+        handleReadyForQuery() {
+          cleanup();
+          resolve({ fields, parameters });
+        },
+        handleError(error) {
+          cleanup();
+          reject(error);
+        },
+      });
+    });
   } catch (error) {
     if (!/^(42|0A|22)/u.test(error.code ?? "") || error.code === "42501") throw error;
     return { accepted: false, reason: error.code };
   }
-  await client.query("DEALLOCATE typed_sql_language_audit");
+  const names = postgresTypeNames.get(client) ?? new Map();
+  postgresTypeNames.set(client, names);
+  const identities = [
+    ...new Set([...description.fields.map((field) => field.dataTypeID), ...description.parameters]),
+  ].filter((id) => !names.has(id));
+  const types = identities.length
+    ? (
+        await client.query(
+          "SELECT oid::text AS oid, format_type(oid,NULL) AS name FROM pg_type WHERE oid=ANY($1::oid[])",
+          [identities],
+        )
+      ).rows
+    : [];
+  for (const row of types) names.set(Number(row.oid), row.name);
   return {
     accepted: true,
     metadata: {
-      status: "catalog-signature-preserved; result description unavailable through SQL PREPARE",
-      parameterCount: 0,
-      columns: null,
+      status: "native Parse/Describe result and parameter types; no execution",
+      parameterCount: description.parameters.length,
+      parameters: description.parameters.map((id, index) => ({
+        index: index + 1,
+        engineType: id,
+        nativeType: names.get(id) ?? null,
+      })),
+      columns: description.fields.map((field) => ({
+        name: field.name,
+        engineType: field.dataTypeID,
+        nativeType: names.get(field.dataTypeID) ?? null,
+        typeModifier: field.dataTypeModifier,
+        nullable: null,
+      })),
     },
   };
 }
@@ -100,6 +157,7 @@ export function recognitionSummary(recognition) {
 }
 
 export async function enrichRecognition(input, prepare, server) {
+  await attachNativeProvenance(input);
   const { tsImport } = await import("tsx/esm/api");
   const { recognizeLive } = await tsImport("./recognition.ts", {
     parentURL: import.meta.url,

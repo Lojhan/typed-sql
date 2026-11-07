@@ -1,8 +1,6 @@
 import type { SchemaSnapshot } from "@typed-sql/schema";
 import { parseMySqlVersion } from "../support.js";
-import catalog84 from "./generated/8.4.js";
-import catalog97 from "./generated/9.7.js";
-import catalog267 from "./generated/26.7.js";
+import { mySqlCatalogs } from "./generated/registry.js";
 import type {
   MySqlCatalogCoercion,
   MySqlCatalogCollation,
@@ -38,7 +36,7 @@ function deepFreeze<Value>(value: Value, seen = new Set<object>()): Value {
 }
 
 const catalogs = new Map<string, MySqlCoreCatalog>(
-  [catalog84, catalog97, catalog267].map((catalog) => [catalog.series, deepFreeze(catalog)]),
+  mySqlCatalogs.map((catalog) => [catalog.series, deepFreeze(catalog)]),
 );
 
 interface CatalogIndex {
@@ -134,7 +132,7 @@ export function mySqlCoreCatalogForSchema(schema: SchemaSnapshot | undefined): M
 
 function selected(schema?: SchemaSnapshot): MySqlCoreCatalog | undefined {
   const evidence = schema?.server?.versionKey ?? schema?.version;
-  if (evidence === undefined) return catalog84;
+  if (evidence === undefined) return mySqlCatalogs[0];
   return mySqlCoreCatalogForSchema(schema);
 }
 

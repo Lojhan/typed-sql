@@ -1,0 +1,285 @@
+# Grammar generation implementation evidence
+
+The objective is the full specification in [spec.md](./spec.md), with a merge-ready PR. Partial
+checkpoints below do not establish completion. Shared infrastructure must use registrations,
+never grammar-name branches. Engine and extension meanings belong to their contributions.
+
+## Current checkpoint
+
+- Working PR: [#280](https://github.com/Lojhan/typed-sql/pull/280), kept in draft during migration.
+- Added a mapper registry with external grammar and inherited contribution support.
+- Migrated legacy routine extraction and version-band selection to registered mappers.
+- Kept the existing capture envelope byte-compatible: all retained signatures still validate.
+- Normalized SQLite native integer fields in shared views without rewriting capture evidence;
+  the four 3.53.4 contexts now share 162 complete function registrations instead of zero.
+- Removed physical-storage-based SQL Server alias inference. Explicit SYSNAME alias evidence
+  remains policy; native dimensions are still generated. Unqualified VECTOR is unknown.
+- Added declaration versus CAST/CONVERT length context, with grammar-owned regression witnesses.
+- Added public, grammar-neutral `bindRoutineArguments` mechanics in core. PostgreSQL now uses
+  this contract while keeping native type binding, casts and overload ranking grammar-owned.
+- Removed the corpus's closed grammar-name allowlist and made mapper injection available across
+  capture import, validation, persistence and grouping. A synthetic graph contribution exercises
+  that full round trip. SQL Server's disposable-database identity rule belongs to its mapper.
+- Added the executable v2 model schema, inferred static types, content-addressed entities,
+  profile/source references and a loss-preserving legacy importer. Generation now consumes
+  that validated projection instead of independently normalizing raw rows.
+- All 33 retained contexts import into 26,829 normalized entities and 164 source records.
+  Every source category and raw-row reference is accounted for by contract tests. Native
+  payloads, formal/default/output metadata and unresolved provenance are preserved.
+- Profile-specific variants and unavailable evidence retain explicit membership. Generated
+  schema and normalizer/input digests participate in the generation evidence.
+- Moved catalog emission behind registered grammar owners. Shared generation has no grammar-name
+  dispatch, validates all output ownership before writes, stages replacements and writes reports
+  last. Per-output hashes and an artifact fingerprint record executable projection bytes.
+- Consolidated legacy PostgreSQL/MySQL generators into the pure Node offline pipeline. Build and
+  typecheck generate before compilation. Required endpoints derive from the feature ledger.
+- Removed DuckDB's generated-parser bootstrap dependency by interpreting captured aliases in its
+  generator. PostgreSQL/MySQL core catalogs now use statically checked object literals instead
+  of unchecked assertions or runtime JSON parsing. This is relocation/consolidation, not claimed
+  removal of maintained semantic policy.
+- Added a clean-room generation/check contract without grammar implementation sources or prior
+  outputs, external-emitter ownership/error contracts, and executed catalog revision checks.
+- SQLite global namespace knowledge is explicit mapper policy. DuckDB pragma set-return knowledge
+  remains unknown where the native evidence does not establish it.
+- Replaced host-parser normalization on both sides of native type comparisons with independent
+  engine descriptions of claimed types. Registered description owners preserve PostgreSQL
+  OIDs/typmods, DuckDB nested structure/branding and SQL Server logical names/dimensions/user type
+  identities. Shared comparison has no grammar-name branches. Missing parameter descriptions now
+  prevent a complete identity claim even when parameter counts match.
+- Registered audit adapters now own analysis construction, tokenization, version selection and
+  invocation planning. Shared audit/recognition code no longer imports grammar implementations
+  or selects behavior by engine name. Injected registries support new/inherited grammar IDs;
+  a graph contribution exercises inventory, parameterized native probes and independent comparison.
+- Reused neutral registry validation with explicit stage method contracts. Extension preserves
+  frozen registrations even if a caller mutates its original definition after registration.
+- SQL Server expected-type evidence validates numeric descriptor fields returned as decimal text.
+  Its independent owner recognizes Microsoft's documented DECIMAL/NUMERIC logical equivalence,
+  preserving precision, scale, logical names outside that equivalence and user type identity.
+
+## Validation observed
+
+- `pnpm typecheck`: passed after including the private tool sources in the contract-test project.
+- SQL Server tests plus catalog generation, mapper and language audit contracts: 26 files passed.
+- `pnpm quality`: passed, including deterministic catalog checks and all 17 reference targets.
+  Existing SVG style warnings remain non-blocking and are outside this implementation.
+- Core package tests: 22 files passed; the new argument-binding module has 100% statement,
+  branch, function and line coverage, and package coverage thresholds pass.
+- Public API and PostgreSQL native signature tests pass.
+- Packed consumer test passes with the new binder imported from the compiled public core
+  entrypoint in an isolated driver-free installation.
+- Documentation contracts pass. The performance gate passes in an isolated run without budget
+  changes. A preceding run during concurrent packaging failed the scanner budget and is not
+  used as performance evidence; both logs remain in local artifacts.
+- The preceding published checkpoint `984e1fde` passed CI run `42380744391` and migration
+  integration run `42380744338`. Those results do not qualify subsequent working changes.
+- V2 model/import tests pass, including corrupted references, unsupported/non-JSON values,
+  cyclic metadata and external contribution round trips. The generated draft-07 schema also
+  compiles under the separately installed Ajv 8.20.0 validator.
+- After the model integration, `pnpm typecheck`, `pnpm quality` and all 50 repository contract
+  test files pass locally, including package graph and isolated packed consumers/editors.
+- Model checkpoint `6ef2a2bd` passed CI run `42382870026` and migration integration run
+  `42382870015`.
+- After registered emission and offline CLI consolidation, typecheck, quality, all 52 contract
+  files and PostgreSQL/MySQL package tests (including coverage gates) pass. The performance gate
+  also passes in isolation. These are local results; the next pushed head needs its own CI.
+- Emission checkpoint `fe795982` passed CI run `42385784130` and migration integration run
+  `42385784108`.
+- Independent type-description comparison passed focused contracts and local native audits on
+  PostgreSQL 18.6 and DuckDB 1.5.6/2.0.0. PostgreSQL had 3,308 complete identity matches from
+  5,666 observations; DuckDB had 38/44 from 2,941/3,168 observations. Remaining observations include
+  rejected/unconstructible invocations, grammar gaps and missing parameter descriptors. No type
+  mismatches remain in these runs; these numbers are not full semantic coverage. A preceding PG
+  run exposed catalog-type identity versus SQL declaration defaults for BIT/CHARACTER; native
+  Parse/Describe confirmed the mapper's qualified unmodified identities preserve typmod -1.
+- Compared old and registered invocation planners over all 29,018 retained native function rows:
+  generated query arrays are identical. Adapter contracts discover all retained contexts from
+  the validated model rather than maintaining a second grammar/version case list.
+- Comparator checkpoint CI `42386624346` produced review-only native audit failures. Reviewed all
+  33 CI contexts against the generation corpus: inventories, recognition counts and retained
+  grammar-gap behavior are unchanged. Only recognition evidence fingerprints changed. Replayed
+  retained SQL Server engine descriptions after strict wire decoding; 20 spelling/ID differences
+  were the documented NUMERIC/DECIMAL equivalence. No unapproved type differences remain.
+  SQL Server profiles have 62–78 complete logical identity comparisons in this replay. The updated
+  source still requires fresh current-head native CI; replay is not a substitute for that lane.
+- Updated those reviewed fingerprints and the existing local SQLite context after checking
+  unchanged inventories/counts/gaps. Actual native type disagreements remain non-baselinable.
+- Registered audit adapters and reviewed comparator evidence pass local typecheck, audit-script
+  typecheck, quality and all 54 repository contract files. Final focused adapter/comparator checks
+  also pass after the category-probe contract was made explicit. Native CI for the next pushed
+  head is still required; the failed older run is not recorded as a pass.
+
+The semantic-facet checkpoint adds statically inferred and runtime-validated semantic facets across
+all nine inventory categories. Registered owners populate observed properties; unavailable facts
+remain unknown, including MySQL HELP type identities, explicit casts from negative implicit-cast
+observations, installation state and syntax productions. Case folding stays owner-controlled.
+All 55 contract files pass after the initial integration; final focused/type/quality checks also pass after
+the owner-controlled case-folding refinement. Runtime catalog outputs remain byte-identical.
+PostgreSQL routine/type/cast emission now consumes validated model entities directly. DuckDB cast
+emission consumes typed endpoints/contexts, and its type lookup uses typed canonical identities.
+Required type/cast facts fail closed without falling back to native payloads. Legacy PostgreSQL
+helper exports delegate to the same semantic projectors rather than maintaining a second mapping.
+Grouping/projection contracts expose statically typed entities instead of implicit `any` arrays.
+Other emitter projections still require migration; full projection-loss accounting remains open.
+SQL Server type emission now consumes typed physical storage identity and dimensions, with
+unknown width/identity rejected rather than coerced from missing raw fields. Alias relationships
+remain explicit policy, independent of shared storage. Forged native payloads do not affect output.
+Its runtime generated catalog remains byte-identical; focused projection tests and typecheck pass.
+All generated runtime catalogs are byte-identical. All 56 contract files passed; final focused
+checks cover required-fact removal and forged native payloads after grouping type annotations.
+
+- Native lanes for SQL Server 14/15/16/17 and PostgreSQL 14/16/17/18 passed on
+  checkpoint `048d22ed` in CI run `42388317055`; migration run `42388316819` passed.
+  The full CI workflow is still running, so those results do not claim overall success.
+
+- Capture provenance now binds complete normalized inventories/targets to declared tool-file byte
+  hashes, producer entrypoint, dependency-lock digest and Node runtime. Corpus persistence and
+  model normalization preserve the record; identified native extractors require their manifest.
+  Existing captures retain unknown evidence. Pinned contexts reject missing or changed pins.
+- All 57 contract files, typecheck and quality pass after initial integration, with final focused
+  provenance/model checks also passing. A live SQLite capture imported into a model with four
+  identified native sources and 65 recorded tool files; licensing remains unknown. Runtime
+  catalog bytes are unchanged. This does not complete vendor locks, archive retention or the
+  entire acquisition dependency closure.
+
+Native acquisition now uses registered owners for queries, row transforms, scope, limitations and
+derived inventories. Shared collection has no engine-name cases or closed grammar allowlist.
+Provenance, review and diff helpers accept the same injected registry. An inherited graph test
+exercises discovery through bound provenance, corpus import, normalized model and review.
+All 27 built-in query strings are byte-identical to their previous definitions. Independent old/new
+DuckDB 2.0 collections on fresh instances produced the same full capture hash
+(`e7f87506b96d01f1f1bac4c139f89f5dc48c42a9378bbafd409bbab6e86185cb`).
+Unexpected connection failures during derived probing now propagate; known unsupported native
+types/driver descriptors remain unprobeable evidence. Typecheck, quality and all 58 contract files pass locally.
+
+
+- Added SQLite vendor source locks for all five retained versions, with immutable Git/Fossil
+  revisions, per-file byte digests and the pinned license notice. The source adapter compiles
+  the vendor keyword table under explicit defines instead of regex-parsing C initializers.
+  Each default source profile exposes 147 enabled keywords; later tables additionally retain
+  disabled WITHIN. Current parser vocabulary contains 83 of those names; 64 are source-only
+  and 18 parser words are absent from the enabled vendor list. These are lexical counts, not
+  semantic support or reserved-word qualification.
+- Generation validates normalized facts and extractor pins and produces the complete vocabulary
+  comparison. Explicit refresh reuses old revision pins, verifies acquired bytes before compiling,
+  and discovers versions from retained captures/declared endpoints. Ordinary build needs neither
+  compiler nor network. Function source is locked but not yet extracted. Raw archive retention,
+  native build-condition reconciliation and other vendor adapters remain open.
+- All 59 contract files, typecheck and quality pass locally. Repeating the explicit SQLite
+  source refresh succeeds with the retained revision pins; final offline generation passes.
+- Pushed checkpoint `6ab73181` passed CI, migration integration and dev workspace integration.
+  These results do not qualify the subsequent vendor-source changes or complete the full goal.
+
+SQLite source registration checkpoint:
+
+- Full source archives are byte-pinned for all five retained revisions. Fresh temporary builds
+  generate the vendor amalgamation and read its registration hash, argument binder and native
+  `function_list`. Independently pinned members must match the archive before executing build steps.
+  The archive helper rejects links, special entries, duplicate/noncanonical paths and root escapes.
+- Executable TypeBox schemas validate all keyword/function facts. Default and extended source
+  profiles retain exact source IDs, requested defines, observed compile options, native limits,
+  registration flags/encoding/kind, binder minima, internal/window metadata and visible connection
+  registrations. The extended profile requests math, FTS5, RTREE, SOUNDEX, percentile and offset
+  features; it is not an exhaustive set of possible native build configurations.
+- The latest extended profile contains 180 global registrations and 157 distinct visible names.
+  Every current function-policy name occurs in that profile. Nineteen visible names have no
+  ordinary-function policy, including operator/keyword forms and extension helpers. These remain
+  explicitly accounted for; name presence does not prove semantic support. Formal names, argument
+  types, handler-specific constraints, return types and nullability are not fabricated.
+- Source evidence exposed SQLite -3/-4 variadic registrations misclassified by the legacy mapper.
+  The owner now handles the registered sentinels and rejects unknown/impossible arities. Shared
+  signature identity consumes the owner's variadic fact, without interpreting SQLite arity codes.
+- Migrated seven derived flags per affected context across six retained SQLite contexts and the
+  standalone live fixture. All 33 contexts preserve exact native fields, order/counts, target
+  identity and non-function inventories. The reference audit changes only fingerprints; every
+  observation/status/count/limitation is identical. Detailed hashes and changes are retained in
+  `variadic-signature-migration.json`. Native recognition/inference findings are unchanged.
+- CI for keyword checkpoint `5fb2e603` exposed a Windows checkout issue: source files converted
+  to CRLF changed the exact-byte extractor revision. Source adapters now explicitly use LF in
+  `.gitattributes`; a contract protects that checkout requirement. Other source/native lanes were
+  not implicated by that failure; final Windows CI must still qualify the fix.
+- Vendor builds, final typecheck and quality pass. The full contract run passed 58 files and
+  exposed a native Node `bigint` arity path rejected by the new strict guard. The owner now
+  handles exact safe bigint wire values; targeted SQLite-matrix, mapper and source contracts all
+  pass after the fix. Other contract files passed in the full run. A simulated Git checkout with
+  `core.autocrlf=true` and `core.eol=crlf` retains exact bytes in all six source-adapter files.
+  Runtime package catalogs are byte-identical; the work does not yet complete typed emitter/host
+  migration or native qualification.
+
+DuckDB typed-routine projection checkpoint:
+
+- Production routine emission now consumes normalized routine entities, including ordered modes,
+  explicit variadic evidence and validated property values. The legacy helper delegates to the
+  same projector. Unknown native type facts remain null; unsupported rich type expressions,
+  unavailable parameter evidence, unknown modes, malformed ordinals and conflicting macro
+  policies fail closed rather than recovering data from raw payloads.
+- Generated runtime catalog files remain byte-identical. All 6,180 shared routine entities across
+  both retained DuckDB versions are checked against the previous raw-field projection. Poisoning
+  or deleting the opaque payload cannot affect projection or accounting results.
+- A generated per-routine projection report records formal-name/default/output/unknown facts
+  that the existing public tuple cannot represent. Version 1.5.6 retains 546 named-only parameter
+  entries and 5,360 known formal names; 2.0.0 retains 1,270 and 6,334. Default knowledge remains
+  unknown for those entries. These counts are per captured overload, not distinct functions.
+- Moved the existing metadata JSON formatter into the private neutral model workspace, preserving
+  its output format and audit re-export. The per-record report stays readable without expanding
+  every record over many lines. All 59 contract files, typecheck and quality pass locally.
+- Current pushed checkpoint `5011e007` passed migration and dev-workspace integrations. Its
+  Windows build/generation step now passes, qualifying the prior extractor-byte checkout fix;
+  the complete editor/CI workflows were still running at inspection. Native/distribution jobs
+  observed so far pass. These observations do not assert overall current-head CI success.
+
+DuckDB generated-name runtime binding checkpoint:
+
+- Generated parallel name indexes now feed the runtime binder. Names come from normalized formal
+  input slots for every emitted overload; no per-function parameter-name lists are maintained.
+  The public seven-field signature tuple remains compatible. The projection report now distinguishes
+  consumed positional names from named-only/default/output/evidence facts still absent from runtime.
+- Grammar-owned version policy preserves native distinctions: 1.5.6 scalar calls treat names as
+  labels, macros bind formal slots, and its parser-level IF construct has an explicit exception;
+  2.0.0 binds formal slots. Metadata does not establish these rules by itself. Independent native
+  regression witnesses prove the distinction (reversed POWER arguments yield 8 versus 9).
+- The resolver reuses core's grammar-neutral slot binder, folds names under DuckDB policy and
+  reorders expression nodes before inference. Unknown/duplicate names, invalid ordering and
+  ambiguous assignments fail closed when the engine version enforces slots. Parser nodes preserve
+  quoted function-name evidence; source keyword roles distinguish unqualified invocation forms.
+  Existing STRUCT/UNION constructor field semantics remain grammar-owned.
+- Separate SDK processes verify both native versions, quoted NULLIF macro binding, scalar/macro
+  name errors, variadic fixed slots, constructor fields, ordered parameter types, nullable result
+  types and diagnostic source spans. Projection contracts compare all captured positional names
+  against the generated facts. Remaining table options/defaults and full invocation-class auditing
+  still require the broader qualification work; these witnesses do not claim universal parity.
+- All 40 DuckDB test files pass with coverage thresholds (98.81% statements/lines, 97.78% functions,
+  90.86% branches). All 59 repository contract files pass; final focused checks also pass after
+  strengthening span/parameter assertions. Build, typecheck, quality and documentation build pass.
+- The first performance run, concurrent with docs building, missed PostgreSQL semantic-metadata
+  latency (p50 10.56 ms versus 10 ms). A repeat after docs completion passes unchanged default
+  budgets and unchanged code. Both logs are retained under ignored checkpoint artifacts.
+- Prior pushed `5011e007` completed full CI and both integration workflows successfully, including
+  Windows/macOS editor SDK lanes and native/distribution checks. The typed projection checkpoint
+  `907be40a` is pushed; current behavior changes still require their own fresh CI qualification.
+
+## Requirements still open
+
+
+1. Complete independent native comparison for MySQL/SQLite, SQL Server live validation of the
+   new comparison owner, modifier/identity regression witnesses across supported versions and
+   retained qualification evidence. PostgreSQL/DuckDB/SQL Server expected-side host parsers have
+   been removed; incomplete native descriptors remain explicit gaps.
+2. Complete semantic facets for every IR category, immutable upstream source locks and
+   field/projection-loss accounting. The structural v2 model and legacy importer are implemented;
+   unknown historical provenance is not upgraded to qualified source evidence.
+3. Pinned structured source extraction for every declared engine/version/profile.
+4. Full signature/type/keyword/operator/cast/syntax generation, including special invocation
+   forms, generic constraints, named/default/variadic arguments and table outputs.
+5. Grammar-owned semantic rule migration and real runtime/inference mapping integration.
+6. Independent category-specific live qualification, generated invocation classes, retained
+   regression witnesses, explicit gaps and blocking required native lanes.
+7. Extension contribution captures/qualification and third-party packed-consumer proof.
+8. Explicit analysis entrypoints/preloading and documented breaking root API transition.
+9. Offline deterministic build/typecheck bootstrap, disposable executable generated code and
+   correct compiled npm/editor artifacts. The pure Node path and clean-room generation proof are
+   implemented; deleting tracked outputs and qualifying the complete build/distribution remain open.
+10. Coverage ledger migration, current missing-feature documentation and public qualified scope.
+11. Full repository/native/packed/editor/performance verification, PR review resolution and
+    final requirement-by-requirement completion audit.
+
+This list preserves the full goal. It is not a reduced definition of ready-to-merge.

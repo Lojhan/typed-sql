@@ -17,6 +17,14 @@ export const textContent = (html: string): string =>
     .replace(/&amp;/gu, "&")
     .trim();
 
+export function extractSqliteStrictTypes(body: string, url: string) {
+  const list = /The datatype must be one of the following:[\s\S]*?<ul>([\s\S]*?)<\/ul>/u.exec(body)?.[1];
+  if (!list) throw new Error("SQLite STRICT type inventory not found");
+  const rows = [...list.matchAll(/<li>\s*([A-Z][A-Z_0-9]*)\s*<\/li>/gu)].map((match) => ({ name: match[1]!, url }));
+  if (!rows.length) throw new Error("Empty SQLite STRICT type inventory");
+  return rows;
+}
+
 export function extractFunctions(dialect: string, body: string, base: string): { name: string; url: string }[] {
   const found: { name: string; url: string }[] = [];
   const add = (name: string, url = base) => {
@@ -188,6 +196,12 @@ export async function refreshReferences() {
           "reference-navigation; language-elements include more than operators",
         );
     } else {
+      const strictUrl = "https://www.sqlite.org/stricttables.html";
+      extra.types = inventory(
+        extractSqliteStrictTypes(await page(strictUrl), strictUrl),
+        strictUrl,
+        "STRICT-declared-type-names; ordinary SQLite types remain open-ended affinity declarations",
+      );
       for (const path of [
         "lang_corefunc.html",
         "lang_aggfunc.html",

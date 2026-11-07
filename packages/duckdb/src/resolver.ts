@@ -8,9 +8,9 @@ import {
   type SourceRange,
   type SqlDiagnostic,
 } from "@typed-sql/core";
-import { commonTypes as common15, expressionTypes as expression15 } from "./catalog/common-1.5.6.js";
-import { commonTypes as common20, expressionTypes as expression20 } from "./catalog/common-2.0.0.js";
+import { nativeCommonTypes, nativeExpressionTypes } from "./catalog/generated/registry.js";
 import { duckDBBuiltinSignatures } from "./catalog/index.js";
+import { duckDBNamedArgumentOrder } from "./catalog/named-arguments.js";
 import { matchDuckDBBuiltin } from "./catalog/resolution.js";
 import {
   type DuckDBType,
@@ -123,17 +123,8 @@ export function commonDuckDBType(
       }
     }
     const key = `${a.name}|${b.name}`;
-    const matrix =
-      version === "1.5.6"
-        ? mode === "set"
-          ? common15
-          : expression15
-        : version === "2.0.0"
-          ? mode === "set"
-            ? common20
-            : expression20
-          : {};
-    const result = matrix[key];
+    const matrix = mode === "set" ? nativeCommonTypes[version] : nativeExpressionTypes[version];
+    const result = matrix?.[key];
     return result ? parseDuckDBType(result) : scalar("ANY");
   }
   if ((a.kind === "list" || a.kind === "array") && (b.kind === "list" || b.kind === "array"))
@@ -895,10 +886,23 @@ export class DuckDBResolver {
   call(expr: Expression, scope: Scope, expected?: Value): Value {
     if (scope.aggregateScope && (this.aggregate(expr) || expr.window))
       return this.call(expr, scope.aggregateScope, expected);
-    const name = expr.names?.at(-1)?.toLowerCase() ?? "",
-      args = expr.args ?? [];
+    const name = expr.names?.at(-1)?.toLowerCase() ?? "";
+    let args = expr.args ?? [];
     const namespaces = this.functionNamespaces(expr);
     if (namespaces === undefined) return unknown;
+    if (expr.argumentNames?.some((name) => name !== undefined) && !["struct_pack", "union_value"].includes(name)) {
+      const order = duckDBNamedArgumentOrder(
+        this.snapshot.server?.versionKey ?? "",
+        name,
+        expr.argumentNames,
+        expr.functionNameQuoted === true,
+      );
+      if (!order) {
+        this.error("No qualified DuckDB named-argument binding matches this invocation", expr.range, "TSQ201");
+        return unknown;
+      }
+      args = order.map((index) => args[index]!);
+    }
     if (expr.filter) this.infer(expr.filter, scope, bool(true));
     for (const expression of expr.context ?? []) this.infer(expression, scope);
     if (expr.windowName && !scope.windowNames?.has(duckDBAsciiFold(expr.windowName)))
@@ -1103,14 +1107,12 @@ export class DuckDBResolver {
           ? input
           : input.kind === "scalar" && input.name === "DATE"
             ? scalar("TIMESTAMP")
-            : isNumeric(input) && !(input.kind === "scalar" && input.name === "DECIMAL")
+            : isNumeric(input) && !(input.kind === "scalar" && ["DECIMAL", "FLOAT"].includes(input.name))
               ? scalar("DOUBLE")
               : input;
       const multiple = values[1]?.type.kind === "list" || values[1]?.type.kind === "array";
       return { type: multiple ? { kind: "list", element: type } : type, nullable: true };
     }
-    if (["avg", "mean"].includes(name) && values[0]?.type.kind === "scalar" && values[0].type.name === "INTERVAL")
-      return { type: scalar("INTERVAL"), nullable: true };
     if (
       [
         "avg",
@@ -1121,8 +1123,6 @@ export class DuckDBResolver {
         "variance",
         "var_samp",
         "var_pop",
-        "median",
-        "quantile_cont",
         "corr",
         "covar_pop",
         "covar_samp",
@@ -1130,7 +1130,7 @@ export class DuckDBResolver {
         "fsum",
       ].includes(name)
     )
-      return { type: scalar("DOUBLE"), nullable: true };
+      return { type: matches[0]?.result ?? unknown.type, nullable: true };
     if (["min", "max"].includes(name) && values.length === 2)
       return { type: { kind: "list", element: values[0]!.type }, nullable: true };
     if (

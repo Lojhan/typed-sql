@@ -5,6 +5,26 @@ import { grammar, snapshot } from "./helpers/maturity-corpus.js";
 // https://learn.microsoft.com/en-us/sql/t-sql/functions/percentile-disc-transact-sql
 // https://learn.microsoft.com/en-us/sql/t-sql/functions/percentile-cont-transact-sql
 await describe("SQL Server ordered statistics and function namespaces", async () => {
+  await it("preserves native smallint metadata and bare NULL JSON_QUERY result dimensions", () => {
+    for (const expression of [
+      "DB_ID()",
+      "DB_ID(NULL)",
+      "COL_LENGTH(NULL,NULL)",
+      "JSON_QUERY(NULL)",
+      "JSON_QUERY(NULL,NULL)",
+    ]) {
+      const source = `SELECT ${expression} AS value`;
+      const result = grammar.analyze(source, snapshot);
+      strict.deepEqual(result.diagnostics, [], source);
+      strict.equal(
+        result.columns[0]?.databaseType,
+        expression.startsWith("JSON_QUERY") ? "nvarchar(4000)" : "smallint",
+      );
+      strict.equal(result.columns[0]?.nullable, true);
+      strict.deepEqual(result.parameters, []);
+      strict.deepEqual(result.columns[0]?.range, { start: 7, end: source.length, line: 1, column: 8 });
+    }
+  });
   await it("returns the sorted native value for a discrete percentile and float for interpolation", () => {
     for (const [name, column, type] of [
       ["PERCENTILE_DISC", "amount", "decimal(12,2)"],

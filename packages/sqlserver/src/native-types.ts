@@ -1,4 +1,8 @@
+import { fixedTypeAliases, typeAliases, typeRules } from "./catalog/generated/types.js";
 import { validateSqlServerCollationName } from "./collation.js";
+
+export { integerBounds as SQLSERVER_INTEGER_BOUNDS } from "./catalog/generated/types.js";
+export type SqlServerTypeContext = "declaration" | "cast";
 /** Canonical allowlisted SQL Server system types. Unknown user/CLR types remain opaque. */
 export interface SqlServerNativeType {
   readonly name: string;
@@ -9,42 +13,36 @@ export interface SqlServerNativeType {
   readonly precision?: number;
   readonly scale?: number;
 }
-const plain = new Set([
-  "bigint",
-  "int",
-  "smallint",
-  "tinyint",
-  "bit",
-  "money",
-  "smallmoney",
-  "real",
-  "date",
-  "datetime",
-  "smalldatetime",
-  "uniqueidentifier",
-  "xml",
-  "text",
-  "ntext",
-  "image",
-  "sql_variant",
-  "json",
-  "rowversion",
-]);
-const sized = new Set(["char", "varchar", "nchar", "nvarchar", "binary", "varbinary"]);
-const aliases: Readonly<Record<string, string>> = {
-  integer: "int",
-  dec: "decimal",
-  numeric: "decimal",
-  timestamp: "rowversion",
-  "double precision": "float",
-  "character varying": "varchar",
-  character: "char",
-};
-export function parseSqlServerNativeType(source: string): SqlServerNativeType | undefined {
+export interface SqlServerNativeTypeRule {
+  readonly name: string;
+  readonly form: "plain" | "sized" | "decimal" | "temporal" | "float";
+  readonly mapping:
+    | "number"
+    | "string"
+    | "boolean"
+    | "Uint8Array"
+    | "bigint"
+    | "decimal"
+    | "temporal"
+    | "json"
+    | "unknown";
+  readonly maximumLength?: number;
+  readonly defaultLengths?: Readonly<Record<SqlServerTypeContext, number>>;
+  readonly maximumPrecision: number;
+  readonly maximumScale: number;
+  readonly allowsMax?: boolean;
+  readonly signed?: boolean;
+  readonly byteWidth?: number;
+  readonly nativeName?: string;
+}
+export function parseSqlServerNativeType(
+  source: string,
+  context: SqlServerTypeContext = "declaration",
+): SqlServerNativeType | undefined {
   if (source.length > 512) return undefined;
   const collated = /^(.*?)\s+COLLATE\s+([A-Za-z][A-Za-z0-9_]{0,127})$/iu.exec(source.trim());
   if (collated) {
-    const base = parseSqlServerNativeType(collated[1]!);
+    const base = parseSqlServerNativeType(collated[1]!, context);
     if (!base || base.collation || !["varchar", "char", "nvarchar", "nchar", "text", "ntext"].includes(base.name))
       return undefined;
     const collation = validateSqlServerCollationName(collated[2]!);
@@ -53,54 +51,52 @@ export function parseSqlServerNativeType(source: string): SqlServerNativeType | 
   const match = /^\s*([a-z][a-z0-9_ ]*)(?:\(\s*(max|\d+)\s*(?:,\s*(\d+)\s*)?\))?\s*$/iu.exec(source);
   if (!match) return undefined;
   const raw = match[1]!.trim().toLowerCase().replace(/ +/gu, " ");
-  const name = aliases[raw] ?? raw;
+  const name = typeAliases[raw] ?? raw;
+  const rule = typeRules[name];
   const first = match[2]?.toLowerCase();
   const second = match[3];
   const integer = first === undefined || first === "max" ? undefined : Number(first);
   if (integer !== undefined && !Number.isSafeInteger(integer)) return undefined;
-  if (plain.has(name)) return first === undefined ? Object.freeze({ name, text: name }) : undefined;
-  if (sized.has(name)) {
+  const fixed = fixedTypeAliases[name];
+  if (fixed) return first === undefined ? Object.freeze({ ...fixed }) : undefined;
+  if (!rule) return undefined;
+  if (rule.form === "plain") return first === undefined ? Object.freeze({ name, text: name }) : undefined;
+  if (rule.form === "sized") {
     if (second !== undefined) return undefined;
-    const length = first === undefined ? 1 : first === "max" ? "max" : integer!;
-    if (
-      length === "max"
-        ? !["varchar", "nvarchar", "varbinary"].includes(name)
-        : length < 1 || length > (name.startsWith("n") ? 4000 : 8000)
-    )
-      return undefined;
+    const length = first === undefined ? rule.defaultLengths?.[context] : first === "max" ? "max" : integer!;
+    if (length === undefined) return undefined;
+    if (length === "max" ? !rule.allowsMax : length < 1 || length > (rule.maximumLength ?? 0)) return undefined;
     return Object.freeze({ name, text: `${name}(${length})`, length });
   }
-  if (name === "decimal") {
+  if (rule.form === "decimal") {
     const precision = integer ?? 18,
       scale = second === undefined ? 0 : Number(second);
-    if (first === "max" || precision < 1 || precision > 38 || scale < 0 || scale > precision) return undefined;
+    if (first === "max" || precision < 1 || precision > rule.maximumPrecision || scale < 0 || scale > precision)
+      return undefined;
     return Object.freeze({ name, text: `decimal(${precision},${scale})`, precision, scale });
   }
-  if (["time", "datetime2", "datetimeoffset"].includes(name)) {
-    const scale = integer ?? 7;
-    if (first === "max" || second !== undefined || scale < 0 || scale > 7) return undefined;
+  if (rule.form === "temporal") {
+    const scale = integer ?? rule.maximumScale;
+    if (first === "max" || second !== undefined || scale < 0 || scale > rule.maximumScale) return undefined;
     return Object.freeze({ name, text: `${name}(${scale})`, scale });
   }
-  if (name === "float") {
-    const precision = integer ?? 53;
-    if (first === "max" || second !== undefined || precision < 1 || precision > 53) return undefined;
-    return precision <= 24
+  if (rule.form === "float") {
+    const precision = integer ?? rule.maximumPrecision;
+    if (first === "max" || second !== undefined || precision < 1 || precision > rule.maximumPrecision) return undefined;
+    return precision <= typeRules.real!.maximumPrecision
       ? Object.freeze({ name: "real", text: "real" })
-      : Object.freeze({ name, text: "float(53)", precision: 53 });
+      : Object.freeze({ name, text: `float(${rule.maximumPrecision})`, precision: rule.maximumPrecision });
   }
   return undefined;
 }
-export function requireSqlServerNativeType(source: string): SqlServerNativeType {
-  const type = parseSqlServerNativeType(source);
+export function requireSqlServerNativeType(
+  source: string,
+  context: SqlServerTypeContext = "declaration",
+): SqlServerNativeType {
+  const type = parseSqlServerNativeType(source, context);
   if (!type) throw new TypeError(`Unsupported or invalid SQL Server native type: ${source.slice(0, 256)}`);
   return type;
 }
-export const SQLSERVER_INTEGER_BOUNDS: Readonly<Record<string, readonly [bigint, bigint]>> = Object.freeze({
-  tinyint: Object.freeze([0n, 255n] as const),
-  smallint: Object.freeze([-32768n, 32767n] as const),
-  int: Object.freeze([-2147483648n, 2147483647n] as const),
-  bigint: Object.freeze([-(1n << 63n), (1n << 63n) - 1n] as const),
-});
 export function validateSqlServerDecimal(value: string, type: SqlServerNativeType): string {
   const match = /^([+-]?)(\d+)(?:\.(\d+))?$/u.exec(value);
   if (!match || value.length > 96) throw new TypeError("SQL Server exact decimal requires finite decimal text");

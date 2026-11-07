@@ -1,0 +1,23 @@
+import { field, known, nativeType } from "../../model/facets.mjs";
+export function sqlserverEntityFacts(category, row) {
+  if (category === "keywords") return { spelling: row.name.toUpperCase() };
+  if (category === "types") {
+    const storage = field(row, "system_type_id", "integer");
+    return {
+      canonical: nativeType(row.name),
+      storageIdentity: storage.status === "known" ? known(String(storage.value)) : storage,
+      dimensions: {
+        maxLength: field(row, "max_length", "integer"),
+        precision: field(row, "precision", "integer"),
+        scale: field(row, "scale", "integer"),
+      },
+    };
+  }
+  if (category === "settings")
+    return {
+      minimum: field(row, "minimum", "integer"),
+      maximum: field(row, "maximum", "integer"),
+      dynamic: field(row, "is_dynamic", "boolean"),
+    };
+  return {};
+}

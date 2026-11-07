@@ -169,6 +169,39 @@ Return parameters in placeholder order. Use `unknown` when evidence is insuffici
 
 Core exports optional grammar-neutral helpers including `ResolverSchemaIndex`, `ParameterCollector`, `unionTypeLiterals`, and `closestName`. A grammar retains control of parsing, identifiers, operators, built-ins, coercions, nullability, and diagnostics.
 
+## Routine argument binding
+
+`bindRoutineArguments` assigns actual arguments to formal input slots. A generated catalog or
+extension contribution can provide those slots without adding grammar-name branches to core.
+The grammar classifies input/output modes, normalizes argument names and supplies invocation rules:
+
+```ts
+import { bindRoutineArguments } from "@typed-sql/core";
+
+const bindings = bindRoutineArguments(
+  [
+    { name: "value", optional: false },
+    { name: "fallback", optional: true },
+  ],
+  { argumentCount: 1, names: ["value"], variadic: "expanded" },
+  {
+    positionalAfterNamed: false,
+    expandedVariadicNames: false,
+    minimumVariadicElements: 1,
+  },
+);
+// [{ parameterIndex: 0, variadicElement: false }]
+```
+
+An unknown default is required: set `optional` only when the catalog establishes that omission
+is allowed. A variadic formal slot must be last. The call shape selects expanded elements or
+an explicit variadic argument; the grammar decides whether its SQL supports either form.
+Names use the grammar's own identifier rules before binding.
+
+The helper returns `undefined` for an invalid binding. Successful slot assignment does not
+establish type compatibility or select an overload. Coercions, generic type constraints,
+overload ranking, result types, nullability and diagnostics remain grammar responsibilities.
+
 ## Parser toolkit
 
 `@typed-sql/ast/toolkit` supplies mechanics without selecting a SQL grammar. Define and cache one immutable lexical

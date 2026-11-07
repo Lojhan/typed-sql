@@ -64,7 +64,7 @@ await describe("CI evidence lanes", async () => {
     strict.ok(quality.includes("if: always()"));
     strict.ok(
       quality.includes(
-        "needs: [source-quality, packed-real-databases, editor-artifacts, editor-sdk-platforms, build-integrations, postgres-e2e, mysql-e2e, sqlite-node-matrix, sqlite-language-matrix]",
+        "needs: [source-quality, packed-real-databases, editor-artifacts, editor-sdk-platforms, build-integrations, postgres-e2e, mysql-e2e, sqlite-node-matrix, sqlite-language-matrix, embedded-language-audit, sqlserver-language-audit]",
       ),
     );
     strict.ok(quality.includes("node scripts/assert-ci-prerequisites.mjs"));
@@ -78,6 +78,8 @@ await describe("CI evidence lanes", async () => {
       ["TYPED_SQL_MYSQL_RESULT", "mysql-e2e"],
       ["TYPED_SQL_SQLITE_NODE_RESULT", "sqlite-node-matrix"],
       ["TYPED_SQL_SQLITE_LANGUAGE_RESULT", "sqlite-language-matrix"],
+      ["TYPED_SQL_EMBEDDED_LANGUAGE_RESULT", "embedded-language-audit"],
+      ["TYPED_SQL_SQLSERVER_LANGUAGE_RESULT", "sqlserver-language-audit"],
     ])
       strict.ok(quality.includes(`${variable}: \${{ needs.${job}.result }}`));
     strict.ok(workflow.includes("pnpm e2e:packed"));
@@ -96,6 +98,8 @@ await describe("CI evidence lanes", async () => {
       TYPED_SQL_MYSQL_RESULT: "success",
       TYPED_SQL_SQLITE_NODE_RESULT: "success",
       TYPED_SQL_SQLITE_LANGUAGE_RESULT: "success",
+      TYPED_SQL_EMBEDDED_LANGUAGE_RESULT: "success",
+      TYPED_SQL_SQLSERVER_LANGUAGE_RESULT: "success",
     };
     strict.doesNotThrow(() => execFileSync(process.execPath, [script], { env: successful, stdio: "pipe" }));
     for (const variable of Object.keys(successful)) {

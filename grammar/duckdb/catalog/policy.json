@@ -1,0 +1,38 @@
+{
+  "formatVersion": 1,
+  "macroSignatures": [
+    {
+      "name": "nullif",
+      "parameters": ["ANY", "ANY"],
+      "semantics": "specialized-resolver"
+    },
+    {
+      "name": "if",
+      "parameters": ["BOOLEAN", "ANY", "ANY"],
+      "semantics": "specialized-resolver"
+    },
+    {
+      "name": "list_count",
+      "parameters": ["ANY[]"],
+      "semantics": "specialized-resolver"
+    }
+  ],
+  "typeSpellings": {
+    "TIME WITH TIME ZONE": "TIMETZ",
+    "TIMESTAMP WITH TIME ZONE": "TIMESTAMPTZ"
+  },
+  "namedArgumentBinding": {
+    "1.5.6": {
+      "scalar": "labels",
+      "macro": "formal",
+      "overrides": {
+        "if": "labels"
+      }
+    },
+    "2.0.0": {
+      "scalar": "formal",
+      "macro": "formal",
+      "overrides": {}
+    }
+  }
+}

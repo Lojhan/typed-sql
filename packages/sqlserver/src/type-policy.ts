@@ -1,5 +1,6 @@
 import type { RuntimeValueType } from "@typed-sql/core";
 import { brandBaseType } from "@typed-sql/core";
+import { typeRules } from "./catalog/generated/types.js";
 import { parseSqlServerNativeType } from "./native-types.js";
 export interface SqlServerTypePolicy {
   readonly bigint: "bigint" | "string" | "number";
@@ -33,17 +34,26 @@ export function mapSqlServerType(
 ): string {
   const type = parseSqlServerNativeType(databaseType);
   if (!type) return policy.unknown;
-  const name = type.name;
-  if (["tinyint", "smallint", "int", "real", "float"].includes(name)) return "number";
-  if (name === "bigint") return policy.bigint;
-  if (["decimal", "money", "smallmoney"].includes(name)) return policy.decimal;
-  if (name === "bit") return "boolean";
-  if (["date", "time", "datetime", "datetime2", "smalldatetime", "datetimeoffset"].includes(name))
-    return policy.temporal === "Date" ? "Date" : "string";
-  if (["binary", "varbinary", "image", "rowversion"].includes(name)) return "Uint8Array";
-  if (name === "json") return policy.json === "parsed" ? "JsonValue" : "string";
-  if (name === "sql_variant") return policy.unknown;
-  return "string";
+  switch (typeRules[type.name]?.mapping) {
+    case "bigint":
+      return policy.bigint;
+    case "decimal":
+      return policy.decimal;
+    case "temporal":
+      return policy.temporal === "Date" ? "Date" : "string";
+    case "json":
+      return policy.json === "parsed" ? "JsonValue" : "string";
+    case "number":
+      return "number";
+    case "boolean":
+      return "boolean";
+    case "Uint8Array":
+      return "Uint8Array";
+    case "string":
+      return "string";
+    default:
+      return policy.unknown;
+  }
 }
 export function sqlServerRuntimeValueType(
   value: { readonly tsType: string; readonly databaseType?: string; readonly nullable: boolean },

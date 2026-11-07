@@ -8,6 +8,8 @@ const prerequisites = {
   mysql: process.env.TYPED_SQL_MYSQL_RESULT,
   sqliteNode: process.env.TYPED_SQL_SQLITE_NODE_RESULT,
   sqliteLanguage: process.env.TYPED_SQL_SQLITE_LANGUAGE_RESULT,
+  embeddedLanguage: process.env.TYPED_SQL_EMBEDDED_LANGUAGE_RESULT,
+  sqlserverLanguage: process.env.TYPED_SQL_SQLSERVER_LANGUAGE_RESULT,
 };
 
 const unsuccessful = Object.entries(prerequisites).filter(([, result]) => result !== "success");

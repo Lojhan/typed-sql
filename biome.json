@@ -17,7 +17,18 @@
       "!!**/coverage",
       "!!artifacts",
       "!!test/fixtures/language-audit",
+      "!!grammar/catalog/upstream.json",
+      "!!grammar/catalog/generation.json",
+      "!!grammar/catalog/format.schema.json",
+      "!!planning/grammar-completeness/sqlite-keyword-coverage.json",
+      "!!planning/grammar-completeness/sqlite-function-coverage.json",
+      "!!planning/grammar-completeness/duckdb-routine-projection.json",
+      "!!grammar/duckdb/catalog/combinations-*.json",
       "!!packages/postgres/src/catalog/generated",
+      "!!packages/mysql/src/catalog/generated",
+      "!!packages/duckdb/src/catalog/generated",
+      "!!packages/sqlite/src/catalog/generated",
+      "!!packages/sqlserver/src/catalog/generated",
       "!!e2e/*/generated",
       "!!examples/**/generated"
     ]

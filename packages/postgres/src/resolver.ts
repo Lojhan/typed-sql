@@ -29,10 +29,12 @@ import type {
   TableSnapshot,
 } from "@typed-sql/schema";
 import {
+  postgresCatalogCast,
   postgresCatalogRoutineRule,
   postgresCatalogTableRoutineRule,
   postgresCatalogTypeMapping,
 } from "./catalog/index.js";
+import { postgresNativeArguments, postgresNativeOverloads } from "./catalog/native.js";
 import { fingerprintPostgresExpression, postgresExpressionIdentity } from "./expression-evidence.js";
 import type {
   CallExpression,
@@ -4131,14 +4133,9 @@ class Resolver {
         ...this.#runtimeUnion(resolved),
         nullable: name === "MIN" || name === "MAX" ? true : resolved.some((result) => result.nullable),
       };
-    if (routineRule === "numeric-aggregate")
-      return {
-        tsType: resolved[0]?.tsType ?? this.#policy.numeric,
-        nullable: true,
-        databaseType: resolved[0]?.databaseType ?? "numeric",
-      };
-    if (routineRule === "boolean-aggregate") return { tsType: "boolean", nullable: true, databaseType: "boolean" };
-    if (routineRule === "string-aggregate") return { tsType: "string", nullable: true, databaseType: "text" };
+    if (["numeric-aggregate", "boolean-aggregate", "string-aggregate"].includes(routineRule ?? "")) {
+      return this.#resolveNativeCall(expression, resolved, scope, ctes, ["a"]) ?? { tsType: "unknown", nullable: true };
+    }
     if (builtinJson && (name === "JSON_AGG" || name === "JSONB_AGG")) {
       if (
         resolved.length !== 1 ||
@@ -4316,8 +4313,142 @@ class Resolver {
       );
       return { tsType: "unknown", nullable: true };
     }
+    const generated = this.#resolveNativeCall(expression, resolved, scope, ctes, ["f"]);
+    if (generated !== undefined) return generated;
     this.#diagnostic("TSQ202", `Unknown function ${expression.name.name}`, expression.range, undefined, "warning");
     return { tsType: "unknown", nullable: true };
+  }
+
+  #resolveNativeCall(
+    expression: CallExpression,
+    resolved: readonly ResolvedType[],
+    scope: Scope,
+    ctes: ReadonlyMap<string, TableSnapshot>,
+    allowedKinds: readonly string[],
+  ): ResolvedType | undefined {
+    const functionName = sqlName(expression.name);
+    const schemaName = expression.schema === undefined ? undefined : sqlName(expression.schema);
+    const native = postgresNativeOverloads(functionName, this.#schema, schemaName);
+    if (native.length) {
+      const first = expression.arguments[0];
+      const actual = first === undefined ? undefined : this.#overloadInputType(first, resolved[0]);
+      const sourceType = resolved[0]?.databaseType;
+      const cast = sourceType === undefined ? undefined : postgresCatalogCast(sourceType, functionName, this.#schema);
+      const exact =
+        actual !== undefined &&
+        native.some((signature) => {
+          const types = postgresNativeArguments(signature, [actual]);
+          return (
+            types?.length === 1 &&
+            postgresCanonicalType(types[0]!, this.#schema) === postgresCanonicalType(actual, this.#schema)
+          );
+        });
+      const unknownLiteral = first?.kind === "literal" && actual === undefined;
+      const stringIO =
+        cast === undefined &&
+        sourceType !== "record" &&
+        postgresTypeCategory(sourceType ?? "unknown", this.#schema) !== "composite" &&
+        (postgresTypeCategory(functionName, this.#schema) === "string" ||
+          (sourceType !== undefined && postgresTypeCategory(sourceType, this.#schema) === "string"));
+      // PostgreSQL checks exact overloads before its function-style cast rules.
+      if (
+        !exact &&
+        (unknownLiteral || cast?.method === "binary" || cast?.method === "io" || stringIO) &&
+        allowedKinds.includes("f") &&
+        expression.arguments.length === 1 &&
+        isKnownPostgresType(functionName, this.#schema) &&
+        native.some(
+          (signature) =>
+            signature.result !== null &&
+            postgresCanonicalType(signature.result, this.#schema) === postgresCanonicalType(functionName, this.#schema),
+        ) &&
+        !expression.variadic &&
+        !expression.argumentNames?.some((argument) => argument !== undefined) &&
+        expression.over === undefined &&
+        expression.withinGroup === undefined &&
+        !expression.distinct &&
+        expression.filter === undefined &&
+        !expression.orderBy?.length
+      ) {
+        return this.#resolveExpression(
+          {
+            kind: "cast",
+            expression: expression.arguments[0]!,
+            databaseType: { name: functionName, range: expression.name.range },
+            syntax: "cast",
+            range: expression.range,
+          },
+          scope,
+          ctes,
+        );
+      }
+      const inputs = resolved.map(
+        (value, index) => value.databaseType ?? (expression.arguments[index]?.kind === "literal" ? "text" : undefined),
+      );
+      const names = expression.argumentNames?.map((argument) =>
+        argument === undefined ? undefined : sqlName(argument),
+      );
+      const actualTypes = expression.arguments.map((argument, index) =>
+        this.#overloadInputType(argument, resolved[index]),
+      );
+      if (
+        native.some((signature) =>
+          postgresNativeArguments(signature, inputs, names, expression.variadic)?.some(
+            (type, index) =>
+              actualTypes[index] === undefined &&
+              !isKnownPostgresType(type, this.#schema) &&
+              !/^any(?:compatible|array|element|nonarray|enum|range|multirange)/u.test(type),
+          ),
+        )
+      ) {
+        this.#diagnostic(
+          "TSQ202",
+          `Opaque overload candidates for ${expression.name.name} require explicit casts`,
+          expression.range,
+        );
+        return { tsType: "unknown", nullable: true };
+      }
+      const selection = resolvePostgresCandidates(
+        native.flatMap((signature) => {
+          const argumentTypes = postgresNativeArguments(signature, inputs, names, expression.variadic);
+          return argumentTypes === undefined
+            ? []
+            : [{ value: signature, argumentTypes, resultType: signature.result ?? "unknown" }];
+        }),
+        actualTypes,
+        this.#schema,
+      );
+      if (
+        selection.kind === "selected" &&
+        allowedKinds.includes(selection.candidate.kind) &&
+        selection.candidate.returnsSet === false &&
+        isKnownPostgresType(selection.resultType, this.#schema) &&
+        selection.argumentTypes.every((type) => isKnownPostgresType(type, this.#schema))
+      ) {
+        if (
+          selection.candidate.kind === "f" &&
+          (expression.over !== undefined || expression.withinGroup !== undefined)
+        ) {
+          this.#diagnostic("TSQ223", `${expression.name.name} is a scalar function`, expression.range);
+          return { tsType: "unknown", nullable: true };
+        }
+        expression.arguments.forEach((argument, index) => {
+          if (this.#acceptsTypeContext(argument))
+            this.#resolveExpression(argument, scope, ctes, this.#databaseType(selection.argumentTypes[index]!, true));
+        });
+        // Native strictness does not prove a non-null result for non-null inputs.
+        return this.#databaseType(selection.resultType, true);
+      }
+      this.#diagnostic(
+        "TSQ202",
+        `Unsupported or ambiguous native overload of ${expression.name.name}`,
+        expression.range,
+        "Cast arguments to a supported overload; set, aggregate and opaque results require grammar policy.",
+        "warning",
+      );
+      return { tsType: "unknown", nullable: true };
+    }
+    return undefined;
   }
 
   #isBuiltinJsonCall(expression: CallExpression): boolean {

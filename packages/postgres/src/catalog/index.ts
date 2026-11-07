@@ -1,11 +1,6 @@
 import type { SchemaSnapshot } from "@typed-sql/schema";
 import { POSTGRES_SUPPORT_POLICY, parsePostgresMajor } from "../support.js";
-import catalog14 from "./generated/14.js";
-import catalog15 from "./generated/15.js";
-import catalog16 from "./generated/16.js";
-import catalog17 from "./generated/17.js";
-import catalog18 from "./generated/18.js";
-import catalog19 from "./generated/19.js";
+import { postgresCatalogs } from "./generated/registry.js";
 import type {
   PostgresCastContext,
   PostgresCatalogCast,
@@ -43,10 +38,7 @@ function deepFreeze<Value>(value: Value, seen = new Set<object>()): Value {
 }
 
 const catalogs = new Map<number, PostgresCoreCatalog>(
-  [catalog14, catalog15, catalog16, catalog17, catalog18, catalog19].map((catalog) => [
-    catalog.major,
-    deepFreeze(catalog),
-  ]),
+  postgresCatalogs.map((catalog) => [catalog.major, deepFreeze(catalog)]),
 );
 
 interface CatalogIndex {

@@ -1117,7 +1117,7 @@ class Resolver {
       if (argument && argument.kind !== "star") args[index] = this.expected(argument, target, scope, ctes);
     };
     const first = args[0] ?? unknown,
-      nullable = builtin.nullable && args.some((value) => value.nullable);
+      nullable = builtin.intrinsicNullable === true || (builtin.nullable && args.some((value) => value.nullable));
     if (["PERCENTILE_DISC", "PERCENTILE_CONT"].includes(name)) {
       const percentile = expression.arguments[0];
       const value =
@@ -1154,7 +1154,7 @@ class Resolver {
       case "integer": {
         const argument = native(args[["CHARINDEX", "PATINDEX"].includes(name) ? 1 : 0] ?? unknown);
         const wide = ["LEN", "DATALENGTH", "CHARINDEX", "PATINDEX"].includes(name) && argument?.length === "max";
-        return type(wide ? "bigint" : "int", nullable, this.policy);
+        return type(wide ? "bigint" : (builtin.resultType ?? "int"), nullable, this.policy);
       }
       case "abs": {
         const argument = native(first);
@@ -1501,7 +1501,12 @@ class Resolver {
         return {
           tsType: this.policy.json === "parsed" ? this.jsonType(shape) : "string",
           nullable: builtin.rule === "jsonQuery" || first.nullable,
-          databaseType: "nvarchar(max)",
+          databaseType:
+            builtin.rule === "jsonQuery" &&
+            expression.arguments[0]?.kind === "literal" &&
+            expression.arguments[0].literal === "null"
+              ? "nvarchar(4000)"
+              : "nvarchar(max)",
           json: { shape, representation: this.policy.json === "parsed" ? "parsed" : "text" },
           ...(builtin.rule === "jsonQuery" ? { jsonFragment: true } : {}),
         };

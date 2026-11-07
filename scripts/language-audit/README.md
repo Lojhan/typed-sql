@@ -4,6 +4,36 @@ This maintainer tool discovers upstream language inventories independently of ty
 catalogs. It does not generate the expected function names from our implementation.
 The public grammar contracts and database adapters remain unchanged.
 
+## Grammar contributions
+
+`discovery/index.mjs` composes native acquisition owners. The shared collector asks its registered
+owner for queries, row normalization, scope, limitations and derived inventories. Grammar IDs and
+the compatibility query map are derived from registrations. An injected discovery registry can
+inherit/override acquisition and routine extraction, then use the same provenance, corpus, review
+and diff helpers. Invalid plans or derived inventories fail before a capture is exposed.
+DuckDB's derived cast probing retains known unsupported type/driver descriptors as gaps;
+connection and unexpected driver failures propagate.
+
+`grammars/index.ts` composes registered audit adapters. Each owner supplies version selection,
+analysis construction, tokenization and invocation planning. `audit.ts` and `recognition.ts`
+use those contracts without selecting SQL behavior by grammar name. The registry accepts new
+IDs and inherited contributions through `extends`; extending it preserves the original registry.
+Pass the registry to `auditInventory`, `grammarFor` or the live runner's options. The graph
+contribution contract exercises inventory observations, parameterized live probes and native
+comparison through these entrypoints.
+
+Analysis adapters use the implementation being tested. Independent expected-type description
+owners live separately under `native-description/` and must not import grammar implementations.
+The engine describes each claimed type; comparison retains PostgreSQL OIDs/typmods, DuckDB
+logical structures/branding and SQL Server logical names, dimensions and user identities.
+Missing evidence remains unverified. SQL Server decimal-text wire fields are validated before
+numeric comparison, and documented [DECIMAL/NUMERIC equivalence](https://learn.microsoft.com/sql/t-sql/data-types/decimal-and-numeric-transact-sql)
+preserves precision, scale and user identity. Shared storage alone never establishes equivalence.
+
+Call assembly is shared, while owners interpret native routine kinds and select argument syntax.
+Name-only inventories still produce bounded recognition attempts, not formal overload qualification.
+Default/named/variadic invocation classes and special syntax remain migration work.
+
 ## Offline checks and review
 
 ```sh
@@ -35,7 +65,7 @@ The SQLite live fixture records its exact source ID; refresh it with the live co
 
 ## Inputs for generated mappings
 
-Each function row carries a versioned `signature` object for future catalog generation, alongside
+Each function row carries a versioned `signature` object for catalog generation, alongside
 the original engine fields. It preserves overload identity, parameter order/names/native types,
 input/output modes, named options, variadic element types, default-expression evidence, return
 types/columns, aliases, macro definitions, strictness and volatility where the upstream source
@@ -51,7 +81,7 @@ Preparation evidence also retains native result descriptors where available: MyS
 SQL Server result-set descriptions, DuckDB logical types, and SQLite column metadata. These
 describe the generated invocation, not a universal signature for every possible argument value.
 
-The intended generation flow is captured facts → grammar-owned policy → generated catalogs.
+The generation flow is captured facts → grammar-owned policy → generated catalogs.
 Coercions, polymorphism, nullability, special syntax, decoding and availability between observed
 versions remain explicit policy. In particular, PostgreSQL strictness does not establish that a
 function always returns non-NULL for non-NULL arguments. A generator must retain `unknown` or a

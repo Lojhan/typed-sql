@@ -30,6 +30,13 @@ export { brandBaseType, brandValue } from "./brand.js";
 export type { BulkRowOptions, BulkRowPolicy, BulkRowProgress } from "./bulk.js";
 export { executeBulkRows } from "./bulk.js";
 export type {
+  RoutineArgumentBinding,
+  RoutineBindingPolicy,
+  RoutineCallShape,
+  RoutineParameterSlot,
+} from "./catalog/arguments.js";
+export { bindRoutineArguments } from "./catalog/arguments.js";
+export type {
   DebugEvent,
   DebugEventInput,
   DebugRedactionOptions,

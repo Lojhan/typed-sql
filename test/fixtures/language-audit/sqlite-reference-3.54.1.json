@@ -13,6 +13,7 @@
     {"url":"https://www.sqlite.org/lang_keywords.html","hash":"sha256:6cb27147050b496abd24ac6bf6cc2d28ff94698c321118d74d42c082b6b69bb2"},
     {"url":"https://www.sqlite.org/lang_mathfunc.html","hash":"sha256:0572dcc38f934e1604869c5292562622cbb843880d345a70b1f34b454ac48c89"},
     {"url":"https://www.sqlite.org/lang.html","hash":"sha256:427b6250d8d661dea3046cfe4d4aa1f485427e45564fd4c2ddae6577714c0826"},
+    {"url":"https://www.sqlite.org/stricttables.html","hash":"sha256:463d3332b2aaf0fd7f7abd7f1d1a4f13d8c86fd5c0d56d66b4d1379186efc533"},
     {"url":"https://www.sqlite.org/windowfunctions.html","hash":"sha256:43a9df64c4de14fb68d4f56a67446fd8c028611125ed3bb49dfbab4aa72e4a46"}
   ],
   "categories": {
@@ -364,6 +365,20 @@
         {"name":"expression","url":"https://www.sqlite.org/lang_expr.html"},
         {"name":"keywords","url":"https://www.sqlite.org/lang_keywords.html"},
         {"name":"math functions","url":"https://www.sqlite.org/lang_mathfunc.html"}
+      ]
+    },
+    "types": {
+      "status": "observed",
+      "scope": "STRICT-declared-type-names; ordinary SQLite types remain open-ended affinity declarations",
+      "source": "https://www.sqlite.org/stricttables.html",
+      "fingerprint": "sha256:a941ec66f4f9c47f5c51e11e73b82269c3c6eaa14bd2e99580bd91785fc886a5",
+      "rows": [
+        {"name":"ANY","url":"https://www.sqlite.org/stricttables.html"},
+        {"name":"BLOB","url":"https://www.sqlite.org/stricttables.html"},
+        {"name":"INT","url":"https://www.sqlite.org/stricttables.html"},
+        {"name":"INTEGER","url":"https://www.sqlite.org/stricttables.html"},
+        {"name":"REAL","url":"https://www.sqlite.org/stricttables.html"},
+        {"name":"TEXT","url":"https://www.sqlite.org/stricttables.html"}
       ]
     }
   }

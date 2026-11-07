@@ -1,6 +1,7 @@
 import { compareSqliteVersions, parseSqliteVersion, sqliteVersionSupport } from "../support.js";
 import { SQLITE_DATE_TIME_FUNCTIONS } from "./date-time.js";
 import { SQLITE_EXTENSION_FUNCTIONS } from "./extensions.js";
+import { coreFunctions } from "./generated/policy.js";
 import { SQLITE_JSON_FUNCTIONS } from "./json.js";
 import { SQLITE_MATH_FUNCTIONS } from "./math.js";
 
@@ -55,99 +56,17 @@ export interface SqliteTableFunctionDefinition {
   readonly result: "carray" | "json" | "jsonb";
 }
 
-const unlimited = Number.POSITIVE_INFINITY;
-
 /**
  * Reviewed SQLite core catalog for the supported language band. JSON, date/time,
  * math, and loadable-extension families are expanded by their dedicated catalog
  * modules; classification-only rows keep structural validation fail-closed.
  */
 export const SQLITE_BUILTIN_FUNCTIONS: readonly SqliteBuiltinDefinition[] = Object.freeze([
-  { name: "ABS", kind: "scalar", arguments: [1, 1], result: "numeric-from-arguments" },
-  { name: "AVG", kind: "aggregate", arguments: [1, 1], result: "real-nullable" },
-  { name: "CHANGES", kind: "scalar", arguments: [0, 0], result: "integer" },
-  { name: "CHAR", kind: "scalar", arguments: [1, unlimited], result: "text" },
-  { name: "COALESCE", kind: "scalar", arguments: [2, unlimited], result: "coalesce" },
-  { name: "COUNT", kind: "aggregate", arguments: [1, 1], result: "integer" },
-  { name: "FORMAT", kind: "scalar", arguments: [1, unlimited], result: "text-nullable" },
-  { name: "GLOB", kind: "scalar", arguments: [2, 2], result: "integer-nullable" },
-  { name: "GROUP_CONCAT", kind: "aggregate", arguments: [1, 2], result: "text-always-nullable" },
-  { name: "HEX", kind: "scalar", arguments: [1, 1], result: "text" },
-  { name: "IFNULL", kind: "scalar", arguments: [2, 2], result: "coalesce" },
-  { name: "IIF", kind: "scalar", arguments: [3, 3], result: "iif" },
-  { name: "IIF", kind: "scalar", arguments: [2, 2], result: "iif", availableSince: "3.48.0" },
-  { name: "IIF", kind: "scalar", arguments: [4, unlimited], result: "iif", availableSince: "3.49.0" },
-  { name: "IF", kind: "scalar", arguments: [2, 3], result: "iif", availableSince: "3.48.0" },
-  { name: "IF", kind: "scalar", arguments: [4, unlimited], result: "iif", availableSince: "3.49.0" },
-  { name: "INSTR", kind: "scalar", arguments: [2, 2], result: "integer-nullable" },
-  { name: "LAST_INSERT_ROWID", kind: "scalar", arguments: [0, 0], result: "integer" },
-  { name: "LENGTH", kind: "scalar", arguments: [1, 1], result: "integer-nullable" },
-  { name: "LIKE", kind: "scalar", arguments: [2, 3], result: "integer-nullable" },
-  { name: "LIKELIHOOD", kind: "scalar", arguments: [2, 2], result: "first-argument" },
-  { name: "LIKELY", kind: "scalar", arguments: [1, 1], result: "first-argument" },
-  { name: "LOWER", kind: "scalar", arguments: [1, 1], result: "text-nullable" },
-  { name: "LTRIM", kind: "scalar", arguments: [1, 2], result: "text-nullable" },
-  { name: "MAX", kind: "aggregate", arguments: [1, 1], result: "first-argument-nullable" },
-  { name: "MAX", kind: "scalar", arguments: [2, unlimited], result: "flexible-nullable" },
-  { name: "MIN", kind: "aggregate", arguments: [1, 1], result: "first-argument-nullable" },
-  { name: "MIN", kind: "scalar", arguments: [2, unlimited], result: "flexible-nullable" },
-  { name: "NULLIF", kind: "scalar", arguments: [2, 2], result: "nullif" },
-  { name: "OCTET_LENGTH", kind: "scalar", arguments: [1, 1], result: "integer-nullable", availableSince: "3.43.0" },
-  { name: "PRINTF", kind: "scalar", arguments: [1, unlimited], result: "text-nullable" },
-  { name: "QUOTE", kind: "scalar", arguments: [1, 1], result: "text" },
-  { name: "RANDOM", kind: "scalar", arguments: [0, 0], result: "integer" },
-  { name: "RANDOMBLOB", kind: "scalar", arguments: [1, 1], result: "blob" },
-  { name: "REPLACE", kind: "scalar", arguments: [3, 3], result: "text-nullable" },
-  { name: "ROUND", kind: "scalar", arguments: [1, 2], result: "real-nullable" },
-  { name: "RTRIM", kind: "scalar", arguments: [1, 2], result: "text-nullable" },
-  { name: "SIGN", kind: "scalar", arguments: [1, 1], result: "integer-nullable" },
-  { name: "SQLITE_COMPILEOPTION_GET", kind: "scalar", arguments: [1, 1], result: "text-always-nullable" },
-  { name: "SQLITE_COMPILEOPTION_USED", kind: "scalar", arguments: [1, 1], result: "integer" },
-  { name: "SQLITE_SOURCE_ID", kind: "scalar", arguments: [0, 0], result: "text" },
-  { name: "SQLITE_VERSION", kind: "scalar", arguments: [0, 0], result: "text" },
-  {
-    name: "STRING_AGG",
-    kind: "aggregate",
-    arguments: [2, 2],
-    result: "text-always-nullable",
-    availableSince: "3.44.0",
-  },
-  { name: "SUBSTR", kind: "scalar", arguments: [2, 3], result: "text-nullable" },
-  { name: "SUBSTRING", kind: "scalar", arguments: [2, 3], result: "text-nullable" },
-  { name: "SUM", kind: "aggregate", arguments: [1, 1], result: "numeric-nullable" },
-  { name: "TOTAL", kind: "aggregate", arguments: [1, 1], result: "real" },
-  { name: "TOTAL_CHANGES", kind: "scalar", arguments: [0, 0], result: "integer" },
-  { name: "TRIM", kind: "scalar", arguments: [1, 2], result: "text-nullable" },
-  { name: "TYPEOF", kind: "scalar", arguments: [1, 1], result: "text" },
-  { name: "UNHEX", kind: "scalar", arguments: [1, 2], result: "blob-nullable", availableSince: "3.41.0" },
-  { name: "UNICODE", kind: "scalar", arguments: [1, 1], result: "integer-nullable" },
-  { name: "UNISTR", kind: "scalar", arguments: [1, 1], result: "text-nullable", availableSince: "3.50.0" },
-  { name: "UNISTR_QUOTE", kind: "scalar", arguments: [1, 1], result: "text", availableSince: "3.50.0" },
-  { name: "UNLIKELY", kind: "scalar", arguments: [1, 1], result: "first-argument" },
-  { name: "UPPER", kind: "scalar", arguments: [1, 1], result: "text-nullable" },
-  { name: "ZEROBLOB", kind: "scalar", arguments: [1, 1], result: "blob" },
-  { name: "CONCAT", kind: "scalar", arguments: [1, unlimited], result: "concat", availableSince: "3.44.0" },
-  { name: "CONCAT_WS", kind: "scalar", arguments: [2, unlimited], result: "concat-ws", availableSince: "3.44.0" },
-
+  ...coreFunctions,
   ...SQLITE_JSON_FUNCTIONS,
   ...SQLITE_DATE_TIME_FUNCTIONS,
   ...SQLITE_MATH_FUNCTIONS,
   ...SQLITE_EXTENSION_FUNCTIONS,
-
-  { name: "CUME_DIST", kind: "window", arguments: [0, 0], result: "real" },
-  { name: "DENSE_RANK", kind: "window", arguments: [0, 0], result: "integer" },
-  { name: "FIRST_VALUE", kind: "window", arguments: [1, 1], result: "first-argument-nullable" },
-  { name: "LAG", kind: "window", arguments: [1, 3], result: "lag-lead" },
-  { name: "LAST_VALUE", kind: "window", arguments: [1, 1], result: "first-argument-nullable" },
-  { name: "LEAD", kind: "window", arguments: [1, 3], result: "lag-lead" },
-  { name: "NTH_VALUE", kind: "window", arguments: [2, 2], result: "first-argument-nullable" },
-  { name: "NTILE", kind: "window", arguments: [1, 1], result: "integer" },
-  { name: "PERCENT_RANK", kind: "window", arguments: [0, 0], result: "real" },
-  { name: "RANK", kind: "window", arguments: [0, 0], result: "integer" },
-  { name: "ROW_NUMBER", kind: "window", arguments: [0, 0], result: "integer" },
-
-  // Loading extensions is connection state, not a compile-time capability.
-  { name: "LOAD_EXTENSION", kind: "scalar", arguments: [1, 2], result: "unknown-nullable", resolvable: false },
 ]);
 
 export type SqliteBuiltinResolution =
@@ -242,7 +161,5 @@ export function sqliteBuiltinVolatility(functionName: string): SqliteBuiltinDefi
   const normalized = functionName.toUpperCase();
   const definition = SQLITE_BUILTIN_FUNCTIONS.find(({ name }) => name === normalized);
   if (definition === undefined) return undefined;
-  if (["CHANGES", "LAST_INSERT_ROWID", "LOAD_EXTENSION", "RANDOM", "RANDOMBLOB", "TOTAL_CHANGES"].includes(normalized))
-    return "volatile";
   return definition.volatility ?? "immutable";
 }

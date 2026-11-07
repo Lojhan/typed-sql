@@ -38,6 +38,7 @@ export interface Expression {
   readonly context?: readonly Expression[];
   readonly windowName?: string;
   readonly distinct?: boolean;
+  readonly functionNameQuoted?: boolean;
   readonly argumentNames?: readonly (string | undefined)[];
 }
 export interface Projection {

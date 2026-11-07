@@ -161,7 +161,7 @@ import { recordAudit } from "./queries/audit.ts";
 import type { QueryRow, QueryParameters } from "@typed-sql/core";
 
 const account = accountById(42n);
-const revenue = revenueByCustomer(10000);
+const revenue = revenueByCustomer(10000n);
 const document = orderDocument(9001n);
 const inserted = insertProducts([
   { id: 101n, sku: "DESK-01", title: "Studio desk", priceCents: 24900 },
@@ -204,13 +204,14 @@ export function commerceFiles(
     ]),
   );
   files["schema/tables.sql"] = COMMERCE_SCHEMAS[dialect];
-  if (dialect === "postgres")
+  if (dialect === "postgres") {
     return files as WorkspaceFiles & Record<"queries/account.ts" | "app.ts" | "schema/tables.sql", string>;
+  }
   files["queries/revenue.sql"] = files["queries/revenue.sql"]!.replace("$1", "?");
   for (const path of ["queries/order-json.ts", "queries/catalog.ts"])
     files[path] = files[path]!.replaceAll("::text", "").replaceAll("::order_status", "");
   if (dialect === "mysql") {
-    files["app.ts"] = files["app.ts"]!.replace("revenueByCustomer(10000)", 'revenueByCustomer("10000")');
+    files["app.ts"] = files["app.ts"]!.replace("revenueByCustomer(10000n)", 'revenueByCustomer("10000")');
     files["schema/functions.sql"] =
       "CREATE FUNCTION display_email(value TEXT) RETURNS TEXT\nDETERMINISTIC RETURN LOWER(value);\n";
     files["queries/order-json.ts"] = files["queries/order-json.ts"]!.replaceAll("jsonb_build_object", "JSON_OBJECT")
