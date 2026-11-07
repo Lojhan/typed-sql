@@ -478,6 +478,20 @@ try {
   }));
   assert.ok(headerGeometry.height <= headerGeometry.expected + 1);
   assert.equal(headerGeometry.overflow, false);
+  const triggerGeometry = await agentActions.evaluate((button) => {
+    const box = button.getBoundingClientRect(),
+      icon = button.querySelector("svg").getBoundingClientRect();
+    const select = document.querySelector(".agent-toolbar > select").getBoundingClientRect();
+    return {
+      dx: Math.abs(box.x + box.width / 2 - icon.x - icon.width / 2),
+      dy: Math.abs(box.y + box.height / 2 - icon.y - icon.height / 2),
+      row: Math.abs(box.y + box.height / 2 - select.y - select.height / 2),
+    };
+  });
+  assert.ok(
+    triggerGeometry.dx <= 0.5 && triggerGeometry.dy <= 0.5 && triggerGeometry.row <= 0.5,
+    `Overflow icon and neighboring controls must share their centers: ${JSON.stringify(triggerGeometry)}`,
+  );
   await agentActions.click();
   await page.getByRole("button", { name: "Configure", exact: true }).waitFor();
   await page.keyboard.press("Escape");

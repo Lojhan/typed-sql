@@ -1,4 +1,6 @@
 .toolbar-actions {
+  display: flex;
+  align-items: center;
   min-width: 0;
   flex: none;
 }
@@ -39,7 +41,7 @@
   align-items: stretch;
   flex-wrap: nowrap;
 }
-.toolbar-actions.is-overflow .ui-button {
+.toolbar-actions.is-overflow .toolbar-actions-content .ui-button {
   text-align: left;
   justify-content: flex-start;
   white-space: nowrap;
