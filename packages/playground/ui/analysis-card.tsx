@@ -308,7 +308,9 @@ export function AnalysisCard({
   return (
     <Panel className={`analysis-card ${expanded ? "expanded" : ""}`} padding="none">
       <Bar wrap>
-        <BarLabel as="strong">{spec.title}</BarLabel>
+        <BarLabel as="strong" truncate title={spec.title}>
+          {spec.title}
+        </BarLabel>
         <ControlGroup wrap>
           {onOpen ? <Button onClick={() => onOpen(id, spec.title)}>Open in workspace</Button> : null}
           <Button disabled={busy} onClick={() => setSave((value) => !value)}>
