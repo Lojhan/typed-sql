@@ -57,6 +57,12 @@ await describe("persistent live producer", async () => {
         outage,
       );
       strict.deepEqual(await cache.lookup(request), original);
+      const configured = { ...outage, retry: "change" as const };
+      strict.deepEqual(
+        await createPersistentLiveAnalysisRunner({ cache, run: async () => configured })(request, signal()),
+        configured,
+      );
+      strict.deepEqual(await cache.lookup(request), original);
       const conflict = { kind: "conflict", code: "known-conflict" } as const;
       strict.deepEqual(
         await createPersistentLiveAnalysisRunner({ cache, run: async () => conflict })(request, signal()),

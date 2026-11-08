@@ -21,6 +21,8 @@ export interface LiveAnalysisRegistration<Snapshot extends SchemaSnapshot = Sche
     readonly signal: AbortSignal;
   }) => LiveAnalysisServices | Promise<LiveAnalysisServices>;
   readonly deadlineMs?: number;
+  /** Request-driven session observations; per-query consistency checks remain independent. */
+  readonly contextIntervalMs?: number;
   readonly batchDeadlineMs?: number;
   readonly maxActive?: number;
   readonly concurrencyPerContext?: number;
@@ -42,13 +44,22 @@ export function defineAnalysisRegistration<Snapshot extends SchemaSnapshot = Sch
   const registration = fields(live);
   if (
     Object.keys(registration).some(
-      (key) => !["adapter", "deadlineMs", "batchDeadlineMs", "maxActive", "concurrencyPerContext"].includes(key),
+      (key) =>
+        ![
+          "adapter",
+          "deadlineMs",
+          "contextIntervalMs",
+          "batchDeadlineMs",
+          "maxActive",
+          "concurrencyPerContext",
+        ].includes(key),
     ) ||
     typeof registration.adapter !== "function"
   )
     throw new TypeError("Invalid live analysis registration");
   for (const [key, maximum] of [
     ["deadlineMs", 300_000],
+    ["contextIntervalMs", 300_000],
     ["batchDeadlineMs", 3_600_000],
     ["maxActive", 64],
     ["concurrencyPerContext", 64],

@@ -14,8 +14,8 @@ export function createPersistentLiveAnalysisRunner(input: {
     signal.throwIfAborted();
     const outcome = parseLiveAnalysisOutcome(await input.run(request, signal), request);
     signal.throwIfAborted();
-    // A transport outage does not disprove recorded-context evidence or replace it on disk.
-    if (outcome.kind === "unavailable" && outcome.retry === "transport") return outcome;
+    // Availability and retry policy do not disprove recorded-context evidence.
+    if (outcome.kind === "unavailable") return outcome;
     const published = await input.cache.publish({ token: captured.token, request, outcome });
     signal.throwIfAborted();
     if (published.status === "superseded")

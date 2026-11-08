@@ -1466,6 +1466,8 @@ await describe("query contract public API", async () => {
         "prepareLiveContractView",
         "defineAnalysisRegistration",
         "createLiveAnalysisScheduler",
+        "createLiveContractSession",
+        "LiveContextUnavailableError",
         "createNativeLiveAnalysisRunner",
         "createPersistentLiveAnalysisRunner",
         "reconcileQueryContract",

@@ -233,10 +233,11 @@ contracts enter the disposable cache; live checking does not modify durable expo
 `--offline` invocation can reuse matching recorded evidence. `--offline` and `--frozen` leave the live
 factory unloaded, including when `analysis.mode` is `"live"`.
 
-The live registration is consumed by the CLI query checking and generation hosts. The language
-server consumes offline and frozen contracts without invoking this factory; live editor mode reports
-unavailable. Other build hosts must implement analysis-mode handling explicitly and do not inherit
-database access from this setting. See [recorded contracts in editors](../guides/editors.md#recorded-query-contracts).
+The live registration is consumed by CLI query checking/generation and by explicitly live language
+server projects. Offline and frozen editor modes leave this factory unloaded. Live editor context
+observations are request-driven and coalesced; optional `live.contextIntervalMs` adjusts their
+five-second default interval. Other build hosts must implement analysis-mode handling explicitly
+and do not inherit database access from this setting. See [recorded contracts in editors](../guides/editors.md#recorded-query-contracts).
 
 ## Generating durable query inputs
 

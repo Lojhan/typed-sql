@@ -39,10 +39,21 @@ queries unknown. Templates and raw SQL documents use the same prepared contract 
 manifest and cache-index changes participate in editor invalidation, and each request validates its
 recorded inputs before publishing types.
 
-Live adapter registration does not grant this editor host database access. A configuration with
-`analysis.mode: "live"` reports that live editor analysis is unavailable; select an offline or frozen
-editor configuration to consume recorded evidence. SQL-file content mappers and other build hosts
-have separate configuration support.
+In `"live"` mode, an explicit `analysis.live.adapter` registration enables native acquisition.
+The project shares one owned adapter and bounded query scheduler. Context checks are coalesced
+across requests, with a five-second default interval; `analysis.live.contextIntervalMs` adjusts it.
+Native descriptions retain their own consistency checks. SQL edits and project/context changes
+fence old views, and the proxy refreshes its TypeScript overlay before forwarding requests.
+
+Connection failures preserve matching recorded evidence with unverified remote freshness. Native
+rejections, conflicts and known context changes remain blocking. Hybrid analysis can use independent
+offline rules when the native adapter does not support a statement class; that does not establish
+native qualification. The `typedSql/status` response includes connection state and the last context
+observation time. There is no idle database polling: external database changes are detected on a
+subsequent editor request. Closing or reconfiguring the project closes its owned native resources.
+
+SQL-file content mappers and other build hosts have separate configuration support. Live editor
+support does not imply native qualification for every grammar, transport or SQL statement class.
 
 ## Zed
 

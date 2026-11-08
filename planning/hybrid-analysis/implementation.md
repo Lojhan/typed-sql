@@ -439,8 +439,45 @@ Unrelated planning work is left unchanged.
 - The symlink regression now points to an existing outside file and directly checks that the
   reader refuses it, so a missing target or invalid downstream JSON cannot hide accidental reads.
 - Focused cache/export/config tests, complete analysis/config coverage suites and typechecking
-  pass. CodeQL's latest inspected analysis remains the preceding commit; closure of those findings
-  requires a new remote analysis and is not inferred from the local regression tests.
+  pass. JavaScript/TypeScript CodeQL check 128642695963 succeeded at `3c63df7b`, and remote
+  findings 61/62 report fixed. That evidence does not qualify later changes automatically.
+
+## Request-driven live editor session checkpoint
+
+- Added one owned session per configured editor project, with a shared transport factory and bounded
+  scheduler. Context observations coalesce across requests for five seconds by default, with
+  `analysis.live.contextIntervalMs` configuration. Native acquisition still checks its own context
+  before/after description. Session preparation captures exact document identities and query/context
+  publication tokens; closing/editing a document invalidates its old views.
+- The finite CLI prepass can borrow the session scheduler without closing shared resources. Session
+  context selection publishes once per observation instead of competing with every document batch.
+  Identical concurrent query requests share work; cancellation detaches one subscriber without
+  cancelling another. Factory/context deadlines do not accept late results, and discarded late
+  factories close their resources once. Noncooperative work retains its underlying lease.
+- Live editor requests refresh the proxy's TypeScript overlay before coordinate projection and
+  upstream requests. A routine change with unchanged source/version therefore produces a new view,
+  rather than permanently asking the client to retry an obsolete diagnostic snapshot. Metrics expose
+  request-driven observation, last context-check time, connection state and active preparation count.
+- Unavailable outcomes do not replace recorded evidence, regardless of retry policy. Configuration
+  failures wait for relevant configuration/session changes; transport attempts back off. Hybrid
+  fallback for an unsupported native statement class uses independent offline rules and drops prior
+  native proof. Partial observations cannot erase a known changed claim or semantic rejection.
+  Known changed static claims, conflicts, rejection and stale contexts remain blocking.
+- The real PostgreSQL proof keeps the built editor host alive through CLI generation, changes the
+  routine body, waits past the observation interval and checks the unchanged document again. Its
+  project generation advances and the counter proves regeneration describes rather than executes.
+  This is still the restricted PostgreSQL 18 expression-query profile, not all-engine qualification.
+- Full-package validation exposed a parallel cache-bootstrap race: ownership may appear between a
+  missing-marker read and directory listing. The preflight revalidates the new marker; the existing
+  locked initializer remains authoritative. Four-process startup now shares one owner and epoch.
+- Local build/typechecking, analysis coverage, language-server suite, packed consumers/editors,
+  API/package graph boundaries, quality, docs checks/build and real PostgreSQL proof pass. Exact-head
+  CI remains separate. Analysis coverage is 98.56% lines, 99.34% functions and 93.08% branches.
+- Rich pending/queue diagnostics and noncooperative queued-response budgets, explicit editor refresh,
+  optional qualified idle notifications, project-wide dependency publication, declaration cache
+  persistence, CLI watch orchestration, content-mapper/build-host integration, optional catalogs/packs,
+  compact cores, all-engine profiles, root migration, bulk catalog deletion and final acceptance remain
+  open. Request-driven sessions do not claim idle remote-change detection or complete host parity.
 
 ## Required work still open
 

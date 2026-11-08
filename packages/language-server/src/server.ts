@@ -87,6 +87,13 @@ interface WatchedFileChange {
 
 class AnalysisCancellation {
   #cancelled = false;
+  readonly #listeners = new Set<() => void>();
+
+  onCancellationRequested(listener: () => void) {
+    if (this.#cancelled) listener();
+    else this.#listeners.add(listener);
+    return { dispose: () => this.#listeners.delete(listener) };
+  }
 
   get isCancellationRequested(): boolean {
     return this.#cancelled;
@@ -94,6 +101,8 @@ class AnalysisCancellation {
 
   cancel(): void {
     this.#cancelled = true;
+    for (const listener of this.#listeners) listener();
+    this.#listeners.clear();
   }
 }
 
@@ -413,7 +422,7 @@ function projectFailureDiagnostic(error: unknown): JsonObject {
   };
 }
 
-async function waitForDocument(uri: string, token: CancellationToken): Promise<void> {
+async function waitForQueuedDocument(uri: string, token: CancellationToken): Promise<void> {
   const pending = pendingDocuments.get(uri);
   if (pending === undefined) return;
   if (token.isCancellationRequested) throw new ResponseError(LSP_REQUEST_CANCELLED, "Request cancelled");
@@ -430,6 +439,39 @@ async function waitForDocument(uri: string, token: CancellationToken): Promise<v
   } finally {
     cancellation?.dispose();
   }
+}
+
+/** Refresh a live view before the upstream server sees coordinates or types from it. */
+async function waitForDocument(uri: string, token: CancellationToken): Promise<void> {
+  await waitForQueuedDocument(uri, token);
+  const state = documents.get(uri) ?? virtualDocuments.get(uri);
+  if (!state?.service.metrics().analysis) return;
+  void queueDocument(uri, async () => {
+    const previous = documents.get(uri) ?? virtualDocuments.get(uri);
+    if (!previous) return;
+    const original = sourceDocuments.get(uri) ?? previous.original;
+    const analysis = await previous.service.analysis(original, token);
+    if (token.isCancellationRequested || (sourceDocuments.has(uri) && sourceDocuments.get(uri) !== original)) {
+      const error = new Error("Document refresh cancelled");
+      error.name = "AbortError";
+      throw error;
+    }
+    if (
+      analysis?.revision === previous.analysis?.revision &&
+      (!analysis || previous.service.isAnalysisCurrent(original, analysis))
+    )
+      return;
+    const next = await createState(original, previous, undefined, { analysis });
+    if (documents.has(uri)) documents.set(uri, next);
+    else virtualDocuments.set(uri, next);
+    nativeDiagnostics.delete(uri);
+    projectFailureReports.delete(uri);
+    await typescript.sendNotification("textDocument/didChange", {
+      textDocument: { uri, version: next.virtualVersion },
+      contentChanges: [{ text: next.transformed.getText() }],
+    });
+  });
+  await waitForQueuedDocument(uri, token);
 }
 
 function mapProtocolValue(value: unknown, direction: MappingDirection, fallback?: DocumentState): unknown {
@@ -459,9 +501,10 @@ async function createState(
   original: TextDocument,
   previous?: DocumentState,
   cancellation?: AnalysisCancellation,
+  prepared?: { readonly analysis: BridgeAnalysis | undefined },
 ): Promise<DocumentState> {
   const service = serviceForUri(original.uri);
-  const analysis = await service.analysis(original, cancellation);
+  const analysis = prepared ? prepared.analysis : await service.analysis(original, cancellation);
   if (cancellation?.isCancellationRequested === true) {
     const error = new Error("typed-sql document analysis superseded");
     error.name = "AbortError";

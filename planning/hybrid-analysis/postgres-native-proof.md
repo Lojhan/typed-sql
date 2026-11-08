@@ -162,3 +162,10 @@ The built language server also consumes the native cache in offline mode while d
 are hidden. Its configuration guards analyzer/provider construction. A protocol client checks the
 actual document diagnostics and bigint SQL hover through the pinned TypeScript proxy. This covers
 recorded editor reuse; live editor acquisition and SQL-file content-mapper integration remain open.
+
+The live editor proof starts the built stdio host with an explicit native registration and no
+durable inputs. That host stays alive while the CLI generates its closure. After the routine body
+changes, a request beyond the five-second observation interval advances the editor project
+generation without changing document text/version. Diagnostics remain valid and the function
+counter remains one. This proves request-driven refresh through the actual proxy; it does not
+prove idle DDL notification, general SQL statement support or qualification of other engines.

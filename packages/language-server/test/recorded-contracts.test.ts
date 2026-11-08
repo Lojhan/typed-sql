@@ -159,7 +159,7 @@ await describe("recorded contracts in the editor", async () => {
       }
     });
   });
-  await it("rejects unsupported live editor mode before constructing native resources", async () => {
+  await it("rejects incomplete live editor registration before constructing native resources", async () => {
     await fixture(async (directory) => {
       const config = join(directory, "typed-sql.config.mjs");
       await writeFile(
@@ -172,7 +172,7 @@ await describe("recorded contracts in the editor", async () => {
       const current = service(directory);
       try {
         const ts = document(directory, await readFile(join(directory, "src/query.ts"), "utf8"));
-        await strict.rejects(current.analysis(ts), /Live analysis is not supported/u);
+        await strict.rejects(current.analysis(ts), /explicit native adapter and cache target/u);
       } finally {
         await current.close();
       }

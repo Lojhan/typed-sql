@@ -2,10 +2,15 @@ import { join } from "node:path";
 import {
   type AnalysisRegistration,
   createAnalysisContextScope,
+  createContractDialect,
+  type createLiveContractSession,
   defineAnalysisRegistration,
+  LiveContextUnavailableError,
+  type LiveContractView,
   loadFrozenContractView,
   loadQueryContractContext,
   loadQueryContracts,
+  type NativeContractCandidate,
   openAnalysisCache,
   prepareOfflineContractView,
   type QueryContract,
@@ -15,7 +20,7 @@ import {
   selectOfflineAnalysisContext,
 } from "@typed-sql/analysis";
 import { collectSourceQueryCandidates, collectSqlFileQueryCandidates } from "@typed-sql/compiler";
-import { fromConfig, type LoadedConfigSource, resolveConfigDialect } from "@typed-sql/config";
+import { fromConfig, type LoadedConfigSource, resolveConfigDialect, runConfigFactory } from "@typed-sql/config";
 import type { DialectPlugin, SchemaSnapshot } from "@typed-sql/core";
 
 /** Project-local paths shared with the CLI; frozen mode never opens the disposable cache. */
@@ -30,7 +35,7 @@ export function recordedContractPaths(
     directory,
     watched: [
       join(directory, "manifest.json"),
-      ...(configuration.mode === "frozen" || !configuration.cache
+      ...(configuration.mode !== "offline" || !configuration.cache
         ? []
         : [
             join(
@@ -42,6 +47,8 @@ export function recordedContractPaths(
     ],
   };
 }
+export type LiveEditorSessionInput = Parameters<typeof createLiveContractSession<SchemaSnapshot, unknown>>[0];
+
 export interface RecordedDocumentView {
   readonly dialect: DialectPlugin<SchemaSnapshot, unknown>;
   readonly revision: string;
@@ -53,6 +60,11 @@ export async function prepareRecordedDocument(input: {
   readonly schema: SchemaSnapshot;
   readonly source: string;
   readonly sqlFile: boolean;
+  readonly forceOffline?: boolean;
+  readonly live?: (
+    options: LiveEditorSessionInput,
+    candidates: readonly NativeContractCandidate[],
+  ) => Promise<LiveContractView<SchemaSnapshot, unknown>>;
 }): Promise<RecordedDocumentView> {
   const { loaded, schema } = input;
   const paths = recordedContractPaths(loaded);
@@ -62,11 +74,8 @@ export async function prepareRecordedDocument(input: {
       revision: "legacy",
       assertCurrent: async () => {},
     };
-  const { live: _live, ...configuration } = defineAnalysisRegistration(loaded.config.analysis as AnalysisRegistration);
-  if (configuration.mode === "live")
-    throw new Error(
-      "Live analysis is not supported by this editor host. Select an offline or frozen editor configuration.",
-    );
+  const { live, ...registered } = defineAnalysisRegistration(loaded.config.analysis as AnalysisRegistration);
+  const configuration = { ...registered, mode: input.forceOffline ? ("offline" as const) : registered.mode };
   const profile = loaded.config.dialect;
   const typePolicy = loaded.config.typePolicy ?? profile.defaultTypePolicy;
   const manifest = async () =>
@@ -81,7 +90,74 @@ export async function prepareRecordedDocument(input: {
     readonly contracts: readonly QueryContract[];
     assertCurrent?(): Promise<void>;
   };
-  if (configuration.mode === "frozen") {
+  if (configuration.mode === "live") {
+    if (!live || !configuration.cache || !input.live)
+      throw new TypeError("Live editor analysis requires an explicit native adapter and cache target registration");
+    const collection = (input.sqlFile ? collectSqlFileQueryCandidates : collectSourceQueryCandidates)({
+      source: input.source,
+      profile,
+      schema,
+      typePolicy,
+      ...loaded.config.compiler,
+    });
+    if (
+      !collection.complete ||
+      collection.diagnostics.some((diagnostic) => diagnostic.severity === "error") ||
+      !collection.candidates.length
+    ) {
+      const { context: _context, ...unobserved } = configuration;
+      const context = await selectOfflineAnalysisContext({
+        profile,
+        schema,
+        typePolicy,
+        configuration: { ...unobserved, qualification: { ...unobserved.qualification, mode: "hybrid" } },
+      });
+      view = { context, contracts: [], dialect: createContractDialect({ profile, context, contracts: [] }) };
+    } else {
+      const cache = await openAnalysisCache({
+        directory: fromConfig(loaded.directory, configuration.cache.directory ?? ".typed-sql/cache/analysis/v1"),
+        workspaceContext: queryContractDigest({ workspace: loaded.directory, config: loaded.file }),
+      });
+      const recordedContext =
+        before !== null
+          ? await loadQueryContractContext(
+              paths.directory,
+              createAnalysisContextScope({ profile, schema, typePolicy, configuration }),
+            )
+          : undefined;
+      try {
+        const prepared = await input.live(
+          {
+            profile,
+            schema,
+            typePolicy,
+            configuration,
+            cache,
+            loadAnalyzer: async () => (await resolveConfigDialect(loaded)).config.dialect,
+            ...(recordedContext ? { recordedContext } : {}),
+            live: {
+              ...live,
+              adapter: (parameters) =>
+                runConfigFactory(loaded, () => live.adapter(parameters), { onDiscard: (services) => services.close() }),
+            },
+          },
+          collection.candidates.map(({ sql, parameterOccurrences }) => ({ sql, parameterOccurrences })),
+        );
+        if (
+          prepared.outcomes.some(
+            ({ outcome }) =>
+              outcome.kind === "unavailable" ||
+              (outcome.kind === "partial" && configuration.qualification.mode === "hybrid"),
+          )
+        )
+          return prepareRecordedDocument({ ...input, forceOffline: true });
+        view = prepared;
+      } catch (error) {
+        if (!(error instanceof LiveContextUnavailableError)) throw error;
+        return prepareRecordedDocument({ ...input, forceOffline: true });
+      }
+    }
+  } else if (configuration.mode === "frozen") {
     view = await loadFrozenContractView({ profile, schema, typePolicy, configuration, directory: paths.directory });
   } else {
     const cache = configuration.cache

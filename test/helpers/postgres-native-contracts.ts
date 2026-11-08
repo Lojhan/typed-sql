@@ -314,6 +314,8 @@ export default defineConfig({
     );
     // Consume only persisted native evidence: hide durable inputs while checking offline.
     await rename(durable, `${durable}-held`);
+    let liveEditor: ProtocolClient | undefined;
+    let assertLiveEditorRefresh: (() => Promise<void>) | undefined;
     try {
       const cachedCheck = await promisify(callback)(
         process.execPath,
@@ -387,6 +389,70 @@ export default defineConfig({
         .replace("cache: {", 'cache: {"directory":"live-cache",')
         .replace(`context: ${JSON.stringify(context)},`, "");
       await writeFile(join(temporary, "live-config.mjs"), scopedLiveConfig);
+      liveEditor = new ProtocolClient(
+        process.execPath,
+        [join(directory, "packages/language-server/dist/packages/language-server/src/server.js"), "--stdio"],
+        temporary,
+        {
+          ...process.env,
+          TYPED_SQL_CONTRACT_LIVE_TEST: "1",
+          TYPED_SQL_CONTRACT_TEST_DATABASE_URL: connectionString,
+        },
+      );
+      {
+        const client = liveEditor;
+        const uri = pathToFileURL(join(temporary, "application.ts")).href;
+        const source = await readFile(join(temporary, "application.ts"), "utf8");
+        await client.request("initialize", {
+          processId: null,
+          rootUri: pathToFileURL(temporary).href,
+          capabilities: { textDocument: { diagnostic: {} } },
+          initializationOptions: { configPath: "live-config.mjs", nativePreview: false },
+        });
+        client.notify("initialized", {});
+        client.notify("textDocument/didOpen", {
+          textDocument: { uri, languageId: "typescript", version: 1, text: source },
+        });
+        const diagnostics = (await client.request("textDocument/diagnostic", { textDocument: { uri } })) as {
+          items: { message: string; severity?: number }[];
+        };
+        strict.ok(!diagnostics.items.some((item) => item.severity === 1), JSON.stringify(diagnostics));
+        const before = (await client.request("typedSql/status", {})) as {
+          workspaces: {
+            metrics: { generation: number; analysis?: { observation: string; lastContextCheckAt?: number } };
+          }[];
+        };
+        strict.equal(before.workspaces[0]!.metrics.analysis?.observation, "request-driven");
+        strict.equal(typeof before.workspaces[0]!.metrics.analysis?.lastContextCheckAt, "number");
+        assertLiveEditorRefresh = async () => {
+          await new Promise((resolve) => setTimeout(resolve, 5100));
+          // The LSP explicitly asks clients to retry a diagnostic pull whose project snapshot changes.
+          const refreshedRequest = async () => {
+            for (let attempt = 0; ; attempt++) {
+              try {
+                return await client.request("textDocument/diagnostic", { textDocument: { uri } });
+              } catch (error) {
+                if (attempt >= 2 || !(error instanceof Error) || !error.message.includes("-32802")) throw error;
+              }
+            }
+          };
+          const refreshed = (await refreshedRequest()) as {
+            items: { message: string; severity?: number }[];
+          };
+          strict.ok(!refreshed.items.some((item) => item.severity === 1), JSON.stringify(refreshed));
+          const after = (await client.request("typedSql/status", {})) as typeof before;
+          strict.ok(
+            after.workspaces[0]!.metrics.generation > before.workspaces[0]!.metrics.generation,
+            "A live editor request must observe routine drift and invalidate prior project views",
+          );
+          strict.equal(
+            (await pool.query<{ count: number }>(`SELECT count FROM ${namespace}.calls`)).rows[0]!.count,
+            1,
+            "Live editor regeneration must describe rather than execute candidate SQL",
+          );
+        };
+      }
+
       await writeFile(join(temporary, "value.sql"), "SELECT :id::bigint AS asset_value");
       await writeFile(
         join(temporary, "application.ts"),
@@ -460,6 +526,7 @@ export default defineConfig({
       await pool.query(
         `CREATE OR REPLACE FUNCTION ${namespace}.increment(value bigint) RETURNS bigint LANGUAGE plpgsql AS $$BEGIN UPDATE ${namespace}.calls SET count = count + 1; RETURN value + 2; END$$`,
       );
+      await assertLiveEditorRefresh();
       await strict.rejects(
         promisify(callback)(process.execPath, [...generationArgs, "--check"], generationOptions),
         (error: unknown) => {
@@ -504,6 +571,7 @@ export default defineConfig({
         join(temporary, "application.ts"),
         application.replace('"@typed-sql/postgres"', '"@typed-sql/postgres/tag"'),
       );
+      await liveEditor?.close();
       await rename(`${durable}-held`, durable);
     }
     // Inject real DDL between description and final context inspection. No contract may escape.

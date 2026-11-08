@@ -4,6 +4,12 @@ import { access, readdir, readFile, stat } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { setTimeout as wait } from "node:timers/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import {
+  createLiveContractSession,
+  type LiveContractSession,
+  type LiveContractSessionStatus,
+  queryContractDigest,
+} from "@typed-sql/analysis";
 import { compileSqlFile } from "@typed-sql/compiler";
 import { fromConfig, loadConfigSource } from "@typed-sql/config";
 import type { DialectPlugin, SchemaSnapshot, TableSnapshot } from "@typed-sql/core";
@@ -31,7 +37,7 @@ import {
 } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
 
-import { prepareRecordedDocument, recordedContractPaths } from "./recorded-contracts.js";
+import { type LiveEditorSessionInput, prepareRecordedDocument, recordedContractPaths } from "./recorded-contracts.js";
 
 export type {
   TypedSqlProtocolCapability,
@@ -110,6 +116,7 @@ export interface TypedSqlLanguageServiceMetrics {
     readonly inspections: TypedSqlCacheMetrics;
   };
   readonly bridgeRestarts: number;
+  readonly analysis?: LiveContractSessionStatus;
 }
 
 interface CacheCounters {
@@ -141,6 +148,7 @@ function canonical(value: unknown): unknown {
 
 export interface CancellationLike {
   readonly isCancellationRequested: boolean;
+  onCancellationRequested?(listener: () => void): { dispose(): void };
 }
 
 function cancelled(token?: CancellationLike): void {
@@ -249,6 +257,9 @@ export class TypedSqlLanguageService {
   readonly #nativeBridgeFactory: () => TypeScriptBridge;
   #configPromise: ReturnType<typeof loadConfigSource> | undefined;
   #generation = 0;
+  #liveSession: LiveContractSession<SchemaSnapshot, unknown> | undefined;
+  #liveKey: string | undefined;
+  #closingLive = Promise.resolve();
   #bridgeRestarts = 0;
   readonly #cacheCounters = {
     schemas: { hits: 0, misses: 0, evictions: 0 },
@@ -275,6 +286,7 @@ export class TypedSqlLanguageService {
     this.#analysisCache.clear();
     this.#inspectionCache.clear();
     this.#configPromise = undefined;
+    this.#closeLive();
     this.#resetNativeBridge();
   }
 
@@ -284,9 +296,11 @@ export class TypedSqlLanguageService {
     this.#analysisCache.clear();
     this.#inspectionCache.clear();
     this.#configPromise = undefined;
+    this.#closeLive();
   }
 
   forget(uri: string): void {
+    this.#liveSession?.closeDocument(uri);
     this.#analysisCache.delete(uri);
     for (const key of this.#inspectionCache.keys()) {
       if (key.startsWith(`${uri}@`)) this.#inspectionCache.delete(key);
@@ -544,6 +558,7 @@ export class TypedSqlLanguageService {
         inspections: metric(this.#inspectionCache, this.#cacheCounters.inspections),
       }),
       bridgeRestarts: this.#bridgeRestarts,
+      ...(this.#liveSession ? { analysis: this.#liveSession.status() } : {}),
     });
   }
 
@@ -618,7 +633,60 @@ export class TypedSqlLanguageService {
   async close(): Promise<void> {
     const bridge = await this.#nativeBridgePromise;
     this.#nativeBridgePromise = undefined;
-    await bridge?.close();
+    this.#closeLive();
+    const closed = await Promise.allSettled([bridge?.close(), this.#closingLive]);
+    const failures = closed.flatMap((value) => (value.status === "rejected" ? [value.reason] : []));
+    if (failures.length) throw new AggregateError(failures, "Editor analysis cleanup failed");
+  }
+
+  #closeLive(): void {
+    const previous = this.#liveSession;
+    this.#liveSession = undefined;
+    this.#liveKey = undefined;
+    if (previous) this.#closingLive = this.#closingLive.then(() => previous.close());
+    void this.#closingLive.catch(() => undefined);
+  }
+
+  async #prepareLive(
+    options: LiveEditorSessionInput,
+    document: TextDocument,
+    candidates: Parameters<LiveContractSession<SchemaSnapshot, unknown>["prepare"]>[0]["candidates"],
+    token?: CancellationLike,
+  ) {
+    const key = queryContractDigest({
+      schema: options.schema,
+      configuration: options.configuration,
+      typePolicy: options.typePolicy ?? options.profile.defaultTypePolicy,
+    });
+    if (this.#liveKey !== key) this.#closeLive();
+    await this.#closingLive;
+    cancelled(token);
+    if (!this.#liveSession) {
+      this.#liveKey = key;
+      this.#liveSession = createLiveContractSession({
+        ...options,
+        onContextChange: () => {
+          if (this.#liveKey !== key) return;
+          this.#generation++;
+          this.#analysisCache.clear();
+          this.#inspectionCache.clear();
+        },
+      });
+    }
+    const controller = new AbortController();
+    const cancelledRequest = token?.onCancellationRequested?.(() =>
+      controller.abort(new Error("Editor request cancelled")),
+    );
+    try {
+      return await this.#liveSession.prepare({
+        document: document.uri,
+        version: document.version,
+        candidates,
+        signal: controller.signal,
+      });
+    } finally {
+      cancelledRequest?.dispose();
+    }
   }
 
   async #documentAnalysis(document: TextDocument, token?: CancellationLike): Promise<DocumentAnalysis | undefined> {
@@ -661,6 +729,7 @@ export class TypedSqlLanguageService {
         schema: loaded.config.dialect.validateSnapshot(schema.snapshot),
         source: document.getText(),
         sqlFile: document.uri.endsWith(".sql"),
+        live: (options, candidates) => this.#prepareLive(options, document, candidates, token),
       }).catch(inputFailure);
       cancelled(token);
       if (generation !== this.#generation) continue;

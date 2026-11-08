@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, it, strict } from "poku";
 import { unknownQuerySemantics } from "../../core/src/index.js";
 import { createQueryContract, openAnalysisCache, prepareOfflineContractView } from "../src/index.js";
-import { configuration, context, contract, profile, request, result, schema } from "./helpers/host-fixture.js";
+import { configuration, context, contract, native, profile, request, result, schema } from "./helpers/host-fixture.js";
 import { hash } from "./helpers/live-fixture.js";
 
 const options = { profile, schema, configuration, candidates: [request.candidate], contracts: [contract] };
@@ -194,5 +194,55 @@ await describe("offline contract-first preparation", async () => {
       ).diagnostics,
       [],
     );
+  });
+  await it("uses independent hybrid rules for an unsupported native statement without restoring native proof", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "typed-sql-hybrid-scope-"));
+    try {
+      const cache = await openAnalysisCache({ directory, workspaceContext: hash });
+      const policy = { ...configuration.qualification, mode: "hybrid" as const };
+      const selected = { ...request, policy };
+      const qualified = await native(selected, new AbortController().signal);
+      if (qualified.kind !== "usable-recorded-context") throw Error("Missing native test proof");
+      await cache.publish({
+        token: (await cache.lookup(selected)).token,
+        request: selected,
+        outcome: { kind: "partial", code: "unsupported-statement" },
+      });
+      let loads = 0;
+      const prepared = await prepareOfflineContractView({
+        ...options,
+        configuration: { ...configuration, qualification: policy },
+        contracts: [qualified.contract],
+        cache,
+        loadAnalyzer: () => {
+          loads++;
+          return ownerPlugin;
+        },
+      });
+      strict.equal(loads, 1);
+      strict.equal(prepared.contracts.length, 0);
+      await prepared.assertCurrent();
+      await cache.publish({
+        token: (await cache.lookup(selected)).token,
+        request: selected,
+        outcome: { kind: "partial", code: "static-claim-changed" },
+      });
+      const blocked = await prepareOfflineContractView({
+        ...options,
+        configuration: { ...configuration, qualification: policy },
+        contracts: [qualified.contract],
+        cache,
+        loadAnalyzer: () => {
+          throw Error("Known changed claims must not fall back");
+        },
+      });
+      strict.ok(
+        blocked.dialect
+          .analyze(request.candidate.sql, schema)
+          .diagnostics.some((diagnostic) => diagnostic.code === "TSQ406"),
+      );
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
   });
 });

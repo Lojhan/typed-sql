@@ -100,6 +100,20 @@ await describe("owned disposable analysis cache", async () => {
       strict.notEqual(fresh.token.entryRevision, hit.token.entryRevision);
       strict.equal((await cache.lookupRecorded(recorded(request))).cached?.outcome.kind, "partial");
       strict.equal(
+        (
+          await cache.publish({
+            token: fresh.token,
+            request: changed,
+            outcome: { kind: "partial", code: "unsupported-statement" },
+          })
+        ).status,
+        "superseded",
+      );
+      strict.deepEqual((await cache.lookupRecorded(recorded(request))).cached?.outcome, {
+        kind: "partial",
+        code: "static-claim-changed",
+      });
+      strict.equal(
         (await cache.publish({ token: fresh.token, request: changed, outcome: negative })).status,
         "published",
       );
@@ -151,12 +165,11 @@ await describe("owned disposable analysis cache", async () => {
   await it("initializes one ownership namespace under concurrent process startup", async () => {
     await temporary(async (parent) => {
       const directory = join(parent, "fresh");
-      const results = await Promise.all([
-        child(directory, "lookup", fixture().candidate.sql),
-        child(directory, "lookup", fixture().candidate.sql),
-      ]);
-      strict.equal(results[0].token.ownerInstance, results[1].token.ownerInstance);
-      strict.equal(results[0].token.epoch, results[1].token.epoch);
+      const results = await Promise.all(
+        Array.from({ length: 4 }, () => child(directory, "lookup", fixture().candidate.sql)),
+      );
+      strict.equal(new Set(results.map((result) => result.token.ownerInstance)).size, 1);
+      strict.equal(new Set(results.map((result) => result.token.epoch)).size, 1);
     });
   });
   await it("retires all namespace evidence and old producers when a known stale context is published", async () => {
@@ -292,6 +305,17 @@ await describe("owned disposable analysis cache", async () => {
       await cache.publish({ token: first.token, request, outcome: negative });
       strict.deepEqual((await cache.lookup(request)).cached?.outcome, negative);
       const current = await cache.lookup(request);
+      strict.equal(
+        (
+          await cache.publish({
+            token: current.token,
+            request,
+            outcome: { kind: "partial", code: "unsupported-statement" },
+          })
+        ).status,
+        "superseded",
+      );
+      strict.deepEqual((await cache.lookup(request)).cached?.outcome, negative);
       await strict.rejects(
         () =>
           cache.publish({

@@ -60,6 +60,8 @@ export type {
   LiveAnalysisView,
 } from "./live.js";
 export { createLiveAnalysisScheduler, createNativeLiveAnalysisRunner } from "./live.js";
+export type { LiveContractSession, LiveContractSessionStatus } from "./live-session.js";
+export { createLiveContractSession, LiveContextUnavailableError } from "./live-session.js";
 export type { LiveContractView } from "./live-view.js";
 export { prepareLiveContractView } from "./live-view.js";
 export type {

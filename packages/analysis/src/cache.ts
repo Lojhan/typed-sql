@@ -274,8 +274,16 @@ export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<
     owner(JSON.parse(await readCacheFile(path.ownership, maxObjectBytes)));
   } catch (error) {
     if (!cacheMissing(error)) throw error;
-    if ((await names(root)).some((name) => name !== "locks" && name !== "staging"))
-      throw new TypeError("Refusing unowned analysis cache directory");
+    if ((await names(root)).some((name) => name !== "locks" && name !== "staging")) {
+      // Another initializer may have published ownership between the failed read and listing.
+      // Validate that marker before classifying its newly created layout as foreign data.
+      try {
+        owner(JSON.parse(await readCacheFile(path.ownership, maxObjectBytes)));
+      } catch (current) {
+        if (!cacheMissing(current)) throw current;
+        throw new TypeError("Refusing unowned analysis cache directory");
+      }
+    }
   }
   await cacheDirectory(path.locks);
   let instance: string | undefined;
@@ -642,8 +650,8 @@ export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<
       const request = parseLiveAnalysisRequest(input.request),
         expected = token(input.token),
         result = parseLiveAnalysisOutcome(input.outcome, request);
-      if (result.kind === "unavailable" && result.retry === "transport")
-        throw new TypeError("Transient transport failures are not persisted");
+      if (result.kind === "unavailable")
+        throw new TypeError("Transient availability and configuration failures are not persisted");
       if (
         expected.requestKey !== recordedAnalysisQueryKey(recordedQuery(request)) ||
         expected.workspaceContext !== workspaceContext ||
@@ -655,6 +663,13 @@ export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<
         const current = await readIndex(),
           previous = current.entries.find((item) => item.requestKey === expected.requestKey);
         if (current.epoch !== expected.epoch || (previous?.revision ?? null) !== expected.entryRevision)
+          return { status: "superseded" as const };
+        if (
+          result.kind === "partial" &&
+          previous &&
+          (["conflict", "rejected", "stale-context"].includes(previous.result.kind) ||
+            (previous.result.kind === "partial" && previous.result.code === "static-claim-changed"))
+        )
           return { status: "superseded" as const };
         const contextHash = queryContractDigest(request.staticClaim.context);
         const retainedEntries =

@@ -80,7 +80,16 @@ export async function prepareOfflineContractView<Snapshot extends SchemaSnapshot
       const outcome = lookup.cached?.outcome;
       cacheTokens.push(lookup.token);
       if (outcome?.kind === "usable-recorded-context") cached = outcome.contract;
-      else if (outcome) {
+      else if (
+        outcome?.kind === "partial" &&
+        outcome.code === "unsupported-statement" &&
+        configuration.qualification.mode === "hybrid"
+      ) {
+        // No native invocation was accepted. Independent offline rules may still apply,
+        // but a previous durable native contract is not restored over this partial result.
+        missing.add(key);
+        continue;
+      } else if (outcome && outcome.kind !== "unavailable") {
         blocked.set(key, outcome);
         continue;
       }

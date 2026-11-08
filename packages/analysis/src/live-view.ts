@@ -42,7 +42,7 @@ export interface LiveContractView<Snapshot extends SchemaSnapshot, Policy> {
 }
 
 /** A finite, explicitly enabled native prepass. Synchronous compilation uses only its final view. */
-export async function prepareLiveContractView<Snapshot extends SchemaSnapshot, Policy>(input: {
+export interface LiveContractPreparation<Snapshot extends SchemaSnapshot, Policy> {
   readonly profile: DialectProfile<Snapshot, Policy>;
   readonly schema: Snapshot;
   readonly typePolicy?: Policy;
@@ -53,7 +53,17 @@ export async function prepareLiveContractView<Snapshot extends SchemaSnapshot, P
   readonly loadAnalyzer: AnalysisOwnerLoader<Snapshot, Policy>;
   readonly signal?: AbortSignal;
   readonly recordedContext?: QueryContractContext;
-}): Promise<LiveContractView<Snapshot, Policy>> {
+}
+export async function prepareLiveContractView<Snapshot extends SchemaSnapshot, Policy>(
+  input: LiveContractPreparation<Snapshot, Policy>,
+): Promise<LiveContractView<Snapshot, Policy>> {
+  return prepareLiveContractViewWithScheduler(input);
+}
+/** Internal borrowing boundary: the session owns the scheduler and transport cleanup. */
+export async function prepareLiveContractViewWithScheduler<Snapshot extends SchemaSnapshot, Policy>(
+  input: LiveContractPreparation<Snapshot, Policy>,
+  schedulerFactory = createLiveAnalysisScheduler,
+): Promise<LiveContractView<Snapshot, Policy>> {
   const configuration = defineAnalysisConfiguration(input.configuration),
     profile = input.profile;
   const registration = defineAnalysisRegistration({ ...configuration, live: input.live }).live!;
@@ -129,7 +139,7 @@ export async function prepareLiveContractView<Snapshot extends SchemaSnapshot, P
       }),
     }));
     const maxActive = registration.maxActive ?? 8;
-    scheduler = createLiveAnalysisScheduler({
+    scheduler = schedulerFactory({
       debounceMs: 0,
       maxActive,
       maxQueued: maxActive * 2,
