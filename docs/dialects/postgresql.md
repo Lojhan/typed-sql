@@ -13,6 +13,7 @@ description: PostgreSQL grammar coverage, catalog introspection, application-own
 - `@typed-sql/postgres/profile` — lightweight grammar profile for exact query-contract consumption, without the SQL analyzer or global routine catalogs.
 - `@typed-sql/postgres/contract-profile` — pure interpreter identities and reconciliation-owner revisions for independently checking recorded contract compatibility.
 - `@typed-sql/postgres/tag` — `sql`, renderer and runtime plan primitives without analyzer imports.
+- `@typed-sql/postgres/project-catalog` — selected routine metadata and its offline grammar interpreter.
 - `@typed-sql/postgres/reconciliation` — pure grammar-owned comparisons between native evidence and independent static claims.
 - `@typed-sql/postgres/pg-contracts` — explicit native query-contract acquisition over a dedicated application-owned pool.
 - `@typed-sql/postgres/query` — portable `sql`, renderer, and runtime value descriptors for buffered adapters.
@@ -275,3 +276,31 @@ Configure `loadAnalyzer: async () => (await import("@typed-sql/postgres/analysis
 when offline inference or live reconciliation needs the full analyzer. Its versioned offline
 catalog is selected using snapshot server evidence. Canary versions require the explicit
 `versionPolicy: "canary"` option.
+
+## Reusable project declarations
+
+`createPostgresProjectCatalog` from `@typed-sql/postgres/project-catalog` selects complete
+routine overload families from an introspected format-2 snapshot using the project's SQL calls.
+The catalog contains metadata and evidence digests, including parameter names, modes and defaults;
+it contains no generated executable wrappers. The constructor does not connect to a database
+or establish freshness: its source snapshot and context must come from the same qualified
+metadata capture. Serialize it as JSON and load it with
+`parseProjectCatalog` from `@typed-sql/analysis`.
+
+Apply recorded catalogs with `applyProjectCatalogs` and
+`createPostgresProjectCatalogContribution()`. Supply the base schema, recorded context and the
+same type policy used for acquisition and decoding. The result contains an enriched schema and
+its context. Keep them together: selected catalog digests change the profile identity, and the
+new schema has its own hash. A changed base schema, server evidence, policy, context or installed
+interpreter requires matching metadata. Independent query qualification still compares claims
+against native query descriptions when configured.
+
+Reusable inference currently requires an explicitly qualified routine name and a fixed scalar
+result with known built-in type mappings. The interpreter derives TypeScript types from the
+configured policy rather than copying types asserted by the metadata. Results remain nullable,
+including strict routines. Polymorphic, decimal-dependent, defaulted, variadic and table-result
+families retain their declarations but require query-specific evidence. Overloaded families need
+exact native argument-type matches; coercion-dependent selection requires a qualified rule or
+query contract. Missing or ambiguous
+overloads and unsupported call syntax remain conservative diagnostics. Selecting a declaration
+cannot silently bypass these restrictions by sharing a name with a built-in.

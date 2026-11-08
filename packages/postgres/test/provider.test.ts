@@ -513,6 +513,17 @@ class CatalogClient implements PostgresIntrospectionClient {
         ...rows,
         {
           schema_name: "public",
+          function_name: "strict_scalar",
+          argument_types: ["bigint"],
+          argument_type_identities: ["pg_catalog.int8"],
+          return_type_identity: "pg_catalog.int8",
+          database_return_type: "bigint",
+          set_returning: false,
+          volatility: "i",
+          strict: true,
+        },
+        {
+          schema_name: "public",
           function_name: "table_result",
           argument_types: ["bigint", "text", "bigint"],
           database_return_type: "record",
@@ -840,6 +851,13 @@ await describe("PostgreSQL schema provider", async () => {
     strict.ok(snapshot.relations.users?.constraints.some(({ kind }) => kind === "foreign-key"));
     strict.ok(snapshot.relations.users?.constraints.some(({ kind }) => kind === "exclusion"));
     strict.ok(snapshot.relations.users?.indexes.some(({ columns }) => columns[0]?.expressionHash !== undefined));
+    const strictRoutine = snapshot.routines.strict_scalar?.[0];
+    strict.strictEqual(strictRoutine?.arguments[0]?.typeIdentity, "pg_catalog.int8");
+    strict.strictEqual(strictRoutine?.nullInput, "strict");
+    strict.strictEqual(strictRoutine?.result.kind, "scalar");
+    if (strictRoutine?.result.kind !== "scalar") throw Error("Expected scalar fixture");
+    strict.strictEqual(strictRoutine.result.typeIdentity, "pg_catalog.int8");
+    strict.strictEqual(strictRoutine.result.nullable, true);
     strict.strictEqual(snapshot.routines.table_result?.[0]?.result.kind, "table");
     strict.strictEqual(snapshot.routines.refresh_users?.[0]?.result.kind, "command");
     strict.strictEqual(snapshot.routines.user_count?.length, 2);

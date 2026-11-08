@@ -24,7 +24,9 @@ from their maintained catalog inputs, preserving compile-time/runtime policy agr
 PostgreSQL native acquisition is restricted to the documented expression-query profile.
 The other four grammars retain their existing offline support and contract-profile interfaces;
 they do not acquire broader native query-description qualification from this change.
-Project routine catalogs and workload-selected offline packs remain later work.
+Project routine catalog library APIs support PostgreSQL fixed scalar declarations. Automatic
+catalog generation/refresh in the CLI and editors, other grammar interpreters, custom type/rule
+qualification and workload-selected offline packs remain incomplete.
 
 ## Validation
 
@@ -45,3 +47,28 @@ generation and `--check` reject the wrong static claim, persist the conflict and
 durable manifest. Restoring the analyzer succeeds through fresh native reconciliation. This
 closes the project-level verification gap for acceptance scenario 20 in the supported expression
 profile; broader native engine and statement qualification remains incomplete.
+
+## Selected reusable routine metadata
+
+The neutral project catalog envelope reuses context identities, bounded canonical JSON and
+schema validation. Grammar contributions own interpretation and permissions; duplicate owners
+or declaration identities fail before analysis. Catalog selection changes the effective profile
+identity, and applying metadata recomputes the schema hash and clears stale generator metadata.
+
+PostgreSQL selects complete native overload families by walking project SQL. Its interpreter
+recomputes known scalar types from policy, preserves raw parameter/default declarations and
+requires nullable outputs. The resolver enforces these permissions before builtin dispatch,
+including table-call and builtin-name collision cases. Unqualified calls require explicit
+qualification; polymorphic/defaulted/variadic/decimal-dependent/table declarations need exact
+query evidence. This is an explicit library path, not automatic CLI catalog generation.
+
+The real PostgreSQL 18 proof captures routine metadata inside a guarded context window and a
+read-only snapshot, serializes the selected catalog, and compiles a different SQL statement
+without describing that invocation or executing its function. It checks parameter/result
+codec plans and a strict function that actually returns NULL for non-null input. Native type
+identities now retain their namespaces; display names alone cannot authorize reuse.
+
+Validation for this addition: build and typecheck; analysis and PostgreSQL coverage gates;
+repository contracts; packed consumers with project-catalog modules physically absent from the
+frozen/runtime path; documentation and quality checks; the real PostgreSQL helper; and the
+existing performance budgets. No global source inventory or generated mapping blob is added.

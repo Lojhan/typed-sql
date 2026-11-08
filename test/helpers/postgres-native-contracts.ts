@@ -9,6 +9,7 @@ import { Pool, type PoolClient } from "pg";
 import { strict } from "poku";
 import {
   acquireNativeQueryContract,
+  applyProjectCatalogs,
   createContractDialect,
   createLiveAnalysisScheduler,
   createNativeLiveAnalysisRunner,
@@ -24,7 +25,7 @@ import {
   reconcileQueryContract,
 } from "../../packages/analysis/src/index.js";
 import { collectSourceQueryCandidates, compileSource } from "../../packages/compiler/src/index.js";
-import { postgres } from "../../packages/postgres/src/analysis.js";
+import { PostgresSchemaProvider, postgres } from "../../packages/postgres/src/analysis.js";
 import { postgresContractIdentity } from "../../packages/postgres/src/contract-profile.js";
 import { adaptPgPool } from "../../packages/postgres/src/pg.js";
 import {
@@ -32,8 +33,13 @@ import {
   PostgresContractAcquisitionError,
 } from "../../packages/postgres/src/pg-contracts.js";
 import { postgresProfile } from "../../packages/postgres/src/profile.js";
+import {
+  createPostgresProjectCatalog,
+  createPostgresProjectCatalogContribution,
+} from "../../packages/postgres/src/project-catalog.js";
 import { createPostgresContractReconciler } from "../../packages/postgres/src/reconciliation.js";
 import { createPostgresDatabase } from "../../packages/postgres/src/runtime.js";
+import { calculateSchemaHash, upgradeSchemaSnapshotV1 } from "../../packages/schema/src/index.js";
 import { assertIsolatedPostgresContractConsumer } from "./frozen-contract-consumer.js";
 import { ProtocolClient } from "./protocol-client.js";
 import { startWatchedCli } from "./watch-cli.js";
@@ -64,6 +70,9 @@ export async function assertPostgresNativeContracts(connectionString: string, di
     await pool.query(
       `CREATE FUNCTION ${namespace}.increment(value bigint) RETURNS bigint LANGUAGE plpgsql AS $$BEGIN UPDATE ${namespace}.calls SET count = count + 1; RETURN value + 1; END$$`,
     );
+    await pool.query(
+      `CREATE FUNCTION ${namespace}.strict_null(value bigint) RETURNS bigint LANGUAGE sql IMMUTABLE STRICT AS $$SELECT NULL::bigint$$`,
+    );
     const text = `SELECT ${namespace}.increment($1::bigint) AS result`;
     const source =
       // biome-ignore lint/suspicious/noTemplateCurlyInString: This is application source for the compiler proof.
@@ -81,6 +90,94 @@ export async function assertPostgresNativeContracts(connectionString: string, di
     strict.equal(candidates.candidates[0]!.sql, text);
     const parameterOccurrences = candidates.candidates[0]!.parameterOccurrences;
     const context = await native.inspectContext();
+    // Reusable declarations come from native catalog metadata, not a sampled invocation.
+    const captureMetadata = async () => {
+      const guard = await native.open();
+      try {
+        const observed = await guard.context();
+        strict.deepEqual(observed, context);
+        const metadataClient = await pool.connect();
+        let source: Awaited<ReturnType<PostgresSchemaProvider["introspect"]>>;
+        try {
+          await metadataClient.query("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
+          source = await new PostgresSchemaProvider({ client: metadataClient, includeSchemas: [namespace] }).introspect(
+            {},
+          );
+        } finally {
+          try {
+            await metadataClient.query("ROLLBACK");
+          } finally {
+            metadataClient.release();
+          }
+        }
+        strict.deepEqual(await guard.context(), observed);
+        return source;
+      } finally {
+        await guard.close();
+      }
+    };
+    let routineSource: Awaited<ReturnType<typeof captureMetadata>>;
+    for (let attempt = 0; ; attempt++) {
+      try {
+        routineSource = await captureMetadata();
+        break;
+      } catch (error) {
+        if (!(error instanceof PostgresContractAcquisitionError) || error.reason !== "context-changed" || attempt >= 2)
+          throw error;
+      }
+    }
+    const strictNull = postgres().analyze(`SELECT ${namespace}.strict_null(1::bigint) AS result`, {
+      ...routineSource,
+      dialect: "postgres",
+    });
+    strict.equal(
+      strictNull.columns[0]?.nullable,
+      true,
+      "STRICT does not prove a non-null result for non-null arguments",
+    );
+    strict.equal((await pool.query(`SELECT ${namespace}.strict_null(1::bigint) AS result`)).rows[0]?.result, null);
+    const projectBase = {
+      ...upgradeSchemaSnapshotV1({ ...schema, dialectVersion: context.grammar.version, server: routineSource.server }),
+      dialect: "postgres" as const,
+    };
+    const projectContext = { ...context, schemaHash: calculateSchemaHash(projectBase) };
+    const projectCatalog = createPostgresProjectCatalog({
+      source: routineSource,
+      context: projectContext,
+      sql: [text],
+    });
+    strict.equal(projectCatalog.entries.length, 1);
+    strict.equal(projectCatalog.entries[0]!.permission, "fixed-result");
+    const project = applyProjectCatalogs({
+      schema: projectBase,
+      context: projectContext,
+      typePolicy: postgres().defaultTypePolicy,
+      catalogs: [JSON.parse(JSON.stringify(projectCatalog))],
+      contributions: [createPostgresProjectCatalogContribution()],
+    });
+    const reused = compileSource({
+      source: application.replace("::bigint) AS result", "::bigint + 7::bigint) AS result"),
+      schema: project.schema,
+      dialect: postgres(),
+      runtimeMetadata: true,
+    });
+    strict.deepEqual(
+      reused.diagnostics.filter((item) => item.severity === "error"),
+      [],
+    );
+    strict.notEqual(
+      reused.queries[0]!.query.sql,
+      text,
+      "Reusable metadata must support a different SQL statement without a sampled contract",
+    );
+    strict.match(reused.queries[0]!.rowType, /result.*bigint.*null/u);
+    strict.equal(reused.queries[0]!.valuePlan?.columns[0]?.type, "bigint");
+    strict.equal(reused.queries[0]!.valuePlan?.parameters[0]?.type, "bigint");
+    strict.equal(
+      (await pool.query<{ count: number }>(`SELECT count FROM ${namespace}.calls`)).rows[0]!.count,
+      0,
+      "Native catalog selection and offline reuse must not execute the routine",
+    );
     const acquired = await acquireNativeQueryContract({
       adapter: native,
       context,

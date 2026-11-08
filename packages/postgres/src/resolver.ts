@@ -64,6 +64,11 @@ import type {
   WithClause,
 } from "./parser/index.js";
 import { walkStatement } from "./parser/index.js";
+import {
+  postgresProjectCatalogPermissionKey,
+  postgresProjectRoutineFamily,
+  postgresProjectRoutineIsFixed,
+} from "./project-catalog-policy.js";
 import { postgresRuntimeValueType } from "./query.js";
 import { parsePostgresMajor } from "./support.js";
 import {
@@ -793,6 +798,12 @@ class Resolver {
   }
 
   #isAggregateCall(expression: CallExpression): boolean {
+    const project = postgresProjectRoutineFamily(
+      this.#schema,
+      sqlName(expression.name),
+      expression.schema === undefined ? undefined : sqlName(expression.schema),
+    );
+    if (project.length) return project.every((routine) => routine.kind === "aggregate");
     const name = expression.name.name.toUpperCase();
     const rule = postgresCatalogRoutineRule(name, this.#schema);
     if (rule !== undefined && aggregateRoutineRules.has(rule)) return true;
@@ -2070,6 +2081,31 @@ class Resolver {
     ctes: ReadonlyMap<string, TableSnapshot>,
   ): FunctionColumn[] {
     const expression = item.call;
+    if (
+      postgresProjectRoutineFamily(
+        this.#schema,
+        sqlName(expression.name),
+        expression.schema === undefined ? undefined : sqlName(expression.schema),
+      ).length
+    ) {
+      if (item.columns.some((column) => column.databaseType !== undefined)) {
+        this.#diagnostic(
+          "TSQ212",
+          "Project routine declarations do not qualify output type definitions",
+          expression.range,
+        );
+        return [{ name: sqlName(expression.name), tsType: "unknown", databaseType: "unknown", nullable: true }];
+      }
+      const result = this.#resolveCall(expression, scope, ctes);
+      return [
+        {
+          name: sqlName(expression.name),
+          tsType: result.tsType,
+          databaseType: result.databaseType ?? "unknown",
+          nullable: result.nullable,
+        },
+      ];
+    }
     const argumentsList = expression.arguments.map((argument) => this.#resolveExpression(argument, scope, ctes));
     if (item.columns.length > 0) {
       return item.columns.map((definition) => ({
@@ -3853,8 +3889,78 @@ class Resolver {
     };
   }
 
+  #resolveProjectRoutine(
+    expression: CallExpression,
+    resolved: readonly ResolvedType[],
+    routines: readonly import("@typed-sql/schema").RoutineSnapshot[],
+    scope: Scope,
+    ctes: ReadonlyMap<string, TableSnapshot>,
+  ): ResolvedType {
+    const unresolved = (message: string): ResolvedType => {
+      this.#diagnostic(
+        "TSQ202",
+        message,
+        expression.range,
+        "Qualify the routine name or generate an exact query contract.",
+        "warning",
+      );
+      return { tsType: "unknown", nullable: true };
+    };
+    if (expression.schema === undefined)
+      return unresolved("Project routine inference requires an explicitly qualified name");
+    if (
+      routines.some(
+        (routine) =>
+          routine.extension?.attributes[postgresProjectCatalogPermissionKey] !== "fixed-result" ||
+          !postgresProjectRoutineIsFixed(routine, this.#schema, this.#policy),
+      )
+    )
+      return unresolved("Project routine declaration requires query-specific evidence");
+    if (
+      expression.distinct ||
+      expression.over !== undefined ||
+      expression.filter !== undefined ||
+      expression.orderBy?.length ||
+      expression.withinGroup?.length
+    )
+      return unresolved("Project routine declaration does not qualify aggregate or window syntax");
+    const actualTypes = expression.arguments.map((argument, index) =>
+      this.#overloadInputType(argument, resolved[index]),
+    );
+    const selection = resolvePostgresCandidates(
+      routines.flatMap((routine) => {
+        const argumentTypes = this.#routineCallTypes(routine, expression);
+        if (argumentTypes === undefined || routine.result.kind !== "scalar") return [];
+        if (
+          routines.length > 1 &&
+          !argumentTypes.every(
+            (type, index) =>
+              actualTypes[index] !== undefined &&
+              postgresCanonicalType(actualTypes[index]!, this.#schema) === postgresCanonicalType(type, this.#schema),
+          )
+        )
+          return [];
+        return [{ value: routine, argumentTypes, resultType: routine.result.databaseType }];
+      }),
+      actualTypes,
+      this.#schema,
+    );
+    if (selection.kind !== "selected") return unresolved("Project routine overload is unresolved or ambiguous");
+    expression.arguments.forEach((argument, index) => {
+      if (this.#acceptsTypeContext(argument))
+        this.#resolveExpression(argument, scope, ctes, this.#databaseType(selection.argumentTypes[index]!, true));
+    });
+    return this.#databaseType(selection.resultType, true);
+  }
+
   #resolveCall(expression: CallExpression, scope: Scope, ctes: ReadonlyMap<string, TableSnapshot>): ResolvedType {
     const resolved = expression.arguments.map((argument) => this.#resolveExpression(argument, scope, ctes));
+    const projectRoutines = postgresProjectRoutineFamily(
+      this.#schema,
+      sqlName(expression.name),
+      expression.schema === undefined ? undefined : sqlName(expression.schema),
+    );
+    if (projectRoutines.length) return this.#resolveProjectRoutine(expression, resolved, projectRoutines, scope, ctes);
     if (resolved.some((value) => value.json?.requiresRuntimeValidation)) this.#requiresJsonValidation = true;
     const aggregateOrder = (expression.orderBy ?? []).map((item) =>
       this.#resolveExpression(item.expression, scope, ctes),

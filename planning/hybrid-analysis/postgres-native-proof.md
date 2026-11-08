@@ -176,3 +176,15 @@ must fail, persist a native/static conflict in that same cache and preserve the 
 manifest. Restoring the correct analyzer must reconcile freshly and match the original export.
 This checks the project generation boundary as well as the direct reconciliation API; it does
 not expand the transport's supported statement classes or native nullability evidence.
+
+## Reusable selected declarations
+
+The helper captures selected user routine metadata through the PostgreSQL schema provider in a
+read-only snapshot, bracketed by the native adapter's guarded context reads. It retains native
+argument/result namespaces, serializes the selected catalog, and compiles a different statement
+from that data without describing or executing the new invocation. Parameter and result plans
+retain bigint decoding. A separate strict function returning NULL confirms that strict input
+handling cannot establish a non-null output.
+
+This qualifies the explicit library path on the tested PostgreSQL 18 environment. Automatic
+project catalog acquisition, durable publication and editor refresh are not yet integrated.

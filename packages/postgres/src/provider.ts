@@ -87,6 +87,8 @@ interface FunctionCatalogRow extends Record<string, unknown> {
   readonly schema_name: string;
   readonly function_name: string;
   readonly argument_types: string[];
+  readonly argument_type_identities?: readonly string[];
+  readonly return_type_identity?: string;
   readonly database_return_type: string;
   readonly set_returning: boolean;
   readonly volatility: "i" | "s" | "v";
@@ -262,6 +264,17 @@ export const postgresCatalogQueries = {
         FROM unnest(COALESCE(p.proallargtypes, p.proargtypes::oid[])) WITH ORDINALITY AS arguments(argument_oid, position)
         ORDER BY position
       ) AS argument_types,
+      ARRAY(
+        SELECT pg_catalog.format('%I.%I', type_namespace.nspname, argument_type.typname)
+        FROM unnest(COALESCE(p.proallargtypes, p.proargtypes::oid[])) WITH ORDINALITY AS arguments(argument_oid, position)
+        JOIN pg_catalog.pg_type AS argument_type ON argument_type.oid = argument_oid
+        JOIN pg_catalog.pg_namespace AS type_namespace ON type_namespace.oid = argument_type.typnamespace
+        ORDER BY position
+      ) AS argument_type_identities,
+      (SELECT pg_catalog.format('%I.%I', type_namespace.nspname, result_type.typname)
+        FROM pg_catalog.pg_type AS result_type
+        JOIN pg_catalog.pg_namespace AS type_namespace ON type_namespace.oid = result_type.typnamespace
+        WHERE result_type.oid = p.prorettype) AS return_type_identity,
       COALESCE(p.proargnames, ARRAY[]::text[]) AS argument_names,
       ARRAY(
         SELECT mode::text
@@ -955,7 +968,7 @@ export class PostgresSchemaProvider implements SchemaProvider<SchemaSnapshotV2> 
         const argumentsList = row.argument_types.map((databaseType, index) => ({
           ...(row.argument_names?.[index] == null ? {} : { name: row.argument_names[index]! }),
           mode: argumentMode(modes[index]),
-          typeIdentity: databaseType,
+          typeIdentity: row.argument_type_identities?.[index] ?? databaseType,
           databaseType,
           tsType: mapPostgresType(databaseType, policy, schemaForFunctions),
           default:
@@ -996,10 +1009,10 @@ export class PostgresSchemaProvider implements SchemaProvider<SchemaSnapshotV2> 
                 ? ({ kind: "record", columns: {} } as const)
                 : ({
                     kind: row.set_returning ? "set" : "scalar",
-                    typeIdentity: row.database_return_type,
+                    typeIdentity: row.return_type_identity ?? row.database_return_type,
                     databaseType: row.database_return_type,
                     tsType: mapPostgresType(row.database_return_type, policy, schemaForFunctions),
-                    nullable: !row.strict,
+                    nullable: true,
                   } as const);
         const family = polymorphicFamily([...row.argument_types, row.database_return_type]);
         const routine: RoutineSnapshot = {

@@ -73,6 +73,13 @@ export { parseNativeQueryContractEvidence } from "./native-evidence.js";
 export { prepareOfflineContractView } from "./offline-view.js";
 export { createPersistentLiveAnalysisRunner } from "./persistent-live.js";
 export type {
+  ProjectCatalog,
+  ProjectCatalogContribution,
+  ProjectCatalogEntry,
+  ProjectCatalogPermission,
+} from "./project-catalog.js";
+export { applyProjectCatalogs, createProjectCatalog, parseProjectCatalog } from "./project-catalog.js";
+export type {
   ContractFacetComparison,
   ContractQualificationPolicy,
   ContractValueFacet,
