@@ -592,8 +592,19 @@ export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<
         if (current.epoch !== expected.epoch || (previous?.revision ?? null) !== expected.entryRevision)
           return { status: "superseded" as const };
         const heads = current.heads ?? [];
-        const contextHash = queryContractDigest(context),
-          head: ContextHead = { scopeHash: key, contextHash, revision: nonce(), observedAt: now(), status: "usable" };
+        const contextHash = queryContractDigest(context);
+        const unchanged =
+          previous?.status === "usable" &&
+          previous.contextHash === contextHash &&
+          !current.entries.some((item) => item.contextHash === contextHash && item.result.kind === "stale-context");
+        // Observation time can advance without invalidating queries bound to identical evidence.
+        const head: ContextHead = {
+          scopeHash: key,
+          contextHash,
+          revision: unchanged ? previous.revision : nonce(),
+          observedAt: now(),
+          status: "usable",
+        };
         const priorHash = previous?.contextHash ?? (previousContext ? queryContractDigest(previousContext) : undefined);
         const changed = priorHash !== undefined && priorHash !== contextHash;
         const epoch = changed ? nonce() : current.epoch;

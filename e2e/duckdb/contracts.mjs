@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { verifyEditorContracts } from "./editor-contracts.mjs";
 
 /** Public packed CLI generation with a native-only routine shape, then frozen offline reuse. */
 export async function verifyQueryContracts(fixture, application, artifacts, engine) {
@@ -32,17 +33,18 @@ import {defineConfig} from "@typed-sql/core";
 import {duckdbProfile} from "@typed-sql/duckdb/profile";
 import {duckDBContractIdentity,duckDBContractAdapterVersion,duckDBContractReconciliationOwner} from "@typed-sql/duckdb/contract-profile";
 const frozen=process.env.TYPED_SQL_DUCKDB_CONTRACT_FROZEN === "1";
+const offline=process.env.TYPED_SQL_DUCKDB_CONTRACT_OFFLINE === "1";
 export default defineConfig({
   dialect:{...duckdbProfile(),async loadAnalyzer(){
-    if(frozen)throw Error("Frozen checking loaded the analyzer");
+    if(frozen||offline)throw Error("Recorded checking loaded the analyzer");
     return (await import("@typed-sql/duckdb/analysis")).duckdb();
   }},
   schema:{file:"schema.json"},outDir:"generated",projects:["tsconfig.json"],
-  analysis:{mode:frozen?"frozen":"live",identity:duckDBContractIdentity(),contractsDir:"contracts",
+  analysis:{mode:frozen?"frozen":offline?"offline":"live",identity:duckDBContractIdentity(),contractsDir:"contracts",
     cache:{connectionContext:"0".repeat(64),adapter:{id:"@typed-sql/duckdb/node-api-contracts",version:duckDBContractAdapterVersion}},
     qualification:{mode:"hybrid",owner:duckDBContractReconciliationOwner,requiredNativeFacets:[]},
-    live:{async adapter({schema}){
-      if(frozen)throw Error("Frozen checking initialized a native adapter");
+    live:{contextIntervalMs:1,async adapter({schema}){
+      if(frozen||offline)throw Error("Recorded checking initialized a native adapter");
       const {createNodeDuckDBNativeContractAdapter}=await import("@typed-sql/duckdb/node-api-contracts");
       const {createDuckDBContractReconciler}=await import("@typed-sql/duckdb/reconciliation");
       const adapter=createNodeDuckDBNativeContractAdapter({schema,path:${JSON.stringify(join(application, "persistent.duckdb"))}});
@@ -96,5 +98,6 @@ console.log("Frozen bundled SQL retains the native nested decoder plan and execu
     env: { TYPED_SQL_DUCKDB_CONTRACT_FROZEN: "1" },
   });
   transcript.push(bundled.output);
+  await verifyEditorContracts(fixture, directory, artifacts, engine, join(application, "persistent.duckdb"));
   await writeFile(join(artifacts, `${engine}-native-contracts.log`), transcript.join("\n"));
 }

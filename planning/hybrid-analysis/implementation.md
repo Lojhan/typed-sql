@@ -26,7 +26,7 @@ PostgreSQL native acquisition is restricted to the documented expression-query p
 DuckDB native acquisition supports builtin scalar expression projections on 1.5.6 and 2.0.0;
 its real-engine tests exercise the shared live runner, persistent cache, offline reuse and conflicts.
 DuckDB packed CLI generation, changed-query regeneration and frozen checking pass on both SDKs;
-its editor qualification remains outstanding. MySQL, SQLite and SQL Server retain
+its packaged editor path is also qualified for SQL documents and TypeScript templates. MySQL, SQLite and SQL Server retain
 their existing offline support and contract-profile interfaces without native acquisition qualification.
 Build transforms and `typed-sql-build types` consume durable query contracts. Frozen builds avoid
 analyzer/native initialization; offline and live-configured builds use offline rules for unrecorded
@@ -99,7 +99,7 @@ The explicit Node contract adapter creates an owned instance/connection, opens e
 read-only, disables external access and extension auto-loading/installing, disables optimizer
 evaluation, and prepares inside a read-only transaction. It checks the actual engine version
 against its SDK and captures bounded function/type metadata plus settings for the context hash.
-Only builtin scalar expression projections are admitted; conflicting routine families, macros,
+Only consistent builtin scalar expression projections are admitted; conflicting routine families, macros,
 relations, table functions, aggregates/windows and side-effecting routines remain unqualified.
 Descriptors retain decimal dimensions and nested logical shape. No candidate is bound or run,
 and absent parameter metadata does not become an inferred input type. Nullability stays unknown.
@@ -114,6 +114,12 @@ handle is released when cancellation arrives during preparation. File-backed tes
 DDL changes the context and case-insensitive macro shadowing blocks builtin fallback.
 Application-owned instances and files locked by active writers are not qualified by this adapter.
 
+Session-variable binding is excluded. A real-engine regression demonstrates that identical
+`getvariable` SQL changes its prepared result type after a connection-local variable is set.
+DuckDB 1.5.6 labels this family CONSISTENT, so the grammar rejects it explicitly as well as
+rejecting families with non-consistent metadata. Adapter/profile revision v2 invalidates contracts
+captured under the earlier admission policy. No candidate values are executed to infer types.
+
 The packed consumer matrix exercises `typed-sql generate --queries --live` and `typed-sql check`
 against public package entrypoints on both SDKs. Changing json_transform's constant declaration
 from INTEGER to VARCHAR changes the displayed nested field type. Frozen checking then succeeds
@@ -122,6 +128,23 @@ matrix retains the existing runtime, offline build under a writer lock, no-SDK c
 provider generation and bundled execution checks. With analysis configuration, the matrix also
 generates SQL declarations before and after native contract regeneration, checks them with tsc,
 bundles in frozen mode and executes the resulting query with its native nested decoder plan.
+
+The same two-SDK matrix runs the packaged language server in separate child processes with its
+stable resolver path (`nativePreview: false`). SQL documents and TypeScript templates acquire a
+previously unrecorded BOOLEAN json_transform shape from unsaved text. Two successive unsaved
+replacements produce only the current VARCHAR hover. After shutdown, durable contracts are
+physically hidden and a fresh offline server reuses the BOOLEAN cache entry while both analyzer
+and native factories throw if initialized. Diagnostics and exact nested field types are asserted;
+this does not qualify the separate native TypeScript preview integration.
+
+The editor fixture also reobserves a committed catalog change without a document edit. A short
+refresh interval exposed context-head churn: observing the same context replaced its revision
+and invalidated still-current views. Unchanged usable observations now retain that revision while
+updating their timestamp; changed/retired contexts still invalidate tokens and keep publication
+fences. Cache and session regressions preserve active views through repeated observations and
+retain negative query evidence. The packed matrix passes with 1 ms request-driven observations.
+CI runs packed native/editor qualification for each DuckDB engine; the consumer enumerates exact
+engine/SDK pairs from the grammar support policy rather than maintaining a separate target list.
 
 The Linux x64 CI and local Darwin arm64 live inventories retain their previous inventory hashes
 and recognition counts. Reversing only TSQ408's code/message to the previous TSQ201 fallback

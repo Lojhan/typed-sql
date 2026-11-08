@@ -252,6 +252,9 @@ export function createNodeDuckDBNativeContractAdapter(
           described = true;
           const names = selection(candidate);
           for (const name of names) {
+            // DuckDB 1.5.6 labels getvariable CONSISTENT even though its bound
+            // result type depends on connection-local variables outside this context.
+            if (name === "getvariable") throw new DuckDBContractAcquisitionError("unsupported-statement");
             const family = routines.filter((row) => typeof row[2] === "string" && duckDBAsciiFold(row[2]) === name);
             if (
               !family.length ||
@@ -261,7 +264,8 @@ export function createNodeDuckDBNativeContractAdapter(
                   row[1] !== "main" ||
                   row[3] !== "scalar" ||
                   row[4] !== true ||
-                  row[5] !== false,
+                  row[5] !== false ||
+                  row[6] !== "CONSISTENT",
               )
             )
               throw new DuckDBContractAcquisitionError("unsupported-statement");
@@ -293,7 +297,7 @@ export function createNodeDuckDBNativeContractAdapter(
               consistency: {
                 mechanism: "snapshot",
                 scope:
-                  "duckdb-owned-readonly-catalog-snapshot-external-access-and-optimizer-disabled-builtin-expressions-v1",
+                  "duckdb-owned-readonly-catalog-snapshot-external-access-and-optimizer-disabled-consistent-builtin-expressions-v2",
               },
               resultKind: "rows",
               columns: Array.from({ length: native.columnCount }, (_, i) => ({

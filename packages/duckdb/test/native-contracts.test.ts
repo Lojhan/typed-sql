@@ -148,6 +148,38 @@ await describe("DuckDB non-executing native query contracts", async () => {
     strict.equal(result.status, "acquired", "A rejected acquisition releases all native handles");
   });
 
+  await it("rejects session-dependent binding types instead of generalizing an empty session's result", async () => {
+    const instance = await sdk.DuckDBInstance.create();
+    const connection = await instance.connect();
+    const sql = "SELECT getvariable('typed_sql_contract_value') AS value";
+    try {
+      const before = await connection.prepare(sql);
+      let initialType: number;
+      try {
+        initialType = before.columnTypeId(0);
+      } finally {
+        before.destroySync();
+      }
+      const setting = await connection.run("SET VARIABLE typed_sql_contract_value = 'session text'");
+      setting.closeSync();
+      const after = await connection.prepare(sql);
+      try {
+        strict.equal(after.columnTypeId(0), sdk.DuckDBTypeId.VARCHAR);
+        strict.notEqual(after.columnTypeId(0), initialType);
+      } finally {
+        after.destroySync();
+      }
+    } finally {
+      connection.closeSync();
+      instance.closeSync();
+    }
+    const adapter = createNodeDuckDBNativeContractAdapter(options);
+    await strict.rejects(
+      acquireNativeQueryContract({ adapter, context: await adapter.inspectContext(), candidate: candidate(sql) }),
+      /unsupported-statement/,
+    );
+  });
+
   await it("binds contracts to policy/context and rejects cancellation before native loading", async () => {
     const adapter = createNodeDuckDBNativeContractAdapter(options);
     const context = await adapter.inspectContext();

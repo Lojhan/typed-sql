@@ -5,13 +5,10 @@ import {
   defineDialectServerEvidence,
   type SchemaSnapshot,
 } from "@typed-sql/core";
+import { DUCKDB_SUPPORT_POLICY } from "./support-policy.js";
 import { DUCKDB_DIALECT_VERSION } from "./version.js";
-export const DUCKDB_SUPPORT_POLICY = Object.freeze({
-  qualifiedEngines: Object.freeze(["1.5.6", "2.0.0"] as const),
-  nodeApi: Object.freeze({ "1.5.6": "1.5.6-r.2", "2.0.0": "2.0.0-r.1" }),
-  unknownNewer: "conservative",
-  minimum: "1.5.6",
-} as const);
+
+export { DUCKDB_SUPPORT_POLICY } from "./support-policy.js";
 export type DuckDBVersionSupport = "supported" | "below-supported" | "newer-than-tested" | "prerelease" | "unknown";
 export function parseDuckDBVersion(value: string): string | undefined {
   return /^v?(\d+)\.(\d+)\.(\d+)$/u.exec(value)?.slice(1).map(Number).join(".");

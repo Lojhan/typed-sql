@@ -21,6 +21,47 @@ async function temporary(test: (cache: AnalysisCache, directory: string) => Prom
   }
 }
 await describe("recorded context selection", async () => {
+  await it("refreshes unchanged observations without invalidating active views, while changes and retirement remain fenced", async () => {
+    let time = 0;
+    await temporary(
+      async (cache) => {
+        await cache.publishContext({ token: (await cache.lookupContext(scope)).token, scope, context });
+        const first = await cache.lookupContext(scope);
+        await cache.publish({
+          token: (await cache.lookup(request)).token,
+          request,
+          outcome: { kind: "rejected", code: "known-query-error" },
+        });
+        time = 100;
+        const refreshed = await cache.publishContext({ token: first.token, scope, context });
+        strict.equal(refreshed.status, "published");
+        strict.equal(await cache.areTokensCurrent([first.token]), true);
+        const second = await cache.lookupContext(scope);
+        strict.equal(second.recorded?.observedAt, time);
+        strict.deepEqual(second.token, first.token);
+        strict.equal(
+          (await cache.lookup(request)).cached?.outcome.kind,
+          "rejected",
+          "An unchanged observation cannot erase known negative query evidence",
+        );
+        const changed = { ...context, databaseContextHash: queryContractDigest("changed-catalog") };
+        await cache.publishContext({ token: second.token, scope, context: changed });
+        strict.equal(await cache.areTokensCurrent([first.token]), false);
+        strict.equal((await cache.publishContext({ token: first.token, scope, context })).status, "superseded");
+        const active = await cache.lookupContext(scope);
+        await cache.retireContext(changed);
+        const retired = await cache.lookupContext(scope);
+        await cache.publishContext({ token: retired.token, scope, context: changed });
+        strict.equal(await cache.areTokensCurrent([active.token]), false);
+        strict.equal(
+          await cache.areTokensCurrent([retired.token]),
+          false,
+          "Reactivating retired evidence must invalidate the retired capture",
+        );
+      },
+      { now: () => time },
+    );
+  });
   await it("reopens exact scope observations offline and protects them across pruning and query publication", async () => {
     await temporary(async (cache, directory) => {
       const before = await cache.lookupContext(scope);

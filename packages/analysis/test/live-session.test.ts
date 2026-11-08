@@ -91,6 +91,11 @@ await describe("project live session", async () => {
       strict.equal(descriptions, 1);
       await first.assertCurrent();
       time = 5001;
+      await session.prepare({ document: "file:///two.ts", version: 1, candidates: [request.candidate] });
+      strict.equal(observations, 2);
+      strict.equal(descriptions, 1);
+      await first.assertCurrent();
+      time = 10002;
       selected = { ...context, databaseContextHash: queryContractDigest("changed") };
       const refreshed = await session.prepare({
         document: "file:///two.ts",
@@ -98,7 +103,7 @@ await describe("project live session", async () => {
         candidates: [request.candidate],
       });
       strict.equal(refreshed.context.databaseContextHash, selected.databaseContextHash);
-      strict.equal(observations, 2);
+      strict.equal(observations, 3);
       strict.equal(descriptions, 2);
       strict.equal(changes, 1);
       await strict.rejects(first.assertCurrent());

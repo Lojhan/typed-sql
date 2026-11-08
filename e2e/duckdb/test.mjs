@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { cp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { DUCKDB_SUPPORT_POLICY } from "../../packages/duckdb/src/support.js";
 import { consumer } from "../build/src/consumer.mjs";
 import { verifyQueryContracts } from "./contracts.mjs";
 import { lockDatabase, offlineCommands, prepareProject } from "./offline.mjs";
@@ -11,16 +12,23 @@ const artifacts = resolve(directory, "../../artifacts/duckdb/packed");
 await mkdir(artifacts, { recursive: true });
 // Each SDK lives in its own installation and child process. Loading both native
 // engines in one process can interpose symbols and falsify version evidence.
-for (const [sdk, engine] of [
-  ["1.5.6-r.2", "v1.5.6"],
-  ["2.0.0-r.1", "v2.0.0"],
-]) {
+const selected = process.env.TYPED_SQL_DUCKDB_TARGET;
+const engines = DUCKDB_SUPPORT_POLICY.qualifiedEngines.filter(
+  (version) => selected === undefined || version === selected,
+);
+assert.ok(engines.length, "TYPED_SQL_DUCKDB_TARGET must select a qualified DuckDB engine");
+for (const version of engines) {
+  const sdk = DUCKDB_SUPPORT_POLICY.nodeApi[version],
+    engine = `v${version}`;
   const fixture = await consumer(
     ["@duckdb/node-api", "typescript", "@types/node", "esbuild"],
-    ["@typed-sql/duckdb", "@typed-sql/compiler", "@typed-sql/cli"],
+    ["@typed-sql/duckdb", "@typed-sql/compiler", "@typed-sql/cli", "@typed-sql/language-server"],
   );
   try {
-    if (sdk !== "2.0.0-r.1")
+    const installedSDK = JSON.parse(
+      await readFile(join(fixture.directory, "node_modules/@duckdb/node-api/package.json"), "utf8"),
+    );
+    if (sdk !== installedSDK.version)
       await fixture.command(fixture.directory, "pnpm", [
         "add",
         "--ignore-workspace",

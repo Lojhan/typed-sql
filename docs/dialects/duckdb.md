@@ -66,9 +66,9 @@ automatic extension loading and optimizer evaluation are disabled. Function fami
 metadata are captured inside the transaction; context identities also include engine and settings
 evidence. Candidate SQL is never bound or executed, and sample values are never used for inference.
 
-The qualified scope contains scalar builtin expression projections and numbered `$N` parameters.
+The qualified scope contains consistent scalar builtin expression projections and numbered `$N` parameters.
 Relation queries, views, table functions, macros, aggregates, windows, side-effecting routines,
-external extension packs and remote transports require separate qualification. A conflicting
+session-dependent binding results, external extension packs and remote transports require separate qualification. A conflicting
 schema-owned routine family blocks builtin fallback, including case-insensitive name collisions.
 
 Native logical types preserve decimal precision/scale and nested result structure. Preparation
@@ -80,6 +80,11 @@ provide enough native parameter information without binding values.
 that result, including shapes such as `json_transform` with a constant structure declaration.
 Other static errors remain blocking, and independently successful static claims are compared
 before publication. Recorded contracts support offline reuse; changed SQL requires fresh evidence.
+
+The language server uses this registration for SQL documents and TypeScript query templates.
+Configured live checking can regenerate evidence for unsaved edits. Offline checking can reuse
+matching cached evidence without initializing an analyzer or native adapter. Build adapters consume
+exported durable contracts as described in [bundler integration](../integrations/bundlers.md#recorded-query-contracts).
 
 ## Native values
 
