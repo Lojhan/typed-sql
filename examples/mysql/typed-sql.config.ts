@@ -1,5 +1,6 @@
 import { defineConfig } from "@typed-sql/core";
-import { mysql, typePolicy } from "@typed-sql/mysql";
+import { typePolicy } from "@typed-sql/mysql";
+import { mysql } from "@typed-sql/mysql/analysis";
 import { mysql2 } from "@typed-sql/mysql/mysql2";
 
 export const connectionUri = () =>

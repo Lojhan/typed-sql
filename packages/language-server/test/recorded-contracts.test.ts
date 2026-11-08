@@ -107,7 +107,7 @@ await describe("recorded contracts in the editor", async () => {
           config,
           offline.replace(
             'loadAnalyzer(){throw new Error("analyzer must remain cold")}',
-            'loadAnalyzer:async()=>(await import("@typed-sql/postgres")).postgres()',
+            'loadAnalyzer:async()=>(await import("@typed-sql/postgres/analysis")).postgres()',
           ),
         );
         current.invalidate();

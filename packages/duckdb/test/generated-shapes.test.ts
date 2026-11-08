@@ -5,7 +5,7 @@ const sdk = legacy ? await import("duckdb-node-15") : await import("@duckdb/node
 const version = legacy ? "1.5.6" : "2.0.0";
 
 import { it, strict } from "poku";
-import { duckdb } from "../src/index.js";
+import { duckdb } from "../src/analysis.js";
 import { fixtureEvidence } from "./helpers/evidence.js";
 
 await it("retains every automatically discovered native binding/analysis regression", async () => {

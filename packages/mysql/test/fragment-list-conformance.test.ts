@@ -5,7 +5,8 @@ import {
   fragmentListCases,
   fragmentRows as rows,
 } from "../../../test/helpers/fragment-list.js";
-import { type MySqlSchemaSnapshot, mysql, sql } from "../src/index.js";
+import { mysql } from "../src/analysis.js";
+import { type MySqlSchemaSnapshot, sql } from "../src/index.js";
 import { mysqlRenderer } from "../src/runtime.js";
 
 const snapshot = {

@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { describe, it, strict } from "poku";
-import { postgres } from "../../postgres/src/index.js";
+import { postgres } from "../../postgres/src/analysis.js";
 import { analyzeSource } from "../src/index.js";
 
 const dialect = postgres();

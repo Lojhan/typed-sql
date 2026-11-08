@@ -2,7 +2,8 @@ import { fileURLToPath } from "node:url";
 import { describe, it, strict } from "poku";
 import { buildQueryManifest, compileSource } from "../../packages/compiler/src/index.js";
 import type { DatabaseObserver, DatabaseOperationStart } from "../../packages/core/src/index.js";
-import { type PostgresSchemaSnapshot, postgres, sql } from "../../packages/postgres/src/index.js";
+import { postgres } from "../../packages/postgres/src/analysis.js";
+import { type PostgresSchemaSnapshot, sql } from "../../packages/postgres/src/index.js";
 import { createPostgresDatabase } from "../../packages/postgres/src/runtime.js";
 import { loadSchemaSnapshot } from "../../packages/schema/src/index.js";
 

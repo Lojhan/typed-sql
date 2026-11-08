@@ -275,7 +275,7 @@ await describe("query acquisition candidates before semantic analysis", async ()
 
 await describe("SQL asset candidate preparation", async () => {
   await it("preserves repeated/reordered logical bindings while emitting the same normalized SQL as factories", async () => {
-    const { postgres } = await import("../../postgres/src/index.js");
+    const { postgres } = await import("../../postgres/src/analysis.js");
     const samples = [
       "SELECT vendor($2::bigint), vendor($1::bigint), vendor($2::bigint)",
       "SELECT vendor(:id::bigint), ':ignored' AS label, vendor(:id::bigint) -- :ignored\n",
@@ -322,7 +322,7 @@ await describe("SQL asset candidate preparation", async () => {
     strict.equal(collectSqlFileQueryCandidates({ source: "SELECT 1", profile: noRuntime, schema }).complete, false);
   });
   await it("keeps ordinary compilation on the same finite rendering path", async () => {
-    const { postgres } = await import("../../postgres/src/index.js");
+    const { postgres } = await import("../../postgres/src/analysis.js");
     const text = source(
       "const q = sql`SELECT 1 AS value ${enabled ? sql.fragment`WHERE ${flag}::boolean` : sql.empty}`;",
     );

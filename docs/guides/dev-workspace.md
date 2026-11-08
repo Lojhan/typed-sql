@@ -33,7 +33,7 @@ Extend the [existing configuration](../getting-started/configuration.md) with an
 
 ```ts
 import { defineConfig } from '@typed-sql/core';
-import { postgres, typePolicy } from '@typed-sql/postgres';
+import { typePolicy } from '@typed-sql/postgres'; import { postgres } from '@typed-sql/postgres/analysis';
 import { pg } from '@typed-sql/postgres/pg';
 import { createPgPlaygroundTarget } from '@typed-sql/playground/pg';
 

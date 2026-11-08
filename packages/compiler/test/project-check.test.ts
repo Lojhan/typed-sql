@@ -2,7 +2,7 @@ import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it, strict } from "poku";
-import { postgres } from "../../postgres/src/index.js";
+import { postgres } from "../../postgres/src/analysis.js";
 import { checkFile, checkProject, compileSqlFile, SQL_FILE_DECLARATION_HEADER } from "../src/index.js";
 
 const fixture = resolve(dirname(fileURLToPath(import.meta.url)), "../../../test/fixtures/success");

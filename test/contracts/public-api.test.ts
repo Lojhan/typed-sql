@@ -232,8 +232,9 @@ import type {
   TypedSqlConfig,
 } from "../../packages/core/src/index.js";
 import * as coreApi from "../../packages/core/src/index.js";
+import * as duckdbApi from "../../packages/duckdb/src/analysis.js";
 import * as duckdbBrowserApi from "../../packages/duckdb/src/browser.js";
-import * as duckdbApi from "../../packages/duckdb/src/index.js";
+import * as duckdbRootApi from "../../packages/duckdb/src/index.js";
 import * as duckdbNodeApiApi from "../../packages/duckdb/src/node-api.js";
 import * as duckdbQueryApi from "../../packages/duckdb/src/query.js";
 import * as duckdbRuntimeApi from "../../packages/duckdb/src/runtime.js";
@@ -245,8 +246,9 @@ import type {
   MySqlLoadDataOptions,
   MySqlQuerySemanticResolverOptions,
   MySqlRoutedDatabaseOptions,
-} from "../../packages/mysql/src/index.js";
-import * as mysqlApi from "../../packages/mysql/src/index.js";
+} from "../../packages/mysql/src/analysis.js";
+import * as mysqlApi from "../../packages/mysql/src/analysis.js";
+import * as mysqlRootApi from "../../packages/mysql/src/index.js";
 import * as mysql2Api from "../../packages/mysql/src/mysql2.js";
 import type { MySqlDatabase, MySqlPreparedQueryFactory, MySqlTransaction } from "../../packages/mysql/src/runtime.js";
 import * as mysqlRuntimeApi from "../../packages/mysql/src/runtime.js";
@@ -263,8 +265,9 @@ import type {
   PostgresCopyToOptions,
   PostgresQuerySemanticResolverOptions,
   PostgresRoutedDatabaseOptions,
-} from "../../packages/postgres/src/index.js";
-import * as postgresApi from "../../packages/postgres/src/index.js";
+} from "../../packages/postgres/src/analysis.js";
+import * as postgresApi from "../../packages/postgres/src/analysis.js";
+import * as postgresRootApi from "../../packages/postgres/src/index.js";
 import * as pgApi from "../../packages/postgres/src/pg.js";
 import type {
   PostgresDatabase,
@@ -274,11 +277,13 @@ import type {
 import * as postgresRuntimeApi from "../../packages/postgres/src/runtime.js";
 import * as schemaApi from "../../packages/schema/src/index.js";
 import * as schemaSnapshotApi from "../../packages/schema/src/snapshot.js";
-import * as sqliteApi from "../../packages/sqlite/src/index.js";
+import * as sqliteApi from "../../packages/sqlite/src/analysis.js";
+import * as sqliteRootApi from "../../packages/sqlite/src/index.js";
 import * as nodeSqliteApi from "../../packages/sqlite/src/node-sqlite.js";
 import * as sqliteRuntimeApi from "../../packages/sqlite/src/runtime.js";
+import * as sqlserverApi from "../../packages/sqlserver/src/analysis.js";
 import * as sqlServerBrowserApi from "../../packages/sqlserver/src/browser.js";
-import * as sqlserverApi from "../../packages/sqlserver/src/index.js";
+import * as sqlserverRootApi from "../../packages/sqlserver/src/index.js";
 import * as sqlServerMsnodesqlv8Api from "../../packages/sqlserver/src/msnodesqlv8.js";
 import * as sqlServerOdbcApi from "../../packages/sqlserver/src/odbc-entry.js";
 import * as sqlServerQueryApi from "../../packages/sqlserver/src/query.js";
@@ -776,6 +781,82 @@ void transactionBatchContract;
 void (undefined as unknown as ReferencedStableTypes);
 
 const expectedRuntimeExports = {
+  postgres: [
+    "POSTGRES_DIALECT_VERSION",
+    "defaultPostgresTypePolicy",
+    "defineQueryValuePlan",
+    "defineQueryValuePlanSelector",
+    "isKnownPostgresType",
+    "mapPostgresType",
+    "parseSchemaSnapshot",
+    "postgresRenderer",
+    "renderer",
+    "sql",
+    "typePolicy",
+    "withQueryValuePlan",
+  ],
+  mysql: [
+    "MYSQL_DIALECT_VERSION",
+    "defaultMySqlTypePolicy",
+    "defineQueryValuePlan",
+    "defineQueryValuePlanSelector",
+    "isKnownMySqlType",
+    "mapMySqlType",
+    "mysqlRenderer",
+    "renderer",
+    "sql",
+    "typePolicy",
+    "withQueryValuePlan",
+  ],
+  sqlite: [
+    "SQLITE_DIALECT_VERSION",
+    "defaultSqliteTypePolicy",
+    "defineQueryValuePlan",
+    "defineQueryValuePlanSelector",
+    "isKnownSqliteType",
+    "isKnownStrictSqliteType",
+    "mapSqliteCastType",
+    "mapSqliteType",
+    "parseSqliteSchemaSnapshot",
+    "renderer",
+    "sql",
+    "sqliteAffinity",
+    "sqliteFlexibleType",
+    "sqliteRenderer",
+    "typePolicy",
+    "withQueryValuePlan",
+  ],
+  duckdb: [
+    "DUCKDB_DIALECT_VERSION",
+    "defaultDuckDBTypePolicy",
+    "defineQueryValuePlan",
+    "defineQueryValuePlanSelector",
+    "duckDBRuntimeType",
+    "duckDBTypeScript",
+    "duckdbRenderer",
+    "mapDuckDBType",
+    "parseDuckDBSchemaSnapshot",
+    "renderer",
+    "sql",
+    "typePolicy",
+    "validateDuckDBTypePolicy",
+    "withQueryValuePlan",
+  ],
+  sqlserver: [
+    "SQLSERVER_DIALECT_VERSION",
+    "defaultSqlServerTypePolicy",
+    "defineQueryValuePlan",
+    "defineQueryValuePlanSelector",
+    "mapSqlServerType",
+    "parseSqlServerSchemaSnapshot",
+    "renderer",
+    "sql",
+    "sqlServerRenderer",
+    "sqlServerRuntimeValueType",
+    "typePolicy",
+    "validateSqlServerTypePolicy",
+    "withQueryValuePlan",
+  ],
   playground: ["decodeValue", "encodeValue", "startPlayground"],
   playgroundPg: ["PlaygroundPgCancellationError", "PlaygroundPgError", "createPgPlaygroundTarget"],
   playgroundRuntime: ["databaseForRun", "installRunRuntime", "show"],
@@ -815,7 +896,7 @@ const expectedRuntimeExports = {
     "verifyCapturedFiles",
   ],
   pgMigrations: ["createPgMigrationTarget", "migrationCatalogKey"],
-  sqlserver: [
+  sqlserverAnalysis: [
     "SQLSERVER_CAPABILITIES",
     "SQLSERVER_DIALECT_VERSION",
     "SQLSERVER_LANGUAGE_SUPPORT",
@@ -886,7 +967,7 @@ const expectedRuntimeExports = {
     "validateSqlServerDecimal",
     "validateSqlServerTypePolicy",
   ],
-  duckdb: [
+  duckdbAnalysis: [
     "DUCKDB_CAPABILITIES",
     "DUCKDB_DIALECT_VERSION",
     "DUCKDB_SUPPORT_POLICY",
@@ -1184,7 +1265,7 @@ const expectedRuntimeExports = {
     "validateJsonValue",
     "withQueryValuePlan",
   ],
-  mysql: [
+  mysqlAnalysis: [
     "MYSQL_CORE_CATALOG_FORMAT_VERSION",
     "MYSQL_DIALECT_VERSION",
     "MYSQL_SUPPORT_POLICY",
@@ -1227,7 +1308,7 @@ const expectedRuntimeExports = {
     "MySqlWarningInspectionError",
   ],
   opentelemetry: ["createOpenTelemetryObserver"],
-  postgres: [
+  postgresAnalysis: [
     "POSTGRES_DIALECT_VERSION",
     "POSTGRES_EXTENSION_MANIFEST_FORMAT_VERSION",
     "POSTGRES_CORE_CATALOG_FORMAT_VERSION",
@@ -1307,7 +1388,7 @@ const expectedRuntimeExports = {
     "migrateSchemaSnapshot",
     "parseSchemaSnapshot",
   ],
-  sqlite: [
+  sqliteAnalysis: [
     "NODE_SQLITE_RUNTIME_SUPPORT",
     "SQLITE_DIALECT_VERSION",
     "SQLITE_LANGUAGE_SUPPORT",
@@ -1384,13 +1465,15 @@ await describe("stable public API", async () => {
       playgroundRuntime: Object.keys(playgroundRuntimeApi).sort(),
       migrations: Object.keys(migrationsApi).sort(),
       pgMigrations: Object.keys(pgMigrationsApi).sort(),
-      sqlserver: Object.keys(sqlserverApi).sort(),
+      sqlserverAnalysis: Object.keys(sqlserverApi).sort(),
+      sqlserver: Object.keys(sqlserverRootApi).sort(),
       sqlServerQuery: Object.keys(sqlServerQueryApi).sort(),
       sqlServerRuntime: Object.keys(sqlServerRuntimeApi).sort(),
       sqlServerOdbc: Object.keys(sqlServerOdbcApi).sort(),
       sqlServerMsnodesqlv8: Object.keys(sqlServerMsnodesqlv8Api).sort(),
       sqlServerBrowser: Object.keys(sqlServerBrowserApi).sort(),
-      duckdb: Object.keys(duckdbApi).sort(),
+      duckdbAnalysis: Object.keys(duckdbApi).sort(),
+      duckdb: Object.keys(duckdbRootApi).sort(),
       duckdbQuery: Object.keys(duckdbQueryApi).sort(),
       duckdbRuntime: Object.keys(duckdbRuntimeApi).sort(),
       duckdbNodeApi: Object.keys(duckdbNodeApiApi).sort(),
@@ -1404,16 +1487,19 @@ await describe("stable public API", async () => {
       conformanceV2: Object.keys(conformanceV2Api).sort(),
       config: Object.keys(configApi).sort(),
       core: Object.keys(coreApi).sort(),
-      mysql: Object.keys(mysqlApi).sort(),
+      mysqlAnalysis: Object.keys(mysqlApi).sort(),
+      mysql: Object.keys(mysqlRootApi).sort(),
       mysql2: Object.keys(mysql2Api).sort(),
       mysqlRuntime: Object.keys(mysqlRuntimeApi).sort(),
       opentelemetry: Object.keys(openTelemetryApi).sort(),
-      postgres: Object.keys(postgresApi).sort(),
+      postgresAnalysis: Object.keys(postgresApi).sort(),
+      postgres: Object.keys(postgresRootApi).sort(),
       pg: Object.keys(pgApi).sort(),
       postgresRuntime: Object.keys(postgresRuntimeApi).sort(),
       schema: Object.keys(schemaApi).sort(),
       schemaSnapshot: Object.keys(schemaSnapshotApi).sort(),
-      sqlite: Object.keys(sqliteApi).sort(),
+      sqliteAnalysis: Object.keys(sqliteApi).sort(),
+      sqlite: Object.keys(sqliteRootApi).sort(),
       sqliteRuntime: Object.keys(sqliteRuntimeApi).sort(),
       nodeSqlite: Object.keys(nodeSqliteApi).sort(),
       tsBridge: Object.keys(tsBridgeApi).sort(),

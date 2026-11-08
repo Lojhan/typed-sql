@@ -1,16 +1,13 @@
 import { parameterTypeLiteral, resolveDialectCapabilityStates, rowTypeLiteral } from "@typed-sql/core";
 import { serializeSchemaSnapshot, upgradeSchemaSnapshotV1 } from "@typed-sql/schema";
 import { describe, it, strict } from "poku";
+import { NODE_SQLITE_RUNTIME_SUPPORT, SQLITE_LANGUAGE_SUPPORT, sqlite, sqliteVersionSupport } from "../src/analysis.js";
 import {
   defaultSqliteTypePolicy,
   mapSqliteType,
-  NODE_SQLITE_RUNTIME_SUPPORT,
   parseSqliteSchemaSnapshot,
-  SQLITE_LANGUAGE_SUPPORT,
   type SqliteSchemaSnapshot,
-  sqlite,
   sqliteAffinity,
-  sqliteVersionSupport,
 } from "../src/index.js";
 
 const flexible = "bigint | number | string | Uint8Array";

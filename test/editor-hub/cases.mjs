@@ -3,6 +3,7 @@ const column = (name, databaseType, tsType, nullable = false) => ({ name, databa
 const sqlCase = (id, version, types) => ({
   id,
   packageName: `@typed-sql/${id}`,
+  analysisModule: `@typed-sql/${id}/analysis`,
   packageDirectory: `packages/${id}`,
   factory: id,
   schema: {

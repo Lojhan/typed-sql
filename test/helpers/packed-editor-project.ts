@@ -66,7 +66,8 @@ async function writeEditorProject(
     join(directory, "typed-sql.config.ts"),
     `
       import { defineConfig } from "@typed-sql/core";
-      import { ${dialect}, typePolicy } from "${sqlModule}";
+      import { typePolicy } from "${sqlModule}";
+      import { ${dialect} } from "${sqlModule}/analysis";
       const dialect = ${dialect}({ typePolicy });
       export default defineConfig({
         dialect,

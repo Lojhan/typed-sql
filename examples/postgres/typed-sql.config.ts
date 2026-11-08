@@ -1,5 +1,6 @@
 import { defineConfig } from "@typed-sql/core";
-import { postgres, typePolicy } from "@typed-sql/postgres";
+import { typePolicy } from "@typed-sql/postgres";
+import { postgres } from "@typed-sql/postgres/analysis";
 import { pg } from "@typed-sql/postgres/pg";
 
 export const connectionString = () =>

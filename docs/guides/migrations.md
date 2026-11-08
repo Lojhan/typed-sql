@@ -24,7 +24,7 @@ Configure a real target and a separately provisioned empty replay database. Neit
 ```ts
 import { defineConfig } from '@typed-sql/core';
 import { defineMigrations } from '@typed-sql/migrations';
-import { postgres, typePolicy } from '@typed-sql/postgres';
+import { typePolicy } from '@typed-sql/postgres'; import { postgres } from '@typed-sql/postgres/analysis';
 import { createPgMigrationTarget } from '@typed-sql/postgres/migrations';
 import { pg } from '@typed-sql/postgres/pg';
 

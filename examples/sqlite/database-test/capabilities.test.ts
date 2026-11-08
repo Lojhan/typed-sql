@@ -15,7 +15,8 @@ import {
   serializeConformanceReport,
   serializeConformanceReproductionBundle,
 } from "@typed-sql/conformance/v2";
-import { sql, sqlite, typePolicy } from "@typed-sql/sqlite";
+import { sql, typePolicy } from "@typed-sql/sqlite";
+import { sqlite } from "@typed-sql/sqlite/analysis";
 import { createNodeSqliteDatabase } from "@typed-sql/sqlite/node-sqlite";
 import { describe, it, strict } from "poku";
 import { insertSmallAccountBatch, loadAccountWorkspace } from "../src/batches.js";

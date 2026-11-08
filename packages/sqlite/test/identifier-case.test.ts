@@ -1,8 +1,8 @@
 import { DatabaseSync } from "node:sqlite";
 import { rowTypeLiteral } from "@typed-sql/core";
 import { it, strict } from "poku";
+import { sqlite } from "../src/analysis.js";
 import { sqliteAffinity } from "../src/catalog/coercions.js";
-import { sqlite } from "../src/index.js";
 import { nodeSqlite } from "../src/node-sqlite.js";
 
 await it("matches native ASCII folding for functions, keywords, types, and schema columns", async () => {

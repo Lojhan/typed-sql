@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { describe, it, strict } from "poku";
+import { MYSQL_CORE_CATALOG_FORMAT_VERSION, MYSQL_SUPPORT_POLICY, mySqlCoreCatalog } from "../src/analysis.js";
 import {
   mySqlCatalogCanCoerce,
   mySqlCatalogCoercion,
@@ -12,7 +13,6 @@ import {
   mySqlCoreCatalogForSchema,
   normalizeMySqlType,
 } from "../src/catalog/index.js";
-import { MYSQL_CORE_CATALOG_FORMAT_VERSION, MYSQL_SUPPORT_POLICY, mySqlCoreCatalog } from "../src/index.js";
 
 const execute = promisify(execFile);
 const schema = (version: string) => ({ formatVersion: 1, dialect: "mysql", version, tables: {} }) as const;

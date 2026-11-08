@@ -24,7 +24,8 @@ import {
   type Query,
   requireAdapterCapability,
 } from "@typed-sql/core";
-import { createMySqlRoutedDatabase, mysql, mysqlBulk, sql, typePolicy } from "@typed-sql/mysql";
+import { sql, typePolicy } from "@typed-sql/mysql";
+import { createMySqlRoutedDatabase, mysql, mysqlBulk } from "@typed-sql/mysql/analysis";
 import { createMySql2Database, createMySql2LiveVerifier } from "@typed-sql/mysql/mysql2";
 import { analyzeSource } from "@typed-sql/ts-bridge";
 import { NativePreviewTypeScriptBridge } from "@typed-sql/ts-bridge/native-preview";

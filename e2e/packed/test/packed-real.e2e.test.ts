@@ -423,7 +423,7 @@ await describe(`${consumerSource} real-database consumers`, async () => {
         join(consumer, "postgres", "typed-sql.config.ts"),
         `
         import { defineConfig } from "@typed-sql/core";
-        import { postgres, typePolicy } from "@typed-sql/postgres";
+        import { typePolicy } from "@typed-sql/postgres"; import { postgres } from "@typed-sql/postgres/analysis";
         import { createPgLiveVerifier, pg } from "@typed-sql/postgres/pg";
         const connectionString = "postgresql://typed_sql:${artifactCredentialSentinel}@127.0.0.1:${postgresPort}/typed_sql_e2e";
         const dialect = postgres({ typePolicy });
@@ -446,7 +446,7 @@ await describe(`${consumerSource} real-database consumers`, async () => {
         join(consumer, "mysql", "typed-sql.config.ts"),
         `
         import { defineConfig } from "@typed-sql/core";
-        import { mysql, typePolicy } from "@typed-sql/mysql";
+        import { typePolicy } from "@typed-sql/mysql"; import { mysql } from "@typed-sql/mysql/analysis";
         import { createMySql2LiveVerifier, mysql2 } from "@typed-sql/mysql/mysql2";
         const connectionUri = "mysql://typed_sql:${artifactCredentialSentinel}@127.0.0.1:${mysqlPort}/typed_sql_e2e";
         const dialect = mysql({ typePolicy });
@@ -510,7 +510,7 @@ await describe(`${consumerSource} real-database consumers`, async () => {
         `
         import { fileURLToPath } from "node:url";
         import { defineConfig } from "@typed-sql/core";
-        import { sqlite, typePolicy } from "@typed-sql/sqlite";
+        import { typePolicy } from "@typed-sql/sqlite"; import { sqlite } from "@typed-sql/sqlite/analysis";
         import { nodeSqlite } from "@typed-sql/sqlite/node-sqlite";
         const path = fileURLToPath(new URL("./database.sqlite", import.meta.url));
         const dialect = sqlite({ typePolicy });
@@ -953,9 +953,9 @@ await describe(`${consumerSource} real-database consumers`, async () => {
         `
         import { readFile } from "node:fs/promises";
         import { join } from "node:path";
-        import { mysql } from "@typed-sql/mysql";
-        import { postgres } from "@typed-sql/postgres";
-        import { sqlite } from "@typed-sql/sqlite";
+        import { mysql } from "@typed-sql/mysql/analysis";
+        import { postgres } from "@typed-sql/postgres/analysis";
+        import { sqlite } from "@typed-sql/sqlite/analysis";
         import { analyzeSource } from "@typed-sql/ts-bridge";
         import { NativePreviewTypeScriptBridge } from "@typed-sql/ts-bridge/native-preview";
         const cases = [

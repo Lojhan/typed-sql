@@ -38,7 +38,8 @@
     "./runtime": "./dist/packages/duckdb/src/runtime.js",
     "./node-api": "./dist/packages/duckdb/src/node-api.js",
     "./browser": "./dist/packages/duckdb/src/browser.js",
-    "./profile": "./dist/packages/duckdb/src/profile.js"
+    "./profile": "./dist/packages/duckdb/src/profile.js",
+    "./analysis": "./dist/packages/duckdb/src/analysis.js"
   },
   "scripts": {
     "test": "poku test --sequential --coverage=@pokujs/c8 --coverageConfig=.c8rc.json --reporter=compact --enforce",

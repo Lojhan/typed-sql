@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { applyPlan, catalogChanges, createPlan, inspectMigrations, type MigrationsConfig } from "@typed-sql/migrations";
 import { describe, it, skip, strict } from "poku";
-import { postgres } from "../src/index.js";
+import { postgres } from "../src/analysis.js";
 import { createPgMigrationTarget, migrationCatalogKey } from "../src/migrations.js";
 import { loadPgDriver } from "../src/pg.js";
 

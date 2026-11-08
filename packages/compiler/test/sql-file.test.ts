@@ -1,10 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { describe, it, strict } from "poku";
 import { renderQuery } from "../../core/src/index.js";
-import { mysql } from "../../mysql/src/index.js";
-import { postgres } from "../../postgres/src/index.js";
+import { mysql } from "../../mysql/src/analysis.js";
+import { postgres } from "../../postgres/src/analysis.js";
 import { postgresRenderer } from "../../postgres/src/runtime.js";
-import { sqlite } from "../../sqlite/src/index.js";
+import { sqlite } from "../../sqlite/src/analysis.js";
 import { compileSqlFile, DEFAULT_MAX_SOURCE_BYTES } from "../src/index.js";
 
 const dialect = postgres();

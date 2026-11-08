@@ -4,8 +4,8 @@ import { fileURLToPath } from "node:url";
 import { describe, it } from "poku";
 import { assertSourceCompilation } from "../../../test/soundness/assert-source-corpus.js";
 import { sourceForDialect, sourceSoundnessCorpus } from "../../../test/soundness/source-corpus.js";
-import { mysql } from "../../mysql/src/index.js";
-import { postgres } from "../../postgres/src/index.js";
+import { mysql } from "../../mysql/src/analysis.js";
+import { postgres } from "../../postgres/src/analysis.js";
 import { compileSource } from "../src/index.js";
 
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");

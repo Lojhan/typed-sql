@@ -2,7 +2,8 @@ import { DatabaseSync } from "node:sqlite";
 import { parameterTypeLiteral, rowTypeLiteral } from "@typed-sql/core";
 import { describe, it, strict } from "poku";
 import { calculateSchemaHash, fingerprintSchemaExpression, serializeSchemaSnapshot } from "../../schema/src/index.js";
-import { parseSqliteSchemaSnapshot, sqlite } from "../src/index.js";
+import { sqlite } from "../src/analysis.js";
+import { parseSqliteSchemaSnapshot } from "../src/index.js";
 import { nodeSqlite } from "../src/node-sqlite.js";
 import { type SqliteQueryable, SqliteSchemaProvider } from "../src/provider.js";
 

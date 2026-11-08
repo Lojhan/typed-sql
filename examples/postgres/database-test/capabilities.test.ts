@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { QueryCancelledError } from "@typed-sql/core";
-import { postgres, sql, typePolicy } from "@typed-sql/postgres";
+import { sql, typePolicy } from "@typed-sql/postgres";
+import { postgres } from "@typed-sql/postgres/analysis";
 import { createPgDatabase } from "@typed-sql/postgres/pg";
 import { describe, it, strict } from "poku";
 import { loadAccountWorkspace } from "../src/batches.js";

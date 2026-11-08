@@ -20,8 +20,8 @@ const argument = process.argv[2];
 if (argument !== "sqlserver" && argument !== "duckdb") throw new TypeError("Select sqlserver or duckdb");
 const grammar: "sqlserver" | "duckdb" = argument;
 const plugins = {
-  sqlserver: await published<typeof import("../packages/sqlserver/src/index.js")>("sqlserver"),
-  duckdb: await published<typeof import("../packages/duckdb/src/index.js")>("duckdb"),
+  sqlserver: await published<typeof import("../packages/sqlserver/src/analysis.js")>("sqlserver", "/analysis"),
+  duckdb: await published<typeof import("../packages/duckdb/src/analysis.js")>("duckdb", "/analysis"),
 };
 const query = await published<{ renderer: SqlRenderer }>(grammar, "/query");
 const dialect: DialectPlugin = grammar === "sqlserver" ? plugins.sqlserver.sqlserver() : plugins.duckdb.duckdb();

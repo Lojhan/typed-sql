@@ -126,16 +126,17 @@ const expectedEntrypoints: Readonly<Record<(typeof publicPackages)[number], read
     "./pg-contracts",
     "./contract-profile",
     "./reconciliation",
+    "./analysis",
   ],
-  mysql: [".", "./runtime", "./mysql2", "./query", "./profile"],
+  mysql: [".", "./runtime", "./mysql2", "./query", "./profile", "./analysis"],
   compiler: ["."],
   conformance: [".", "./v2"],
   cli: [],
   "ts-bridge": [".", "./native-lsp", "./native-preview", "./sql-register", "./vite"],
   "language-server": ["."],
-  sqlite: [".", "./runtime", "./node-sqlite", "./query", "./profile"],
-  sqlserver: [".", "./query", "./runtime", "./odbc", "./msnodesqlv8", "./browser", "./profile"],
-  duckdb: [".", "./query", "./runtime", "./node-api", "./browser", "./profile"],
+  sqlite: [".", "./runtime", "./node-sqlite", "./query", "./profile", "./analysis"],
+  sqlserver: [".", "./query", "./runtime", "./odbc", "./msnodesqlv8", "./browser", "./profile", "./analysis"],
+  duckdb: [".", "./query", "./runtime", "./node-api", "./browser", "./profile", "./analysis"],
 };
 
 async function manifest(packageName: string, parent = "packages"): Promise<PackageManifest> {

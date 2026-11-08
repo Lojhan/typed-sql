@@ -5,10 +5,10 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { describe, it, strict } from "poku";
 import type { DialectPlugin } from "../../core/src/index.js";
-import { mysql } from "../../mysql/src/index.js";
-import { postgres } from "../../postgres/src/index.js";
+import { mysql } from "../../mysql/src/analysis.js";
+import { postgres } from "../../postgres/src/analysis.js";
 import { parseSchemaSnapshot, withSchemaBrands } from "../../schema/src/index.js";
-import { sqlite } from "../../sqlite/src/index.js";
+import { sqlite } from "../../sqlite/src/analysis.js";
 import {
   buildQueryManifest,
   collectQueryVerificationCandidates,

@@ -1,6 +1,6 @@
+import { sqlserver } from "../../../packages/sqlserver/src/analysis.js";
 import { sqlServerServerEvidence } from "../../../packages/sqlserver/src/capabilities.js";
 import { SQLSERVER_BUILTINS } from "../../../packages/sqlserver/src/catalog/index.js";
-import { sqlserver } from "../../../packages/sqlserver/src/index.js";
 import { tokenize as tokenizeSqlServer } from "../../../packages/sqlserver/src/parser/tokenizer.js";
 import { numericVersionBand } from "../../../tools/grammar-catalog/src/registry.mjs";
 import { callProbeQueries } from "../invocations.js";

@@ -12,8 +12,8 @@ import {
   duckDBServerEvidence,
   duckdb,
   formatDuckDBType,
-  mapDuckDBType,
-} from "../../../../packages/duckdb/src/index.js";
+} from "../../../../packages/duckdb/src/analysis.js";
+import { mapDuckDBType } from "../../../../packages/duckdb/src/index.js";
 import { mySqlServerEvidence, resolveMySqlCapabilities } from "../../../../packages/mysql/src/capabilities.js";
 import type { MySqlSchemaSnapshot } from "../../../../packages/mysql/src/index.js";
 import {

@@ -14,7 +14,7 @@ pnpm add @typed-sql/compiler
 
 ```ts
 import { compileSource } from "@typed-sql/compiler";
-import { postgres } from "@typed-sql/postgres";
+import { postgres } from "@typed-sql/postgres/analysis";
 
 const result = compileSource({
   source: 'import { sql } from "@typed-sql/postgres"; const q = sql`SELECT 1 AS value`;',

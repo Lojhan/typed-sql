@@ -566,6 +566,42 @@ Unrelated planning work is left unchanged.
 - New-head remote CI, native SQL Server audit failures, full Electron/native matrices, root migration,
   compact-core/pack selection and bulk semantic catalog deletion remain open.
 
+## Lightweight runtime roots and explicit semantic entrypoints
+
+- All five grammar roots now expose SQL, runtime plan primitives, rendering and compact type-policy
+  mechanics. Eager analyzer factories and the previous full root export surfaces move intact to
+  `/analysis` compatibility entrypoints. The existing full API inventories are asserted separately
+  from the new small roots. This is a declared major API migration; application `sql` imports stay
+  at the selected root. Profile constructors remain on `/profile` so ordinary runtime root imports
+  do not load statement parsers, including DuckDB's contextual parameter parser.
+- Repository consumers and embedded configuration fixtures use explicit analyzer imports. New CLI
+  scaffolds and quickstarts register a profile plus a separate lazy analyzer contribution. Frozen
+  configuration can omit the contribution. Third-party grammar fixtures retain their own declared
+  analysis module, with no neutral-package built-in grammar allowlist.
+- The ledger-discovered packed boundary proof removes semantic inventories, analyzers, providers,
+  declarations and maps. Every root imports and type-checks without those files. Profiles work in a
+  separate process, retaining DuckDB's contextual parser. A second runtime-only installation removes
+  profile implementations and entire statement-parser directories; all five roots still construct
+  SQL values. Essential scalar codec/type projections remain intentionally available.
+- The real PostgreSQL proof now installs actual public tarballs and checks its acquired qualified
+  native closure through the full frozen CLI with analyzer/parser/catalog/driver modules absent.
+  It preserves bigint/nullability, rejects an incompatible downstream TypeScript assignment and
+  recompiles identically through the programmatic loader. Factories are guarded, JavaScript network
+  traps are active and the database counter remains one. Tool dependencies follow packed-consumer
+  overrides; this is not an OS network sandbox or all-engine qualification.
+- Local clean build, incremental typechecking, grammar/core/compiler/config/analysis/conformance,
+  CLI/build/playground, editor and synthetic grammar suites pass. The first aggregate source run
+  exposed one stale embedded editor-fixture analyzer import; its focused service test passes after
+  correction. All 68 contract files, packed consumers/editors, documentation production build and
+  isolated performance gate pass. Exact-head CI remains separate evidence.
+- The diagnostic audit also discovers every production source tree rather than a manually maintained
+  emitter list. It exposed existing unregistered DuckDB, SQL Server and preparation codes, now added
+  to the machine registry and complete reference. Retained stable codes need no fake current emitter.
+- Runtime roots are separated; explicit driver adapters, selected compact cores, version/pack loading,
+  reusable project catalogs and bulk generated semantic TypeScript deletion remain required. All
+  full semantic catalogs still ship through the compatibility distribution. No installed-size or
+  application bundle savings percentage is claimed by these module-boundary proofs.
+
 ## Required work still open
 
 1. Complete the contract/evidence model: native descriptors and provenance, reusable/facet-specific
@@ -574,9 +610,9 @@ Unrelated planning work is left unchanged.
    project-wide native qualification, including disagreement handling.
 3. Real database vertical proof with compiled decoding and disconnected reuse; qualify the five
    engine/transport profiles and explicit limitations.
-4. Complete frozen configuration/CLI and whole-project TypeScript checking with the durable
-   closure, native qualification policy and physically absent heavy modules. Durable storage and
-   the isolated programmatic/packed consumer proofs above do not finish the full host workflow.
+4. Complete the remaining frozen configuration/CLI and build-host matrix with durable closures and
+   native qualification. The restricted real PostgreSQL whole-project frozen CLI now works with
+   heavy modules physically absent; that does not qualify every transport, variant or host.
 5. Complete cache/scheduler host integration, context observations and project catalog/declaration
    persistence; qualify ownership, admission, cross-process interruption/recovery and pruning in
    the actual CLI/editor workflows. Concrete query storage and process tests are implemented above.
@@ -585,8 +621,9 @@ Unrelated planning work is left unchanged.
    freshness, persistent restart reuse and finite batch generation.
 8. Finite/repeated structural variant coverage, ambiguous/repeated parameters, unsupported syntax
    fallback and conservative runtime effect/routing behavior.
-9. Built-in lightweight profile/runtime entrypoint migration, selected core/profile/pack loading
-   and compatible/breaking API transition. Preserve existing supported semantics explicitly.
+9. Complete explicit driver-adapter runtime boundaries and selected core/profile/pack loading.
+   Root/profile separation and the major `/analysis` API migration are implemented above. Preserve
+   existing supported semantics through explicit compatibility packs before removing bulk catalogs.
 10. Optional project catalogs and contributed extension reuse behind qualified inference permission.
 11. Public documentation, diagnostics, release/distribution contracts and after-implementation
     bundle/latency/workload measurements.

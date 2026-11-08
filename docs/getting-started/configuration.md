@@ -16,13 +16,17 @@ This complete PostgreSQL profile is the smallest configuration for live introspe
 
 ```ts
 import { defineConfig } from "@typed-sql/core";
-import { postgres, typePolicy } from "@typed-sql/postgres";
+import { typePolicy } from "@typed-sql/postgres";
+import { postgresProfile } from "@typed-sql/postgres/profile";
 import { pg } from "@typed-sql/postgres/pg";
 
 const connectionString = () => process.env.DATABASE_URL!;
 
 export default defineConfig({
-  dialect: postgres({ typePolicy }),
+  dialect: {
+    ...postgresProfile({ typePolicy }),
+    loadAnalyzer: async () => (await import("@typed-sql/postgres/analysis")).postgres({ typePolicy }),
+  },
   schema: {
     file: "generated/db/schema.json",
     provider: pg({ connectionString, schemas: ["public"], typePolicy }),
@@ -60,6 +64,31 @@ pnpm exec typed-sql check --project tsconfig.json
 The generated files are compiler inputs, not application imports. Commit the snapshot when review and
 CI need a stable schema identity.
 
+## Lightweight roots and analyzer imports
+
+Application code imports `sql` from its selected grammar root. Roots also expose runtime plan
+primitives, rendering and type policy. Profile construction belongs to the explicit `/profile`
+entrypoint. Importing a root does not load its offline analyzer or introspection provider.
+
+The previous full grammar exports live at explicit `/analysis` entrypoints:
+
+| Grammar | Profile factory (`/profile`) | Eager analyzer import |
+| --- | --- | --- |
+| PostgreSQL | `postgresProfile()` | `postgres` from `@typed-sql/postgres/analysis` |
+| MySQL | `mysqlProfile()` | `mysql` from `@typed-sql/mysql/analysis` |
+| SQLite | `sqliteProfile()` | `sqlite` from `@typed-sql/sqlite/analysis` |
+| SQL Server | `sqlserverProfile()` | `sqlserver` from `@typed-sql/sqlserver/analysis` |
+| DuckDB | `duckdbProfile()` | `duckdb` from `@typed-sql/duckdb/analysis` |
+
+Move existing analyzer factory, semantic routing, extension-manifest and catalog-provider imports
+from the root to `/analysis`. That compatibility entrypoint retains the previous full export
+surface. Driver integrations remain explicit subpaths such as `/pg` and `/mysql2`.
+
+The local configuration above registers a separate `loadAnalyzer` contribution. Development hosts
+load it when offline inference needs it; constructing the profile does not load it. Contract-only
+configuration can omit that contribution and use the profile with a saved schema and durable query
+contracts, as shown below.
+
 ## Checking durable query contracts
 
 `typed-sql check --frozen` checks a project using a declared durable query-contract closure.
@@ -81,10 +110,7 @@ import {
 import recordedContext from "./generated/db/analysis-context.json" with { type: "json" };
 
 export default defineConfig({
-  dialect: {
-    ...postgresProfile(),
-    loadAnalyzer: async () => (await import("@typed-sql/postgres")).postgres(),
-  },
+  dialect: postgresProfile(),
   schema: { file: "generated/db/schema.json" },
   outDir: "generated/db",
   projects: ["tsconfig.json"],
@@ -288,7 +314,8 @@ family explicitly:
 
 ```ts
 import { defineConfig } from "@typed-sql/core";
-import { postgres, typePolicy } from "@typed-sql/postgres";
+import { typePolicy } from "@typed-sql/postgres";
+import { postgresProfile } from "@typed-sql/postgres/profile";
 import {
   createPgLiveVerifier,
   createPgPlanInspector,
@@ -298,7 +325,10 @@ import {
 const connectionString = () => process.env.DATABASE_URL!;
 
 export default defineConfig({
-  dialect: postgres({ typePolicy }),
+  dialect: {
+    ...postgresProfile({ typePolicy }),
+    loadAnalyzer: async () => (await import("@typed-sql/postgres/analysis")).postgres({ typePolicy }),
+  },
   schema: {
     file: "generated/db/schema.json",
     provider: pg({ connectionString, schemas: ["public"], typePolicy }),

@@ -1,9 +1,9 @@
 import { execFile as callback } from "node:child_process";
-import { cp, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { cp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { createPackedNativeEditorConsumer } from "./packed-editor-consumer.js";
 
 const execFile = promisify(callback);
 
@@ -11,19 +11,21 @@ async function omitPostgresAnalyzer(consumer: string): Promise<void> {
   const grammar = join(consumer, "node_modules", "@typed-sql", "postgres", "dist", "packages", "postgres", "src");
   for (const path of [
     "catalog",
-    "index.js",
+    "analysis.js",
     "resolver.js",
     "semantics.js",
     "provider.js",
     "query.js",
-    "type-policy.js",
     "runtime.js",
     "pg.js",
     "pg-contracts.js",
     "reconciliation.js",
     "parser/parser.js",
   ])
-    await rm(join(grammar, path), { recursive: true, force: true });
+    if (path.endsWith(".js")) {
+      for (const suffix of [".js", ".d.ts", ".js.map", ".d.ts.map"])
+        await rm(join(grammar, `${path.slice(0, -3)}${suffix}`), { force: true });
+    } else await rm(join(grammar, path), { recursive: true, force: true });
 }
 
 /** Runtime decoding keeps scalar codec facts, but must not require semantic inventories. */
@@ -38,14 +40,16 @@ async function assertRuntimeWithoutSemanticCatalogs(consumer: string, env: NodeJ
       const relative = prefix + entry.name,
         path = join(directory, entry.name);
       if (entry.isDirectory()) await strip(path, `${relative}/`);
-      else if (entry.isFile() && entry.name.endsWith(".js") && !essential.has(relative)) await rm(path);
+      else if (entry.isFile() && !essential.has(relative.replace(/(?:\.d\.ts|\.js)(?:\.map)?$/u, ".js")))
+        await rm(path);
     }
   };
   for (const name of grammars) {
     const grammar = join(consumer, "node_modules", "@typed-sql", name, "dist", "packages", name, "src");
     await strip(join(grammar, "catalog"));
-    for (const path of ["index.js", "browser.js", "resolver.js", "semantics.js"])
-      await rm(join(grammar, path), { force: true });
+    for (const module of ["analysis", "browser", "resolver", "semantics"])
+      for (const suffix of [".js", ".d.ts", ".js.map", ".d.ts.map"])
+        await rm(join(grammar, `${module}${suffix}`), { force: true });
   }
   await writeFile(join(consumer, "runtime-grammars.json"), JSON.stringify(grammars));
   const file = join(consumer, "runtime-without-catalogs.mjs");
@@ -79,11 +83,15 @@ await assert.rejects(database.all(query));
 `,
   );
   await execFile(process.execPath, [file], { cwd: consumer, env });
-  // Profiles must also load without introspection providers, in a fresh module graph.
-  for (const name of grammars)
-    await rm(join(consumer, "node_modules", "@typed-sql", name, "dist", "packages", name, "src", "provider.js"), {
-      force: true,
-    });
+  // Profiles and roots must also load without providers, in a fresh module graph.
+  for (const name of grammars) {
+    const grammar = join(consumer, "node_modules", "@typed-sql", name, "dist", "packages", name, "src");
+    for (const suffix of [".js", ".d.ts", ".js.map", ".d.ts.map"]) {
+      await rm(join(grammar, `provider${suffix}`), { force: true });
+      // DuckDB needs its contextual syntax parser to distinguish frontend bind markers.
+      if (name !== "duckdb") await rm(join(grammar, "parser", `parser${suffix}`), { force: true });
+    }
+  }
   const profileFile = join(consumer, "profiles-without-analyzers.mjs");
   await writeFile(
     profileFile,
@@ -92,6 +100,11 @@ import assert from "node:assert/strict";
 import {readFile} from "node:fs/promises";
 for (const grammar of JSON.parse(await readFile("./runtime-grammars.json","utf8"))) {
   const profiles=await import("@typed-sql/"+grammar+"/profile");
+  const root=await import("@typed-sql/"+grammar);
+  assert.equal(root[grammar+"Profile"],undefined);
+  assert.equal(typeof root.sql,"function");
+  assert.equal(root[grammar],undefined);
+  assert.deepEqual(root.typePolicy,profiles.typePolicy);
   const profile=profiles[grammar+"Profile"]();
   assert.equal(profile.id,grammar);
   assert.equal("analyze" in profile,false);
@@ -107,6 +120,61 @@ for (const grammar of JSON.parse(await readFile("./runtime-grammars.json","utf8"
 `,
   );
   await execFile(process.execPath, [profileFile], { cwd: consumer, env });
+  const typedRoots = join(consumer, "roots-without-analyzers.ts");
+  await writeFile(
+    typedRoots,
+    grammars
+      .map(
+        (name, index) =>
+          `import * as grammar${index} from ${JSON.stringify(`@typed-sql/${name}`)};\nvoid grammar${index}.sql\`SELECT 1\`;\n`,
+      )
+      .join("\n"),
+  );
+  await execFile(
+    "pnpm",
+    [
+      "exec",
+      "tsc",
+      "--strict",
+      "--noEmit",
+      "--module",
+      "NodeNext",
+      "--moduleResolution",
+      "NodeNext",
+      "--target",
+      "ES2024",
+      "--lib",
+      "ES2024,DOM,ESNext.Disposable",
+      typedRoots,
+    ],
+    { cwd: consumer, env, timeout: 60_000 },
+  );
+  // Ordinary root imports must not require profile construction or SQL statement parsing.
+  const runtimeOnly = join(consumer, "runtime-only");
+  for (const name of grammars) {
+    const target = join(runtimeOnly, "node_modules", "@typed-sql", name);
+    await cp(join(consumer, "node_modules", "@typed-sql", name), target, { recursive: true, dereference: true });
+    const source = join(target, "dist", "packages", name, "src");
+    await rm(join(source, "profile.js"), { force: true });
+    await rm(join(source, "parser"), { recursive: true, force: true });
+  }
+  const runtimeFile = join(runtimeOnly, "roots.mjs");
+  await writeFile(join(runtimeOnly, "grammars.json"), JSON.stringify(grammars));
+  await writeFile(
+    runtimeFile,
+    `
+import assert from "node:assert/strict";
+import {readFile} from "node:fs/promises";
+for (const name of JSON.parse(await readFile("./grammars.json","utf8"))) {
+  const root=await import("@typed-sql/"+name);
+  assert.equal(typeof root.sql,"function");
+  assert.equal(root[name+"Profile"],undefined);
+  assert.ok(root.sql\`SELECT 1\`);
+  assert.ok(root.typePolicy);
+}
+`,
+  );
+  await execFile(process.execPath, [runtimeFile], { cwd: runtimeOnly, env });
 }
 
 /** Mutates only this disposable packed installation, after its other consumer checks finish. */
@@ -129,7 +197,8 @@ import { decodeQueryResultRows } from "@typed-sql/core";
 const require = createRequire(import.meta.url);
 for (const name of ["pg", "mysql2", "mssql", "tedious"])
   assert.throws(() => require.resolve(name), { code: "MODULE_NOT_FOUND" });
-await assert.rejects(import("@typed-sql/postgres"), { code: "ERR_MODULE_NOT_FOUND" });
+assert.equal(typeof (await import("@typed-sql/postgres")).sql, "function");
+await assert.rejects(import("@typed-sql/postgres/analysis"), { code: "ERR_MODULE_NOT_FOUND" });
 const schema = { formatVersion: 1, dialect: "postgres", tables: {} };
 const profile = postgresProfile();
 const text = "SELECT vendor_score($1::bigint) AS score";
@@ -179,16 +248,11 @@ export async function assertIsolatedPostgresContractConsumer(input: {
   qualificationPolicyHash: string;
   qualification: unknown;
 }): Promise<void> {
-  const consumer = await mkdtemp(join(tmpdir(), "typed-sql-frozen-isolated-"));
   const workspace = fileURLToPath(new URL("../../", import.meta.url));
+  const { NODE_PATH: _nodePath, ...env } = process.env;
+  const packed = await createPackedNativeEditorConsumer(workspace, env, ["postgres"]);
+  const { consumer } = packed;
   try {
-    await mkdir(join(consumer, "node_modules", "@typed-sql"), { recursive: true });
-    for (const name of ["core", "schema", "analysis", "compiler", "ast", "postgres"]) {
-      const destination = join(consumer, "node_modules", "@typed-sql", name);
-      await mkdir(destination);
-      await cp(join(workspace, "packages", name, "package.json"), join(destination, "package.json"));
-      await cp(join(workspace, "packages", name, "dist"), join(destination, "dist"), { recursive: true });
-    }
     await omitPostgresAnalyzer(consumer);
     await cp(input.contracts, join(consumer, "contracts"), { recursive: true });
     await writeFile(
@@ -217,6 +281,56 @@ globalThis.fetch = denied;
 syncBuiltinESMExports();
 `,
     );
+    const application = `${input.source}\nimport type { QueryRow } from "@typed-sql/core";\ndeclare const result: QueryRow<ReturnType<typeof query>>;\nconst checked: bigint | null = result.result;\nvoid checked;\n`;
+    await writeFile(join(consumer, "application.ts"), application);
+    await writeFile(join(consumer, "schema.json"), JSON.stringify(input.schema));
+    await writeFile(
+      join(consumer, "tsconfig.json"),
+      JSON.stringify({
+        compilerOptions: {
+          strict: true,
+          noEmit: true,
+          target: "ESNext",
+          module: "NodeNext",
+          moduleResolution: "NodeNext",
+          types: [],
+        },
+        files: ["application.ts"],
+      }),
+    );
+    await writeFile(
+      join(consumer, "typed-sql.config.mjs"),
+      `
+import {defineConfig} from "@typed-sql/core";
+import {postgresProfile} from "@typed-sql/postgres/profile";
+import {postgresContractIdentity} from "@typed-sql/postgres/contract-profile";
+import inputs from "./inputs.json" with {type:"json"};
+export default defineConfig({
+  dialect:{...postgresProfile(),loadAnalyzer(){throw Error("Frozen CLI loaded its analyzer");}},
+  schema:{file:"schema.json",provider:{introspect(){throw Error("Frozen CLI loaded its provider");}}},
+  outDir:"generated",projects:["tsconfig.json"],
+  analysis:{mode:"frozen",context:inputs.context,identity:postgresContractIdentity(),qualification:inputs.qualification,contractsDir:"contracts"},
+});
+`,
+    );
+    const cli = join(consumer, "node_modules/@typed-sql/cli/dist/packages/cli/src/cli.js");
+    const cliArgs = ["--import", join(consumer, "deny-network.mjs"), cli, "check", "--frozen", "--show-types"];
+    const checked = await execFile(process.execPath, cliArgs, { cwd: consumer, env, maxBuffer: 4 * 1024 * 1024 });
+    if (!checked.stdout.includes("bigint")) throw Error("Frozen packed CLI lost its native result contract");
+    await writeFile(
+      join(consumer, "application.ts"),
+      application.replace("const checked: bigint | null", "const checked: string"),
+    );
+    let rejected = false;
+    try {
+      await execFile(process.execPath, cliArgs, { cwd: consumer, env, maxBuffer: 4 * 1024 * 1024 });
+    } catch (error) {
+      const failure = error as { stdout?: string; stderr?: string };
+      if (!`${failure.stdout ?? ""}${failure.stderr ?? ""}`.includes("TS2322")) throw error;
+      rejected = true;
+    }
+    if (!rejected) throw Error("Frozen packed CLI accepted an incompatible downstream result type");
+    await writeFile(join(consumer, "application.ts"), application);
     await writeFile(
       join(consumer, "consume.mjs"),
       `
@@ -231,7 +345,8 @@ import { connect } from "node:net";
 assert.throws(() => connect(9, "127.0.0.1"), /Frozen contract consumer attempted network access/u);
 const require = createRequire(import.meta.url);
 assert.throws(() => require.resolve("pg"), { code: "MODULE_NOT_FOUND" });
-await assert.rejects(import("@typed-sql/postgres"), { code: "ERR_MODULE_NOT_FOUND" });
+assert.equal(typeof (await import("@typed-sql/postgres")).sql, "function");
+await assert.rejects(import("@typed-sql/postgres/analysis"), { code: "ERR_MODULE_NOT_FOUND" });
 const input = JSON.parse(await readFile("./inputs.json", "utf8"));
 const contracts = await loadQueryContracts("./contracts");
 assert.equal(contracts[0].nativeEvidence.adapter.id, "@typed-sql/postgres/pg-contracts");
@@ -252,12 +367,11 @@ await rm("./contracts/queries/" + manifest.queries[0] + ".json");
 await assert.rejects(loadQueryContracts("./contracts"), { code: "ENOENT" });
 `,
     );
-    const { NODE_PATH: _nodePath, ...env } = process.env;
     await execFile(process.execPath, ["--import", join(consumer, "deny-network.mjs"), join(consumer, "consume.mjs")], {
       cwd: consumer,
       env,
     });
   } finally {
-    await rm(consumer, { recursive: true, force: true });
+    await packed.close();
   }
 }

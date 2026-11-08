@@ -5,8 +5,8 @@ import {
   createMySqlQuerySemanticResolver,
   createMySqlRoutedDatabase,
   isMySqlRetryableTransactionError,
-  typePolicy,
-} from "../src/index.js";
+} from "../src/analysis.js";
+import { typePolicy } from "../src/index.js";
 
 const schema = {
   formatVersion: 1,

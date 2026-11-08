@@ -1,7 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { loadConfig } from "@typed-sql/config";
-import { postgres } from "@typed-sql/postgres";
+import { postgres } from "@typed-sql/postgres/analysis";
 import { describe, it, strict } from "poku";
 import { databaseDiagnostic, databaseErrorEvidence, postgresPosition } from "../src/database-diagnostics.js";
 import { contentHash, WorkspaceFiles } from "../src/files.js";

@@ -14,7 +14,8 @@ description: MySQL grammar coverage, catalog introspection, application-owned my
 
 - `@typed-sql/mysql/query` — portable `sql`, renderer, and runtime value descriptors for buffered adapters.
 
-- `@typed-sql/mysql` — `sql`, dialect factory, default type policy, analysis, type mapping, semantic routing, and transaction retry classification.
+- `@typed-sql/mysql` — `sql`, runtime plan primitives, renderer and type policy.
+- `@typed-sql/mysql/analysis` — explicit eager analyzer and compatibility exports, including schema introspection and semantic routing.
 - `@typed-sql/mysql/runtime` — driver-neutral rendering and codec utilities.
 - `@typed-sql/mysql/mysql2` — schema provider, executable database adapter, lazy live verifier, and structured-plan inspector for application-owned `mysql2`.
 

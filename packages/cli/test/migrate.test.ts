@@ -33,7 +33,7 @@ await describe("migration CLI authoring", async () => {
   await it("previews initialization, authors SQL and selected-grammar TS offline, and reports missing targets", async () => {
     const root = await mkdtemp(join(tmpdir(), "migration-cli with spaces-"));
     try {
-      const postgres = pathToFileURL(join(workspace, "packages/postgres/dist/packages/postgres/src/index.js")).href;
+      const postgres = pathToFileURL(join(workspace, "packages/postgres/dist/packages/postgres/src/analysis.js")).href;
       await writeFile(
         join(root, "typed-sql.config.mjs"),
         `import { postgres } from ${JSON.stringify(postgres)};\nexport default {dialect:postgres(),schema:{file:'schema.json'},outDir:'generated',migrations:{directory:'migrations',targets:{}}};\n`,

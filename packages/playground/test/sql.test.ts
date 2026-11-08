@@ -1,4 +1,4 @@
-import { postgres } from "@typed-sql/postgres";
+import { postgres } from "@typed-sql/postgres/analysis";
 import { describe, it, strict } from "poku";
 import { analyzeSql, bindSql } from "../src/sql.js";
 import { encodeValue } from "../src/values.js";

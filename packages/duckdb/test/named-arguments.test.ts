@@ -1,6 +1,6 @@
 import { it, strict } from "poku";
+import { duckdb } from "../src/analysis.js";
 import { duckDBNamedArgumentOrder } from "../src/catalog/named-arguments.js";
-import { duckdb } from "../src/index.js";
 import { fixtureEvidence } from "./helpers/evidence.js";
 
 const legacy = process.env.TYPED_SQL_DUCKDB_SDK === "15";

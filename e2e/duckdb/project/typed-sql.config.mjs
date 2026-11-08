@@ -1,6 +1,6 @@
 import { appendFileSync } from "node:fs";
 import { defineConfig } from "@typed-sql/core";
-import { duckdb } from "@typed-sql/duckdb";
+import { duckdb } from "@typed-sql/duckdb/analysis";
 import { createNodeDuckDBLiveVerifier, createNodeDuckDBPlanInspector } from "@typed-sql/duckdb/node-api";
 
 export const native = {

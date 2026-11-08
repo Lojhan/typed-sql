@@ -75,7 +75,7 @@ await describe("official SQL content mapper", async () => {
       );
       await writeFile(
         join(directory, "typed-sql.config.mjs"),
-        `import { postgres } from '@typed-sql/postgres'; import {policy} from './policy.mjs'; export default {dialect:postgres({typePolicy:policy}),schema:{file:'schema.json'},outDir:'.typed-sql'};`,
+        `import { postgres } from '@typed-sql/postgres/analysis'; import {policy} from './policy.mjs'; export default {dialect:postgres({typePolicy:policy}),schema:{file:'schema.json'},outDir:'.typed-sql'};`,
       );
       await writeFile(join(directory, "find.sql"), "SELECT id, name FROM users WHERE id = $1 AND name <> $2");
       await writeFile(join(directory, "main.ts"), "import find from './find.sql'; find(7, 'Ada');");

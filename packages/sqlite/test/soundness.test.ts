@@ -1,6 +1,7 @@
 import { parameterTypeLiteral, rowTypeLiteral } from "@typed-sql/core";
 import { describe, it, strict } from "poku";
-import { parseSqliteSchemaSnapshot, type SqliteSchemaSnapshot, sqlite } from "../src/index.js";
+import { sqlite } from "../src/analysis.js";
+import { parseSqliteSchemaSnapshot, type SqliteSchemaSnapshot } from "../src/index.js";
 import { accountTable, serverEvidence } from "./helpers/schema.js";
 
 const snapshot = parseSqliteSchemaSnapshot({

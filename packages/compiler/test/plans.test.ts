@@ -1,6 +1,7 @@
 import { describe, it, strict } from "poku";
 import type { QueryPlanInspector } from "../../core/src/index.js";
-import { type PostgresSchemaSnapshot, postgres } from "../../postgres/src/index.js";
+import { postgres } from "../../postgres/src/analysis.js";
+import type { PostgresSchemaSnapshot } from "../../postgres/src/index.js";
 import {
   buildQueryManifest,
   captureQueryPlans,

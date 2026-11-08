@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { describe, it, strict } from "poku";
 import { buildQueryManifest, serializeQueryManifest } from "../../compiler/src/index.js";
-import { postgres } from "../../postgres/src/index.js";
+import { postgres } from "../../postgres/src/analysis.js";
 
 const execFile = promisify(execFileCallback);
 const packageDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -76,7 +76,7 @@ await describe("typed-sql manifest command", async () => {
         join(temporary, "typed-sql.config.ts"),
         [
           'import { defineConfig } from "@typed-sql/core";',
-          'import { postgres, typePolicy } from "@typed-sql/postgres";',
+          'import { typePolicy } from "@typed-sql/postgres"; import { postgres } from "@typed-sql/postgres/analysis";',
           "export default defineConfig({",
           "  dialect: postgres(),",
           '  schema: { file: "schema.json" },',
@@ -149,7 +149,7 @@ await describe("typed-sql manifest command", async () => {
         join(temporary, "typed-sql.config.ts"),
         [
           'import { defineConfig } from "@typed-sql/core";',
-          'import { postgres } from "@typed-sql/postgres";',
+          'import { postgres } from "@typed-sql/postgres/analysis";',
           'export default defineConfig({ dialect: postgres(), schema: { file: "schema.json" }, outDir: "generated", projects: ["tsconfig.json"] });',
         ].join("\n"),
       );
@@ -194,7 +194,7 @@ await describe("typed-sql capabilities command", async () => {
         join(temporary, "typed-sql.config.ts"),
         [
           'import { defineConfig } from "@typed-sql/core";',
-          'import { postgres } from "@typed-sql/postgres";',
+          'import { postgres } from "@typed-sql/postgres/analysis";',
           'export default defineConfig({ dialect: postgres(), schema: { file: "schema.json" }, outDir: "generated" });',
         ].join("\n"),
       );
@@ -234,7 +234,7 @@ await describe("typed-sql doctor command", async () => {
         join(temporary, "typed-sql.config.ts"),
         [
           'import { defineConfig } from "@typed-sql/core";',
-          'import { postgres } from "@typed-sql/postgres";',
+          'import { postgres } from "@typed-sql/postgres/analysis";',
           'export default defineConfig({ dialect: postgres(), schema: { file: "schema.json" }, outDir: "generated" });',
         ].join("\n"),
       );
@@ -344,7 +344,7 @@ await describe("typed-sql compat command", async () => {
         join(temporary, "typed-sql.config.ts"),
         [
           'import { defineConfig } from "@typed-sql/core";',
-          'import { postgres } from "@typed-sql/postgres";',
+          'import { postgres } from "@typed-sql/postgres/analysis";',
           'export default defineConfig({ dialect: postgres(), schema: { file: "after.json" }, outDir: "generated", compatibility: { reportFile: ".typed-sql/compatibility.json" } });',
         ].join("\n"),
       );
@@ -440,7 +440,7 @@ await describe("typed-sql verify command", async () => {
         join(temporary, "typed-sql.config.ts"),
         [
           'import { defineConfig } from "@typed-sql/core";',
-          'import { postgres } from "@typed-sql/postgres";',
+          'import { postgres } from "@typed-sql/postgres/analysis";',
           "const live = {",
           '  dialect: "postgres", adapterVersion: "fake-v1",',
           '  async server() { return { version: "18.4" }; },',
@@ -509,7 +509,7 @@ await describe("typed-sql explain command", async () => {
           join(temporary, "typed-sql.config.ts"),
           [
             'import { defineConfig } from "@typed-sql/core";',
-            'import { postgres } from "@typed-sql/postgres";',
+            'import { postgres } from "@typed-sql/postgres/analysis";',
             "const live = {",
             '  dialect: "postgres", adapterVersion: "fake-explain-v1", parameterMode: "value-free",',
             `  async environment() { return { version: ${JSON.stringify(version)}, settings: { plan_cache_mode: "auto" }, statisticsFingerprint: "sha256:${"a".repeat(64)}" }; },`,

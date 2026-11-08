@@ -8,7 +8,7 @@ import {
   postgresVersionSupport,
   sql,
   typePolicy,
-} from "../packages/postgres/dist/packages/postgres/src/index.js";
+} from "../packages/postgres/dist/packages/postgres/src/analysis.js";
 import { createPgDatabase } from "../packages/postgres/dist/packages/postgres/src/pg.js";
 import { collectLive } from "./language-audit/inventory.mjs";
 import { reviewLiveBaseline } from "./language-audit/live-baseline.mjs";

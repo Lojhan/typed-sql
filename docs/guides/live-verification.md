@@ -21,7 +21,7 @@ The grammar package owns the native adapter, while the application owns the driv
 
 ```ts
 import { defineConfig } from "@typed-sql/core";
-import { postgres, typePolicy } from "@typed-sql/postgres";
+import { typePolicy } from "@typed-sql/postgres"; import { postgres } from "@typed-sql/postgres/analysis";
 import { createPgLiveVerifier, pg } from "@typed-sql/postgres/pg";
 
 const connectionString = () => process.env.DATABASE_URL!;

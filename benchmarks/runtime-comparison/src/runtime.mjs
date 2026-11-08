@@ -352,7 +352,7 @@ async function fixture(directory, workload, snapshot, candidate) {
   await writeFile(join(directory, ".reylo.yaml"), "direct_url: file:./app.db\nsqlcommenter: false\n");
   await writeFile(
     join(directory, "typed-sql.config.mjs"),
-    `import {sqlite} from '@typed-sql/sqlite'; export default {dialect:sqlite({typePolicy:${JSON.stringify(selectedPolicy(candidate))}}),schema:{file:'schema.json'},outDir:'.typed-sql'};`,
+    `import { sqlite } from '@typed-sql/sqlite/analysis'; export default {dialect:sqlite({typePolicy:${JSON.stringify(selectedPolicy(candidate))}}),schema:{file:'schema.json'},outDir:'.typed-sql'};`,
   );
   await writeFile(
     join(directory, "schema.json"),

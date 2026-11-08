@@ -5,7 +5,8 @@ import {
   fragmentListCases,
   fragmentRows as rows,
 } from "../../../test/helpers/fragment-list.js";
-import { type PostgresSchemaSnapshot, postgres, sql } from "../src/index.js";
+import { postgres } from "../src/analysis.js";
+import { type PostgresSchemaSnapshot, sql } from "../src/index.js";
 import { postgresRenderer } from "../src/runtime.js";
 
 const snapshot = {

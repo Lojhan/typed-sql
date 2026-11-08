@@ -12,6 +12,8 @@ this grammar. The native Node SDK is an application dependency accessed through 
 
 `@typed-sql/duckdb/profile` exports `duckdbProfile()` for [query contract consumption](../guides/query-manifests.md#consume-durable-query-contracts-in-a-compiler-host). It provides grammar mechanics without loading semantic catalogs or introspection providers and contains no analyzer loader. Contextual parameter extraction retains the syntax parser.
 
+`@typed-sql/duckdb` exports the lightweight `sql` tag, runtime plan primitives, renderer and policies. The eager analyzer and previous full grammar exports are available through `@typed-sql/duckdb/analysis`.
+
 ## Engine and driver compatibility
 
 Support consists of these exact qualified targets. It does not include intermediate or newer releases.
@@ -163,7 +165,7 @@ keeps it offline. Closing an active service drains admitted work and releases ow
 
 ```ts
 import { defineConfig } from '@typed-sql/core';
-import { duckdb } from '@typed-sql/duckdb';
+import { duckdb } from '@typed-sql/duckdb/analysis';
 import {
   createNodeDuckDBLiveVerifier,
   createNodeDuckDBPlanInspector,

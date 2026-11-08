@@ -1,6 +1,7 @@
 import { describe, it, strict } from "poku";
+import { postgres } from "../src/analysis.js";
 import { postgresNativeArguments, postgresNativeOverloads } from "../src/catalog/native.js";
-import { defaultPostgresTypePolicy, postgres } from "../src/index.js";
+import { defaultPostgresTypePolicy } from "../src/index.js";
 
 const schema = { formatVersion: 1, dialect: "postgres", version: "18.6", tables: {} } as const;
 const grammar = postgres();

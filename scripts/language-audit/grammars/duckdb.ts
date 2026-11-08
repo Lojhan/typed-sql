@@ -1,5 +1,5 @@
+import { duckdb } from "../../../packages/duckdb/src/analysis.js";
 import { duckDBBuiltinCatalog } from "../../../packages/duckdb/src/catalog/index.js";
-import { duckdb } from "../../../packages/duckdb/src/index.js";
 import { tokenize as tokenizeDuckDB } from "../../../packages/duckdb/src/parser/tokenizer.js";
 import { duckDBServerEvidence } from "../../../packages/duckdb/src/support.js";
 import { numericVersionBand } from "../../../tools/grammar-catalog/src/registry.mjs";

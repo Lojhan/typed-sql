@@ -5,10 +5,10 @@ import { fileURLToPath } from "node:url";
 import { describe, it, strict } from "poku";
 import { type CompiledQuery, compileSource } from "../../packages/compiler/src/index.js";
 import type { DialectPlugin, SchemaSnapshot } from "../../packages/core/src/index.js";
-import { mysql } from "../../packages/mysql/src/index.js";
-import { postgres } from "../../packages/postgres/src/index.js";
+import { mysql } from "../../packages/mysql/src/analysis.js";
+import { postgres } from "../../packages/postgres/src/analysis.js";
 import { loadSchemaSnapshot } from "../../packages/schema/src/index.js";
-import { sqlite } from "../../packages/sqlite/src/index.js";
+import { sqlite } from "../../packages/sqlite/src/analysis.js";
 import { queryHovers } from "../../website/.vitepress/theme/playground/editor-support.js";
 import {
   analyzePlayground,

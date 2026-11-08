@@ -1,5 +1,5 @@
 import { requireAdapterCapability } from "@typed-sql/core";
-import { mysqlBulk } from "@typed-sql/mysql";
+import { mysqlBulk } from "@typed-sql/mysql/analysis";
 import type { MySqlDatabase } from "@typed-sql/mysql/runtime";
 import { bulkAccountInsert, type NewAccount } from "./mutations.js";
 

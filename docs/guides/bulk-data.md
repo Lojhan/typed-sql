@@ -44,7 +44,7 @@ pnpm add pg pg-copy-streams
 
 ```ts
 import { requireAdapterCapability } from "@typed-sql/core";
-import { postgresCopy, sql } from "@typed-sql/postgres";
+import { sql } from "@typed-sql/postgres"; import { postgresCopy } from "@typed-sql/postgres/analysis";
 import { createPgDatabase } from "@typed-sql/postgres/pg";
 
 const database = await createPgDatabase({
@@ -124,7 +124,7 @@ MySQL must explicitly allow local infile requests, for example through the serve
 
 ```ts
 import { requireAdapterCapability } from "@typed-sql/core";
-import { mysqlBulk, sql } from "@typed-sql/mysql";
+import { sql } from "@typed-sql/mysql"; import { mysqlBulk } from "@typed-sql/mysql/analysis";
 import { createMySql2Database } from "@typed-sql/mysql/mysql2";
 
 const database = await createMySql2Database({
@@ -192,7 +192,7 @@ Generic infrastructure can inspect a capability without importing a driver:
 
 ```ts
 import { getAdapterCapability } from "@typed-sql/core";
-import { postgresCopy } from "@typed-sql/postgres";
+import { postgresCopy } from "@typed-sql/postgres/analysis";
 
 const copy = getAdapterCapability(database, postgresCopy);
 if (copy !== undefined) {

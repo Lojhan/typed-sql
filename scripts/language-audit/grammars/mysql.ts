@@ -1,6 +1,6 @@
+import { mysql } from "../../../packages/mysql/src/analysis.js";
 import { mySqlServerEvidence } from "../../../packages/mysql/src/capabilities.js";
 import { mySqlCoreCatalog } from "../../../packages/mysql/src/catalog/index.js";
-import { mysql } from "../../../packages/mysql/src/index.js";
 import { tokenize as tokenizeMySql } from "../../../packages/mysql/src/parser/tokenizer.js";
 import { numericVersionBand } from "../../../tools/grammar-catalog/src/registry.mjs";
 import { callProbeQueries } from "../invocations.js";

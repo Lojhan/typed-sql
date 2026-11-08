@@ -85,13 +85,17 @@ Create `typed-sql.config.ts`:
 
 ```ts
 import { defineConfig } from "@typed-sql/core";
-import { sqlite, typePolicy } from "@typed-sql/sqlite";
+import { typePolicy } from "@typed-sql/sqlite";
+import { sqliteProfile } from "@typed-sql/sqlite/profile";
 import { nodeSqlite } from "@typed-sql/sqlite/node-sqlite";
 
 const path = "app.db";
 
 export default defineConfig({
-  dialect: sqlite({ typePolicy }),
+  dialect: {
+    ...sqliteProfile({ typePolicy }),
+    loadAnalyzer: async () => (await import("@typed-sql/sqlite/analysis")).sqlite({ typePolicy }),
+  },
   schema: {
     file: "generated/db/schema.json",
     provider: nodeSqlite({ path, typePolicy }),

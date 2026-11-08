@@ -12,9 +12,9 @@ import {
   UnsupportedExecutionCapabilityError,
 } from "../../packages/core/src/index.js";
 import { duckDBServerEvidence, duckdb } from "../../packages/duckdb/src/browser.js";
-import { mysql } from "../../packages/mysql/src/index.js";
-import { postgres } from "../../packages/postgres/src/index.js";
-import { sqlite } from "../../packages/sqlite/src/index.js";
+import { mysql } from "../../packages/mysql/src/analysis.js";
+import { postgres } from "../../packages/postgres/src/analysis.js";
+import { sqlite } from "../../packages/sqlite/src/analysis.js";
 import { sqlServerServerEvidence, sqlserver } from "../../packages/sqlserver/src/browser.js";
 
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "../..");

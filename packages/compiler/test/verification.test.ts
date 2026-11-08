@@ -1,6 +1,7 @@
 import { describe, it, strict } from "poku";
 import type { LiveQueryVerifier, SchemaSnapshot } from "../../core/src/index.js";
-import { type PostgresSchemaSnapshot, postgres, typePolicy as postgresTypePolicy } from "../../postgres/src/index.js";
+import { postgres } from "../../postgres/src/analysis.js";
+import { type PostgresSchemaSnapshot, typePolicy as postgresTypePolicy } from "../../postgres/src/index.js";
 import { createPgLiveVerifier } from "../../postgres/src/pg.js";
 import {
   assertQueryVerificationProofCurrent,

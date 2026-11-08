@@ -24,7 +24,8 @@ import {
   requireAdapterCapability,
   validateJsonValue,
 } from "@typed-sql/core";
-import { createPostgresRoutedDatabase, postgres, postgresCopy, sql, typePolicy } from "@typed-sql/postgres";
+import { sql, typePolicy } from "@typed-sql/postgres";
+import { createPostgresRoutedDatabase, postgres, postgresCopy } from "@typed-sql/postgres/analysis";
 import { createPgDatabase, createPgLiveVerifier } from "@typed-sql/postgres/pg";
 import { analyzeSource } from "@typed-sql/ts-bridge";
 import { NativePreviewTypeScriptBridge } from "@typed-sql/ts-bridge/native-preview";

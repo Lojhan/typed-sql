@@ -24,8 +24,8 @@ import {
   reconcileQueryContract,
 } from "../../packages/analysis/src/index.js";
 import { collectSourceQueryCandidates, compileSource } from "../../packages/compiler/src/index.js";
+import { postgres } from "../../packages/postgres/src/analysis.js";
 import { postgresContractIdentity } from "../../packages/postgres/src/contract-profile.js";
-import { postgres } from "../../packages/postgres/src/index.js";
 import { adaptPgPool } from "../../packages/postgres/src/pg.js";
 import {
   createPgNativeContractAdapter,
@@ -370,7 +370,7 @@ export default defineConfig({
       const liveConfig = (await readFile(join(temporary, "typed-sql.config.mjs"), "utf8"))
         .replace(
           'loadAnalyzer(){throw Error("Frozen native proof initialized an analyzer");}',
-          'async loadAnalyzer(){if(!process.env.TYPED_SQL_CONTRACT_LIVE_TEST)throw Error("Offline check initialized an analyzer");return (await import("@typed-sql/postgres")).postgres();}',
+          'async loadAnalyzer(){if(!process.env.TYPED_SQL_CONTRACT_LIVE_TEST)throw Error("Offline check initialized an analyzer");return (await import("@typed-sql/postgres/analysis")).postgres();}',
         )
         .replace(
           'analysis: {mode: "frozen",',
@@ -656,6 +656,11 @@ export default defineConfig({
     // Cleanup uses a distinct administrative connection, after disconnected reuse has been proved.
     const cleanup = new Pool({ connectionString });
     try {
+      strict.equal(
+        (await cleanup.query<{ count: number }>(`SELECT count FROM ${namespace}.calls`)).rows[0]!.count,
+        1,
+        "Packed frozen CLI checks must not execute recorded queries",
+      );
       await cleanup.query(`DROP SCHEMA ${namespace} CASCADE`);
       created = false;
     } finally {

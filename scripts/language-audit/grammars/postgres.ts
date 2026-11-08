@@ -1,6 +1,6 @@
+import { postgres } from "../../../packages/postgres/src/analysis.js";
 import { postgresServerEvidence } from "../../../packages/postgres/src/capabilities.js";
 import { postgresCoreCatalog } from "../../../packages/postgres/src/catalog/index.js";
-import { postgres } from "../../../packages/postgres/src/index.js";
 import { tokenize as tokenizePostgres } from "../../../packages/postgres/src/parser/tokenizer.js";
 import { numericVersionBand } from "../../../tools/grammar-catalog/src/registry.mjs";
 import { callProbeQueries } from "../invocations.js";

@@ -4,7 +4,7 @@ import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { compileSqlFile } from "@typed-sql/compiler";
-import { SqlServerSchemaProvider, sqlserver } from "@typed-sql/sqlserver";
+import { SqlServerSchemaProvider, sqlserver } from "@typed-sql/sqlserver/analysis";
 import { connectSqlServerOdbc, createSqlServerOdbcDatabase } from "@typed-sql/sqlserver/odbc";
 
 const password = process.env.TYPED_SQL_SQLSERVER_PASSWORD;

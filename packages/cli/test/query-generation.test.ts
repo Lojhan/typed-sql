@@ -13,7 +13,7 @@ async function allowOfflineOwner(directory: string): Promise<string> {
       .replace('mode:"frozen"', 'mode:"offline"')
       .replace(
         'loadAnalyzer(){throw new Error("analyzer must remain cold")}',
-        'loadAnalyzer:async()=>(await import("@typed-sql/postgres")).postgres()',
+        'loadAnalyzer:async()=>(await import("@typed-sql/postgres/analysis")).postgres()',
       ),
   );
   return original;
@@ -46,7 +46,7 @@ await describe("durable query generation", async () => {
         first = (await loadQueryContracts(output))[0]!;
       await rm(join(directory, ".typed-sql"), { recursive: true, force: true });
       const cold = config.replace(
-        'loadAnalyzer:async()=>(await import("@typed-sql/postgres")).postgres()',
+        'loadAnalyzer:async()=>(await import("@typed-sql/postgres/analysis")).postgres()',
         'loadAnalyzer(){throw Error("frozen analyzer must stay cold")}',
       );
       await writeFile(path, cold);
@@ -134,7 +134,7 @@ await describe("durable query generation", async () => {
           .replace('mode:"frozen"', 'mode:"offline"')
           .replace(
             'loadAnalyzer(){throw new Error("analyzer must remain cold")}',
-            `async loadAnalyzer(){const {writeFile}=await import("node:fs/promises");await writeFile(new URL("./src/query.ts",import.meta.url),${JSON.stringify(newer)});return (await import("@typed-sql/postgres")).postgres();}`,
+            `async loadAnalyzer(){const {writeFile}=await import("node:fs/promises");await writeFile(new URL("./src/query.ts",import.meta.url),${JSON.stringify(newer)});return (await import("@typed-sql/postgres/analysis")).postgres();}`,
           ),
       );
       await strict.rejects(generate(directory), (error: unknown) => {

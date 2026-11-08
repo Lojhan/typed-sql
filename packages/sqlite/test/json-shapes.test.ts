@@ -10,7 +10,8 @@ import {
   withQueryValuePlan,
 } from "@typed-sql/core";
 import { describe, it, strict } from "poku";
-import { defaultSqliteTypePolicy, parseSqliteSchemaSnapshot, type SqliteTypePolicy, sqlite } from "../src/index.js";
+import { sqlite } from "../src/analysis.js";
+import { defaultSqliteTypePolicy, parseSqliteSchemaSnapshot, type SqliteTypePolicy } from "../src/index.js";
 import { readNodeSqliteServerEvidence } from "../src/node-sqlite.js";
 import { sqliteRenderer, sqliteRuntimeValueType } from "../src/query.js";
 import { sqliteVersionSupport } from "../src/support.js";

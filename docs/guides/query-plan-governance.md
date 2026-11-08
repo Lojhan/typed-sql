@@ -21,7 +21,7 @@ PostgreSQL exposes its adapter from the driver-specific subpath:
 
 ```ts
 import { defineConfig } from "@typed-sql/core";
-import { postgres } from "@typed-sql/postgres";
+import { postgres } from "@typed-sql/postgres/analysis";
 import { createPgPlanInspector } from "@typed-sql/postgres/pg";
 
 const connectionString = () => process.env.DATABASE_URL!;

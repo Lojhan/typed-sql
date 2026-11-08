@@ -124,7 +124,7 @@ await describe("explicit setup application and recovery", async () => {
       await writeFile(join(root, "src/example.ts"), "export const ordinary = 1;\n");
       await writeFile(
         join(root, "typed-sql.config.ts"),
-        `import { postgres } from "@typed-sql/postgres";\nexport default { dialect: postgres(), schema: { file: ${JSON.stringify(join(workspace, "test/fixtures/success/schema.json"))} }, outDir: "generated", projects: ["tsconfig.json"] };\n`,
+        `import { postgres } from "@typed-sql/postgres/analysis";\nexport default { dialect: postgres(), schema: { file: ${JSON.stringify(join(workspace, "test/fixtures/success/schema.json"))} }, outDir: "generated", projects: ["tsconfig.json"] };\n`,
       );
       await verifyInitServer(root);
     });

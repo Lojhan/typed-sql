@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { postgres } from "@typed-sql/postgres";
+import { postgres } from "@typed-sql/postgres/analysis";
 import { describe, it, strict } from "poku";
 import { AgentWorkspaceToolServer } from "../src/agent-tools.js";
 import type { PlaygroundQueryRequest, PlaygroundTarget } from "../src/contracts.js";

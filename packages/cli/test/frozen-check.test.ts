@@ -37,7 +37,7 @@ await describe("frozen CLI project checking", async () => {
       const original = await readFile(path, "utf8");
       const legacy = `${original.slice(0, original.indexOf("analysis:"))}});`.replace(
         'loadAnalyzer(){throw new Error("analyzer must remain cold")}',
-        'loadAnalyzer:async()=>(await import("@typed-sql/postgres")).postgres()',
+        'loadAnalyzer:async()=>(await import("@typed-sql/postgres/analysis")).postgres()',
       );
       await writeFile(path, legacy);
       strict.match((await execute(directory, ["--offline"])).stdout, /Checked 1 project/u);
@@ -60,7 +60,7 @@ await describe("frozen CLI project checking", async () => {
           .replace('mode:"frozen"', 'mode:"offline"')
           .replace(
             'loadAnalyzer(){throw new Error("analyzer must remain cold")}',
-            'loadAnalyzer:async()=>(await import("@typed-sql/postgres")).postgres()',
+            'loadAnalyzer:async()=>(await import("@typed-sql/postgres/analysis")).postgres()',
           ),
       );
       await exportQueryContracts(join(directory, "generated/contracts"), []);

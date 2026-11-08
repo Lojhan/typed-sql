@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { compileSqlFile } from "@typed-sql/compiler";
-import { SqlServerSchemaProvider, sqlserver } from "@typed-sql/sqlserver";
+import { SqlServerSchemaProvider, sqlserver } from "@typed-sql/sqlserver/analysis";
 import { createSqlServerOdbcDatabase } from "@typed-sql/sqlserver/odbc";
 
 // This probe never changes an application database. Every compatibility profile gets

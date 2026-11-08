@@ -1,6 +1,6 @@
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import { POSTGRES_SUPPORT_POLICY } from "../packages/postgres/dist/packages/postgres/src/index.js";
+import { POSTGRES_SUPPORT_POLICY } from "../packages/postgres/dist/packages/postgres/src/analysis.js";
 
 const options = Object.create(null);
 for (let index = 2; index < process.argv.length; index += 2) {

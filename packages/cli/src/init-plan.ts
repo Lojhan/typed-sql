@@ -192,7 +192,7 @@ export async function planInit(options: Readonly<Record<string, string>>, versio
   if (found.length === 0)
     add(
       "typed-sql.config.ts",
-      `import { ${grammars[grammar].factory} } from ${JSON.stringify(grammars[grammar].package)};\n\nexport default {\n  dialect: ${grammars[grammar].factory}(),\n  schema: { file: "schema.json" },\n  outDir: "generated",\n  projects: ["tsconfig.json"],\n};\n`,
+      `import { ${grammars[grammar].factory}Profile } from ${JSON.stringify(`${grammars[grammar].package}/profile`)};\n\nexport default {\n  dialect: {\n    ...${grammars[grammar].factory}Profile(),\n    loadAnalyzer: async () => (await import(${JSON.stringify(`${grammars[grammar].package}/analysis`)})).${grammars[grammar].factory}(),\n  },\n  schema: { file: "schema.json" },\n  outDir: "generated",\n  projects: ["tsconfig.json"],\n};\n`,
     );
   else {
     detected.push(join(root, found[0]!));

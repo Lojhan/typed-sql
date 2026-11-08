@@ -17,7 +17,8 @@ description: PostgreSQL grammar coverage, catalog introspection, application-own
 - `@typed-sql/postgres/pg-contracts` — explicit native query-contract acquisition over a dedicated application-owned pool.
 - `@typed-sql/postgres/query` — portable `sql`, renderer, and runtime value descriptors for buffered adapters.
 
-- `@typed-sql/postgres` — `sql`, dialect factory, default type policy, analysis, type mapping, semantic routing, and transaction retry classification.
+- `@typed-sql/postgres` — `sql`, runtime plan primitives, renderer and type policy.
+- `@typed-sql/postgres/analysis` — explicit eager analyzer and compatibility exports, including schema introspection and semantic routing.
 - `@typed-sql/postgres/runtime` — driver-neutral rendering and codec utilities.
 - `@typed-sql/postgres/pg` — schema provider, executable database adapter, lazy live verifier, and structured-plan inspector for application-owned `pg`.
 - `@typed-sql/postgres/migrations` — lazy migration targets, pinned PostgreSQL catalog/history operations, script validation and qualified catalog keys; requires the application-owned `pg` driver and optional `@typed-sql/migrations` package.

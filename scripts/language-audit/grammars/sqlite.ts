@@ -1,6 +1,6 @@
+import { sqlite } from "../../../packages/sqlite/src/analysis.js";
 import { SQLITE_BUILTIN_FUNCTIONS } from "../../../packages/sqlite/src/catalog/functions.js";
 import { SQLITE_JSON_TABLE_FUNCTIONS } from "../../../packages/sqlite/src/catalog/json.js";
-import { sqlite } from "../../../packages/sqlite/src/index.js";
 import { tokenize as tokenizeSqlite } from "../../../packages/sqlite/src/parser/tokenizer.js";
 import { callProbeQueries } from "../invocations.js";
 import type { AuditGrammar } from "./contracts.js";

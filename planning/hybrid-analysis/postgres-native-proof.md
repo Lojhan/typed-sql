@@ -1,8 +1,8 @@
 # PostgreSQL native contract checkpoint
 
 This is intermediate implementation evidence for the [final architecture](./spec.md). It does
-not qualify all PostgreSQL queries, all engine versions, the other grammars or automatic live
-regeneration. The implementation ledger retains the complete remaining scope.
+not qualify all PostgreSQL queries, all engine versions, the other grammars or idle remote-change
+detection. The implementation ledger retains the complete remaining scope.
 
 ## Real engine evidence
 
@@ -19,10 +19,14 @@ lifecycle. Its PostgreSQL 18 branch:
    executes the compiler-transformed query and decodes bigint output. The counter becomes one.
 5. Injects DDL between description and context validation; no replacement contract escapes.
 6. Closes native clients and recompiles identically from the exported closure.
-7. Copies distribution-only package files to an isolated temporary installation outside the
-   workspace, removes the analyzer/parser/global catalogs and confirms the driver cannot resolve.
-   A fresh Node process recompiles the actual native closure identically with JavaScript network
-   traps installed. Missing durable objects fail loading. This is not an OS network sandbox.
+7. Packs and installs the production dependency closure into a separate temporary consumer outside
+   the workspace. Analyzer/parser/global catalog implementations, declarations and maps are removed;
+   database drivers cannot resolve. The full frozen CLI checks the actual acquired native closure,
+   preserves `bigint | null` and rejects an incompatible downstream TypeScript assignment. Native
+   factories remain guarded and JavaScript network traps are installed. A fresh programmatic consumer
+   also recompiles identically; missing durable objects fail loading. The database counter remains one.
+   External tool dependencies use the existing packed-consumer overrides. This is not an OS network
+   sandbox.
 
 The root packed-consumer gate separately uses actual tarballs, validates the exported profile/tag
 surface, removes heavy PostgreSQL modules and checks contract compilation and runtime decoding.
@@ -105,9 +109,10 @@ it does not assert current remote freshness or that the database is unreachable 
 Known context change then retires disposable evidence and rejects the earlier producer token.
 
 After native clients close, the actual `--frozen` CLI checks the separately exported qualified
-closure. A fresh distribution-only process also uses the high-level frozen loader with analyzer,
-catalog and driver files removed and JavaScript network traps installed. The CLI itself has not
-yet been qualified inside that physically stripped installation. These remain expression-query
+closure. It also checks the real acquired closure in a fresh packed installation with analyzer,
+parser, catalog and driver modules unavailable and JavaScript network traps installed. A downstream
+assignment incompatible with the recorded native result fails TypeScript checking. The same isolated
+installation exercises the high-level programmatic frozen loader. These remain expression-query
 proofs for the declared PostgreSQL transport scope, not all-engine or whole-grammar qualification.
 
 ## Explicit live CLI update

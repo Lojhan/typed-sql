@@ -1,7 +1,7 @@
 import { sql, withQueryValuePlan } from "@typed-sql/core";
 import { calculateTypePolicyHash } from "@typed-sql/schema";
 import { describe, it, strict } from "poku";
-import { sqlserver } from "../src/index.js";
+import { sqlserver } from "../src/analysis.js";
 import { createSqlServerOdbcConnection, createSqlServerOdbcDatabase, sqlServerOdbcField } from "../src/odbc.js";
 import { sqlServerOdbcAliasQuery } from "../src/odbc-aliases.js";
 import type { OdbcColumn, OdbcCommand, OdbcReply } from "../src/odbc-protocol.js";

@@ -228,7 +228,7 @@ await describe("typed-sql capability evidence reload", async () => {
         config,
         [
           'import { defineConfig } from "../packages/core/src/index.ts";',
-          'import { sqlite } from "../packages/sqlite/src/index.ts";',
+          'import { sqlite } from "../packages/sqlite/src/analysis.ts";',
           'export default defineConfig({ dialect: sqlite(), schema: { file: "schema.json" }, outDir: "generated" });',
         ].join("\n"),
       );

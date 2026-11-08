@@ -1,5 +1,5 @@
 import { it, strict } from "poku";
-import { duckdb } from "../src/index.js";
+import { duckdb } from "../src/analysis.js";
 import type { DuckDBSchemaSnapshot } from "../src/snapshot.js";
 import { fixtureEvidence } from "./helpers/evidence.js";
 

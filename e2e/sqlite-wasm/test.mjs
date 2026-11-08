@@ -27,7 +27,7 @@ try {
     `import {writeFile} from 'node:fs/promises';
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 import {createSqliteWasmDatabase} from '@typed-sql/adapters/sqlite-wasm';
-import {SqliteSchemaProvider} from '@typed-sql/sqlite';
+import { SqliteSchemaProvider } from '@typed-sql/sqlite/analysis';
 import {sqliteRenderer} from '@typed-sql/sqlite/query';
 const module=await sqlite3InitModule(); const connection=new module.oo1.DB(':memory:');
 connection.exec('CREATE TABLE items(id INTEGER PRIMARY KEY,name TEXT NOT NULL,payload TEXT NOT NULL,bytes BLOB NOT NULL,maybe TEXT) STRICT');

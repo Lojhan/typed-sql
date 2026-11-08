@@ -2,8 +2,10 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it, strict } from "poku";
-import { type MySqlSchemaSnapshot, mysql, typePolicy as mysqlTypePolicy } from "../../mysql/src/index.js";
-import { type PostgresSchemaSnapshot, postgres, typePolicy as postgresTypePolicy } from "../../postgres/src/index.js";
+import { mysql } from "../../mysql/src/analysis.js";
+import { type MySqlSchemaSnapshot, typePolicy as mysqlTypePolicy } from "../../mysql/src/index.js";
+import { postgres } from "../../postgres/src/analysis.js";
+import { type PostgresSchemaSnapshot, typePolicy as postgresTypePolicy } from "../../postgres/src/index.js";
 import type { SchemaSnapshot } from "../../schema/src/index.js";
 import {
   buildQueryManifest,

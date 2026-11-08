@@ -34,7 +34,7 @@ List the TypeScript projects that contain queries and optionally select an outpu
 
 ```ts
 import { defineConfig } from "@typed-sql/core";
-import { postgres, typePolicy } from "@typed-sql/postgres";
+import { typePolicy } from "@typed-sql/postgres"; import { postgres } from "@typed-sql/postgres/analysis";
 
 export default defineConfig({
   dialect: postgres({ typePolicy }),

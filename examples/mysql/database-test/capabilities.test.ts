@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { QueryCancelledError } from "@typed-sql/core";
-import { mysql, sql, typePolicy } from "@typed-sql/mysql";
+import { sql, typePolicy } from "@typed-sql/mysql";
+import { mysql } from "@typed-sql/mysql/analysis";
 import { createMySql2Database } from "@typed-sql/mysql/mysql2";
 import { describe, it, strict } from "poku";
 import { loadAccountWorkspace } from "../src/batches.js";

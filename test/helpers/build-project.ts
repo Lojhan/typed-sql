@@ -39,7 +39,7 @@ export async function prepareBuildProject(directory: string): Promise<void> {
   await writeFile(join(directory, "policy.mjs"), 'export const integer = "number";\n');
   await writeFile(
     join(directory, "typed-sql.config.mjs"),
-    `import { sqlite, typePolicy } from "@typed-sql/sqlite";
+    `import { typePolicy } from "@typed-sql/sqlite"; import { sqlite } from "@typed-sql/sqlite/analysis";
 import { integer } from "./policy.mjs";
 const policy = { ...typePolicy, integer };
 export default { dialect: sqlite({ typePolicy: policy }), typePolicy: policy, schema: { file: "schema.json", provider: { async introspect() { throw new Error("Build transforms must not introspect a database"); } } }, outDir: "generated/db", projects: ["tsconfig.json"] };

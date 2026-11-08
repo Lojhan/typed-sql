@@ -16,12 +16,7 @@ Create every driver adapter normally, then compose them with the dialect root. T
 
 ```ts
 import snapshotJson from "./schema/catalog.snapshot.json" with { type: "json" };
-import {
-  createPostgresRoutedDatabase,
-  postgres,
-  sql,
-  typePolicy,
-} from "@typed-sql/postgres";
+import { sql, typePolicy } from "@typed-sql/postgres"; import { createPostgresRoutedDatabase, postgres } from "@typed-sql/postgres/analysis";
 import { createPgDatabase } from "@typed-sql/postgres/pg";
 
 const schema = postgres().validateSnapshot(snapshotJson);
@@ -130,7 +125,7 @@ Observer failures are isolated from execution. The event contains semantic evide
 Retries are never automatic. Supply a bounded policy to an explicit routed transaction and use the dialect classifier:
 
 ```ts
-import { isPostgresRetryableTransactionError } from "@typed-sql/postgres";
+import { isPostgresRetryableTransactionError } from "@typed-sql/postgres/analysis";
 
 const controller = new AbortController();
 

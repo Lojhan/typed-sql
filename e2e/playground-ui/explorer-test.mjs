@@ -102,7 +102,7 @@ try {
 import {readFileSync} from 'node:fs';
 import {defineConfig} from '@typed-sql/core';
 import {defineMigrations} from '@typed-sql/migrations';
-import {postgres,typePolicy} from '@typed-sql/postgres';
+import { typePolicy } from '@typed-sql/postgres'; import { postgres } from '@typed-sql/postgres/analysis';
 import {pg} from '@typed-sql/postgres/pg';
 import {createPgMigrationTarget} from '@typed-sql/postgres/migrations';
 import {createPgPlaygroundTarget} from '@typed-sql/playground/pg';

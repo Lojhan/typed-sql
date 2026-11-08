@@ -1,7 +1,8 @@
 import { requireAdapterCapability, sql, withQueryValuePlan } from "@typed-sql/core";
 import { calculateTypePolicyHash } from "@typed-sql/schema";
 import { it, strict } from "poku";
-import { duckdb, typePolicy } from "../src/index.js";
+import { duckdb } from "../src/analysis.js";
+import { typePolicy } from "../src/index.js";
 import { createNodeDuckDBDatabase } from "../src/node-api.js";
 import { DuckDBSchemaProvider } from "../src/provider.js";
 import { duckdbAppender } from "../src/runtime.js";

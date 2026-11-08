@@ -4,7 +4,7 @@ import type {
   NativeContractValueEvidence,
   StaticContractField,
 } from "../../analysis/src/index.js";
-import { postgres } from "../src/index.js";
+import { postgres } from "../src/analysis.js";
 import { createPostgresContractReconciler } from "../src/reconciliation.js";
 
 const schema = { formatVersion: 1, dialect: "postgres", tables: {} } as const;

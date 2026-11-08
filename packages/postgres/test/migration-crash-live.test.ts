@@ -14,7 +14,7 @@ import {
   type MigrationsConfig,
   resolveAttempt,
 } from "../../migrations/src/index.js";
-import { postgres } from "../src/index.js";
+import { postgres } from "../src/analysis.js";
 import { createPgMigrationTarget } from "../src/migrations.js";
 import { loadPgDriver } from "../src/pg.js";
 

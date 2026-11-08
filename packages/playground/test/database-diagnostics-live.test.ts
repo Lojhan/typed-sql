@@ -38,7 +38,7 @@ await describe("real PostgreSQL source diagnostics", async () => {
     fixture(async (directory) => {
       await writeFile(
         join(directory, "typed-sql.config.mjs"),
-        `import {postgres} from '@typed-sql/postgres';import {createPgPlaygroundTarget} from '@typed-sql/playground/pg';export default {dialect:postgres(),schema:{file:'schema.json'},outDir:'generated',projects:['tsconfig.json'],playground:{readRoots:['playground'],writeRoots:['playground'],targets:{local:{classification:'test',connect:()=>createPgPlaygroundTarget({connectionString:process.env.TYPED_SQL_PLAYGROUND_PG_URL})}}}};`,
+        `import { postgres } from '@typed-sql/postgres/analysis';import {createPgPlaygroundTarget} from '@typed-sql/playground/pg';export default {dialect:postgres(),schema:{file:'schema.json'},outDir:'generated',projects:['tsconfig.json'],playground:{readRoots:['playground'],writeRoots:['playground'],targets:{local:{classification:'test',connect:()=>createPgPlaygroundTarget({connectionString:process.env.TYPED_SQL_PLAYGROUND_PG_URL})}}}};`,
       );
       const source = "-- 😀\nselect 'bad'::int4 as value;";
       await writeFile(join(directory, "playground/error.sql"), source);
