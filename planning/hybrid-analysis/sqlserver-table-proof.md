@@ -31,8 +31,13 @@ Local evidence: all 24 SQL Server test files and their coverage gate pass, as do
 checks. Regression tests exercise bound quoted identifiers, context changes, unsafe/incomplete
 catalog evidence and log drift during relation resolution before candidate description.
 
-Real qualification is pending. The Linux x64 workflow now tests table parameter inference,
+[Qualification run 42532051883](https://github.com/Lojhan/typed-sql/actions/runs/42532051883)
+passes all four Linux x64 engine jobs at `a30e4d95`. It tests table parameter inference,
 join/decimal/star metadata and actual view/computed/alias/RLS rejection at every declared
-compatibility level on the four pinned engines. Its installed host fixture now uses a joined table
+compatibility level on the four pinned engines. Its installed host fixture uses a joined table
 query for generation, frozen declarations/execution, unsaved SQL/TypeScript editor regeneration,
 table-DDL observation, cache-only restart and disconnected frozen builds.
+
+The downloaded artifacts and exact target counts are recorded in the [native evidence report](./sqlserver-native-proof.md).
+Local public API/package graph, packed-consumer/editor, quality, documentation, clean build and
+isolated performance gates pass. Broader SQL forms and the full architecture acceptance remain open.

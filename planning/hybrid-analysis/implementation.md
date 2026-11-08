@@ -684,5 +684,8 @@ force around resolution and description. Unsupported relations, custom types and
 computed/security behavior are rejected. See [scope and qualification evidence](./sqlserver-table-proof.md).
 
 All 24 package test files pass with 96.69% statements, 91.09% branches and 95.78% functions;
-workspace type checks pass. Real-engine and installed-host qualification is pending in the
-four-engine Linux x64 matrix. Broader architecture acceptance remains outstanding.
+workspace type checks pass. [Run 42532051883](https://github.com/Lojhan/typed-sql/actions/runs/42532051883)
+passes all four Linux x64 jobs at a30e4d95, including native table contracts and installed hosts.
+Downloaded artifacts contain 70 reconciled contracts and 40 unsafe-object rejections across ten
+engine/compatibility targets. Clean build, quality, docs, API/package graph, three packed suites
+and isolated performance gates pass. Broader architecture acceptance remains outstanding.
