@@ -506,7 +506,9 @@ await describe("owned disposable analysis cache", async () => {
       if (outcome.kind !== "usable-recorded-context") throw Error("Missing contract");
       const objectPath = join(directory, "queries/objects", `${outcome.contract.digest}.json`);
       await rm(objectPath);
+      await writeFile(join(outside, "secret"), "external data");
       await symlink(join(outside, "secret"), objectPath);
+      await strict.rejects(() => readCacheFile(objectPath, 1024));
       await strict.rejects(() => cache.lookup(request));
       await strict.rejects(() => cache.prune({ retentionMs: 0 }), /Unsafe/u);
       await rm(objectPath);

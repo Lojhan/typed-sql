@@ -429,6 +429,19 @@ Unrelated planning work is left unchanged.
   required. Live editor mode reports unavailable without constructing native resources; this is
   not the final live editor implementation.
 
+## Cache read and test fixture quality follow-up
+
+- PR CodeQL findings 61/62 identify a pre-open file check and unnecessary interpolation in a
+  generated test module. Cache/artifact reads now open with no-follow/nonblocking flags first,
+  validate the descriptor and named-file identity, and read solely through that descriptor.
+  A symbolic-link open retains the regular-file diagnostic. The test module uses fixed revision
+  literals rather than a string-to-source interpolation helper.
+- The symlink regression now points to an existing outside file and directly checks that the
+  reader refuses it, so a missing target or invalid downstream JSON cannot hide accidental reads.
+- Focused cache/export/config tests, complete analysis/config coverage suites and typechecking
+  pass. CodeQL's latest inspected analysis remains the preceding commit; closure of those findings
+  requires a new remote analysis and is not inferred from the local regression tests.
+
 ## Required work still open
 
 1. Complete the contract/evidence model: native descriptors and provenance, reusable/facet-specific

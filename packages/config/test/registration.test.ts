@@ -261,9 +261,8 @@ await describe("explicit grammar registration", async () => {
       helper = join(directory, "owner.mts");
     try {
       const core = pathToFileURL(new URL("../../core/src/index.ts", import.meta.url).pathname).href;
-      const body = (revision: string) =>
-        `import {unknownQuerySemantics} from ${JSON.stringify(core)}; export function createOwner(profile){return {...profile, analyze(sql){return {columns:[],parameters:[],diagnostics:[],semantics:unknownQuerySemantics({start:0,end:sql.length,line:1,column:1},${JSON.stringify(revision)})}}}}`;
-      await writeFile(helper, body("first"));
+      const body = `import {unknownQuerySemantics} from ${JSON.stringify(core)}; export function createOwner(profile){return {...profile, analyze(sql){return {columns:[],parameters:[],diagnostics:[],semantics:unknownQuerySemantics({start:0,end:sql.length,line:1,column:1},"first")}}}}`;
+      await writeFile(helper, body);
       await writeFile(
         file,
         `import {defineConfig,DIALECT_CONTRACT_VERSION} from ${JSON.stringify(core)}; export default defineConfig({dialect:{contractVersion:DIALECT_CONTRACT_VERSION,id:"vendor/lazy",grammarVersion:"1",sqlModule:"vendor/lazy",capabilities:{},defaultTypePolicy:{},placeholder:i=>"$"+i,quoteIdentifier:i=>i,validateSnapshot:i=>i,async loadAnalyzer(){const {createOwner}=await import("./owner.mts");return createOwner(this)}},schema:{file:"schema.json"},outDir:"generated"});`,
@@ -272,7 +271,7 @@ await describe("explicit grammar registration", async () => {
       strict.ok(!raw.dependencies?.includes(await realpath(helper)));
       await resolveConfigDialect(raw);
       strict.ok(raw.dependencies?.includes(await realpath(helper)));
-      await writeFile(helper, body("second"));
+      await writeFile(helper, body.replace('"first"', '"second"'));
       const changed = await loadConfigSource({ file });
       strict.notEqual(changed, raw);
       const resolved = await resolveConfigDialect(changed);

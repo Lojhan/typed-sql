@@ -14,12 +14,19 @@ export async function cacheDirectory(path: string): Promise<void> {
   if (!stat.isDirectory() || stat.isSymbolicLink()) throw new TypeError("Unsafe analysis cache directory");
 }
 export async function readCacheFile(path: string, limit: number, label = "Analysis cache"): Promise<string> {
-  const expected = await lstat(path);
-  if (!expected.isFile() || expected.isSymbolicLink()) throw new TypeError(`${label} objects must be regular files`);
-  const file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+  // Open first: no path check authorizes a later path-based read. All content is read
+  // through this descriptor; O_NOFOLLOW rejects leaf links and NONBLOCK avoids FIFO waits.
+  const file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK).catch(
+    (error: NodeJS.ErrnoException) => {
+      if (error.code === "ELOOP") throw new TypeError(`${label} objects must be regular files`);
+      throw error;
+    },
+  );
   try {
     const stat = await file.stat();
-    if (!stat.isFile() || stat.ino !== expected.ino || stat.dev !== expected.dev)
+    if (!stat.isFile()) throw new TypeError(`${label} objects must be regular files`);
+    const expected = await lstat(path);
+    if (!expected.isFile() || expected.isSymbolicLink() || stat.ino !== expected.ino || stat.dev !== expected.dev)
       throw new TypeError(`${label} file changed while opening`);
     if (stat.size > limit) throw new TypeError(`${label} object exceeds byte limit`);
     const buffer = Buffer.alloc(limit + 1);
