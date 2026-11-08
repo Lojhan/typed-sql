@@ -638,6 +638,19 @@ await describe("public documentation", async () => {
 });
 
 await describe("local development workspace documentation", async () => {
+  await it("links the visual tour, runnable comparison example and local screenshots", async () => {
+    strict.ok(publicDocumentationPages.some((page) => page.file === "docs/guides/workspace-tour.md"));
+    const tour = await text("docs/guides/workspace-tour.md");
+    strict.match(await text("docs/guides/dev-workspace.md"), /\.\/workspace-tour\.md/u);
+    strict.match(tour, /CREATE TABLE sales\.line_adjustments/u);
+    strict.match(tour, /COALESCE\(a\.amount, 0\)/u);
+    const screenshots = [...tour.matchAll(/!\[[^\]]+\]\(\.\.\/assets\/workspace\/([^)]+)\)/gu)];
+    strict.equal(screenshots.length, 7);
+    for (const match of screenshots) {
+      strict.ok((await stat(join(workspace, "docs/assets/workspace", match[1]!))).size > 0);
+    }
+  });
+
   await it("publishes the optional host guide with explicit adapter and execution boundaries", async () => {
     strict.ok(publicDocumentationPages.some((page) => page.file === "docs/guides/dev-workspace.md"));
     const guide = await text("docs/guides/dev-workspace.md");

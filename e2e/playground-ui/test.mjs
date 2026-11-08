@@ -3,7 +3,7 @@ import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { createRequire } from "node:module";
 import { join, resolve } from "node:path";
 import { command, consumer, server } from "../build/src/consumer.mjs";
-import { componentContract } from "./fixtures/component-contracts.mjs";
+import { componentContract, revealToolbarActions } from "./fixtures/component-contracts.mjs";
 
 const artifacts = resolve("artifacts/playground-ui/browser");
 await mkdir(artifacts, { recursive: true });
@@ -733,26 +733,27 @@ export default {dialect:postgres(),schema:{file:'schema.json'},outDir:'generated
     svg: minimapSvgBox,
   });
   const boardViewport = page.viewportSize();
-  await page.setViewportSize({ width: 560, height: 800 });
+  await page.setViewportSize({ width: 390, height: 800 });
   const canvasTools = page.locator(".canvas-toolbar");
+  await revealToolbarActions(canvasTools, "Schema map actions");
   const toolBox = await canvasTools.boundingBox();
   const canvasBox = await page.locator(".canvas-viewport").boundingBox();
   assert.ok(toolBox.y + toolBox.height <= canvasBox.y + 1, "Board actions occupy their own space above the canvas");
-  const boardButtons = await canvasTools.getByRole("button").all();
-  const buttonBoxes = [];
-  for (const button of boardButtons) {
-    const box = await button.boundingBox();
-    assert.ok(box.x >= toolBox.x && box.x + box.width <= toolBox.x + toolBox.width + 1);
-    buttonBoxes.push(box);
-  }
-  assert.ok(
-    buttonBoxes[0].x + buttonBoxes[0].width <= buttonBoxes[1].x ||
-      buttonBoxes[0].y + buttonBoxes[0].height <= buttonBoxes[1].y,
-    "Narrow schema actions must wrap rather than overlap",
+  const barHeight = await canvasTools.evaluate((element) =>
+    Number.parseFloat(getComputedStyle(element).getPropertyValue("--bar-height")),
   );
+  assert.equal(toolBox.height, barHeight, "Narrow schema actions stay on one row");
+  const menu = canvasTools.locator("[popover]");
+  await menu.waitFor({ state: "visible" });
+  const menuBox = await menu.boundingBox();
+  assert.ok(menuBox.x >= 0 && menuBox.x + menuBox.width <= 391);
+  await canvasTools.getByRole("button", { name: "Reset layout", exact: true }).waitFor();
   await screenshot(canvasTools, "schema-actions-narrow");
+  await screenshot(menu, "schema-actions-menu-narrow");
+  await page.keyboard.press("Escape");
+  await menu.waitFor({ state: "hidden" });
   await page.setViewportSize(boardViewport);
-  check("narrow schema actions wrap without overlapping one another or the canvas");
+  check("narrow schema actions group into a dismissible top-layer menu without wrapping or canvas overlap");
   await invoke(">Theme: Light", "Theme: Light");
   await page.waitForFunction(() => document.documentElement.dataset.theme === "light");
   await invoke(">Connect to target", "Connect to target");
@@ -850,7 +851,7 @@ export default {dialect:postgres(),schema:{file:'schema.json'},outDir:'generated
   assert.equal(await readFile(join(root, "playground/close-format.ts"), "utf8"), unformatted);
   check("closing a tab during formatting leaves no hidden dirty result");
   await invoke("playground/selection.sql", "playground/selection.sql");
-  await page.setViewportSize({ width: 560, height: 800 });
+  await page.setViewportSize({ width: 320, height: 800 });
   await invoke(">Find in active file", "Find in active file");
   await find.waitFor();
   await find.press("ControlOrMeta+a");
@@ -1061,6 +1062,83 @@ export default {dialect:postgres(),schema:{file:'schema.json'},outDir:'generated
   }
   evidence.components = await componentContract(page);
   check("shared component geometry is consistent across rendered controls and section headers");
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  if (!(await page.locator(".project-sidebar").count()))
+    await page.getByRole("button", { name: "Toggle project tree", exact: true }).click();
+  for (const name of ["Files", "Database"]) {
+    const toggle = page.getByRole("button", { name, exact: true });
+    if ((await toggle.getAttribute("aria-expanded")) === "false") await toggle.click();
+  }
+  const section = page.getByRole("region", { name: "File explorer", exact: true });
+  const initialSectionHeight = (await section.boundingBox()).height;
+  const divider = page.getByRole("separator", { name: "Resize Files and Database", exact: true });
+  const dividerBox = await divider.boundingBox();
+  await page.mouse.move(dividerBox.x + dividerBox.width / 2, dividerBox.y + dividerBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(dividerBox.x + dividerBox.width / 2, dividerBox.y + dividerBox.height / 2 + 45, { steps: 6 });
+  await page.mouse.up();
+  const resizedSectionHeight = (await section.boundingBox()).height;
+  assert.ok(resizedSectionHeight > initialSectionHeight + 20);
+  const migrationsToggle = page
+    .getByRole("region", { name: "Migration explorer", exact: true })
+    .getByRole("button", { name: /^Migrations/u });
+  if ((await migrationsToggle.getAttribute("aria-expanded")) === "false") await migrationsToggle.click();
+  const migrationSection = page.getByRole("region", { name: "Migration explorer", exact: true });
+  const migrationHeight = (await migrationSection.boundingBox()).height;
+  const secondDivider = page.getByRole("separator", { name: "Resize Database and Migrations", exact: true });
+  await secondDivider.focus();
+  await secondDivider.press("ArrowDown");
+  assert.ok((await migrationSection.boundingBox()).height < migrationHeight - 10);
+  const sectionShare =
+    (await section.boundingBox()).height / (await page.locator(".project-sidebar").boundingBox()).height;
+  await page.reload();
+  await section.waitFor();
+  await page.waitForFunction(
+    (share) =>
+      Math.abs(
+        document.querySelector('[aria-label="File explorer"]').getBoundingClientRect().height /
+          document.querySelector(".project-sidebar").getBoundingClientRect().height -
+          share,
+      ) < 0.01,
+    sectionShare,
+  );
+  check("sidebar section dividers resize neighboring sections and persist the proportions across reload");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForFunction(() => !document.querySelector(".project-sidebar"));
+  const mobileWidth = await page
+    .locator("main.editor-area")
+    .evaluate((element) => element.getBoundingClientRect().width);
+  await page.getByRole("button", { name: "Toggle project tree", exact: true }).click();
+  const drawer = page.getByRole("dialog", { name: "Project explorer", exact: true });
+  await drawer.waitFor();
+  assert.equal(
+    await page.locator("main.editor-area").evaluate((element) => element.getBoundingClientRect().width),
+    mobileWidth,
+  );
+  const drawerBox = await drawer.boundingBox();
+  assert.ok(drawerBox.x <= 1 && drawerBox.y <= 1 && drawerBox.width <= 366);
+  await page.screenshot({ path: join(artifacts, "mobile-project-drawer.png") });
+  await page.keyboard.press("Escape");
+  await drawer.waitFor({ state: "detached" });
+  await page.getByRole("button", { name: "Toggle project tree", exact: true }).click();
+  await drawer.waitFor();
+  await page.mouse.click(385, 200);
+  await drawer.waitFor({ state: "detached" });
+  await page.keyboard.press("ControlOrMeta+b");
+  await drawer.waitFor();
+  const filesToggle = drawer.getByRole("button", { name: "Files", exact: true });
+  if ((await filesToggle.getAttribute("aria-expanded")) === "false") await filesToggle.click();
+  await drawer.locator('[title="playground/selection.sql"]').click();
+  await drawer.waitFor({ state: "detached" });
+  const mobileOpenedTab = page.getByRole("tab", { name: "selection.sql", exact: true });
+  await mobileOpenedTab.waitFor();
+  assert.equal(await mobileOpenedTab.getAttribute("aria-selected"), "true");
+  assert.equal(
+    await page.getByRole("button", { name: "Toggle project tree", exact: true }).getAttribute("aria-expanded"),
+    "false",
+  );
+  check("mobile file tree stays flush left, overlays the editor, dismisses, and closes after file selection");
   assert.deepEqual(evidence.errors, [], "The real browser must have no runtime exceptions");
 } catch (error) {
   evidence.failure = error.stack ?? String(error);

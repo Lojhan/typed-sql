@@ -53,6 +53,7 @@
     "@typed-sql/migrations": "workspace:*",
     "@typed-sql/schema": "workspace:*",
     "acorn": "^8.15.0",
+    "decimal.js": "^10.6.0",
     "esbuild": "0.28.2",
     "tsx": "4.23.15",
     "zod": "4.6.7"
@@ -83,14 +84,19 @@
     "@codemirror/search": "6.7.2",
     "@codemirror/state": "^6.5.2",
     "@codemirror/view": "^6.38.6",
+    "@json-render/core": "^0.22.0",
+    "@json-render/react": "^0.22.0",
     "@typed-sql/postgres": "workspace:*",
     "@types/pg": "8.23.1",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@xyflow/react": "^12.11.1",
+    "echarts": "^6.1.0",
     "pg-cursor": "2.22.1",
     "prettier": "3.9.10",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "shiki": "^4.6.0",
+    "streamdown": "^2.7.1"
   }
 }

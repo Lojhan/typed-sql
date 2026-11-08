@@ -17,6 +17,7 @@
     "../packages/*/test/helpers/**/*.ts",
     "../packages/*/test/environment.ts",
     "../packages/playground/ui/layout.ts",
+    "../packages/playground/ui/analysis-tabs.ts",
     "../packages/playground/ui/explorer-model.ts",
     "../packages/playground/ui/object-definition-model.ts",
     "../packages/playground/ui/explorer-types.ts",

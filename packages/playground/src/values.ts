@@ -1,12 +1,6 @@
-export type WireValue =
-  | null
-  | boolean
-  | number
-  | string
-  | { readonly kind: "undefined" }
-  | { readonly kind: "bigint" | "date" | "bytes" | "number"; readonly value: string }
-  | { readonly kind: "array"; readonly items: readonly WireValue[] }
-  | { readonly kind: "object"; readonly entries: readonly (readonly [string, WireValue])[] };
+import type { WireValue } from "./value-types.js";
+
+export type { WireValue } from "./value-types.js";
 
 /** Tagged containers avoid collisions; incremental budgets bound transport before constructing a large result. */
 export function encodeValue(

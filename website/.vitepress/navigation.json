@@ -162,6 +162,12 @@
           "pageType": "how-to"
         },
         {
+          "text": "Workspace tour",
+          "link": "/guides/workspace-tour",
+          "file": "docs/guides/workspace-tour.md",
+          "pageType": "tutorial"
+        },
+        {
           "text": "Local dev workspace",
           "link": "/guides/dev-workspace",
           "file": "docs/guides/dev-workspace.md",

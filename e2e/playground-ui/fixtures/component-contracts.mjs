@@ -120,3 +120,20 @@ export async function componentContract(page) {
   for (const height of evidence.editorHeights) assert.ok(height >= 32, "Shared view containers preserve editor space");
   return evidence;
 }
+
+/** Secondary actions stay reachable when their toolbar switches to its compact disclosure. */
+export async function revealToolbarActions(scope, label) {
+  const trigger = scope.getByLabel(label, { exact: true });
+  // Viewport changes are observed before the next paint; wait for that layout to settle.
+  await trigger.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  if (await trigger.isVisible()) {
+    const open = (await trigger.getAttribute("aria-expanded")) === "true";
+    if (!open) await trigger.click();
+  }
+}
+
+export async function setAgentPermissions(page, mode) {
+  await revealToolbarActions(page, "Agent permissions");
+  await page.locator(`.composer-permissions input[type="radio"][value="${mode}"]`).check();
+  await page.getByLabel("Agent permissions", { exact: true }).focus();
+}

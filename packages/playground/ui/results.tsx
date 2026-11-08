@@ -4,9 +4,24 @@ import { Bar, BarLabel, Button, ControlGroup, EmptyState, IconButton, Input, Sel
 import { Icon } from "./icon";
 import { Modal } from "./modal";
 import { type Grid, jsonValue, milliseconds, resultGrid, totalTime, valueText } from "./result-model";
+import { ToolbarActions } from "./toolbar-actions";
 import type { Run, Value } from "./types";
 
 export { valueText } from "./result-model";
+export function ValueInspector({ value, onClose }: { value: Value; onClose: () => void }) {
+  return (
+    <Modal className="value-dialog" label="Inspect value" onClose={onClose}>
+      <Bar as="header" separator="none" padding="none">
+        <BarLabel as="strong">Value</BarLabel>
+        <IconButton aria-label="Close value inspector" onClick={onClose}>
+          <Icon name="close" />
+        </IconButton>
+      </Bar>
+      <pre>{JSON.stringify(jsonValue(value), null, 2)}</pre>
+      <Button onClick={() => void navigator.clipboard.writeText(valueText(value))}>Copy</Button>
+    </Modal>
+  );
+}
 export interface ResultPage {
   value: Value;
   hasPage?: boolean;
@@ -330,7 +345,7 @@ export function ResultPanel({
   const next = captured.data?.nextPage !== null && captured.data?.nextPage !== undefined;
   return (
     <View className="result-panel" aria-label="Query results">
-      <Bar wrap className="result-controls">
+      <Bar className="result-controls">
         <ControlGroup className="result-control-left">
           {run ? (
             <>
@@ -371,18 +386,20 @@ export function ResultPanel({
             <span className="muted">No execution</span>
           )}
         </ControlGroup>
-        <ControlGroup className="result-control-right">
-          <Button className={log ? "selected" : ""} onClick={() => setLog((value) => !value)}>
-            Log
-          </Button>
-          {run && onCompare ? <Button onClick={() => onCompare(run.id)}>Compare</Button> : null}
-          <Button disabled={!captured.data} onClick={() => exportPage("json")}>
-            JSON
-          </Button>
-          <Button disabled={!data} onClick={() => exportPage("csv")}>
-            CSV
-          </Button>
-        </ControlGroup>
+        <ToolbarActions label="Result actions" collapseBelow={580}>
+          <ControlGroup className="result-control-right">
+            <Button className={log ? "selected" : ""} onClick={() => setLog((value) => !value)}>
+              Log
+            </Button>
+            {run && onCompare ? <Button onClick={() => onCompare(run.id)}>Compare</Button> : null}
+            <Button disabled={!captured.data} onClick={() => exportPage("json")}>
+              JSON
+            </Button>
+            <Button disabled={!data} onClick={() => exportPage("csv")}>
+              CSV
+            </Button>
+          </ControlGroup>{" "}
+        </ToolbarActions>
       </Bar>
       {log ? (
         <div className="run-log">
@@ -441,7 +458,7 @@ export function ResultPanel({
         </EmptyState>
       )}
       {run && result && !log ? (
-        <Bar separator="top" wrap className="result-pager">
+        <Bar separator="top" className="result-pager">
           <span>
             {data?.rows.length
               ? `${firstPage * (result.paging?.pageSize ?? data.rows.length) + 1}–${firstPage * (result.paging?.pageSize ?? data.rows.length) + data.rows.length}`
@@ -451,7 +468,7 @@ export function ResultPanel({
             {!complete ? " · partial capture" : ""}
             <span className="provenance"> · {result.provenance === "managed" ? "managed" : "target unverified"}</span>
           </span>
-          <ControlGroup wrap>
+          <ControlGroup>
             {result.paging && !complete && run.status === "running" ? (
               <Button
                 onClick={() =>
@@ -488,18 +505,7 @@ export function ResultPanel({
           </ControlGroup>
         </Bar>
       ) : null}
-      {inspect !== undefined ? (
-        <Modal className="value-dialog" label="Inspect value" onClose={() => setInspect(undefined)}>
-          <Bar as="header" separator="none" padding="none">
-            <BarLabel as="strong">Value</BarLabel>
-            <IconButton aria-label="Close value inspector" onClick={() => setInspect(undefined)}>
-              <Icon name="close" />
-            </IconButton>
-          </Bar>
-          <pre>{JSON.stringify(jsonValue(inspect), null, 2)}</pre>
-          <Button onClick={() => void navigator.clipboard.writeText(valueText(inspect))}>Copy</Button>
-        </Modal>
-      ) : null}
+      {inspect !== undefined ? <ValueInspector value={inspect} onClose={() => setInspect(undefined)} /> : null}
     </View>
   );
 }

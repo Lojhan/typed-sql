@@ -3,8 +3,10 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { NodeStreamableHTTPServerTransport } from "@modelcontextprotocol/node";
 import { McpServer } from "@modelcontextprotocol/server";
 import type { DialectPlugin, SchemaSnapshot } from "@typed-sql/core";
-import { calculateSchemaHash } from "@typed-sql/schema";
+import { calculateSchemaHash, calculateTypePolicyHash } from "@typed-sql/schema";
 import { z } from "zod/v4";
+import { presentationSchema } from "./analysis-contract.js";
+import type { AnalysisStore } from "./analysis-store.js";
 import type { PlaygroundTarget, PlaygroundTargetConfig } from "./contracts.js";
 import type { ExplorerResponse } from "./explorer-types.js";
 import { contentHash, WorkspaceError, type WorkspaceFiles } from "./files.js";
@@ -19,17 +21,26 @@ interface ProposalInput {
   readonly description?: string;
 }
 interface Turn {
+  readonly conversationId: string;
   readonly controller: AbortController;
   readonly propose: (input: ProposalInput) => Promise<unknown>;
   readonly requests: Set<McpServer>;
   readonly responses: Set<ServerResponse>;
   readonly onToolCall?:
-    | ((event: { id: string; name: string; state: "running" | "completed" | "failed" }) => void | Promise<void>)
+    | ((event: {
+        id: string;
+        name: string;
+        state: "running" | "completed" | "failed";
+        details?: string;
+        input?: string;
+      }) => void | Promise<void>)
     | undefined;
   calls: number;
   busy: number;
 }
 export interface WorkspaceToolsOptions {
+  readonly analyses?: AnalysisStore;
+  readonly targetName?: string;
   readonly files: WorkspaceFiles;
   readonly trusted: () => boolean;
   readonly origin: () => string;
@@ -93,6 +104,8 @@ export class AgentWorkspaceToolServer {
       id: string;
       name: string;
       state: "running" | "completed" | "failed";
+      details?: string;
+      input?: string;
     }) => void | Promise<void>;
   }) {
     if (!this.options.trusted() || input.signal.aborted)
@@ -101,6 +114,7 @@ export class AgentWorkspaceToolServer {
     const controller = new AbortController();
     const turn: Turn = {
       controller,
+      conversationId: input.conversationId,
       propose: input.propose,
       requests: new Set(),
       responses: new Set(),
@@ -191,7 +205,12 @@ export class AgentWorkspaceToolServer {
         async (input, context) => {
           const id = randomUUID();
           try {
-            await turn.onToolCall?.({ id, name, state: "running" });
+            await turn.onToolCall?.({
+              id,
+              name,
+              state: "running",
+              input: JSON.stringify(input, null, 2).slice(0, 65536),
+            });
             if (!this.options.trusted() || turn.controller.signal.aborted)
               throw new WorkspaceError("TRUST", "Workspace tool capability has been revoked", 403);
             const signal = AbortSignal.any([turn.controller.signal, context.mcpReq.signal, AbortSignal.timeout(5000)]);
@@ -200,7 +219,15 @@ export class AgentWorkspaceToolServer {
             if (!this.options.trusted())
               throw new WorkspaceError("TRUST", "Workspace tool capability has been revoked", 403);
             const response = result(value);
-            await turn.onToolCall?.({ id, name, state: "completed" });
+            await turn.onToolCall?.({
+              id,
+              name,
+              state: "completed",
+              details:
+                JSON.stringify(value, null, 2).length > 8192
+                  ? `${JSON.stringify(value, null, 2).slice(0, 8100)}\n… (details truncated; inspect captured data for complete values)`
+                  : JSON.stringify(value, null, 2),
+            });
             return response;
           } catch (error) {
             await Promise.resolve(turn.onToolCall?.({ id, name, state: "failed" })).catch(() => {});
@@ -438,6 +465,67 @@ export class AgentWorkspaceToolServer {
         };
       },
     );
+    if (this.options.analyses) {
+      register(
+        "typed_sql_query_analysis",
+        "Capture checked read-only SQL for interactive analysis. Up to 1000 rows/512 KiB/5 seconds. Aggregate in SQL for population counts; truncation is explicit. Returns a datasetId, column ordinals and a small preview; pass datasetId to typed_sql_present. Only captured values can be charted.",
+        { sql, values },
+        async (input, signal) => {
+          const result = await this.query(input.sql, input.values as WireValue[], signal, 1000, 512 * 1024);
+          if (result.executed !== true) return result;
+          signal.throwIfAborted();
+          const dataset = await this.options.analyses!.capture(
+            turn.conversationId,
+            input.sql,
+            input.values as WireValue[],
+            result,
+            this.options.targetName ?? this.options.target?.classification ?? "offline",
+          );
+          return {
+            datasetId: dataset.id,
+            columns: dataset.columns.map((name, index) => ({ index, name })),
+            rows: dataset.rows.length,
+            complete: dataset.complete,
+            preview:
+              Buffer.byteLength(JSON.stringify(dataset.rows.slice(0, 5))) < 16384 ? dataset.rows.slice(0, 5) : [],
+            previewOmitted: Buffer.byteLength(JSON.stringify(dataset.rows.slice(0, 5))) >= 16384,
+            capturedAt: dataset.capturedAt,
+          };
+        },
+      );
+      register(
+        "typed_sql_get_analysis_data",
+        "Read retained analysis data without executing SQL or advancing a cursor. Omit datasetId to discover this conversation's cards and captures. With datasetId, returns column ordinals, source preview and a lossless row page; use small limits for wide data.",
+        { datasetId: z.string().uuid().optional(), offset, limit },
+        async (input) => {
+          if (!input.datasetId)
+            return {
+              analyses: page(await this.options.analyses!.list(turn.conversationId), input.offset, input.limit),
+              datasets: page(await this.options.analyses!.listDatasets(turn.conversationId), input.offset, input.limit),
+            };
+          const dataset = await this.options.analyses!.dataset(input.datasetId, turn.conversationId);
+          return {
+            ...page(dataset.rows, input.offset, input.limit),
+            columns: dataset.columns,
+            complete: dataset.complete,
+            capturedAt: dataset.capturedAt,
+            source: dataset.source.slice(0, 4096),
+            sourceTruncated: dataset.source.length > 4096,
+          };
+        },
+      );
+      register(
+        "typed_sql_present",
+        "Publish an interactive analysis card for a dataset from this conversation. Use column ordinals for views and filters. Metric=one measure; donut/pie=nonnegative parts of a meaningful whole; sunburst/treemap=ordered hierarchy columns and nonnegative additive y; sankey=x source/series target/y weight; heatmap=x/series dimensions/y value. Filters mode=captured operate locally; mode=query binds a zero-based SQL parameter and requires Apply. Explain definitions (e.g. active users) in description. Layout grid composes views. Returns an analysis card ID.",
+        presentationSchema.shape,
+        async (input, signal) => {
+          signal.throwIfAborted();
+          const artifact = await this.options.analyses!.publish(turn.conversationId, input);
+          return { id: artifact.id, title: artifact.spec.title, published: true };
+        },
+        false,
+      );
+    }
     register(
       "typed_sql_propose_file",
       "Propose source for explicit human review within write roots. Requires the read_file revision, or null for a new file. Does not save or execute; the user reviews the diff and separately runs checked code.",
@@ -462,10 +550,13 @@ export class AgentWorkspaceToolServer {
     );
     return server;
   }
-  private async query(
+  async query(
     source: string,
     values: readonly WireValue[],
     signal: AbortSignal,
+    rowLimit = 50,
+    byteLimit = maximum - 8192,
+    expectedIdentity?: { database: string; server: string },
   ): Promise<Record<string, unknown>> {
     if (!this.options.target) throw new WorkspaceError("OFFLINE", "Configure an explicit target before querying", 409);
     const snapshot = this.options.schema(),
@@ -506,6 +597,15 @@ export class AgentWorkspaceToolServer {
         throw new WorkspaceError("TARGET_IDENTITY", "Set target.expected.database before allowing agent queries", 403);
       if (identity.database !== this.options.target.expected.database)
         throw new WorkspaceError("TARGET_IDENTITY", "Observed database differs from expected target", 403);
+      if (
+        expectedIdentity &&
+        (identity.database !== expectedIdentity.database || identity.server !== expectedIdentity.server)
+      )
+        throw new WorkspaceError(
+          "TARGET_IDENTITY",
+          "This capture belongs to a different database server; publish a new analysis",
+          409,
+        );
       if (calculateSchemaHash(this.options.schema()) !== schemaHash)
         throw new WorkspaceError("SCHEMA_STALE", "Captured schema changed; analyze again", 409);
       const raw = await bounded(
@@ -513,23 +613,29 @@ export class AgentWorkspaceToolServer {
           text: analysis.compiled.query.query.sql,
           values: bound,
           readOnly: true,
-          maxRows: 50,
-          maxResultBytes: maximum - 8192,
+          maxRows: rowLimit,
+          maxResultBytes: byteLimit,
           timeoutMs: 5000,
           signal,
         }),
         signal,
       );
       signal.throwIfAborted();
-      const data = { ...raw, rows: raw.rows.slice(0, 50), truncated: raw.truncated || raw.rows.length > 50 };
+      const data = {
+        ...raw,
+        rows: raw.rows.slice(0, rowLimit),
+        truncated: raw.truncated || raw.rows.length > rowLimit,
+      };
       return {
         schemaHash,
+        typePolicyHash: calculateTypePolicyHash(this.options.typePolicy ?? this.options.dialect.defaultTypePolicy),
         schemaSource: this.options.schemaSource?.() ?? "saved",
         sourceHash: contentHash(source),
         statementHash: contentHash(analysis.compiled.query.query.sql),
         parameterCount: values.length,
+        parameterTypes: analysis.parameters.map((parameter) => parameter.tsType ?? "unknown"),
         identity,
-        value: encodeValue(data, { maxBytes: maximum - 8192 }),
+        value: encodeValue(data, { maxBytes: byteLimit }),
         executed: true,
       };
     } finally {

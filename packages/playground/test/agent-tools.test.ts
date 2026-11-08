@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { postgres } from "@typed-sql/postgres/analysis";
 import { describe, it, strict } from "poku";
 import { AgentWorkspaceToolServer } from "../src/agent-tools.js";
+import { AnalysisStore } from "../src/analysis-store.js";
 import type { PlaygroundQueryRequest, PlaygroundTarget } from "../src/contracts.js";
 import { WorkspaceError, WorkspaceFiles } from "../src/files.js";
 import { createPgPlaygroundTarget } from "../src/pg.js";
@@ -15,6 +16,10 @@ import { snapshot } from "./helpers/fixture.js";
 interface ToolResult {
   isError?: boolean;
   structuredContent: {
+    datasetId: string;
+    id: string;
+    published: boolean;
+    complete: boolean;
     source: string;
     offset: number;
     nextOffset: number | null;
@@ -35,6 +40,7 @@ async function fixture(
     call: (name: string, args?: unknown) => Promise<ToolResult>;
     request: (method: string, params: unknown, authorization?: string) => Promise<Response>;
     close: () => Promise<void>;
+    queryWithIdentity: (identity: { database: string; server: string }) => Promise<unknown>;
     root: string;
     state: {
       trusted: boolean;
@@ -119,6 +125,7 @@ async function fixture(
     logs: "",
   };
   const tools = new AgentWorkspaceToolServer({
+    analyses: new AnalysisStore(root, join(root, "private-analyses")),
     files: new WorkspaceFiles(root, ["playground"], ["playground"]),
     trusted: () => state.trusted,
     origin: () => origin,
@@ -212,7 +219,7 @@ async function fixture(
   origin = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
   const controller = new AbortController(),
     lease = await tools.open({
-      conversationId: "test",
+      conversationId: "00000000-0000-4000-8000-000000000001",
       signal: controller.signal,
       propose: async (input) => {
         state.proposals.push(input);
@@ -248,7 +255,17 @@ async function fixture(
       clientInfo: { name: "test", version: "1" },
     });
     strict.equal(init.status, 200);
-    await fn({ call, request, close: lease.close, root, state, abort: () => controller.abort(), events });
+    await fn({
+      call,
+      request,
+      close: lease.close,
+      root,
+      state,
+      abort: () => controller.abort(),
+      events,
+      queryWithIdentity: (identity) =>
+        tools.query("select 1 as value", [], controller.signal, 1000, 512 * 1024, identity),
+    });
   } finally {
     await lease.close();
     await tools.close();
@@ -272,10 +289,46 @@ await describe("scoped workspace MCP tools", async () => {
       strict.equal(f.state.queries[0]?.signal.aborted, true);
       strict.equal(f.state.closed, 1);
     }));
-  await it("discovers nine annotated tools and reads paginated saved schema/files without opening a target", async () =>
+  await it("blocks a captured server identity mismatch before executing the analysis query", async () =>
+    fixture(async (f) => {
+      await strict.rejects(
+        f.queryWithIdentity({ database: "expected", server: "different" }),
+        /different database server/u,
+      );
+      strict.equal(f.state.queries.length, 0);
+      strict.equal(f.state.closed, 1);
+    }));
+  await it("captures analysis data and publishes a validated presentation through scoped MCP", async () =>
+    fixture(async (f) => {
+      const captured = await f.call("typed_sql_query_analysis", { sql: "select 1 as value" });
+      strict.equal(captured.isError, undefined);
+      strict.equal(captured.structuredContent.complete, true);
+      strict.ok(captured.structuredContent.datasetId);
+      strict.equal(f.state.queries.at(-1)?.maxRows, 1000);
+      strict.equal(f.state.queries.at(-1)?.readOnly, true);
+      const spec = {
+        version: 1,
+        title: "Users",
+        datasetId: captured.structuredContent.datasetId,
+        views: [{ id: "total", kind: "metric", title: "Users", y: 0 }],
+      };
+      const presented = await f.call("typed_sql_present", spec);
+      strict.equal(presented.structuredContent.published, true);
+      strict.equal(
+        (await f.call("typed_sql_present", { ...spec, datasetId: "00000000-0000-4000-8000-000000000009" })).isError,
+        true,
+      );
+      strict.equal(
+        (await f.call("typed_sql_present", { ...spec, views: [{ id: "bad", kind: "bar", title: "Bad", x: 0, y: 42 }] }))
+          .isError,
+        true,
+      );
+      strict.equal(f.state.queries.length, 1, "Publishing never executes a second query");
+    }));
+  await it("discovers twelve annotated tools and reads paginated saved schema/files without opening a target", async () =>
     fixture(async (f) => {
       const listed = await (await f.request("tools/list", {})).json();
-      strict.equal(listed.result.tools.length, 9);
+      strict.equal(listed.result.tools.length, 12);
       strict.ok(
         listed.result.tools.every(
           (tool: { inputSchema: { type: string }; annotations: { destructiveHint: boolean } }) =>

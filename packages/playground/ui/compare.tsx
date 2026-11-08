@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
-import { Bar, Button, ControlGroup, EmptyState, Select, View } from "./components";
+import { Bar, BarLabel, Button, ControlGroup, EmptyState, Select, View } from "./components";
 import { compareGrids, milliseconds, resultGrid, totalTime } from "./result-model";
 import { ResultGrid, useResultPage } from "./results";
+import { ToolbarActions } from "./toolbar-actions";
 import type { Run } from "./types";
 export function ComparePanel({ runs, initialA }: { runs: Run[]; initialA?: string }) {
   const [leftId, setLeftId] = useState(initialA ?? runs[1]?.id ?? runs[0]?.id ?? ""),
@@ -128,7 +129,7 @@ export function ComparePanel({ runs, initialA }: { runs: Run[]; initialA?: strin
   };
   return (
     <View className="comparison-workspace">
-      <Bar wrap className="comparison-toolbar">
+      <Bar className="comparison-toolbar">
         <strong>Compare runs</strong>
         <Select
           aria-label="Row comparison mode"
@@ -168,25 +169,32 @@ export function ComparePanel({ runs, initialA }: { runs: Run[]; initialA?: strin
           execution time is unavailable; — means unavailable.
         </p>
       </div>
-      <Bar wrap className="comparison-summary">
+      <Bar className="comparison-summary">
         {leftId === rightId && leftId ? (
           <span className="warning-text">Select two different runs.</span>
         ) : difference ? (
           <>
-            <span className={difference.sameColumns ? "" : "warning-text"}>
-              {difference.sameColumns ? "Column names match" : "Column names differ"}
-            </span>
-            <span>Values by column position</span>
-            <span>
-              {difference.typeComparison === "unknown"
-                ? "Column types unavailable"
-                : difference.typeComparison === "match"
-                  ? "Column types match"
-                  : "Column types differ"}
-            </span>
-            <span>{difference.equal} matching rows</span>
-            <span>{difference.leftDifferent.size} A-only / changed</span>
-            <span>{difference.rightDifferent.size} B-only / changed</span>
+            <ToolbarActions label="Comparison details" collapseBelow={900}>
+              <span className={difference.sameColumns ? "" : "warning-text"}>
+                {difference.sameColumns ? "Column names match" : "Column names differ"}
+              </span>
+              <span>Values by column position</span>
+              <span>
+                {difference.typeComparison === "unknown"
+                  ? "Column types unavailable"
+                  : difference.typeComparison === "match"
+                    ? "Column types match"
+                    : "Column types differ"}
+              </span>
+            </ToolbarActions>
+            <BarLabel
+              truncate
+              title={`${difference.equal} matching rows · ${difference.leftDifferent.size} A-only / changed · ${difference.rightDifferent.size} B-only / changed`}
+            >
+              <span>{difference.equal} matching rows</span>
+              <span>{difference.leftDifferent.size} A-only / changed</span>
+              <span>{difference.rightDifferent.size} B-only / changed</span>
+            </BarLabel>
           </>
         ) : (
           <span>Select two captured result sets to compare.</span>
@@ -232,13 +240,13 @@ export function ComparePanel({ runs, initialA }: { runs: Run[]; initialA?: strin
           )}
         </div>
       </div>
-      <Bar separator="top" wrap className="comparison-footer">
-        <span>
+      <Bar separator="top" className="comparison-footer">
+        <BarLabel truncate>
           {mode === "ordered"
             ? "Highlighted cells changed; highlighted whole rows are missing from the other result."
             : "Highlighted rows are unmatched, including duplicate counts."}{" "}
           Loaded pages only.
-        </span>
+        </BarLabel>
         <div>
           <Button
             disabled={page === 0 || a.loading || b.loading}
