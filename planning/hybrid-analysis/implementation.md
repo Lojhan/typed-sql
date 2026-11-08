@@ -29,7 +29,7 @@ DuckDB native acquisition supports builtin scalar expression projections on 1.5.
 its real-engine tests exercise the shared live runner, persistent cache, offline reuse and conflicts.
 DuckDB packed CLI generation, changed-query regeneration and frozen checking pass on both SDKs;
 its packaged editor path is also qualified for SQL documents and TypeScript templates.
-MySQL acquisition is qualified on 8.4.11 and 9.7.2 for builtin expression projections, including
+MySQL acquisition is qualified on 8.4.11 and 9.7.2 for guarded SELECT queries, including
 installed CLI/build/editor entrypoints. SQLite acquisition and installed host flows pass on the
 qualified Node runtimes. SQL Server acquisition passes on the four pinned engines and ten
 compatibility profiles; installed CLI/build/editor flows pass on all four pinned engines.
@@ -588,3 +588,45 @@ live catalog generation; the table fixtures now run after the existing host proo
 its isolated catalog context. The adapter's consistency guard and retry limits are unchanged.
 
 Final incremental workspace type checks, clean-tree quality and the isolated performance gate pass.
+
+## Guarded MySQL table descriptions
+
+The native adapter now admits ordinary InnoDB projections, stars, filters and joins in the selected
+database with case-sensitive table identifiers. Table/column dictionary records captured under the
+backup lock join the context digest. This closes the prior table-DDL invalidation gap without
+invalidating contracts for ordinary row writes. Native preparation still rejects views, generated
+columns, other engines, stored/loadable routines and unsupported statement forms. Profile/interpreter
+revisions require regeneration of earlier artifacts.
+
+The real-engine table helper passes on MySQL 8.4.11 and 9.7.2. It checks independent parameter
+types, decimal modifiers, join metadata, unsafe-object rejection, advisory-lock non-execution
+while the native session remains open, exact BIGINT decoding after star expansion, separately
+reconciled serialized frozen compilation, DML-stable context and DDL blocking/invalidation.
+See the [scope, source checks and evidence](./mysql-native-proof.md).
+
+The installed MySQL host fixture now uses real table queries rather than expression-only SQL.
+On both 8.4.11 and 9.7.2 it passes CLI generation, frozen SQL-file declarations and TypeScript
+checking, bundling/execution, unsaved SQL/TypeScript editor regeneration, separate routine/table
+DDL observation and cache-only restart with durable inputs hidden. The complete native helper
+also passes on both engines. All 28 MySQL files pass (96.07% statements, 91.08% branches, 99.09%
+functions), as do the clean build, workspace type checks, quality, docs and three
+public-API/package-graph/packed-consumer files. Other engine profiles, richer statement forms
+and the broader architecture's remaining acceptance requirements stay open.
+
+The star regression also exposed a transport mismatch for number-bound literals in a BIGINT wire
+family. The optional scalar normalization hook now receives its descriptor. MySQL normalizes
+proven integer descriptors under bigint/string policies while core validates safe precision;
+portable SQLite wrappers forward the descriptor. Buffered/streamed tests reject overflow and
+numeric-looking VARCHAR values and retain unplanned BIGINT policy behavior. Prefix/suffix
+projection anchors preserve literal bounds without assigning them to expanded table columns.
+Ordinary expression defaults remain admitted despite MySQL's DEFAULT_GENERATED flag.
+
+Final validation after the transport correction: the clean build passes; 24 core files pass
+(98.56% statements, 91.44% branches, 97.85% functions), all 28 MySQL files pass (96.08%, 91.08%,
+99.09%), and all four portable-adapter files pass. Both rebuilt native/installed MySQL matrices
+pass with expression defaults, star reconciliation and actual bigint/string-policy decoding.
+All nine soundness files, all three packed-consumer/editor suites, public API/package graph
+contracts and documentation checks pass. The native scope still excludes the documented
+statement/object forms; this is not completion of the full architecture's acceptance audit.
+
+Final workspace type checks, clean-tree quality and the isolated performance gate pass after these changes.

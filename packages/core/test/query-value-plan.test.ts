@@ -180,6 +180,18 @@ await describe("query value plans", async () => {
       decodeQueryResultRows(numeric, [{ value: "42" }], { ...text, normalizeValue: (value) => Number(value) }),
       [{ value: 42 }],
     );
+    let observed: unknown;
+    strict.deepEqual(
+      decodeQueryResultRows(numeric, [{ value: 42 }], {
+        ...text,
+        normalizeValue: (value, _type, descriptor) => {
+          observed = descriptor;
+          return value;
+        },
+      }),
+      [{ value: 42 }],
+    );
+    strict.deepEqual(observed, { name: "value", type: "number", nullable: false });
     strict.throws(
       () => decodeQueryResultRows(numeric, [{ value: "42" }], { ...text, normalizeValue: () => null }),
       /number/,

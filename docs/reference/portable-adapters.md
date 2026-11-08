@@ -15,6 +15,11 @@ These adapters require a compiled query value plan, or an explicit `decodeRows` 
 by the application. A type-only editor overlay does not create runtime metadata. Use the build
 frontend or SQL-file factory when you want the compiler's type policy enforced at runtime.
 
+A transport profile can supply `normalizeValue(value, type, descriptor)` for scalar driver
+representations that differ from the logical plan. The optional descriptor carries grammar-owned
+metadata such as `databaseType`. The returned value still passes the plan's type, precision and
+nullability checks. Existing two-argument normalizers remain valid.
+
 | Factory / subpath | Native atomic batch | Callback transaction | Other capability |
 | --- | --- | --- | --- |
 | `createD1Database` / `d1` | Yes | No | D1 sessions and bookmarks |

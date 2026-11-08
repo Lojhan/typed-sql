@@ -34,6 +34,9 @@ function fixture(
     deadline?: number;
     prepareError?: unknown;
     closeError?: unknown;
+    tables?: unknown[];
+    fields?: unknown[];
+    lowerCaseTables?: number | string;
   } = {},
 ) {
   const calls: string[] = [];
@@ -55,8 +58,21 @@ function fixture(
                   server: "server",
                   sqlMode: "",
                   db: "app",
+                  lowerCaseTables: options.lowerCaseTables ?? 0,
                   principal: "app@localhost",
                 },
+              ],
+            ];
+          if (sql.includes("information_schema.TABLES"))
+            return [
+              options.tables ?? [
+                { TABLE_SCHEMA: "app", TABLE_NAME: "users", TABLE_TYPE: "BASE TABLE", ENGINE: "InnoDB" },
+              ],
+            ];
+          if (sql.includes("information_schema.COLUMNS"))
+            return [
+              options.fields ?? [
+                { TABLE_SCHEMA: "app", TABLE_NAME: "users", COLUMN_NAME: "id", EXTRA: "", GENERATION_EXPRESSION: "" },
               ],
             ];
           if (sql.includes("information_schema.ROUTINES")) return [options.routines ?? []];
@@ -114,11 +130,15 @@ await describe("MySQL owned native contracts", async () => {
   await it("rejects unqualified shapes and parameter layouts before loading the driver", async () => {
     const f = fixture();
     for (const sql of [
-      "SELECT * FROM users",
+      "SELECT * FROM users PARTITION (p0)",
       "SELECT (SELECT 1)",
       "SELECT app.f()",
       "SELECT K()",
       "SELECT @value",
+      "SELECT @value FROM users",
+      "SELECT @@session.sql_mode FROM users",
+      "SELECT @value:=1 FROM users",
+      "SELECT id INTO OUTFILE '/tmp/result' FROM users",
       "SELECT 1 WHERE TRUE",
       "SELECT 1 UNION SELECT 2",
       "SELECT SUM(1) OVER ()",
@@ -132,6 +152,159 @@ await describe("MySQL owned native contracts", async () => {
     controller.abort();
     await strict.rejects(f.adapter.open(controller.signal));
     strict.equal(f.imports(), 0);
+  });
+  await it("admits ordinary table SELECT syntax and native columns without executing data reads", async () => {
+    const f = fixture({
+      fields: [
+        {
+          TABLE_SCHEMA: "app",
+          TABLE_NAME: "users",
+          COLUMN_NAME: "id",
+          EXTRA: "DEFAULT_GENERATED",
+          GENERATION_EXPRESSION: "",
+        },
+      ],
+    });
+    for (const sql of [
+      "SELECT * FROM users",
+      "SELECT u.id FROM users u WHERE u.id = ?",
+      "SELECT a.id FROM users a LEFT JOIN users b ON a.id = b.id",
+    ])
+      strict.equal(f.adapter.accept(candidate(sql)).accepted, true, sql);
+    const context = await f.adapter.inspectContext();
+    const acquired = await acquireNativeQueryContract({
+      adapter: f.adapter,
+      context,
+      candidate: candidate("SELECT id FROM app.users WHERE id > 0"),
+    });
+    strict.equal(acquired.status, "acquired");
+    strict.ok(
+      f.calls.indexOf("LOCK INSTANCE FOR BACKUP") <
+        f.calls.findIndex((sql) => sql.includes("information_schema.TABLES")),
+    );
+    strict.equal(f.calls.filter((sql) => sql.startsWith("PREPARE SELECT")).length, 1);
+  });
+  await it("does not assign numeric-literal bounds to expanded star columns", async () => {
+    const f = fixture({
+      columns: [
+        { ...column, name: "id", columnType: 8, columnLength: 20 },
+        { ...column, columnType: 8 },
+      ],
+    });
+    const context = await f.adapter.inspectContext();
+    const acquired = await acquireNativeQueryContract({
+      adapter: f.adapter,
+      context,
+      candidate: candidate("SELECT *, 1 AS value FROM users"),
+    });
+    strict.equal(acquired.status, "acquired");
+    if (acquired.status !== "acquired") throw Error("Missing star contract");
+    strict.equal(acquired.contract.valuePlan.columns[0]?.type, "bigint");
+    strict.equal(acquired.contract.valuePlan.columns[1]?.type, "number");
+    strict.equal(acquired.contract.nativeEvidence?.columns[0]?.descriptor?.integerLiteralBound, undefined);
+  });
+  await it("retains exact prefix and suffix bounds without guessing slots between stars", async () => {
+    const f = fixture({
+      columns: [
+        { ...column, name: "prefix", columnType: 8 },
+        { ...column, name: "id", columnType: 8 },
+        { ...column, name: "suffix", columnType: 8 },
+      ],
+    });
+    const context = await f.adapter.inspectContext();
+    const acquired = await acquireNativeQueryContract({
+      adapter: f.adapter,
+      context,
+      candidate: candidate("SELECT 1 AS prefix, *, 2 AS suffix FROM users"),
+    });
+    if (acquired.status !== "acquired") throw Error("Missing anchored projection contract");
+    strict.deepEqual(
+      acquired.contract.valuePlan.columns.map((column) => column.type),
+      ["number", "bigint", "number"],
+    );
+    const middle = fixture({
+      columns: [
+        { ...column, name: "left", columnType: 8 },
+        { ...column, name: "literal", columnType: 8 },
+        { ...column, name: "right", columnType: 8 },
+      ],
+    });
+    const middleContext = await middle.adapter.inspectContext();
+    const uncertain = await acquireNativeQueryContract({
+      adapter: middle.adapter,
+      context: middleContext,
+      candidate: candidate("SELECT a.*, 1 AS literal, b.* FROM users a JOIN users b ON a.id=b.id"),
+    });
+    if (uncertain.status !== "acquired") throw Error("Missing interior projection contract");
+    strict.deepEqual(
+      uncertain.contract.valuePlan.columns.map((column) => column.type),
+      ["bigint", "bigint", "bigint"],
+    );
+  });
+  await it("includes table and column definitions in cross-session context identity", async () => {
+    const original = await fixture().adapter.inspectContext();
+    for (const options of [
+      { tables: [] },
+      { fields: [] },
+      {
+        fields: [
+          {
+            TABLE_SCHEMA: "app",
+            TABLE_NAME: "users",
+            COLUMN_NAME: "id",
+            EXTRA: "",
+            GENERATION_EXPRESSION: "",
+            COLUMN_TYPE: "bigint",
+          },
+        ],
+      },
+    ])
+      strict.notEqual(
+        (await fixture(options).adapter.inspectContext()).databaseContextHash,
+        original.databaseContextHash,
+      );
+  });
+  await it("rejects unsafe native relation metadata before candidate preparation", async () => {
+    for (const options of [
+      { tables: [] },
+      { tables: [{ TABLE_SCHEMA: "app", TABLE_NAME: "users", TABLE_TYPE: "VIEW", ENGINE: null }] },
+      { tables: [{ TABLE_SCHEMA: "app", TABLE_NAME: "users", TABLE_TYPE: "BASE TABLE", ENGINE: "FEDERATED" }] },
+      {
+        tables: [
+          { TABLE_SCHEMA: "app", TABLE_NAME: "users", TABLE_TYPE: "BASE TABLE", ENGINE: "InnoDB" },
+          { TABLE_SCHEMA: "app", TABLE_NAME: "users", TABLE_TYPE: "BASE TABLE", ENGINE: "InnoDB" },
+        ],
+      },
+      { fields: [] },
+      {
+        fields: [
+          { TABLE_SCHEMA: "app", TABLE_NAME: "users", EXTRA: "VIRTUAL GENERATED", GENERATION_EXPRESSION: "id+1" },
+        ],
+      },
+      { fields: [{ TABLE_SCHEMA: "app", TABLE_NAME: "users" }] },
+      { lowerCaseTables: 1 },
+    ]) {
+      const f = fixture(options);
+      const session = await f.adapter.open();
+      try {
+        await strict.rejects(session.describe(candidate("SELECT * FROM users")), /unsupported-statement/u);
+      } finally {
+        await session.close();
+      }
+      strict.ok(!f.calls.some((call) => call.startsWith("PREPARE")));
+    }
+    const f = fixture();
+    const session = await f.adapter.open();
+    try {
+      await strict.rejects(session.describe(candidate("SELECT * FROM other.users")), /unsupported-statement/u);
+    } finally {
+      await session.close();
+    }
+    for (const options of [
+      { tables: Array.from({ length: 4097 }, () => ({})) },
+      { fields: Array.from({ length: 65537 }, () => ({})) },
+    ])
+      await strict.rejects(fixture(options).adapter.open(), /metadata-unavailable/u);
   });
   await it("acquires independent metadata and releases its backup lock without executing the candidate", async () => {
     const f = fixture();

@@ -25,7 +25,7 @@ description: MySQL grammar coverage, catalog introspection, application-owned my
 ## Native query contracts
 
 `createMySql2NativeContractAdapter({ connectionUri, schema, typePolicy })` describes builtin
-expression projections using binary preparation. Use the generated versioned schema with its
+expressions and guarded table queries using binary preparation. Use the generated versioned schema with its
 recorded SQL mode, `mySqlContractIdentity()` and `createMySqlContractReconciler()` with the
 [query contract configuration](../guides/query-manifests.md). Importing the adapter does not open
 a connection or load the optional driver; acquisition is explicit.
@@ -37,10 +37,19 @@ account needs `BACKUP_ADMIN`, access to the selected schema and read access to t
 lease closes; ordinary row writes can proceed. Deadlines and cancellation close the owned
 connection and release its lock. Candidate SQL is never bound, executed or supplied sample values.
 
-The adapter accepts ordinary `?` parameters in occurrence order and builtin expression
-projections. Relations, subqueries, stored/loadable routines, window clauses, executable comments
-and structural session operations are outside this profile. Unsupported shapes and unavailable
+The adapter accepts ordinary `?` parameters in occurrence order, builtin expression projections,
+ordinary InnoDB table projections, stars, filters and joins. Referenced tables must belong to the
+selected database, use `lower_case_table_names=0` and have no generated columns. The adapter checks
+live dictionary metadata before preparing the candidate. Views, other storage engines, explicit
+partition selectors, subqueries, stored/loadable routines, window clauses, executable comments
+and structural session operations remain outside this profile. Unsupported shapes and unavailable
 metadata fail closed. Native rejection reflects the actual target engine's available functions.
+
+The context includes table and column definitions captured under the backup lock. It excludes
+row counts and other data statistics: ordinary row writes preserve the context, while table DDL
+changes it even if the supplied schema has not been refreshed. Acquisition admits at most 4,096
+visible tables and 65,536 visible columns in the selected database; larger dictionaries report
+unavailable metadata. The existing routine/UDF limits and acquisition deadline still apply.
 
 Decimal dimensions, unsigned integer identity and text/binary distinctions are preserved.
 Absence of a native non-null flag supplies a conservative nullable bound.

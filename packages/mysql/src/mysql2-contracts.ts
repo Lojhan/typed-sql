@@ -14,7 +14,7 @@ import type { Connection, RowDataPacket } from "mysql2/promise";
 import { unmodeledMySqlSqlModes } from "./capabilities.js";
 import { mySqlContractAdapterVersion, mySqlContractIdentity, validateMySqlContractPolicy } from "./contract-profile.js";
 import { loadMySql2Driver } from "./mysql2.js";
-import { type Expression, parseStatement, tokenize, walkStatement } from "./parser/index.js";
+import { type Expression, type NamedTableReference, parseStatement, tokenize, walkStatement } from "./parser/index.js";
 import { type MySqlSchemaSnapshot, mysqlProfile } from "./profile.js";
 import { type MySqlProtocolField, mySqlProtocolFlags, mySqlProtocolType } from "./protocol-fields.js";
 import { mysqlRuntimeValueType } from "./query.js";
@@ -103,7 +103,12 @@ export interface MySql2NativeContractAdapter extends NativeContractAdapter {
 function select(
   candidate: NativeContractCandidate,
   sqlMode: string,
-): { readonly names: ReadonlySet<string>; readonly expressions: readonly Expression[] } {
+): {
+  readonly names: ReadonlySet<string>;
+  readonly expressions: readonly Expression[];
+  readonly tables: readonly NamedTableReference[];
+  readonly hasStar: boolean;
+} {
   if (!candidate.sql.length || candidate.sql.length > 8 * 1024 * 1024 || /\/\*[!+]/u.test(candidate.sql))
     throw new MySqlContractAcquisitionError("unsupported-statement");
   const statement = parseStatement(candidate.sql, { sqlMode });
@@ -111,9 +116,6 @@ function select(
     statement.kind !== "select" ||
     statement.with ||
     statement.queryValues ||
-    statement.from ||
-    statement.joins.length ||
-    statement.where ||
     statement.groupBy.length ||
     statement.having ||
     statement.windows.length ||
@@ -124,6 +126,12 @@ function select(
     statement.compounds.length ||
     statement.distinct ||
     statement.distinctOn.length
+  )
+    throw new MySqlContractAcquisitionError("unsupported-statement");
+  const tables = [...(statement.from ? [statement.from] : []), ...statement.joins.map((join) => join.table)];
+  if (
+    tables.some((table) => table.kind !== "table" || table.lateral || table.partitions?.length) ||
+    (statement.where && !tables.length)
   )
     throw new MySqlContractAcquisitionError("unsupported-statement");
   const occurrences = tokenize(candidate.sql, { sqlMode })
@@ -137,7 +145,10 @@ function select(
   const names = new Set<string>();
   walkStatement(statement, {
     expression(expression) {
-      if (["column", "star", "subquery", "exists", "row", "array"].includes(expression.kind))
+      if (
+        (["column", "star"].includes(expression.kind) && !tables.length) ||
+        ["subquery", "exists", "row", "array"].includes(expression.kind)
+      )
         throw new MySqlContractAcquisitionError("unsupported-statement");
       if (expression.kind === "in" && !Array.isArray(expression.values))
         throw new MySqlContractAcquisitionError("unsupported-statement");
@@ -155,7 +166,29 @@ function select(
       }
     },
   });
-  return { names, expressions: statement.columns.map((column) => column.expression) };
+  return {
+    names,
+    expressions: statement.columns.map((column) => column.expression),
+    tables: tables as readonly NamedTableReference[],
+    hasStar: statement.columns.some((column) => column.expression.kind === "star"),
+  };
+}
+function projectionExpressions(
+  expressions: readonly Expression[],
+  columns: number,
+): readonly (Expression | undefined)[] {
+  const firstStar = expressions.findIndex((expression) => expression.kind === "star");
+  if (firstStar < 0) return expressions;
+  const trailing = expressions.length - 1 - expressions.findLastIndex((expression) => expression.kind === "star");
+  // Star widths are not known from syntax. Prefix/suffix positions are still exact; slots
+  // between stars cannot borrow a literal bound from a guessed projection position.
+  return Array.from({ length: columns }, (_, index) =>
+    index < firstStar
+      ? expressions[index]
+      : index >= columns - trailing
+        ? expressions[expressions.length - columns + index]
+        : undefined,
+  );
 }
 function integerLiteral(expression: Expression | undefined): bigint | undefined {
   if (expression?.kind === "literal" && expression.numericText && /^\d{1,20}$/u.test(expression.numericText)) {
@@ -313,7 +346,7 @@ export function createMySql2NativeContractAdapter(options: MySql2NativeContractO
       locked = true;
       await control("START TRANSACTION READ ONLY");
       const [server] = await read(
-        "SELECT VERSION() AS version,@@version_comment AS edition,@@server_uuid AS server,@@session.sql_mode AS sqlMode,DATABASE() AS db,CURRENT_USER() AS principal",
+        "SELECT VERSION() AS version,@@version_comment AS edition,@@server_uuid AS server,@@session.sql_mode AS sqlMode,@@lower_case_table_names AS lowerCaseTables,DATABASE() AS db,CURRENT_USER() AS principal",
       );
       if (
         !server ||
@@ -335,6 +368,14 @@ export function createMySql2NativeContractAdapter(options: MySql2NativeContractO
       if ([...routineNames, ...udfNames].some((name) => typeof name !== "string" || !name.length || name.length > 256))
         throw new MySqlContractAcquisitionError("metadata-unavailable");
       const forbidden = new Set([...routineNames.map(fold), ...udfNames.map(fold)]);
+      const tables = await read(
+        "SELECT TABLE_SCHEMA,TABLE_NAME,TABLE_TYPE,ENGINE,TABLE_COLLATION,CREATE_OPTIONS FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() ORDER BY TABLE_NAME LIMIT 4097",
+      );
+      const columns = await read(
+        "SELECT TABLE_SCHEMA,TABLE_NAME,COLUMN_NAME,ORDINAL_POSITION,COLUMN_DEFAULT,IS_NULLABLE,DATA_TYPE,CHARACTER_MAXIMUM_LENGTH,CHARACTER_OCTET_LENGTH,NUMERIC_PRECISION,NUMERIC_SCALE,DATETIME_PRECISION,CHARACTER_SET_NAME,COLLATION_NAME,COLUMN_TYPE,COLUMN_KEY,EXTRA,GENERATION_EXPRESSION FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() ORDER BY TABLE_NAME,ORDINAL_POSITION LIMIT 65537",
+      );
+      if (tables.length > 4096 || columns.length > 65536)
+        throw new MySqlContractAcquisitionError("metadata-unavailable");
       const context = async (active?: AbortSignal): Promise<QueryContractContext> => {
         requireOpen(active);
         const session = await read(
@@ -351,7 +392,7 @@ export function createMySql2NativeContractAdapter(options: MySql2NativeContractO
           ...mySqlContractIdentity(policy),
           schemaHash: calculateSchemaHash(schema),
           typePolicyHash: calculateTypePolicyHash(policy),
-          databaseContextHash: queryContractDigest({ server, routines, udfs, session, global }),
+          databaseContextHash: queryContractDigest({ server, routines, udfs, tables, columns, session, global }),
         };
       };
       return {
@@ -362,6 +403,36 @@ export function createMySql2NativeContractAdapter(options: MySql2NativeContractO
             const selection = select(candidate, sqlMode);
             if (described || [...selection.names].some((name) => forbidden.has(name)))
               throw new MySqlContractAcquisitionError("unsupported-statement");
+            for (const table of selection.tables) {
+              // The qualified native engines use case-sensitive table names. Do not approximate
+              // filesystem/Unicode identifier equivalence for other lower_case_table_names modes.
+              if (
+                (server.lowerCaseTables !== 0 && server.lowerCaseTables !== "0") ||
+                (table.schema && table.schema.name !== server.db)
+              )
+                throw new MySqlContractAcquisitionError("unsupported-statement");
+              const matches = tables.filter(
+                (row) => row.TABLE_NAME === table.name.name && row.TABLE_SCHEMA === server.db,
+              );
+              const relation = matches[0];
+              const fields = columns.filter(
+                (row) => row.TABLE_NAME === table.name.name && row.TABLE_SCHEMA === server.db,
+              );
+              if (
+                matches.length !== 1 ||
+                relation?.TABLE_TYPE !== "BASE TABLE" ||
+                relation.ENGINE !== "InnoDB" ||
+                !fields.length ||
+                fields.some(
+                  (row) =>
+                    typeof row.EXTRA !== "string" ||
+                    typeof row.GENERATION_EXPRESSION !== "string" ||
+                    row.GENERATION_EXPRESSION.length ||
+                    /(?:^|\s)(?:VIRTUAL|STORED)\s+GENERATED(?:\s|$)/iu.test(row.EXTRA),
+                )
+              )
+                throw new MySqlContractAcquisitionError("unsupported-statement");
+            }
             described = true;
             if (selection.names.size > 4096) throw new MySqlContractAcquisitionError("unsupported-statement");
             const names = [...selection.names];
@@ -424,21 +495,25 @@ export function createMySql2NativeContractAdapter(options: MySql2NativeContractO
                 !native ||
                 !Array.isArray(native.columns) ||
                 !native.columns.length ||
-                native.columns.length !== selection.expressions.length ||
+                (selection.hasStar
+                  ? native.columns.length < selection.expressions.length
+                  : native.columns.length !== selection.expressions.length) ||
                 !Array.isArray(native.parameters) ||
                 native.parameters.length !== candidate.parameterOccurrences.length
               )
                 throw new MySqlContractAcquisitionError("metadata-unavailable");
+              const nativeColumns = native.columns;
+              const expressions = projectionExpressions(selection.expressions, nativeColumns.length);
               return {
                 adapter: { id: adapterId, version: mySqlContractAdapterVersion },
                 consistency: {
                   mechanism: "guarded",
-                  scope: "mysql-owned-readonly-backup-locked-builtin-expressions-v1",
+                  scope: "mysql-owned-readonly-backup-locked-guarded-select-v2",
                 },
                 resultKind: "rows",
-                columns: native.columns.map((column: MySqlProtocolField, index: number) => ({
+                columns: nativeColumns.map((column: MySqlProtocolField, index: number) => ({
                   name: column.name ?? "",
-                  ...field(column, policy, false, schema, selection.expressions[index]),
+                  ...field(column, policy, false, schema, expressions[index]),
                 })),
                 parameters: native.parameters.map((parameter: MySqlProtocolField, index: number) => ({
                   index: index + 1,
@@ -480,7 +555,7 @@ export function createMySql2NativeContractAdapter(options: MySql2NativeContractO
         select(candidate, sqlMode);
         return { accepted: true };
       } catch {
-        return { accepted: false, reason: "mysql-builtin-expression-scope" };
+        return { accepted: false, reason: "mysql-guarded-select-scope" };
       }
     },
     open: safeOpen,

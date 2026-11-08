@@ -1,7 +1,7 @@
 import { type ContractInterpreterIdentity, queryContractDigest } from "@typed-sql/analysis";
 import { defaultMySqlTypePolicy, type MySqlTypePolicy } from "./type-policy.js";
 
-export const mySqlContractAdapterVersion = "mysql-backup-locked-prepare-v1";
+export const mySqlContractAdapterVersion = "mysql-backup-locked-prepare-v2";
 export const mySqlContractReconciliationOwner = Object.freeze({
   id: "@typed-sql/mysql/reconciliation",
   version: "mysql-contract-reconciliation-v1",
@@ -25,7 +25,7 @@ export function validateMySqlContractPolicy(policy: MySqlTypePolicy): MySqlTypeP
 /** Pure compatibility identity; importing this entrypoint never loads the optional driver. */
 export function mySqlContractIdentity(policy: MySqlTypePolicy = defaultMySqlTypePolicy): ContractInterpreterIdentity {
   return Object.freeze({
-    profileHash: queryContractDigest({ profile: "mysql-owned-builtin-expression-profile-v1" }),
+    profileHash: queryContractDigest({ profile: "mysql-owned-guarded-select-profile-v2" }),
     codecHash: queryContractDigest({ codec: "mysql-prepare-fields-v1", policy: validateMySqlContractPolicy(policy) }),
     interpreterHash: queryContractDigest(mySqlContractAdapterVersion),
   });

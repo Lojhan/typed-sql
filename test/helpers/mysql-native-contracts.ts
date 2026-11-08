@@ -23,6 +23,7 @@ import { createMySql2NativeContractAdapter } from "../../packages/mysql/src/mysq
 import { tokenize } from "../../packages/mysql/src/parser/index.js";
 import { mysqlProfile } from "../../packages/mysql/src/profile.js";
 import { createMySqlContractReconciler } from "../../packages/mysql/src/reconciliation.js";
+import { assertMySqlTableContracts } from "./mysql-table-contracts.js";
 
 /** Requires a disposable qualification database and BACKUP_ADMIN plus metadata privileges. */
 export async function assertMySqlNativeContracts(connectionUri: string): Promise<void> {
@@ -238,6 +239,7 @@ export async function assertMySqlNativeContracts(connectionUri: string): Promise
     await admin.query(`DROP FUNCTION ${fn}`);
     const drifted = await adapter.inspectContext();
     strict.notEqual(drifted.databaseContextHash, context.databaseContextHash);
+    await assertMySqlTableContracts(connectionUri);
   } finally {
     for (const sql of [
       `DROP VIEW IF EXISTS ${view}`,

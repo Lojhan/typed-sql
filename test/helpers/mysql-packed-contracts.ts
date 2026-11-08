@@ -19,9 +19,10 @@ export async function assertMySqlPackedContracts(workspace: string, connectionUr
   const cli = join(directory, "node_modules/@typed-sql/cli/dist/packages/cli/src/cli.js");
   const build = join(directory, "node_modules/@typed-sql/build/dist/packages/build/src/cli.js");
   const server = join(directory, "node_modules/@typed-sql/language-server/dist/packages/language-server/src/server.js");
-  const initial = "SELECT TO_SECONDS('2024-01-01') AS value";
-  const changed = "SELECT REVERSE('value') AS value";
   const marker = `typed_sql_packed_context_${process.pid}`;
+  const table = `${marker}_items`;
+  const initial = `SELECT TO_SECONDS(created_at) AS value FROM ${table}`;
+  const changed = `SELECT REVERSE(label) AS value FROM ${table} WHERE id=1`;
   let admin: Awaited<ReturnType<typeof createConnection>> | undefined;
   const command = async (args: readonly string[], mode = "live") =>
     execFile(process.execPath, [cli, ...args], {
@@ -30,8 +31,12 @@ export async function assertMySqlPackedContracts(workspace: string, connectionUr
       maxBuffer: 8 * 1024 * 1024,
     });
   try {
-    const schema = await mysql2({ connectionUri }).introspect();
     admin = await createConnection(connectionUri);
+    await admin.query(
+      `CREATE TABLE ${table}(id INT PRIMARY KEY,created_at DATE NOT NULL,label VARCHAR(32) NOT NULL) ENGINE=InnoDB`,
+    );
+    await admin.query(`INSERT INTO ${table} VALUES (1,'2024-01-01','value')`);
+    const schema = await mysql2({ connectionUri }).introspect();
     // The packed fixture first proves that no driver is installed transitively.
     await symlink(join(workspace, "node_modules/mysql2"), join(directory, "node_modules/mysql2"), "dir");
     await symlink(
@@ -175,6 +180,13 @@ try{assert.deepEqual(await database.execute(statement),[{value:"eulav"}]);}final
           await inspect(live, initial, "bigint");
           const after = (await live.request("typedSql/status", {})) as typeof before;
           strict.ok(after.workspaces[0]!.metrics.generation > before.workspaces[0]!.metrics.generation);
+          await admin.query(`ALTER TABLE ${table} ADD COLUMN context_marker INT`);
+          await inspect(live, initial, "bigint");
+          const tableAfter = (await live.request("typedSql/status", {})) as typeof before;
+          strict.ok(
+            tableAfter.workspaces[0]!.metrics.generation > after.workspaces[0]!.metrics.generation,
+            "Installed editor must regenerate after table DDL with an unchanged supplied schema",
+          );
         }
         live.notify("textDocument/didChange", {
           textDocument: { uri, version: 2 },
@@ -205,9 +217,13 @@ try{assert.deepEqual(await database.execute(statement),[{value:"eulav"}]);}final
       await admin?.query(`DROP FUNCTION IF EXISTS ${marker}`);
     } finally {
       try {
-        await admin?.end();
+        await admin?.query(`DROP TABLE IF EXISTS ${table}`);
       } finally {
-        await fixture.close();
+        try {
+          await admin?.end();
+        } finally {
+          await fixture.close();
+        }
       }
     }
   }

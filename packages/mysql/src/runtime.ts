@@ -1044,6 +1044,19 @@ export function createMySqlDatabase(options: MySqlDatabaseOptions): MySqlDatabas
       jsonWire: options.pool.jsonWire === "text" || typePolicy.json === "string" ? "text" : "parsed",
       jsonInputWire: "text",
       typePolicyHash: calculateTypePolicyHash({ ...defaultMySqlTypePolicy, ...options.typePolicy }),
+      normalizeValue(value, type, descriptor) {
+        // A qualified numeric literal can use the BIGINT wire family under either lossless
+        // policy. Normalize integer descriptors only; core still rejects unsafe numbers.
+        return type === "number" &&
+          (typeof value === "bigint" ||
+            (typeof value === "string" &&
+              /^[+-]?\d+$/u.test(value) &&
+              /^(?:(?:tiny|small|medium|big)?int(?:eger)?)(?:\(\d+\))?(?: unsigned)?$/iu.test(
+                descriptor?.databaseType ?? "",
+              )))
+          ? Number(value)
+          : value;
+      },
     },
   );
 }
