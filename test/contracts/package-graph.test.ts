@@ -145,7 +145,17 @@ const expectedEntrypoints: Readonly<Record<(typeof publicPackages)[number], read
   cli: [],
   "ts-bridge": [".", "./native-lsp", "./native-preview", "./sql-register", "./vite"],
   "language-server": ["."],
-  sqlite: [".", "./runtime", "./node-sqlite", "./query", "./profile", "./analysis"],
+  sqlite: [
+    ".",
+    "./runtime",
+    "./node-sqlite",
+    "./query",
+    "./profile",
+    "./analysis",
+    "./contract-profile",
+    "./node-sqlite-contracts",
+    "./reconciliation",
+  ],
   sqlserver: [".", "./query", "./runtime", "./odbc", "./msnodesqlv8", "./browser", "./profile", "./analysis"],
   duckdb: [
     ".",

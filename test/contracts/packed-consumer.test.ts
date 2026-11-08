@@ -13,6 +13,7 @@ import { packedConsumerOverrides } from "../helpers/packed-editor-consumer.js";
 import { ensurePackedEditorSdk } from "../helpers/packed-editor-sdk.js";
 import { assertPortableWorkerConsumer } from "../helpers/portable-worker-consumer.js";
 import { assertSqlFileConsumer } from "../helpers/sql-file-consumer.js";
+import { assertSqliteNativeContractConsumer } from "../helpers/sqlite-native-contract-consumer.js";
 
 const execFile = promisify(execFileCallback);
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -501,6 +502,7 @@ await describe("packed public packages", async () => {
           createRequire(join(workspace, "packages/adapters/package.json")).resolve("miniflare"),
         ).href,
       });
+      await assertSqliteNativeContractConsumer(consumer, isolatedEnvironment);
       await assertFrozenContractConsumer(consumer, isolatedEnvironment);
     } finally {
       await rm(temporary, { recursive: true, force: true });

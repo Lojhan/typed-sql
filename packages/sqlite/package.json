@@ -30,7 +30,9 @@
   "typedSql": {
     "releaseTrack": "stable",
     "developmentEntrypoints": [
-      "./analysis"
+      "./analysis",
+      "./node-sqlite-contracts",
+      "./reconciliation"
     ]
   },
   "sideEffects": false,
@@ -46,12 +48,16 @@
     "./node-sqlite": "./dist/packages/sqlite/src/node-sqlite.js",
     "./query": "./dist/packages/sqlite/src/query.js",
     "./profile": "./dist/packages/sqlite/src/profile.js",
-    "./analysis": "./dist/packages/sqlite/src/analysis.js"
+    "./analysis": "./dist/packages/sqlite/src/analysis.js",
+    "./contract-profile": "./dist/packages/sqlite/src/contract-profile.js",
+    "./node-sqlite-contracts": "./dist/packages/sqlite/src/node-sqlite-contracts.js",
+    "./reconciliation": "./dist/packages/sqlite/src/reconciliation.js"
   },
   "dependencies": {
     "@typed-sql/ast": "workspace:*",
     "@typed-sql/core": "workspace:*",
-    "@typed-sql/schema": "workspace:*"
+    "@typed-sql/schema": "workspace:*",
+    "@typed-sql/analysis": "workspace:*"
   },
   "devDependencies": {
     "@typed-sql/conformance": "workspace:*"

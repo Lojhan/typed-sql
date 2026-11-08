@@ -384,3 +384,51 @@ as do all 11 CLI and 16 language-server files. Clean workspace build, incrementa
 checks, public API/package graph checks, all three packed-consumer suites, documentation
 checks/build, quality and the isolated performance gate pass. The PostgreSQL 18 helper passes
 the complete capture, process-restart/offline, existing drift/conflict and frozen-consumer flow.
+
+## SQLite native preparation
+
+SQLite contributes optional `contract-profile`, `node-sqlite-contracts` and `reconciliation`
+entrypoints. Driver import and connection construction occur only in a spawned acquisition
+process, never in runtime/profile imports. Each lease owns one read-only file connection and
+schema snapshot and describes one candidate. Deadlines and aborts kill that process and wait
+for exit, including while synchronous native code is running. Graceful close first releases the
+database; termination is the bounded cleanup fallback. No application connection or callback
+registry is borrowed.
+
+The native authorizer allows selection, reads from qualified ordinary tables/views and built-in
+functions from the connection's own inventory. Virtual-table contexts are declined before
+candidate compilation can invoke a module. Writes, extension loading, PRAGMAs and transaction
+changes are denied. Lexical admission rejects multiple statements, named/numbered bindings and
+parameter-layout mismatches. Anonymous binds use the SQLite value domain with the selected
+integer policy and the execution adapter's boolean-input normalization.
+
+Schema, engine/source version, compile options, built-in routines and collations bind the native
+context. Preparation reads column metadata without stepping the candidate. Declared origin-column
+types remain provenance: `SELECT text_column ... UNION ALL SELECT 42` can report the first
+column's TEXT declaration while returning integer values too. Result identities remain partial,
+runtime values retain the nullable storage-class bound, and flexible-unknown policy remains
+unknown. Required complete native identities block. Missing static capability evidence can use
+native acceptance. Guarded native preparation can also supply exact-statement syntax absent from
+the offline parser, including standalone VALUES and LIKE ESCAPE. Invalid native SQL, static
+schema/arity errors and unrenderable dynamic source remain blocking. Reconciliation does
+not claim native verification of precise expression types, JSON shape or cardinality.
+
+Native tests cover joins, CTEs, compound results, built-ins, exact anonymous bindings, both integer
+policies through actual planned execution, rejected writes/external access/unregistered callbacks,
+WAL schema drift, cancelled startup, deadline termination and repeated close. Successful
+preparation of a query that would fail with an oversized blob proves the candidate is not
+evaluated. The native test file passes on Node 24.10.0/SQLite 3.50.4 and
+Node 24.22.2/SQLite 3.53.4. On hosts without authorizer support the profile is unavailable.
+
+The installed-package proof generates/regenerates contracts, executes their decoding plans,
+checks unsaved live editor SQL, then deletes the database and private cache and checks frozen
+with guarded analyzer/native factories. CI's pinned SQLite job builds and runs the native suite
+and packed-consumer proof. SQL Server acquisition, SQLite project-catalog capture, broader
+precision qualification, compact offline-core selection and the full acceptance audit remain.
+
+Validation: all 17 SQLite test files pass with 93.87% statement, 87.11% branch and 98.54%
+function coverage. The native file passes on both qualified runtime versions. Clean workspace
+build and final type checks, installed package/whole-query editor proof, public API/package graph,
+documentation checks/build, quality and the isolated performance gate pass. Runtime/profile
+distribution checks continue working with optional development exports and semantic catalogs
+physically removed. Native children exclude application preloads and module-search overrides.

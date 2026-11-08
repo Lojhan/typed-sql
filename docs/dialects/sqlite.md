@@ -7,8 +7,8 @@ description: SQLite dynamic typing, STRICT tables, catalog introspection, and th
 # SQLite
 
 `@typed-sql/sqlite` is the stable SQLite grammar. It keeps SQLite's dynamic type system honest,
-introspects real database files or in-memory databases, and exposes the built-in Node client only
-through `@typed-sql/sqlite/node-sqlite`.
+introspects real database files or in-memory databases, and exposes the built-in Node client
+through explicit execution and native-preparation adapters.
 
 ## Public entrypoints
 
@@ -20,6 +20,9 @@ through `@typed-sql/sqlite/node-sqlite`.
 - `@typed-sql/sqlite/analysis` — explicit eager analyzer and compatibility exports, including introspection over an injected queryable.
 - `@typed-sql/sqlite/runtime` — driver-neutral rendering and executable adapter contracts.
 - `@typed-sql/sqlite/node-sqlite` — lazy `node:sqlite` loading, schema provider, and executable database adapter.
+- `@typed-sql/sqlite/contract-profile` — pure query-contract compatibility identities and reconciliation owner identity.
+- `@typed-sql/sqlite/node-sqlite-contracts` — explicit native query preparation in an owned process.
+- `@typed-sql/sqlite/reconciliation` — independent comparison of static claims with native storage-domain evidence.
 
 The package has no dependency, optional dependency, or peer dependency on an SQLite driver.
 `node:sqlite` is part of Node itself. The adapter supports Node 22 from 22.13 onward, Node 24, and
@@ -207,6 +210,42 @@ and aggregate/window restrictions. SQLite also permits recursion without spellin
 PostgreSQL-only `SEARCH`/`CYCLE`, `ROWS FROM`/`WITH ORDINALITY`, `TABLESAMPLE`, `DISTINCT ON`, array
 constructors, and SELECT locking clauses fail closed. SQLite's own cataloged and application-defined
 table functions remain supported. Unknown functions infer `unknown` unless configured in the snapshot.
+
+## Native query contracts
+
+`createNodeSqliteNativeContractAdapter` prepares read-only queries against a persistent database
+file without evaluating them. Pass its `inspectContext` method and the contribution from
+`createSqliteContractReconciler` to the [live analysis registration](../getting-started/configuration.md).
+Use `sqliteContractIdentity(typePolicy)` and `sqliteContractReconciliationOwner` for the configured
+identities. Importing these entrypoints does not open a database.
+
+The adapter owns a separate read-only connection and a schema snapshot in a child process.
+Deadlines and cancellation terminate that process and wait for its exit. It does not borrow an
+application connection, register application functions, or load extensions. Its authorizer permits
+read-only selection from ordinary tables and views and qualified built-in functions. Virtual-table
+contexts, writes, external extension loading and multiple statements are unavailable. Anonymous
+`?` parameters must match the compiler's exact ordered occurrence layout.
+
+Native preparation establishes query acceptance, ordered result labels and the SQLite storage
+domain under the selected integer policy. It does not establish precise expression types,
+non-null results, JSON object shapes or row cardinality. The driver's declared origin-column type
+can describe only one branch of a compound result; it is retained as provenance rather than
+treated as the complete result identity. Values therefore remain nullable storage-class unions,
+or `unknown` under the flexible-unknown policy. Native identity evidence is partial. A qualification
+policy requiring complete native type identities blocks; a runtime-type policy can use the known
+storage domain. Narrow static claims do not replace that native bound.
+Native acceptance can supply exact-statement syntax the offline parser does not handle, such as
+a standalone `VALUES` query, and missing server-capability evidence. Invalid native SQL and static
+schema or arity errors remain blocking. Dynamic source that cannot be rendered remains unresolved.
+
+Each lease describes one candidate; closing its owned process releases all native resources,
+including on runtimes without per-statement finalization. The native profile requires the Node
+authorizer and prepared-column metadata APIs. This repository verifies native preparation on
+Node 24.10.0 with SQLite 3.50.4 and Node 24.22.2 with SQLite 3.53.4; the latter also runs the
+installed CLI/editor qualification. Runtimes missing the required APIs report an unavailable
+profile. This acquisition boundary is separate from the broader execution-adapter support range.
+Durable exports and matching private-cache evidence support offline checking; frozen consumption
+does not require the database, acquisition process or disposable cache.
 
 ## Runtime behavior
 

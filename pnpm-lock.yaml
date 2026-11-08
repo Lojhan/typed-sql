@@ -771,6 +771,9 @@ importers:
 
   packages/sqlite:
     dependencies:
+      '@typed-sql/analysis':
+        specifier: workspace:*
+        version: link:../analysis
       '@typed-sql/ast':
         specifier: workspace:*
         version: link:../ast

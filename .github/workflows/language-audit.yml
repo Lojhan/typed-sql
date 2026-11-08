@@ -43,7 +43,6 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Build packed native contract consumers
-        if: matrix.dialect == 'duckdb'
         run: pnpm build
       - name: Capture and review the complete embedded engine inventory
         env:
@@ -60,6 +59,11 @@ jobs:
         env:
           TYPED_SQL_DUCKDB_TARGET: ${{ matrix.version }}
         run: pnpm --filter @typed-sql/e2e-duckdb e2e
+      - name: Verify SQLite native contracts and installed CLI/editor/offline consumers
+        if: matrix.dialect == 'sqlite'
+        run: |
+          pnpm --filter @typed-sql/sqlite test
+          pnpm exec poku test/contracts/packed-consumer.test.ts --reporter=compact --enforce
       - if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

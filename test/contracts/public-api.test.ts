@@ -284,8 +284,11 @@ import * as postgresRuntimeApi from "../../packages/postgres/src/runtime.js";
 import * as schemaApi from "../../packages/schema/src/index.js";
 import * as schemaSnapshotApi from "../../packages/schema/src/snapshot.js";
 import * as sqliteApi from "../../packages/sqlite/src/analysis.js";
+import * as sqliteContractProfileApi from "../../packages/sqlite/src/contract-profile.js";
 import * as sqliteRootApi from "../../packages/sqlite/src/index.js";
 import * as nodeSqliteApi from "../../packages/sqlite/src/node-sqlite.js";
+import * as sqliteContractsApi from "../../packages/sqlite/src/node-sqlite-contracts.js";
+import * as sqliteReconciliationApi from "../../packages/sqlite/src/reconciliation.js";
 import * as sqliteRuntimeApi from "../../packages/sqlite/src/runtime.js";
 import * as sqlserverApi from "../../packages/sqlserver/src/analysis.js";
 import * as sqlServerBrowserApi from "../../packages/sqlserver/src/browser.js";
@@ -1014,6 +1017,14 @@ const expectedRuntimeExports = {
     "duckDBContractReconciliationOwner",
   ],
   duckdbReconciliation: ["createDuckDBContractReconciler"],
+  sqliteContracts: ["SqliteContractAcquisitionError", "createNodeSqliteNativeContractAdapter"],
+  sqliteContractProfile: [
+    "sqliteContractAdapterVersion",
+    "sqliteContractIdentity",
+    "sqliteContractPolicy",
+    "sqliteContractReconciliationOwner",
+  ],
+  sqliteReconciliation: ["createSqliteContractReconciler"],
   duckdbNodeApi: [
     "DuckDBAdapterError",
     "adaptDuckDBConnection",
@@ -1526,6 +1537,9 @@ await describe("stable public API", async () => {
       schema: Object.keys(schemaApi).sort(),
       schemaSnapshot: Object.keys(schemaSnapshotApi).sort(),
       sqliteAnalysis: Object.keys(sqliteApi).sort(),
+      sqliteContracts: Object.keys(sqliteContractsApi).sort(),
+      sqliteContractProfile: Object.keys(sqliteContractProfileApi).sort(),
+      sqliteReconciliation: Object.keys(sqliteReconciliationApi).sort(),
       sqlite: Object.keys(sqliteRootApi).sort(),
       sqliteRuntime: Object.keys(sqliteRuntimeApi).sort(),
       nodeSqlite: Object.keys(nodeSqliteApi).sort(),
