@@ -6,6 +6,7 @@ import {
   type QueryContract,
   type QueryContractContext,
 } from "./contracts.js";
+import type { LiveAnalysisFailure } from "./live.js";
 import {
   type NativeQueryContractEvidence,
   nativeContractParametersAvailable,
@@ -26,6 +27,8 @@ export interface NativeContractAdapter {
   readonly id: string;
   readonly version: string;
   readonly grammar: QueryContractContext["grammar"];
+  /** Sanitized grammar/transport-owned failures; never includes SQL or driver messages. */
+  classifyError?(error: unknown): LiveAnalysisFailure;
   /** A grammar owner qualifies statement classes and binding/external-resource behavior before prepare. */
   accept(
     candidate: NativeContractCandidate,
@@ -60,37 +63,52 @@ export async function acquireNativeQueryContract(input: {
   const accepted = adapter.accept(candidate);
   if (!accepted.accepted) return { status: "unavailable", reason: "unsupported-statement", detail: accepted.reason };
   const session = await adapter.open(signal);
-  try {
-    signal?.throwIfAborted();
-    const before = parseQueryContractContext(await session.context(signal));
-    signal?.throwIfAborted();
-    if (canonicalContractData(before) !== canonicalContractData(context))
-      return { status: "unavailable", reason: "context-mismatch" };
-    const evidence = parseNativeQueryContractEvidence(await session.describe(candidate, signal), candidate.sql.length);
-    signal?.throwIfAborted();
-    if (evidence.adapter.id !== adapter.id || evidence.adapter.version !== adapter.version)
-      throw new TypeError("Native contract evidence adapter mismatch");
-    if (canonicalContractData(candidate.parameterOccurrences) !== canonicalContractData(evidence.parameterOccurrences))
-      throw new TypeError("Native contract description parameter layout differs");
-    const after = parseQueryContractContext(await session.context(signal));
-    signal?.throwIfAborted();
-    if (canonicalContractData(before) !== canonicalContractData(after))
-      return { status: "unavailable", reason: "context-changed" };
-    if (!nativeContractParametersAvailable(evidence))
-      return { status: "unavailable", reason: "parameter-metadata-unavailable" };
-    return {
-      status: "acquired",
-      contract: createQueryContract({
-        sql: candidate.sql,
-        context,
-        origin: "native-description",
-        nativeEvidence: evidence,
-        valuePlan: nativeContractValuePlan(evidence, context),
-        ...(candidate.columnSpans === undefined ? {} : { columnSpans: candidate.columnSpans }),
-      }),
-    };
-  } finally {
-    await session.close();
-    signal?.throwIfAborted();
+  const [operation] = await Promise.allSettled([
+    (async (): Promise<NativeContractAcquisition> => {
+      signal?.throwIfAborted();
+      const before = parseQueryContractContext(await session.context(signal));
+      signal?.throwIfAborted();
+      if (canonicalContractData(before) !== canonicalContractData(context))
+        return { status: "unavailable", reason: "context-mismatch" };
+      const evidence = parseNativeQueryContractEvidence(
+        await session.describe(candidate, signal),
+        candidate.sql.length,
+      );
+      signal?.throwIfAborted();
+      if (evidence.adapter.id !== adapter.id || evidence.adapter.version !== adapter.version)
+        throw new TypeError("Native contract evidence adapter mismatch");
+      if (
+        canonicalContractData(candidate.parameterOccurrences) !== canonicalContractData(evidence.parameterOccurrences)
+      )
+        throw new TypeError("Native contract description parameter layout differs");
+      const after = parseQueryContractContext(await session.context(signal));
+      signal?.throwIfAborted();
+      if (canonicalContractData(before) !== canonicalContractData(after))
+        return { status: "unavailable", reason: "context-changed" };
+      if (!nativeContractParametersAvailable(evidence))
+        return { status: "unavailable", reason: "parameter-metadata-unavailable" };
+      return {
+        status: "acquired",
+        contract: createQueryContract({
+          sql: candidate.sql,
+          context,
+          origin: "native-description",
+          nativeEvidence: evidence,
+          valuePlan: nativeContractValuePlan(evidence, context),
+          ...(candidate.columnSpans === undefined ? {} : { columnSpans: candidate.columnSpans }),
+        }),
+      };
+    })(),
+  ]);
+  const [cleanup] = await Promise.allSettled([Promise.resolve().then(() => session.close())]);
+  signal?.throwIfAborted();
+  if (operation.status === "rejected") {
+    if (cleanup.status === "rejected")
+      throw new AggregateError([operation.reason, cleanup.reason], "Native acquisition and cleanup failed");
+    throw operation.reason;
   }
+  // Cleanup cannot turn confirmed negative evidence into an availability-only outcome.
+  // A positive contract, however, requires successful cleanup as well as acquisition.
+  if (cleanup.status === "rejected" && operation.value.status === "acquired") throw cleanup.reason;
+  return operation.value;
 }

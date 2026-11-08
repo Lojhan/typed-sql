@@ -4,11 +4,12 @@ import { join } from "node:path";
 import { describe, it, strict } from "poku";
 import {
   type AnalysisCache,
+  createNativeLiveAnalysisRunner,
   createPersistentLiveAnalysisRunner,
   type LiveAnalysisOutcome,
   openAnalysisCache,
 } from "../src/index.js";
-import { fixture, hash, runner } from "./helpers/live-fixture.js";
+import { adapter, context, fixture, hash, owner, runner } from "./helpers/live-fixture.js";
 
 const request = fixture();
 const signal = () => new AbortController().signal;
@@ -62,6 +63,57 @@ await describe("persistent live producer", async () => {
         conflict,
       );
       strict.deepEqual((await cache.lookup(request)).cached?.outcome, conflict);
+    });
+  });
+  await it("uses adapter-owned classification through acquisition and persistence, with explicit host overrides", async () => {
+    await temporary(async (cache) => {
+      await createPersistentLiveAnalysisRunner({ cache, run: runner })(request, signal());
+      const original = await cache.lookup(request);
+      const outage = { kind: "unavailable", code: "fixture-outage", retry: "transport" } as const;
+      const selected = adapter({
+        classifyError: () => outage,
+        open: async () => ({
+          context: async () => context,
+          describe: async () => {
+            throw Error("private driver message");
+          },
+          close: async () => {},
+        }),
+      });
+      const native = createNativeLiveAnalysisRunner({ adapter: selected, contribution: owner });
+      strict.deepEqual(await createPersistentLiveAnalysisRunner({ cache, run: native })(request, signal()), outage);
+      strict.deepEqual(await cache.lookup(request), original);
+      const rejection = { kind: "rejected", code: "fixture-rejected" } as const;
+      const override = createNativeLiveAnalysisRunner({
+        adapter: selected,
+        contribution: owner,
+        classifyError: () => rejection,
+      });
+      strict.deepEqual(
+        await createPersistentLiveAnalysisRunner({ cache, run: override })(request, signal()),
+        rejection,
+      );
+      strict.deepEqual((await cache.lookup(request)).cached?.outcome, rejection);
+      const changed = adapter({
+        classifyError(error) {
+          strict.ok(error instanceof AggregateError);
+          if (error instanceof AggregateError) strict.equal(error.errors.length, 2);
+          return { kind: "stale-context", code: "fixture-context-changed" };
+        },
+        open: async () => ({
+          context: async () => context,
+          describe: async () => {
+            throw Error("known context change");
+          },
+          close: async () => {
+            throw Error("cleanup outage");
+          },
+        }),
+      });
+      strict.equal(
+        (await createNativeLiveAnalysisRunner({ adapter: changed, contribution: owner })(request, signal())).kind,
+        "stale-context",
+      );
     });
   });
   await it("fences invalidated producers and does not publish after cancellation or malformed output", async () => {

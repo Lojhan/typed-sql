@@ -237,6 +237,16 @@ await describe("native query contract acquisition", async () => {
       },
     });
     await strict.rejects(acquireNativeQueryContract({ ...closeFailure, candidate, context }), /cleanup-failure/u);
+    const negative = fixture({
+      contexts: [{ ...context, databaseContextHash: queryContractDigest("changed") }],
+      close: async () => {
+        throw Error("cleanup outage");
+      },
+    });
+    strict.deepEqual(await acquireNativeQueryContract({ ...negative, candidate, context }), {
+      status: "unavailable",
+      reason: "context-mismatch",
+    });
     const mutable = { sql, parameterOccurrences: occurrences.map((item) => ({ ...item })) };
     const unchanged = fixture({
       describe: async (value) => {

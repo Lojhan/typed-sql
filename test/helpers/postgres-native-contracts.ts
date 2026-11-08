@@ -1,10 +1,11 @@
 import { execFile as callback } from "node:child_process";
+import { once } from "node:events";
 import { mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import type { Query } from "@typed-sql/core";
-import { Pool } from "pg";
+import { Pool, type PoolClient } from "pg";
 import { strict } from "poku";
 import {
   acquireNativeQueryContract,
@@ -182,6 +183,53 @@ export async function assertPostgresNativeContracts(connectionString: string, di
       strict.equal(cached.cached?.outcome.kind, "usable-recorded-context");
       if (cached.cached?.outcome.kind !== "usable-recorded-context") throw Error("Missing cached native contract");
       strict.deepEqual(cached.cached.outcome.contract.valuePlan, reconciled.contract.valuePlan);
+
+      // Terminate a real leased backend after the first context read but before description.
+      // Both description and ROLLBACK fail; neither disproves the recorded contract.
+      const outagePool = new Pool({ connectionString, max: 1 });
+      let leased: PoolClient | undefined;
+      let leasedPid: number | undefined;
+      const outageAdapter = createPgNativeContractAdapter({
+        schema,
+        pool: {
+          connect: async () => {
+            leased = await outagePool.connect();
+            leasedPid = (await leased.query<{ pid: number }>("SELECT pg_catalog.pg_backend_pid() AS pid")).rows[0]!.pid;
+            return leased;
+          },
+        },
+      });
+      try {
+        const interrupted = {
+          ...outageAdapter,
+          async open(signal?: AbortSignal) {
+            const session = await outageAdapter.open(signal);
+            return {
+              ...session,
+              async describe(...args: Parameters<typeof session.describe>) {
+                if (!leased) throw Error("Missing leased native client");
+                const disconnected = once(leased, "error", { signal: AbortSignal.timeout(5000) });
+                await pool.query("SELECT pg_catalog.pg_terminate_backend($1)", [leasedPid]);
+                await disconnected;
+                return session.describe(...args);
+              },
+            };
+          },
+        };
+        const beforeOutage = await reopened.lookup(cacheRequest);
+        const outcome = await createPersistentLiveAnalysisRunner({
+          cache: reopened,
+          run: createNativeLiveAnalysisRunner({ adapter: interrupted, contribution }),
+        })(cacheRequest, new AbortController().signal);
+        strict.deepEqual(outcome, { kind: "unavailable", code: "postgres-transport-unavailable", retry: "transport" });
+        strict.deepEqual(
+          await reopened.lookup(cacheRequest),
+          beforeOutage,
+          "A real mid-acquisition connection loss must preserve recorded evidence",
+        );
+      } finally {
+        await outagePool.end();
+      }
 
       strict.deepEqual(live.view.contracts[0]!.valuePlan, reconciled.contract.valuePlan);
       strict.equal((await pool.query<{ count: number }>(`SELECT count FROM ${namespace}.calls`)).rows[0]!.count, 0);

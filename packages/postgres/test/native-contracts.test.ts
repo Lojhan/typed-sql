@@ -21,6 +21,8 @@ function fixture(
     epochs?: readonly string[];
     noProtocol?: boolean;
     prepareError?: boolean;
+    driverError?: unknown;
+    cleanupError?: unknown;
     type?: { oid: number; name: string; modifier: boolean; element: number; namespace?: string; kind?: string };
     noTypes?: boolean;
     fail?: string;
@@ -58,7 +60,7 @@ function fixture(
         };
         query.submit(connection);
         if (options.prepareError) {
-          query.handleError(Error("secret statement"));
+          query.handleError(options.driverError ?? Error("secret statement"));
           return;
         }
         connection.emit("parameterDescription", { dataTypeIDs: [options.type?.oid ?? 20] });
@@ -73,6 +75,7 @@ function fixture(
         return;
       }
       calls.push(value);
+      if (value === "ROLLBACK" && options.cleanupError) return Promise.reject(options.cleanupError);
       if (options.fail && value.includes(options.fail)) return Promise.reject(Error("driver failure"));
       if (value.includes("AS fingerprint"))
         return Promise.resolve({
@@ -284,6 +287,63 @@ await describe("PostgreSQL native contract adapter and lightweight profile", asy
     const session = await close.adapter.open();
     await strict.rejects(session.close(), /native-failure/u);
     strict.ok(close.calls.includes("release:true"));
+  });
+  await it("classifies transport outages separately from rejected SQL and context changes without leaking messages", async () => {
+    const { adapter } = fixture();
+    const classify = adapter.classifyError!;
+    const stable = await adapter.inspectContext();
+    for (const error of [
+      Object.assign(Error("secret SQL"), { code: "ECONNRESET" }),
+      Object.assign(Error("secret SQL"), { code: "08006" }),
+      Object.assign(Error("secret SQL"), { code: "57P01" }),
+      Object.assign(Error("secret SQL"), { code: "57014" }),
+      Error("Connection terminated unexpectedly"),
+    ]) {
+      const selected = fixture({ prepareError: true, driverError: error, cleanupError: error });
+      await strict.rejects(
+        acquireNativeQueryContract({
+          adapter: selected.adapter,
+          candidate: { sql, parameterOccurrences: occurrences },
+          context: stable,
+        }),
+        (failure: unknown) => {
+          strict.deepEqual(classify(failure), {
+            kind: "unavailable",
+            code: "postgres-transport-unavailable",
+            retry: "transport",
+          });
+          strict.ok(!String(failure).includes("secret SQL"));
+          return true;
+        },
+      );
+    }
+    const rejected = Object.assign(Error("secret SQL"), { code: "42883" });
+    const unavailable = Object.assign(Error("secret SQL"), { code: "ECONNRESET" });
+    strict.deepEqual(classify(new AggregateError([rejected, unavailable])), {
+      kind: "rejected",
+      code: "postgres-native-rejected",
+    });
+    strict.deepEqual(
+      classify(new AggregateError([new PostgresContractAcquisitionError("context-changed"), unavailable])),
+      { kind: "stale-context", code: "postgres-context-changed" },
+    );
+    strict.deepEqual(classify(new PostgresContractAcquisitionError("unsupported-context")), {
+      kind: "partial",
+      code: "postgres-unsupported-context",
+    });
+    strict.deepEqual(classify(Object.assign(Error("secret SQL"), { code: "28P01" })), {
+      kind: "unavailable",
+      code: "postgres-native-failure",
+      retry: "change",
+    });
+    const recursive = new AggregateError([]);
+    recursive.errors.push(recursive);
+    strict.deepEqual(classify(recursive), { kind: "unavailable", code: "postgres-native-failure", retry: "change" });
+    strict.deepEqual(classify(new AggregateError([])), {
+      kind: "unavailable",
+      code: "postgres-native-failure",
+      retry: "change",
+    });
   });
   await it("retains incomplete modifier and array/opaque representation evidence", async () => {
     for (const type of [

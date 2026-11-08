@@ -1,4 +1,5 @@
 import type {
+  LiveAnalysisFailure,
   NativeContractAdapter,
   NativeContractCandidate,
   NativeContractSession,
@@ -92,11 +93,78 @@ export class PostgresContractAcquisitionError extends Error {
       | "unsupported-context"
       | "protocol-unavailable"
       | "native-failure"
+      | "transport-unavailable"
+      | "native-rejected"
       | "closed-session",
   ) {
     super(`PostgreSQL query contract acquisition failed: ${reason}`);
     this.name = "PostgresContractAcquisitionError";
   }
+}
+function classifyError(error: unknown, depth = 0): LiveAnalysisFailure {
+  if (depth >= 8) return { kind: "unavailable", code: "postgres-native-failure", retry: "change" };
+  if (error instanceof AggregateError) {
+    // Acquisition is first: a cleanup outage must not hide a confirmed invalidation.
+    const failures = error.errors.slice(0, 16).map((failure) => classifyError(failure, depth + 1));
+    return (
+      failures.find((failure) => failure.kind === "stale-context") ??
+      failures.find((failure) => failure.kind !== "unavailable") ??
+      failures.find((failure) => failure.kind === "unavailable" && failure.retry === "change") ??
+      failures[0] ?? { kind: "unavailable", code: "postgres-native-failure", retry: "change" }
+    );
+  }
+  if (error instanceof PostgresContractAcquisitionError) {
+    if (error.reason === "context-changed") return { kind: "stale-context", code: "postgres-context-changed" };
+    if (error.reason === "native-rejected") return { kind: "rejected", code: "postgres-native-rejected" };
+    if (error.reason === "unsupported-context" || error.reason === "protocol-unavailable")
+      return { kind: "partial", code: `postgres-${error.reason}` };
+    return {
+      kind: "unavailable",
+      code: `postgres-${error.reason}`,
+      retry: error.reason === "transport-unavailable" ? "transport" : "change",
+    };
+  }
+  const code = error && typeof error === "object" && "code" in error ? error.code : undefined;
+  const message = error instanceof Error ? error.message : undefined;
+  if (
+    (typeof code === "string" &&
+      (/^08[A-Z\d]{3}$/u.test(code) ||
+        [
+          "ECONNREFUSED",
+          "ECONNRESET",
+          "EPIPE",
+          "ETIMEDOUT",
+          "ENETUNREACH",
+          "EHOSTUNREACH",
+          "ENOTFOUND",
+          "EAI_AGAIN",
+          "57P01",
+          "57P02",
+          "57P03",
+          "53300",
+          "57014",
+        ].includes(code))) ||
+    message === "Connection terminated unexpectedly" ||
+    message === "Connection terminated" ||
+    message === "Client has encountered a connection error and is not queryable" ||
+    message === "Client was closed and is not queryable"
+  )
+    return { kind: "unavailable", code: "postgres-transport-unavailable", retry: "transport" };
+  // Only a server statement diagnostic disproves this candidate. Availability/authentication
+  // failures and arbitrary driver exceptions must never be relabeled as invalid SQL.
+  if (typeof code === "string" && /^(?:22|23|3D|3F|42)[A-Z\d]{3}$/u.test(code))
+    return { kind: "rejected", code: "postgres-native-rejected" };
+  return { kind: "unavailable", code: "postgres-native-failure", retry: "change" };
+}
+function sanitizedFailure(error: unknown): PostgresContractAcquisitionError {
+  const failure = classifyError(error);
+  return new PostgresContractAcquisitionError(
+    failure.kind === "rejected"
+      ? "native-rejected"
+      : failure.kind === "unavailable" && failure.retry === "transport"
+        ? "transport-unavailable"
+        : "native-failure",
+  );
 }
 export interface PgNativeContractOptions {
   /** A dedicated application-owned pool. The adapter leases one exclusive client per acquisition. */
@@ -176,9 +244,9 @@ export function createPgNativeContractAdapter(options: PgNativeContractOptions):
       try {
         await client.query("ROLLBACK");
         client.release();
-      } catch {
+      } catch (error) {
         client.release(true);
-        throw new PostgresContractAcquisitionError("native-failure");
+        throw sanitizedFailure(error);
       }
     };
     const requireOpen = () => {
@@ -214,7 +282,11 @@ export function createPgNativeContractAdapter(options: PgNativeContractOptions):
       checkEpoch(epoch);
       initialEpoch = epoch;
     } catch (error) {
-      await close();
+      try {
+        await close();
+      } catch (cleanup) {
+        throw new AggregateError([error, cleanup], "PostgreSQL acquisition and cleanup failed");
+      }
       throw error;
     }
     return {
@@ -258,8 +330,8 @@ export function createPgNativeContractAdapter(options: PgNativeContractOptions):
         try {
           description = await pending;
           described = true;
-        } catch {
-          throw new PostgresContractAcquisitionError("native-failure");
+        } catch (error) {
+          throw sanitizedFailure(error);
         }
         describeSignal?.throwIfAborted();
         const ids = [
@@ -366,6 +438,7 @@ export function createPgNativeContractAdapter(options: PgNativeContractOptions):
     id: adapterId,
     version: adapterVersion,
     grammar: { id: "postgres", version: POSTGRES_DIALECT_VERSION },
+    classifyError,
     accept: (candidate: NativeContractCandidate) =>
       accepts(candidate)
         ? { accepted: true as const }

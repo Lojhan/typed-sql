@@ -151,3 +151,9 @@ The function counter remains unchanged by metadata work. Schema/profile compatib
 qualification, context observations and current-remote freshness remain separate claims. This
 extends the explicit command proof; it does not establish long-lived watch/editor refresh cadence,
 additional PostgreSQL statement classes, other engines or final workload/bundle measurements.
+
+The acquisition outage proof terminates a dedicated leased PostgreSQL backend between context
+observation and description. Both description and rollback fail. Adapter-owned classification
+returns transport unavailability, and the parsed persistent cache lookup, including its publication token and recorded outcome,
+is unchanged before and after the failed acquisition. This proves
+record preservation for an actual mid-acquisition disconnect, not successful remote verification.

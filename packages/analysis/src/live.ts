@@ -202,7 +202,10 @@ export function createNativeLiveAnalysisRunner(input: {
           };
     } catch (error) {
       signal.throwIfAborted();
-      return input.classifyError?.(error) ?? { kind: "unavailable", code: "native-runner-error", retry: "change" };
+      return parseLiveAnalysisFailure(
+        input.classifyError?.(error) ??
+          input.adapter.classifyError?.(error) ?? { kind: "unavailable", code: "native-runner-error", retry: "change" },
+      );
     }
   };
 }

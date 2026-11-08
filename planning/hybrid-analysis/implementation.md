@@ -384,6 +384,24 @@ Unrelated planning work is left unchanged.
   transport qualification, lightweight root migration, bulk semantic catalog deletion and the
   complete acceptance audit remain required. This is not a claim of full grammar/engine parity.
 
+## Native acquisition failure classification checkpoint
+
+- Native adapters can supply sanitized failure classification directly; explicit host classifiers
+  retain precedence. The neutral runner validates returned classifications before publication.
+- PostgreSQL preserves the distinction between known statement rejection, context change,
+  unsupported evidence and classified connection/temporary availability failures. Raw SQL and
+  driver messages are not returned in live outcomes. Unknown failures remain conservative.
+- Acquisition and cleanup errors retain both causes. Confirmed negative acquisition results survive
+  failed cleanup; successful acquisition cannot publish if cleanup fails. Aggregate classification
+  is bounded and gives known context changes priority over availability failures.
+- A real PostgreSQL backend is terminated after the first context read and before description.
+  Description and rollback both fail; the persistent runner returns transport unavailability and
+  the complete prior cache record remains unchanged. Unit tests cover host override precedence,
+  persistent rejection, combined failures, recursive aggregates and cleanup/context mismatch.
+- Analysis and PostgreSQL package suites pass coverage thresholds; API/package graph contracts,
+  TypeScript build checking, changed-file quality and the extended real PostgreSQL proof pass.
+  This does not qualify other native transports or finish long-lived host integration.
+
 ## Required work still open
 
 1. Complete the contract/evidence model: native descriptors and provenance, reusable/facet-specific
