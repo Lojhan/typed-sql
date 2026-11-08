@@ -1,4 +1,4 @@
-import { DIALECT_CONTRACT_VERSION, type DialectPlugin } from "@typed-sql/core";
+import { DIALECT_CONTRACT_VERSION, type DialectProfile } from "@typed-sql/core";
 import { POSTGRES_CAPABILITIES, resolvePostgresCapabilities } from "./capabilities.js";
 import { tokenize } from "./parser/tokenizer.js";
 import { defaultPostgresTypePolicy, type PostgresTypePolicy } from "./policy.js";
@@ -16,7 +16,7 @@ export interface PostgresProfileOptions {
 /** Rendering, vocabulary, snapshot and policy support without loading the SQL analyzer. */
 export function postgresProfile(
   options: PostgresProfileOptions = {},
-): Omit<DialectPlugin<PostgresProfileSnapshot, PostgresTypePolicy>, "analyze"> {
+): DialectProfile<PostgresProfileSnapshot, PostgresTypePolicy> {
   const policy = Object.freeze({ ...(options.typePolicy ?? defaultPostgresTypePolicy) });
   return Object.freeze({
     contractVersion: DIALECT_CONTRACT_VERSION,

@@ -18,7 +18,7 @@ import {
   queryContractDigest,
   reconcileQueryContract,
 } from "../../packages/analysis/src/index.js";
-import { compileSource } from "../../packages/compiler/src/index.js";
+import { collectSourceQueryCandidates, compileSource } from "../../packages/compiler/src/index.js";
 import { postgres } from "../../packages/postgres/src/index.js";
 import { adaptPgPool, type PgLiveVerifierPool } from "../../packages/postgres/src/pg.js";
 import {
@@ -67,11 +67,11 @@ export async function assertPostgresNativeContracts(connectionString: string, di
         offlineBaseline.queries.some((query) => query.rowType.includes("unknown")),
     );
     const profile = postgresProfile();
-    const parameterOccurrences = profile.parameterOccurrences!(text, schema).map(({ index, range }) => ({
-      index,
-      start: range.start,
-      end: range.end,
-    }));
+    const candidates = collectSourceQueryCandidates({ source: application, profile, schema });
+    strict.equal(candidates.complete, true);
+    strict.equal(candidates.candidates.length, 1);
+    strict.equal(candidates.candidates[0]!.sql, text);
+    const parameterOccurrences = candidates.candidates[0]!.parameterOccurrences;
     const context = await native.inspectContext();
     const acquired = await acquireNativeQueryContract({
       adapter: native,

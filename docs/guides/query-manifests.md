@@ -341,3 +341,33 @@ Opening this cache does not enable CLI/editor refresh, create project catalogs o
 record context-check observations, or export durable compiler inputs. Those operations belong to
 the explicit host workflow. Frozen consumers use their durable contract closure independently of
 this cache and its clock, contents or existence.
+
+### Collect candidates before SQL inference
+
+Compiler hosts use `collectSourceQueryCandidates` and `collectSqlFileQueryCandidates` from
+`@typed-sql/compiler` to prepare native requests independently of semantic success. Both accept a
+`DialectProfile` from `@typed-sql/core`, a validated snapshot and the selected decoding policy.
+The profile supplies rendering and lexical parameter mechanics; collection never calls `analyze`.
+`assertDialectProfile` validates its versioned mechanics independently of an analyzer.
+For PostgreSQL, `postgresProfile()` supplies this lightweight input without loading its analyzer.
+
+A candidate contains exact transient SQL, SQL-to-source offsets, ordered physical placeholder
+occurrences, logical argument bindings and hashed conditional choices. Each conditional rendering
+has its own candidate. SQL assets use the same named/repeated-parameter normalization as generated
+factories: several physical binds can refer to one logical argument. A native description of those
+physical arguments does not by itself prove their logical constraints are mutually compatible.
+
+Collection shares source expansion with ordinary compilation. Native acquisition correlates repeated
+conditions only when expressed as an identifier; repeated calls or property access need a captured condition
+value rather than an assumed stable result. It reports incomplete rendering,
+ambiguous placeholder layouts, dynamic SQL, runtime-sized fragment lists and resource limits.
+It does not describe a representative list size as proof for arbitrary sizes. Explicit structural
+values left unrendered, including unsupported `sql.ident` or `sql.raw` expressions, produce a
+diagnostic rather than becoming ordinary native bind parameters.
+
+`complete` means this source unit produced no collection errors. It does not prove valid SQL,
+TypeScript correctness, safe statement preparation, native support, or qualification of an entire
+project. Hosts enumerate the project source graph, collect each SQL asset, preserve diagnostics,
+qualify all required variants and run the ordinary compiler/TypeScript checks. SQL text remains
+transient; cache and durable contracts retain its digest. Application code continues importing
+its grammar's `sql` tag.

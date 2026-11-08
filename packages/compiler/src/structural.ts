@@ -1,4 +1,4 @@
-import type { ExtractedQuery, StructuralOperand } from "./scanner.js";
+import type { ExtractedInterpolation, ExtractedQuery, StructuralOperand } from "./scanner.js";
 import { extractStructuralOperand, parseStructuralInterpolation } from "./scanner.js";
 
 export interface ExpandedStructuralVariant {
@@ -15,7 +15,9 @@ export type StructuralExpansion =
   | { readonly kind: "limit"; readonly conditionCount: number; readonly variantCount: number };
 
 interface StructuralState {
+  readonly interpolations: readonly ExtractedInterpolation[];
   readonly sqlChunks: readonly string[];
+  readonly sqlLength: number;
   readonly offsetChunks: readonly (readonly number[])[];
   readonly count: number;
   readonly cursor: number;
@@ -43,18 +45,25 @@ function withParameterOffset(
   if (offset === 0 || query.parameterCount === 0) return query;
   const sqlChunks: string[] = [];
   const offsetChunks: (readonly number[])[] = [];
-  let cursor = 0;
+  const interpolations: ExtractedInterpolation[] = [];
+  let cursor = 0,
+    sqlLength = 0;
   for (const interpolation of query.interpolations) {
-    sqlChunks.push(query.sql.slice(cursor, interpolation.sqlStart));
+    const literal = query.sql.slice(cursor, interpolation.sqlStart);
+    sqlChunks.push(literal);
+    sqlLength += literal.length;
     offsetChunks.push(query.sqlOffsetMap.slice(cursor, interpolation.sqlStart));
     const marker = placeholder(offset + interpolation.index);
+    const sqlStart = sqlLength;
+    interpolations.push({ ...interpolation, sqlStart, sqlEnd: sqlStart + marker.length });
     sqlChunks.push(marker);
+    sqlLength += marker.length;
     offsetChunks.push(Array.from({ length: marker.length }, () => interpolation.sourceStart));
     cursor = interpolation.sqlEnd;
   }
   sqlChunks.push(query.sql.slice(cursor));
   offsetChunks.push(query.sqlOffsetMap.slice(cursor));
-  return { ...query, sql: sqlChunks.join(""), sqlOffsetMap: offsetChunks.flat() };
+  return { ...query, sql: sqlChunks.join(""), sqlOffsetMap: offsetChunks.flat(), interpolations };
 }
 
 /**
@@ -103,6 +112,8 @@ export function expandStructuralQuery(
   let states: readonly StructuralState[] = [
     {
       sqlChunks: [],
+      sqlLength: 0,
+      interpolations: [],
       offsetChunks: [],
       count: 0,
       cursor: 0,
@@ -114,11 +125,22 @@ export function expandStructuralQuery(
     if (operand.kind === "empty") return state;
     const fragment = fragmentAt(operand, state.count);
     if (fragment === undefined) return state;
+    const sqlOffset = state.sqlLength;
     return {
       ...state,
       sqlChunks: [...state.sqlChunks, fragment.sql],
+      sqlLength: state.sqlLength + fragment.sql.length,
       offsetChunks: [...state.offsetChunks, fragment.sqlOffsetMap],
       count: state.count + fragment.parameterCount,
+      interpolations: [
+        ...state.interpolations,
+        ...fragment.interpolations.map((item) => ({
+          ...item,
+          index: state.count + item.index,
+          sqlStart: sqlOffset + item.sqlStart,
+          sqlEnd: sqlOffset + item.sqlEnd,
+        })),
+      ],
       fragments: [...state.fragments, { query: fragment, parameterOffset: state.count }],
     };
   };
@@ -127,19 +149,27 @@ export function expandStructuralQuery(
     const structural = parsed[interpolationIndex];
     const next: StructuralState[] = [];
     for (const state of states) {
+      const literal = query.sql.slice(state.cursor, interpolation.sqlStart);
       const base: StructuralState = {
         ...state,
-        sqlChunks: [...state.sqlChunks, query.sql.slice(state.cursor, interpolation.sqlStart)],
+        sqlChunks: [...state.sqlChunks, literal],
+        sqlLength: state.sqlLength + literal.length,
         offsetChunks: [...state.offsetChunks, query.sqlOffsetMap.slice(state.cursor, interpolation.sqlStart)],
         cursor: interpolation.sqlEnd,
       };
       if (structural === undefined) {
         const marker = placeholder(base.count + 1);
+        const sqlStart = base.sqlLength;
         next.push({
           ...base,
           sqlChunks: [...base.sqlChunks, marker],
+          sqlLength: base.sqlLength + marker.length,
           offsetChunks: [...base.offsetChunks, Array.from({ length: marker.length }, () => interpolation.sourceStart)],
           count: base.count + 1,
+          interpolations: [
+            ...base.interpolations,
+            { ...interpolation, index: base.count + 1, sqlStart, sqlEnd: sqlStart + marker.length },
+          ],
         });
       } else if (structural.condition === undefined || structural.falsy === undefined) {
         next.push(appendOperand(base, structural.truthy));
@@ -163,6 +193,7 @@ export function expandStructuralQuery(
         sql: [...state.sqlChunks, query.sql.slice(state.cursor)].join(""),
         sqlOffsetMap: [...state.offsetChunks, query.sqlOffsetMap.slice(state.cursor)].flat(),
         parameterCount: state.count,
+        interpolations: state.interpolations,
       },
       choices: state.choices,
       fragments: state.fragments,

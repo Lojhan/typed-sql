@@ -18,25 +18,32 @@ import {
   unknownJsonShape,
 } from "@typed-sql/core";
 import { calculateSchemaHash, calculateTypePolicyHash } from "@typed-sql/schema";
-import { DEFAULT_MAX_SOURCE_BYTES } from "./limits.js";
+import {
+  DEFAULT_MAX_GENERATED_DECLARATION_BYTES,
+  DEFAULT_MAX_QUERIES,
+  DEFAULT_MAX_SOURCE_BYTES,
+  DEFAULT_MAX_STRUCTURAL_VARIANTS,
+  positiveCompilerLimit,
+} from "./limits.js";
+import { prepareQueryComposition, prepareStaticQuery } from "./query-preparation.js";
 import { expandRepeatedFragments, type RepeatedFragmentExpansion } from "./repeated-fragments.js";
 import {
   type ExtractedQuery,
   extractAppendFragments,
   extractQueryCompositions,
   extractStaticQueries,
-  findUntaggedStructuralTemplates,
   mapSqlRange,
-  parseStructuralInterpolation,
   runtimeMetadataInsertionPosition,
 } from "./scanner.js";
-import { expandStructuralQuery, structuralRowType } from "./structural.js";
+import { structuralRowType } from "./structural.js";
 import { buildQueryValuePlan } from "./value-plan.js";
 
-export const DEFAULT_MAX_STRUCTURAL_VARIANTS = 64;
-export { DEFAULT_MAX_SOURCE_BYTES } from "./limits.js";
-export const DEFAULT_MAX_QUERIES = 10_000;
-export const DEFAULT_MAX_GENERATED_DECLARATION_BYTES = 8 * 1024 * 1024;
+export {
+  DEFAULT_MAX_GENERATED_DECLARATION_BYTES,
+  DEFAULT_MAX_QUERIES,
+  DEFAULT_MAX_SOURCE_BYTES,
+  DEFAULT_MAX_STRUCTURAL_VARIANTS,
+} from "./limits.js";
 
 export interface CompiledQuery {
   readonly valuePlan?: QueryValuePlan;
@@ -114,12 +121,6 @@ export interface CompileSourceOptions<Snapshot extends SchemaSnapshot, Policy> {
   readonly maxSourceBytes?: number;
   readonly maxQueries?: number;
   readonly maxGeneratedDeclarationBytes?: number;
-}
-
-function positiveLimit(value: number | undefined, fallback: number, name: string): number {
-  const limit = value ?? fallback;
-  if (!Number.isSafeInteger(limit) || limit < 1) throw new TypeError(`${name} must be a positive safe integer`);
-  return limit;
 }
 
 function resourceLimit(source: string, message: string): CompileSourceResult {
@@ -243,14 +244,14 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
   if (schema.dialect !== dialect.id) {
     throw new TypeError(`Dialect ${dialect.id} cannot compile a ${schema.dialect} schema snapshot`);
   }
-  const maximumVariants = positiveLimit(
+  const maximumVariants = positiveCompilerLimit(
     options.maxStructuralVariants,
     DEFAULT_MAX_STRUCTURAL_VARIANTS,
     "maxStructuralVariants",
   );
-  const maximumSourceBytes = positiveLimit(options.maxSourceBytes, DEFAULT_MAX_SOURCE_BYTES, "maxSourceBytes");
-  const maximumQueries = positiveLimit(options.maxQueries, DEFAULT_MAX_QUERIES, "maxQueries");
-  const maximumGeneratedDeclarationBytes = positiveLimit(
+  const maximumSourceBytes = positiveCompilerLimit(options.maxSourceBytes, DEFAULT_MAX_SOURCE_BYTES, "maxSourceBytes");
+  const maximumQueries = positiveCompilerLimit(options.maxQueries, DEFAULT_MAX_QUERIES, "maxQueries");
+  const maximumGeneratedDeclarationBytes = positiveCompilerLimit(
     options.maxGeneratedDeclarationBytes,
     DEFAULT_MAX_GENERATED_DECLARATION_BYTES,
     "maxGeneratedDeclarationBytes",
@@ -262,11 +263,11 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
   const sqlModules = [
     ...new Set([dialect.sqlModule, ...(dialect.runtimeSqlModule === undefined ? [] : [dialect.runtimeSqlModule])]),
   ];
-  const extracted = extractStaticQueries(source, (index) => dialect.placeholder(index), sqlModules);
+  const extracted = extractStaticQueries(source, (index) => dialect.placeholder(index), sqlModules, maximumQueries + 1);
   if (extracted.length > maximumQueries) {
     return resourceLimit(
       source,
-      `Source contains ${extracted.length} static queries; the configured limit is ${maximumQueries}.`,
+      `Source contains at least ${extracted.length} static queries; the configured limit is ${maximumQueries}.`,
     );
   }
   const compiled: CompiledQuery[] = [];
@@ -317,59 +318,12 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
     return result;
   };
   for (const query of extracted) {
-    const untaggedStructuralTemplates = findUntaggedStructuralTemplates(source, query);
-    if (untaggedStructuralTemplates.length > 0) {
-      diagnostics.push(
-        ...untaggedStructuralTemplates.map(
-          (template): SqlDiagnostic => ({
-            code: "TSQ004",
-            message: "Untagged template literals are parameter values; SQL structure requires a trusted fragment",
-            range: template.range,
-            severity: "error",
-            suggestion: `Prefix this template with ${template.tagName}.fragment.`,
-            fix: {
-              title: `Mark as ${template.tagName}.fragment`,
-              range: { ...template.range, end: template.range.start },
-              newText: `${template.tagName}.fragment`,
-              preferred: true,
-            },
-          }),
-        ),
-      );
+    const prepared = prepareStaticQuery(source, query, (index) => dialect.placeholder(index), maximumVariants);
+    if (prepared.kind === "invalid") {
+      diagnostics.push(...prepared.diagnostics);
       continue;
     }
-    const repeated = expandRepeatedFragments(source, query, (index) => dialect.placeholder(index));
-    if (repeated !== undefined && repeated.diagnostics.length > 0) {
-      diagnostics.push(...repeated.diagnostics);
-      continue;
-    }
-    const analyzedQuery = repeated?.query ?? query;
-    const expansion = expandStructuralQuery(
-      source,
-      analyzedQuery,
-      (index) => dialect.placeholder(index),
-      maximumVariants,
-    );
-    if (repeated !== undefined && expansion?.kind === "variants") {
-      diagnostics.push({
-        code: "TSQ013",
-        message: "Fragment lists combined with conditional structural interpolations are not analyzable yet.",
-        range: repeated.sites[0]?.sourceSpan ?? query.range,
-        severity: "error",
-        suggestion: "Move the conditional structure inside one stable fragment skeleton or compose it explicitly.",
-      });
-      continue;
-    }
-    if (expansion?.kind === "limit") {
-      diagnostics.push({
-        code: "TSQ003",
-        message: `Conditional SQL would produce more than ${maximumVariants} structural variants from ${expansion.conditionCount} independent conditions`,
-        range: query.range,
-        severity: "error",
-        suggestion: "Reduce independent template conditions or compose predicates with sql.and()/sql.or().",
-      });
-      continue;
-    }
+    const { repeated, query: analyzedQuery, expansion } = prepared;
     if (expansion?.kind === "variants") {
       const resolvedVariants = expansion.variants.map((variant) => ({
         variant,
@@ -677,30 +631,33 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
   }
   const compositions: { query: ExtractedQuery; valuePlanChoices: readonly QueryValuePlanChoice[] }[] = [];
   const boundedCompositions = new Set<ExtractedQuery>();
-  for (const composition of extractQueryCompositions(
+  const sourceCompositions = extractQueryCompositions(
     source,
     (index) => dialect.placeholder(index),
     sqlModules,
     extracted,
-  )) {
+    maximumQueries + 1,
+  );
+  if (sourceCompositions.length > maximumQueries)
+    return resourceLimit(source, `Source exceeds the configured limit of ${maximumQueries} query compositions.`);
+  for (const composition of sourceCompositions) {
+    if ("unavailable" in composition) continue;
     const { base, query } = composition;
     const report = (message: string): void => {
       diagnostics.push({ code: "TSQ016", message, severity: "error", range: query.range });
     };
-    if (
-      query.interpolations
-        .slice(base.interpolations.length)
-        .some((item) => parseStructuralInterpolation(source, item, query.tagName) === undefined)
-    ) {
-      if (options.runtimeMetadata === true)
-        report("Runtime metadata requires bounded literal fragments for query composition.");
+    const prepared = prepareQueryComposition(
+      source,
+      base,
+      query,
+      (index) => dialect.placeholder(index),
+      maximumVariants,
+    );
+    if (prepared.kind === "invalid") {
+      if (options.runtimeMetadata === true) diagnostics.push(prepared.diagnostic);
       continue;
     }
-    const expansion = expandStructuralQuery(source, query, (index) => dialect.placeholder(index), maximumVariants);
-    if (expansion?.kind !== "variants") {
-      if (options.runtimeMetadata === true) report("Query composition exceeds the supported structural bound.");
-      continue;
-    }
+    const { expansion } = prepared;
     boundedCompositions.add(base);
     const original = analyze(base.sql);
     if (original.diagnostics.some((item) => item.severity === "error")) continue;

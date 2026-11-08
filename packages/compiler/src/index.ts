@@ -12,6 +12,8 @@ export type {
   SourceAnalysisService,
 } from "./analysis.js";
 export { analyzeSource, createSourceAnalysisService, SOURCE_ANALYSIS_FORMAT_VERSION } from "./analysis.js";
+export type { CollectQueryCandidatesOptions, QueryAnalysisCandidate, QueryCandidateCollection } from "./candidates.js";
+export { collectSourceQueryCandidates, collectSqlFileQueryCandidates } from "./candidates.js";
 export type {
   CheckFileOptions,
   CheckFileResult,

@@ -52,19 +52,23 @@ export function expandRepeatedFragments(
   const fragments: { readonly query: ExtractedQuery; readonly parameterOffset: number }[] = [];
   let cursor = 0;
   let parameterCount = 0;
+  let sqlLength = 0;
 
   for (let index = 0; index < query.interpolations.length; index += 1) {
     const interpolation = query.interpolations[index]!;
     const discovery = discoveries[index]!;
-    sql.push(query.sql.slice(cursor, interpolation.sqlStart));
+    const literal = query.sql.slice(cursor, interpolation.sqlStart);
+    sql.push(literal);
+    sqlLength += literal.length;
     sqlOffsets.push(query.sqlOffsetMap.slice(cursor, interpolation.sqlStart));
     cursor = interpolation.sqlEnd;
 
     if (discovery.kind === "none") {
       parameterCount += 1;
       const marker = placeholder(parameterCount);
-      const sqlStart = sql.reduce((length, chunk) => length + chunk.length, 0);
+      const sqlStart = sqlLength;
       sql.push(marker);
+      sqlLength += marker.length;
       sqlOffsets.push(Array.from({ length: marker.length }, () => interpolation.sourceStart));
       interpolations.push({
         ...interpolation,
@@ -89,16 +93,27 @@ export function expandRepeatedFragments(
     }
     let first: ExtractedQuery | undefined;
     const siteOffset = parameterCount;
-    const sqlStart = sql.reduce((length, chunk) => length + chunk.length, 0);
+    const sqlStart = sqlLength;
     for (let itemIndex = 0; itemIndex < itemCount; itemIndex += 1) {
       const operand = discovery.elements[discovery.dynamic ? 0 : itemIndex]!;
       const fragment = extractStructuralOperand(source, operand, query.tagName, placeholder, parameterCount);
       if (fragment === undefined) continue;
       if (itemIndex > 0) {
         sql.push(", ");
+        sqlLength += 2;
         sqlOffsets.push([discovery.range.start, discovery.range.start]);
       }
+      const fragmentStart = sqlLength;
+      interpolations.push(
+        ...fragment.interpolations.map((item) => ({
+          ...item,
+          index: parameterCount + item.index,
+          sqlStart: fragmentStart + item.sqlStart,
+          sqlEnd: fragmentStart + item.sqlEnd,
+        })),
+      );
       sql.push(fragment.sql);
+      sqlLength += fragment.sql.length;
       sqlOffsets.push([...fragment.sqlOffsetMap]);
       fragments.push({ query: fragment, parameterOffset: parameterCount });
       first ??= fragment;
@@ -111,7 +126,7 @@ export function expandRepeatedFragments(
     if (first !== undefined) {
       sites.push({
         sourceSpan: discovery.range,
-        sqlRange: { start: sqlStart, end: sql.reduce((length, chunk) => length + chunk.length, 0) },
+        sqlRange: { start: sqlStart, end: sqlLength },
         dynamic: discovery.dynamic,
         representativeItems: dynamicItems,
         element: first,

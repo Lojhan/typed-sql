@@ -248,6 +248,7 @@ export type {
   DialectAnalysisContext,
   DialectCapabilities,
   DialectPlugin,
+  DialectProfile,
   DomainSnapshot,
   FunctionSnapshot,
   GeneratedSchemaMetadata,
@@ -285,6 +286,7 @@ export type {
 } from "./types.js";
 export {
   assertDialectPlugin,
+  assertDialectProfile,
   DIALECT_CONTRACT_VERSION,
   defineConfig,
   parameterTypeLiteral,

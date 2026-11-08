@@ -1,4 +1,10 @@
-import { type DialectAnalysis, type DialectPlugin, type SchemaSnapshot, unknownQuerySemantics } from "@typed-sql/core";
+import {
+  type DialectAnalysis,
+  type DialectPlugin,
+  type DialectProfile,
+  type SchemaSnapshot,
+  unknownQuerySemantics,
+} from "@typed-sql/core";
 import { calculateSchemaHash, calculateTypePolicyHash } from "@typed-sql/schema";
 import { canonicalContractData } from "./canonical.js";
 import {
@@ -10,10 +16,7 @@ import {
 import { nativeContractParametersAvailable } from "./native-evidence.js";
 import { contractTypeScriptType } from "./runtime-type.js";
 
-export type ContractGrammarProfile<Snapshot extends SchemaSnapshot, Policy> = Omit<
-  DialectPlugin<Snapshot, Policy>,
-  "analyze"
->;
+export type ContractGrammarProfile<Snapshot extends SchemaSnapshot, Policy> = DialectProfile<Snapshot, Policy>;
 
 /** A synchronous frozen consumer. No native client or full analyzer is imported or invoked. */
 export function createContractDialect<Snapshot extends SchemaSnapshot, Policy>(input: {

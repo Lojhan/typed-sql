@@ -164,6 +164,41 @@ Unrelated planning work is left unchanged.
   request-driven freshness, project catalog/declaration storage, cache status/maintenance CLI and
   actual editor/CLI offline/live workflows remain required.
 
+## Independent candidate extraction checkpoint
+
+- Added core `DialectProfile` and independent profile validation; eager `DialectPlugin` extends it
+  with synchronous analysis. The
+  contract consumer and PostgreSQL lightweight profile use the shared type without loading semantics.
+- Added transient source and SQL-file candidate collectors. They share preparation with ordinary
+  compilation, preserve exact SQL/source offsets and ordered physical/logical bindings, enumerate
+  finite conditional variants and composed queries, and never call an analyzer. SQL-file factories
+  and acquisition share the same named/repeated binding normalization.
+- Fixed source metadata after structural and tuple expansion: full-statement physical positions
+  and nested expression spans now follow the rendered SQL, including multi-digit renumbering.
+  Fragment-local metadata remains local for existing fragment artifacts. Running SQL lengths avoid
+  repeated prefix summation when recording the new positions.
+- Scanner collection bounds static, dynamic and composition discovery instead of constructing an
+  unbounded site list before applying limits. Unrenderable imported/chained composition bases stay
+  visible to qualification even when ordinary compilation has no new rendering to analyze.
+- Native qualification cannot correlate repeated calls/property conditions merely because their text matches;
+  unstable repeated conditions require an explicit captured identifier instead of certifying a
+  partial set of possible renderings. General per-occurrence coverage or qualified invariance
+  for these expressions remains part of the structural-variant work.
+- Explicit unrendered structural expressions are diagnostic rather than native bind values.
+  Runtime-sized lists are not certified from a representative rendering; excessive/dynamic or
+  ambiguous inputs remain visible. A collection's completeness is source-preparation status,
+  not SQL/TypeScript/native/project-wide certification.
+- The PostgreSQL native proof obtains its candidate through the compiler collector despite the
+  offline resolver's unknown routine. The distribution-only frozen proof also collects it with
+  full PostgreSQL analyzer/catalog/native modules physically absent and network APIs trapped.
+- Local core/compiler/analysis suites and full typechecking pass. Compiler coverage is 96.81%
+  lines/statements, 99.57% functions and 90.92% branches. Quality, documentation/API/package-graph,
+  packed consumers, the real PostgreSQL proof and the existing performance gate pass. Exact-head
+  CI and the final all-engine/new-workload acceptance audit remain separate.
+- This removes the resolved-manifest dependency for source candidate input. Explicit mode/config
+  descriptors, source-graph orchestration, qualification over all variants, CLI/editor integration
+  and the remaining facet/parameter authority model are still required.
+
 ## Required work still open
 
 1. Complete the contract/evidence model: native descriptors and provenance, reusable/facet-specific

@@ -931,12 +931,13 @@ export function extractStaticQueries(
   source: string,
   placeholderFor: (index: number) => string,
   sqlModules: readonly string[] = ["@typed-sql/core"],
+  maximum = Number.POSITIVE_INFINITY,
 ): readonly ExtractedQuery[] {
   const names = importedSqlNames(source, new Set(sqlModules));
   if (names.size === 0) return [];
   const queries: ExtractedQuery[] = [];
   let index = 0;
-  while (index < source.length) {
+  while (index < source.length && queries.length < maximum) {
     const char = source[index];
     if (char === '"' || char === "'") {
       index = skipQuoted(source, index, char);
@@ -1002,16 +1003,44 @@ function nextCodeIdentifier(source: string, start: number): ReturnType<typeof id
   return undefined;
 }
 
+/** Finds explicit structural values left after finite source expansion; they are not bind values. */
+export function unresolvedStructuralInterpolations(source: string, query: ExtractedQuery): readonly SourceRange[] {
+  const ranges: SourceRange[] = [];
+  for (const interpolation of query.interpolations) {
+    const expression = source.slice(interpolation.expressionStart, interpolation.expressionEnd);
+    let cursor = 0;
+    for (;;) {
+      const tag = nextCodeIdentifier(expression, cursor);
+      if (!tag) break;
+      cursor = tag.end;
+      if (tag.value !== query.tagName) continue;
+      const memberStart = skipTrivia(expression, tag.end),
+        char = expression[memberStart];
+      const member = char === "." ? identifierAt(expression, skipTrivia(expression, memberStart + 1)) : undefined;
+      if (
+        char === "`" ||
+        char === "[" ||
+        (member && ["raw", "ident", "fragment", "empty", "dynamic", "append"].includes(member.value))
+      ) {
+        ranges.push(positionRange(source, interpolation.expressionStart, interpolation.expressionEnd));
+        break;
+      }
+    }
+  }
+  return ranges;
+}
+
 /** Locates explicit `sql.dynamic(...)` escape hatches without reading their runtime value. */
 export function extractDynamicQueries(
   source: string,
   sqlModules: readonly string[] = ["@typed-sql/core"],
+  maximum = Number.POSITIVE_INFINITY,
 ): readonly ExtractedDynamicQuery[] {
   const names = importedSqlNames(source, new Set(sqlModules));
   if (names.size === 0) return [];
   const queries: ExtractedDynamicQuery[] = [];
   let index = 0;
-  while (index < source.length) {
+  while (index < source.length && queries.length < maximum) {
     const tag = nextCodeIdentifier(source, index);
     if (tag === undefined) break;
     index = tag.end;
@@ -1031,21 +1060,25 @@ export function extractDynamicQueries(
   return queries;
 }
 
-/** Discover bounded composition of a directly bound query without interpreting SQL syntax. */
+export type ExtractedQueryComposition =
+  | { readonly base: ExtractedQuery; readonly query: ExtractedQuery }
+  | { readonly unavailable: SourceRange };
+/** Discover composition sites, retaining calls whose rendering is unavailable. */
 export function extractQueryCompositions(
   source: string,
   placeholder: (index: number) => string,
   sqlModules: readonly string[],
   queries: readonly ExtractedQuery[],
-): readonly { base: ExtractedQuery; query: ExtractedQuery }[] {
+  maximum = Number.POSITIVE_INFINITY,
+): readonly ExtractedQueryComposition[] {
   const names = importedSqlNames(source, new Set(sqlModules));
   const bindings = queries.flatMap((query) => {
     const name = bindingNameBefore(source, query.range.start);
     return name === undefined ? [] : [{ name, query }];
   });
-  const result: { base: ExtractedQuery; query: ExtractedQuery }[] = [];
+  const result: ExtractedQueryComposition[] = [];
   let index = 0;
-  while (index < source.length) {
+  while (index < source.length && result.length < maximum) {
     const tag = nextCodeIdentifier(source, index);
     if (tag === undefined) break;
     index = tag.end;
@@ -1057,13 +1090,20 @@ export function extractQueryCompositions(
     cursor = skipTrivia(source, method.end);
     if (source[cursor] !== "(") continue;
     const close = closingParenthesis(source, cursor);
-    if (close === undefined) continue;
+    if (close === undefined) {
+      result.push({ unavailable: positionRange(source, tag.end - tag.value.length, method.end) });
+      continue;
+    }
     const args = splitTopLevel(source, cursor + 1, close);
     const baseName = args[0] === undefined ? undefined : source.slice(args[0].start, args[0].end);
     const base = bindings
       .filter((binding) => binding.name === baseName && binding.query.range.start < tag.end)
       .sort((left, right) => right.query.range.start - left.query.range.start)[0]?.query;
-    if (base === undefined || args.length < 2 || (method.value === "where" && args.length !== 2)) continue;
+    if (base === undefined || args.length === 0 || (method.value === "where" && args.length !== 2)) {
+      result.push({ unavailable: positionRange(source, tag.end - tag.value.length, close + 1) });
+      continue;
+    }
+    if (method.value === "append" && args.length === 1) continue;
     let sql = base.sql + (method.value === "where" ? " WHERE " : "");
     const offsets = [...base.sqlOffsetMap, ...Array.from({ length: sql.length - base.sql.length }, () => tag.end)];
     const interpolations = [...base.interpolations];
