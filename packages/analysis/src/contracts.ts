@@ -6,6 +6,8 @@ import {
   parseNativeQueryContractEvidence,
 } from "./native-evidence.js";
 
+import { parseQueryContractQualification, type QueryContractQualification } from "./qualification-model.js";
+
 export interface QueryContractContext {
   readonly grammar: { readonly id: string; readonly version: string };
   readonly profileHash: string;
@@ -24,6 +26,7 @@ export interface QueryContract {
   readonly origin: "offline-rule" | "native-description" | "reconciled";
   readonly valuePlan: QueryValuePlan;
   readonly nativeEvidence?: NativeQueryContractEvidence;
+  readonly qualification?: QueryContractQualification;
   /** SQL-relative ranges; source-file positions are never persisted. */
   readonly columnSpans: readonly { readonly start: number; readonly end: number }[];
 }
@@ -70,6 +73,7 @@ export function parseQueryContract(input: unknown): QueryContract {
     "valuePlan",
     "columnSpans",
     ...(Object.hasOwn(value, "nativeEvidence") ? ["nativeEvidence"] : []),
+    ...(Object.hasOwn(value, "qualification") ? ["qualification"] : []),
   ]);
   if (
     value.formatVersion !== 1 ||
@@ -113,6 +117,17 @@ export function parseQueryContract(input: unknown): QueryContract {
     )
       throw new TypeError("Native contract evidence differs from its value plan or origin");
   }
+  if (Object.hasOwn(value, "qualification")) {
+    if (!value.nativeEvidence || value.origin !== "reconciled")
+      throw new TypeError("Qualification requires reconciled native evidence");
+    const qualification = parseQueryContractQualification(
+      value.qualification,
+      value.nativeEvidence as NativeQueryContractEvidence,
+    );
+    const { digest: _digest, qualification: _qualification, ...nativeBody } = value;
+    if (queryContractDigest({ ...nativeBody, origin: "native-description" }) !== qualification.sourceContractHash)
+      throw new TypeError("Qualification native source contract differs");
+  }
   const { digest, ...body } = value;
   if (queryContractDigest(body) !== digest) throw new TypeError("Query contract content digest differs");
   // Normalize only after checking the original bytes: unknown plan fields cannot become trusted metadata.
@@ -127,6 +142,7 @@ export function createQueryContract(input: {
   readonly valuePlan: QueryValuePlan;
   readonly columnSpans?: QueryContract["columnSpans"];
   readonly nativeEvidence?: NativeQueryContractEvidence;
+  readonly qualification?: QueryContractQualification;
 }): QueryContract {
   const context = parseQueryContractContext(input.context),
     plan = defineQueryValuePlan(input.valuePlan);
@@ -138,6 +154,7 @@ export function createQueryContract(input: {
     origin: input.origin,
     valuePlan: plan,
     ...(input.nativeEvidence === undefined ? {} : { nativeEvidence: input.nativeEvidence }),
+    ...(input.qualification === undefined ? {} : { qualification: input.qualification }),
     columnSpans: input.columnSpans ?? plan.columns.map(() => ({ start: 0, end: input.sql.length })),
   };
   return parseQueryContract({ ...body, digest: queryContractDigest(body) });

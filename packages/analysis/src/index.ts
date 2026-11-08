@@ -23,3 +23,18 @@ export type {
   NativeQueryContractEvidence,
 } from "./native-evidence.js";
 export { parseNativeQueryContractEvidence } from "./native-evidence.js";
+export type {
+  ContractFacetComparison,
+  ContractQualificationPolicy,
+  ContractValueFacet,
+  QueryContractQualification,
+} from "./qualification-model.js";
+export { parseContractQualificationPolicy, parseQueryContractQualification } from "./qualification-model.js";
+export type {
+  ContractComparisonDecision,
+  ContractReconciliationContribution,
+  QueryContractReconciliation,
+  StaticContractField,
+  StaticQueryClaim,
+} from "./reconciliation.js";
+export { createStaticQueryClaim, parseStaticQueryClaim, reconcileQueryContract } from "./reconciliation.js";

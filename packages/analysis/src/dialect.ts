@@ -20,10 +20,13 @@ export function createContractDialect<Snapshot extends SchemaSnapshot, Policy>(i
   readonly profile: ContractGrammarProfile<Snapshot, Policy>;
   readonly context: QueryContractContext;
   readonly contracts: readonly QueryContract[];
+  readonly qualificationPolicyHash?: string;
 }): DialectPlugin<Snapshot, Policy> {
   const { profile } = input,
     context = parseQueryContractContext(input.context),
     index = createQueryContractIndex(input.contracts);
+  if (input.qualificationPolicyHash !== undefined && !/^[a-f0-9]{64}$/u.test(input.qualificationPolicyHash))
+    throw new TypeError("Invalid required qualification policy hash");
   if (Object.hasOwn(profile, "analyze")) throw new TypeError("Contract profiles must not contain an eager analyzer");
   if (profile.id !== context.grammar.id || profile.grammarVersion !== context.grammar.version)
     throw new TypeError("Contract profile identity mismatch");
@@ -55,6 +58,11 @@ export function createContractDialect<Snapshot extends SchemaSnapshot, Policy>(i
         return unavailable("Query contract does not establish repeated-result invariance");
       const contract = index.resolve(context, sql);
       if (!contract) return unavailable("No matching query contract");
+      if (
+        input.qualificationPolicyHash !== undefined &&
+        contract.qualification?.policyHash !== input.qualificationPolicyHash
+      )
+        return unavailable("Query contract does not meet the required qualification policy");
       if (contract.nativeEvidence) {
         if (!nativeContractParametersAvailable(contract.nativeEvidence))
           return unavailable("Native query contract parameter metadata is unresolved");

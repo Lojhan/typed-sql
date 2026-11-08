@@ -87,6 +87,28 @@ Unrelated planning work is left unchanged.
   [profile bundle measurement](./postgres-profile-measurements.json). No global catalogs are
   reachable in the measured tag/profile/frozen-host entries; old analyzer packages remain shipped.
 
+## Independent reconciliation checkpoint
+
+- Added normalized static claims, pure grammar-owned comparison contributions and qualified
+  proof records. SQL/context/grammar/owner identities, ordered result/parameter shape and result
+  kind are checked independently, including analysis that reported no error.
+- Known disagreements return conflict with no qualified artifact. Missing required native facets
+  or unverified known claims return incomplete. Upper-bound, exact and unknown nullability are
+  distinct; conservative widening does not certify the original refinement.
+- Successful proofs bind native evidence/source contracts, static claim hashes and the configured
+  policy/owner revision. Consumers can require the independently configured policy hash and reject
+  raw native or stale proofs. Proof loading validates its complete per-field comparison closure.
+- Added a PostgreSQL pure comparison owner and tightened native acquisition to qualified built-in
+  base representations. Custom snapshot type mappings do not count as independent native facts;
+  the acquisition interpreter revision changes to v2.
+- Real PostgreSQL proof now reconciles the acquired contract, injects a wrong successful offline
+  type and rejects it, exports only the qualified contract, and enforces the configured policy
+  in both disconnected and isolated consumers. These are one-query proofs, not project-wide mode
+  orchestration or qualification of every supported grammar.
+- The current publisher uses the conservative native plan. Retaining qualified static non-null,
+  JSON and other refinements remains required, as do custom codec bindings and parameter authority
+  from explicit SQL/static constraints when a transport has no meaningful native bind metadata.
+
 ## Required work still open
 
 1. Complete the contract/evidence model: native descriptors and provenance, reusable/facet-specific

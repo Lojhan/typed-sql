@@ -1445,6 +1445,11 @@ await describe("query contract public API", async () => {
     strict.deepEqual(
       Object.keys(analysisApi).sort(),
       [
+        "createStaticQueryClaim",
+        "parseStaticQueryClaim",
+        "reconcileQueryContract",
+        "parseContractQualificationPolicy",
+        "parseQueryContractQualification",
         "acquireNativeQueryContract",
         "parseNativeQueryContractEvidence",
         "canonicalContractData",

@@ -22,7 +22,7 @@ import {
 } from "./type-policy.js";
 import { POSTGRES_DIALECT_VERSION } from "./version.js";
 
-const adapterVersion = "postgres-contract-describe-v1";
+const adapterVersion = "postgres-contract-describe-v2";
 const adapterId = "@typed-sql/postgres/pg-contracts";
 const known = <Value>(value: Value) => ({ status: "known" as const, value });
 const unknown = (reason: string) => ({ status: "unknown" as const, reason });
@@ -267,8 +267,15 @@ export function createPgNativeContractAdapter(options: PgNativeContractOptions):
           ...new Set([...description.parameters, ...description.columns.map((column) => column.dataTypeID)]),
         ];
         const types = (
-          await client.query<{ oid: number; name: string; modifier: boolean; element: number }>(
-            "SELECT oid, pg_catalog.format_type(oid, NULL) AS name, typmodin <> 0 AS modifier, typelem AS element FROM pg_catalog.pg_type WHERE oid = ANY($1::oid[])",
+          await client.query<{
+            oid: number;
+            name: string;
+            modifier: boolean;
+            element: number;
+            namespace: string;
+            kind: string;
+          }>(
+            "SELECT t.oid, pg_catalog.format_type(t.oid, NULL) AS name, t.typmodin <> 0 AS modifier, t.typelem AS element, n.nspname AS namespace, t.typtype AS kind FROM pg_catalog.pg_type AS t JOIN pg_catalog.pg_namespace AS n ON n.oid = t.typnamespace WHERE t.oid = ANY($1::oid[])",
             [ids],
           )
         ).rows;
@@ -287,12 +294,15 @@ export function createPgNativeContractAdapter(options: PgNativeContractOptions):
             !type.name.length ||
             typeof type.modifier !== "boolean" ||
             !Number.isSafeInteger(type.element) ||
-            type.element < 0
+            type.element < 0 ||
+            typeof type.namespace !== "string" ||
+            typeof type.kind !== "string"
           )
             throw new PostgresContractAcquisitionError("native-failure");
           let name = type.name;
           if (modifier !== undefined) {
-            if (!Number.isSafeInteger(modifier)) throw new PostgresContractAcquisitionError("native-failure");
+            if (!Number.isSafeInteger(modifier) || modifier < -1)
+              throw new PostgresContractAcquisitionError("native-failure");
             const formatted = (
               await client.query<{ name: string }>("SELECT pg_catalog.format_type($1::oid, $2::integer) AS name", [
                 oid,
@@ -304,7 +314,10 @@ export function createPgNativeContractAdapter(options: PgNativeContractOptions):
             name = formatted;
           }
           const mapped =
-            isKnownPostgresType(name, schema) && type.element === 0
+            type.namespace === "pg_catalog" &&
+            type.kind === "b" &&
+            isKnownPostgresType(name, schema) &&
+            type.element === 0
               ? postgresRuntimeValueType(
                   { databaseType: name, tsType: mapPostgresType(name, policy, schema), nullable: true },
                   policy,
@@ -317,7 +330,12 @@ export function createPgNativeContractAdapter(options: PgNativeContractOptions):
                 ? unknown("native-representation-not-qualified")
                 : known(mapped),
             nullable: unknown("row-description-has-no-nullability"),
-            descriptor: { oid, ...(modifier === undefined ? {} : { typeModifier: modifier }) },
+            descriptor: {
+              oid,
+              namespace: type.namespace,
+              kind: type.kind,
+              ...(modifier === undefined ? {} : { typeModifier: modifier }),
+            },
           };
           interpreted.set(key, value);
           return value;

@@ -11,3 +11,7 @@ Add explicit native acquisition sessions and validated facet evidence. Native ev
 unknown nullability and partial identities, binds parameter occurrences and context revisions,
 and must agree with emitted runtime descriptors. Acquisition guards context, supports cancellation,
 and closes its session before returning a contract.
+
+Add independent static/native reconciliation, explicit nullability certainty and persisted
+qualification proofs. Consumers can require an exact qualification policy; known conflicts,
+unavailable required facts and unverified known claims cannot produce qualified artifacts.

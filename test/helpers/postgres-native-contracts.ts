@@ -7,8 +7,12 @@ import { strict } from "poku";
 import {
   acquireNativeQueryContract,
   createContractDialect,
+  createStaticQueryClaim,
   exportQueryContracts,
   loadQueryContracts,
+  parseContractQualificationPolicy,
+  queryContractDigest,
+  reconcileQueryContract,
 } from "../../packages/analysis/src/index.js";
 import { compileSource } from "../../packages/compiler/src/index.js";
 import { postgres } from "../../packages/postgres/src/index.js";
@@ -18,6 +22,7 @@ import {
   PostgresContractAcquisitionError,
 } from "../../packages/postgres/src/pg-contracts.js";
 import { postgresProfile } from "../../packages/postgres/src/profile.js";
+import { createPostgresContractReconciler } from "../../packages/postgres/src/reconciliation.js";
 import { createPostgresDatabase } from "../../packages/postgres/src/runtime.js";
 import { assertIsolatedPostgresContractConsumer } from "./frozen-contract-consumer.js";
 
@@ -95,8 +100,46 @@ export async function assertPostgresNativeContracts(connectionString: string, di
     strict.equal(acquired.contract.nativeEvidence!.columns[0]!.nullable.status, "unknown");
     temporary = await mkdtemp(join(directory, ".typed-sql-native-contract-"));
     const durable = join(temporary, "contracts");
-    await exportQueryContracts(durable, [acquired.contract]);
-    const dialect = createContractDialect({ profile, context, contracts: await loadQueryContracts(durable) });
+    const contribution = createPostgresContractReconciler({ schema });
+    const qualification = {
+      mode: "native-required" as const,
+      owner: { id: contribution.id, version: contribution.version },
+      requiredNativeFacets: ["runtime-type" as const],
+    };
+    const staticAnalysis = postgres().analyze(text, schema);
+    const reconciled = reconcileQueryContract({
+      nativeContract: acquired.contract,
+      staticClaim: createStaticQueryClaim({ sql: text, context, analysis: staticAnalysis }),
+      contribution,
+      policy: qualification,
+    });
+    strict.equal(reconciled.status, "qualified");
+    if (reconciled.status !== "qualified") throw Error("Native/static qualification was incomplete");
+    const wrong = {
+      ...staticAnalysis,
+      columns: staticAnalysis.columns.map((column) => ({
+        ...column,
+        tsType: "string",
+        runtimeType: "string" as const,
+      })),
+    };
+    const rejected = reconcileQueryContract({
+      nativeContract: acquired.contract,
+      staticClaim: createStaticQueryClaim({ sql: text, context, analysis: wrong }),
+      contribution,
+      policy: qualification,
+    });
+    strict.equal(rejected.status, "conflict");
+    strict.ok(!("contract" in rejected));
+    const qualificationPolicyHash = queryContractDigest(parseContractQualificationPolicy(qualification));
+    strict.equal(reconciled.report.policyHash, qualificationPolicyHash);
+    await exportQueryContracts(durable, [reconciled.contract]);
+    const dialect = createContractDialect({
+      profile,
+      context,
+      contracts: await loadQueryContracts(durable),
+      qualificationPolicyHash,
+    });
     const compiled = compileSource({ source: application, schema, dialect, runtimeMetadata: true });
     strict.deepEqual(compiled.diagnostics, []);
     strict.equal(compiled.queries.length, 1);
@@ -139,7 +182,12 @@ export async function assertPostgresNativeContracts(connectionString: string, di
     const offline = compileSource({
       source: application,
       schema,
-      dialect: createContractDialect({ profile, context, contracts: await loadQueryContracts(durable) }),
+      dialect: createContractDialect({
+        profile,
+        context,
+        contracts: await loadQueryContracts(durable),
+        qualificationPolicyHash,
+      }),
       runtimeMetadata: true,
     });
     strict.deepEqual(offline.diagnostics, []);
@@ -154,6 +202,7 @@ export async function assertPostgresNativeContracts(connectionString: string, di
       schema,
       source: application,
       expected: compiled.transformedSource,
+      qualificationPolicyHash,
     });
     // Cleanup uses a distinct administrative connection, after disconnected reuse has been proved.
     const cleanup = new Pool({ connectionString });

@@ -72,3 +72,22 @@ vocabulary remains in the profile. These entrypoints differ from the original fu
 baseline: do not turn their difference into a claimed application savings percentage. They do
 not measure installed package size, a realistic query corpus, all five grammars or final core/packs.
 The complete old catalogs are still shipped until their consumers are migrated.
+
+## Independent qualification update
+
+The real-engine helper now runs the pure PostgreSQL reconciliation owner against a separately
+produced offline claim. It verifies that an injected wrong successful static type returns conflict
+without a qualified contract. Only the successful qualified artifact is exported. Disconnected
+and isolated consumers require the hash of the independently configured native-required policy.
+
+Qualification records bind the native evidence and source contract, normalized static claim hash,
+owner revision, required native facets and the complete comparison closure. Nullability certainty
+is explicit; unknown/upper-bound evidence cannot certify an exact non-null fact. The publisher
+currently retains the conservative native plan. Retaining independently qualified static-only
+refinements and supporting static/native parameter-authority alternatives remain open.
+
+Acquisition interpreter v2 qualifies built-in base representations using native namespace/kind
+metadata. A custom type's mapping in the supplied schema does not establish independent native
+representation evidence. Custom/opaque runtime types remain unavailable in this adapter.
+The bundle table above records the earlier source checkpoint; it is not a new size measurement
+of this additional qualification machinery.

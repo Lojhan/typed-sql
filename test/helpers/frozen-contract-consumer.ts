@@ -20,6 +20,7 @@ async function omitPostgresAnalyzer(consumer: string): Promise<void> {
     "runtime.js",
     "pg.js",
     "pg-contracts.js",
+    "reconciliation.js",
     "parser/parser.js",
   ])
     await rm(join(grammar, path), { recursive: true, force: true });
@@ -91,6 +92,7 @@ export async function assertIsolatedPostgresContractConsumer(input: {
   schema: unknown;
   source: string;
   expected: string;
+  qualificationPolicyHash: string;
 }): Promise<void> {
   const consumer = await mkdtemp(join(tmpdir(), "typed-sql-frozen-isolated-"));
   const workspace = fileURLToPath(new URL("../../", import.meta.url));
@@ -106,7 +108,13 @@ export async function assertIsolatedPostgresContractConsumer(input: {
     await cp(input.contracts, join(consumer, "contracts"), { recursive: true });
     await writeFile(
       join(consumer, "inputs.json"),
-      JSON.stringify({ context: input.context, schema: input.schema, source: input.source, expected: input.expected }),
+      JSON.stringify({
+        context: input.context,
+        schema: input.schema,
+        source: input.source,
+        expected: input.expected,
+        qualificationPolicyHash: input.qualificationPolicyHash,
+      }),
     );
     await writeFile(
       join(consumer, "deny-network.mjs"),
@@ -140,8 +148,10 @@ await assert.rejects(import("@typed-sql/postgres"), { code: "ERR_MODULE_NOT_FOUN
 const input = JSON.parse(await readFile("./inputs.json", "utf8"));
 const contracts = await loadQueryContracts("./contracts");
 assert.equal(contracts[0].nativeEvidence.adapter.id, "@typed-sql/postgres/pg-contracts");
+assert.equal(typeof input.qualificationPolicyHash, "string");
+assert.equal(contracts[0].qualification.policyHash, input.qualificationPolicyHash);
 const result = compileSource({ source: input.source, schema: input.schema,
-  dialect: createContractDialect({ profile: postgresProfile(), context: input.context, contracts }), runtimeMetadata: true });
+  dialect: createContractDialect({ profile: postgresProfile(), context: input.context, contracts, qualificationPolicyHash: input.qualificationPolicyHash }), runtimeMetadata: true });
 assert.deepEqual(result.diagnostics, []);
 assert.equal(result.transformedSource, input.expected);
 const manifest = JSON.parse(await readFile("./contracts/manifest.json", "utf8"));

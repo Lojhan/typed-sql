@@ -203,3 +203,38 @@ This acquisition API is separate from [live verification](./live-verification.md
 require a resolved compiler claim. Adapter implementations and hosts must supply their qualified
 context, statement acceptance and descriptor interpretation. Calling the API does not activate
 background refresh or change ordinary build network behavior.
+
+### Reconcile independent static claims
+
+`createStaticQueryClaim({ sql, context, analysis })` captures ordered fields and diagnostic codes
+from a separate offline analysis. It excludes source paths and diagnostic messages.
+`reconcileQueryContract` compares that claim with a fresh native contract through an explicitly
+selected grammar contribution and `ContractQualificationPolicy`. It checks SQL/context identity,
+contribution identity/version/grammar, result kind, ordered labels and parameter counts, then
+invokes grammar-owned comparisons for type and nullability facts. Successful offline analysis
+is compared too; it is not accepted as native proof by itself.
+
+The result has one of three statuses:
+
+- `qualified` supplies a contract with a validated qualification report.
+- `conflict` supplies a report and no contract because known claims disagree.
+- `incomplete` supplies a report and no contract because a required native facet or comparison
+  is unavailable.
+
+The report distinguishes compatibility, conservative widening and unavailable facts. Native
+nullability records whether a known bound is exact or an upper bound. An upper bound that includes
+NULL does not refute a static non-null refinement. Unknown nullability does not confirm it.
+Published descriptors use the conservative native plan, so they can be wider than offline types.
+
+A successful proof binds the native evidence, original native contract, static claim digest,
+comparison owner and normalized policy. Persist it through the ordinary contract export API.
+Set `qualificationPolicyHash` on `createContractDialect` to the digest of the configured policy
+returned by `parseContractQualificationPolicy`. Calculate that expected hash from configuration;
+do not accept a policy merely because its hash appears in an artifact. A missing or different
+proof yields `TSQ406`. This qualifies one supplied query; project hosts own enumeration of every
+checked query and structural variant.
+
+For PostgreSQL, `createPostgresContractReconciler` from `@typed-sql/postgres/reconciliation`
+provides pure comparison rules for the supported primitive representations, built-in aliases
+and nullability bounds. Unsupported structural, opaque or modifier comparisons remain explicit.
+Known static invalidity diagnostics stay blocking when the engine accepts the statement.

@@ -14,7 +14,9 @@ export type NativeContractFact<Value> =
 export interface NativeContractValueEvidence {
   readonly nativeType: NativeContractFact<{ readonly name: string; readonly complete: boolean }>;
   readonly runtimeType: NativeContractFact<RuntimeValueType>;
-  readonly nullable: NativeContractFact<boolean>;
+  readonly nullable:
+    | { readonly status: "known"; readonly value: boolean; readonly precision: "exact" | "upper-bound" }
+    | { readonly status: "unknown"; readonly reason: string };
   /** Sanitized protocol/catalog data, supplied by the grammar owner, never a SQL invocation. */
   readonly descriptor: Readonly<Record<string, unknown>>;
 }
@@ -40,10 +42,10 @@ function text(value: unknown): asserts value is string {
   if (typeof value !== "string" || !value.length || value.length > 16_384)
     throw new TypeError("Invalid native contract evidence text");
 }
-function fact(value: unknown, check: (input: unknown) => void): void {
+function fact(value: unknown, check: (input: unknown) => void, knownFields: readonly string[] = []): void {
   const item = record(value);
   if (item.status === "known") {
-    fields(item, ["status", "value"]);
+    fields(item, ["status", "value", ...knownFields]);
     check(item.value);
   } else if (item.status === "unknown") {
     fields(item, ["status", "reason"]);
@@ -100,9 +102,15 @@ export function parseNativeQueryContractEvidence(input: unknown, sqlLength: numb
         if (canonicalContractData(plan.columns[0]!.type) !== canonicalContractData(type))
           throw new TypeError("Noncanonical native runtime type");
       });
-      fact(item.nullable, (nullable) => {
-        if (typeof nullable !== "boolean") throw new TypeError("Invalid native nullability");
-      });
+      fact(
+        item.nullable,
+        (nullable) => {
+          if (typeof nullable !== "boolean") throw new TypeError("Invalid native nullability");
+          if (!["exact", "upper-bound"].includes(record(item.nullable).precision as string))
+            throw new TypeError("Invalid native nullability precision");
+        },
+        ["precision"],
+      );
     }
   }
   validateNativeParameterOccurrences(value.parameterOccurrences, sqlLength, (value.parameters as unknown[]).length);

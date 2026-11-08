@@ -21,7 +21,7 @@ function fixture(
     epochs?: readonly string[];
     noProtocol?: boolean;
     prepareError?: boolean;
-    type?: { oid: number; name: string; modifier: boolean; element: number };
+    type?: { oid: number; name: string; modifier: boolean; element: number; namespace?: string; kind?: string };
     noTypes?: boolean;
     fail?: string;
     missingModifier?: boolean;
@@ -112,7 +112,15 @@ function fixture(
       if (value.includes("AS epoch")) return Promise.resolve({ rows: [{ epoch: epoch() }] });
       if (value.includes("typelem AS element"))
         return Promise.resolve({
-          rows: options.noTypes ? [] : [options.type ?? { oid: 20, name: "bigint", modifier: false, element: 0 }],
+          rows: options.noTypes
+            ? []
+            : [
+                {
+                  namespace: "pg_catalog",
+                  kind: "b",
+                  ...(options.type ?? { oid: 20, name: "bigint", modifier: false, element: 0 }),
+                },
+              ],
         });
       if (value.includes("format_type($1"))
         return Promise.resolve({ rows: options.noFormattedType ? [] : [{ name: options.type?.name ?? "bigint" }] });
@@ -282,13 +290,15 @@ await describe("PostgreSQL native contract adapter and lightweight profile", asy
       { oid: 1700, name: "numeric", modifier: true, element: 0 },
       { oid: 1007, name: "integer[]", modifier: false, element: 23 },
       { oid: 90000, name: "custom", modifier: false, element: 0 },
+      { oid: 90001, name: "bigint", modifier: false, element: 0, namespace: "public", kind: "d" },
     ]) {
       const { adapter } = fixture({ type, missingModifier: true });
       const session = await adapter.open();
       try {
         const evidence = await session.describe({ sql, parameterOccurrences: occurrences });
         strict.equal(evidence.columns[0]!.nativeType.status, "known");
-        if (type.element || type.name === "custom") strict.equal(evidence.columns[0]!.runtimeType.status, "unknown");
+        if (type.element || type.name === "custom" || type.namespace === "public")
+          strict.equal(evidence.columns[0]!.runtimeType.status, "unknown");
       } finally {
         await session.close();
       }

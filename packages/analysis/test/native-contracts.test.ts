@@ -148,7 +148,7 @@ await describe("native query contract acquisition", async () => {
           ...field(),
           nativeType: known({ name: "numeric", complete: false }),
           runtimeType: unknown,
-          nullable: known(false),
+          nullable: { ...known(false), precision: "exact" as const },
           name: "score",
         },
       ],
