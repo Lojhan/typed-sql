@@ -47,6 +47,32 @@ const source = [
 ].join("\n");
 
 await describe("deterministic query manifests", async () => {
+  await it("retains partial SQL type descriptions across manifest serialization", () => {
+    const rootDir = "/partial-types";
+    const manifest = buildQueryManifest({
+      rootDir,
+      sources: [
+        {
+          file: `${rootDir}/query.ts`,
+          source: 'import {sql} from "@typed-sql/mysql"; export const query=sql`SELECT SUM(1) AS total`;',
+        },
+      ],
+      dialect: mysql(),
+      schema: snapshot("mysql") as MySqlSchemaSnapshot,
+      compilerVersion: "test",
+    }).manifest;
+    const query = manifest.queries[0]!;
+    strict.equal(query.status, "resolved");
+    if (query.status !== "resolved") throw new Error("Expected a resolved numeric family");
+    strict.equal(query.variants[0]!.columns[0]!.databaseType, "decimal");
+    strict.equal(query.variants[0]!.columns[0]!.databaseTypeIsPartial, true);
+    strict.deepEqual(parseQueryManifest(JSON.parse(serializeQueryManifest(manifest))), manifest);
+    const invalid = structuredClone(manifest);
+    const invalidQuery = invalid.queries[0]!;
+    if (invalidQuery.status !== "resolved") throw new Error("Expected a resolved numeric family");
+    Object.assign(invalidQuery.variants[0]!.columns[0]!, { databaseTypeIsPartial: false });
+    strict.throws(() => parseQueryManifest(invalid), /databaseTypeIsPartial/u);
+  });
   await it("emits resolved structural variants and explicit unresolved entries without source values", () => {
     const root = "/checkout/typed-sql-app";
     const policy = {

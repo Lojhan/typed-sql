@@ -182,6 +182,8 @@ export interface ResolvedColumn {
   readonly tsType: string;
   readonly nullable: boolean;
   readonly databaseType?: string;
+  /** Only the SQL type family is established; modifiers or logical identity remain incomplete. */
+  readonly databaseTypeIsPartial?: true;
   /** JSON structure and desired application representation; SQL nullability remains separate. */
   readonly json?: JsonValueDescriptor;
   readonly range: SourceRange;
@@ -197,6 +199,8 @@ export interface ResolvedParameter {
   readonly tsType: string;
   readonly nullable: boolean;
   readonly databaseType?: string;
+  /** Only the SQL type family is established; modifiers or logical identity remain incomplete. */
+  readonly databaseTypeIsPartial?: true;
   /** JSON structure and desired application representation; SQL nullability remains separate. */
   readonly json?: JsonValueDescriptor;
 }

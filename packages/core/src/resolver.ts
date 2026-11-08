@@ -19,6 +19,7 @@ export interface ResolverType {
   readonly tsType: string;
   readonly nullable: boolean;
   readonly databaseType?: string;
+  readonly databaseTypeIsPartial?: true;
 }
 
 /** Shared parameter inference state for grammar implementations. */
@@ -86,6 +87,11 @@ export class ParameterCollector {
         : { scalarJsonShape: current.scalarJsonShape ?? candidate.scalarJsonShape }),
       ...(current.databaseType === candidate.databaseType && current.databaseType !== undefined
         ? { databaseType: current.databaseType }
+        : {}),
+      ...(current.databaseType === candidate.databaseType &&
+      current.databaseType !== undefined &&
+      (current.databaseTypeIsPartial || candidate.databaseTypeIsPartial)
+        ? { databaseTypeIsPartial: true as const }
         : {}),
     };
     this.#parameters.set(index, merged);
