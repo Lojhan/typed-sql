@@ -630,3 +630,47 @@ contracts and documentation checks pass. The native scope still excludes the doc
 statement/object forms; this is not completion of the full architecture's acceptance audit.
 
 Final workspace type checks, clean-tree quality and the isolated performance gate pass after these changes.
+
+## Guarded DuckDB table descriptions
+
+The native adapter now admits ordinary stored-table projections, stars, filters and joins.
+It snapshots relation definitions, column metadata and current name resolution inside the owned
+read-only transaction. Table DDL changes context identity without depending on a caller snapshot
+refresh; ordinary DML preserves it. The existing canonical-DDL parser establishes generated-column
+evidence on both 1.5.6 and 2.0, avoiding a weaker 1.5 metadata assumption. Views, generated columns,
+table functions, star modifiers and unknown logical types remain unavailable. Function-family
+qualification now also visits filters and join predicates. Adapter/profile v3 require regeneration.
+
+The real native test passes on both SDKs, including uncast parameter inference from a table
+comparison, join/star/decimal metadata, ordinary defaults, ASCII case-insensitive relation binding,
+unsafe relation/function rejection, DML stability and DDL invalidation. All 40 DuckDB files pass
+with 98.45% statements, 90.67% branches and 97.05% functions. Installed host fixtures now use
+joined table queries and test table-DDL editor regeneration; their final validation is pending.
+
+The SQL Server cross-check [42526976076](https://github.com/Lojhan/typed-sql/actions/runs/42526976076)
+passes all four engine jobs at d7aefe77, including installed host and shared normalization behavior.
+
+The installed 1.5.6 and 2.0 flows pass joined table-query generation, frozen declarations/build
+and execution, SQL/TypeScript editor refresh after table DDL, cache-only restart and offline
+operation under a native write lock with and without the SDK. A subsequent real binding probe
+found a pre-existing implicit-call gap: a macro named '+' could hide getvariable and change the
+bound result from INTEGER to BIGINT without a SQL-text change. The regression fails before the
+fix. Admission now checks overlapping operator/constructor/extraction families too, and real
+SDK regressions pass on 1.5.6 and 2.0 for '+', array_extract, list_value, struct_pack, row and
+struct_extract. The installed rerun after this guard is pending.
+
+DuckDB native qualification now discovers every qualified engine from its owner support policy
+and pinned SDK declarations. Normal package tests run additional SDKs in fresh child processes
+after the main coverage suite; the standalone test:native command qualifies the full matrix.
+The test asserts the loaded engine version and rejects missing/ambiguous declarations, preventing
+a newly qualified target from silently escaping the native regression suite. Both discovered
+targets pass the table and implicit-binding regressions.
+
+Final DuckDB validation: the rebuilt installed matrix passes on both 1.5.6-r.2 and 2.0.0-r.1
+after the implicit-binding guard. Normal package tests pass 40 files with 98.45% statements,
+90.64% branches and 97.05% functions, then automatically pass the additional SDK's native suite.
+The standalone discovered two-SDK matrix passes, and an intentional failing-test smoke confirms
+that its programmatic Poku child exits nonzero. The clean build, public API/package graph,
+packed-consumer and documentation gates pass. See the [native scope and evidence](./duckdb-native-proof.md).
+
+Final workspace type checks, clean-tree quality, documentation checks and the isolated performance gate pass.

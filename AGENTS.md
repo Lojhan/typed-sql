@@ -57,6 +57,7 @@ pnpm docs:check
 pnpm docs:start
 pnpm docs:build
 pnpm e2e:sqlite-wasm
+pnpm --filter @typed-sql/duckdb test:native
 pnpm performance
 ```
 
@@ -84,6 +85,8 @@ TYPED_SQL_CONTAINER_ENGINE=podman pnpm e2e:packed
   regression.
 - Editor changes must verify the packaged language server and extension artifacts, not only source
   imports.
+- DuckDB package tests discover qualified SDK targets from the owner policy and package manifest.
+  Keep native versions in separate child processes; loading them together can interpose symbols.
 
 ## Documentation rules
 

@@ -51,11 +51,12 @@
     "./reconciliation": "./dist/packages/duckdb/src/reconciliation.js"
   },
   "scripts": {
-    "test": "poku test --sequential --coverage=@pokujs/c8 --coverageConfig=.c8rc.json --reporter=compact --enforce",
+    "test": "poku test --sequential --coverage=@pokujs/c8 --coverageConfig=.c8rc.json --reporter=compact --enforce && pnpm test:native --skip-current",
     "test:soundness": "poku test/soundness.test.ts --reporter=compact --enforce",
     "catalog:check": "node scripts/generate-catalog.mjs --check && node scripts/generate-common-types.mjs --check",
     "typecheck:test": "tsc -p tsconfig.test.json",
-    "coverage": "pnpm test"
+    "coverage": "pnpm test",
+    "test:native": "node --import tsx scripts/test-native-profiles.mjs"
   },
   "dependencies": {
     "@typed-sql/ast": "workspace:*",

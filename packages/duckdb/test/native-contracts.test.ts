@@ -19,8 +19,11 @@ import { createDuckDBContractReconciler } from "../src/reconciliation.js";
 import type { DuckDBSchemaSnapshot } from "../src/snapshot.js";
 import { fixtureEvidence } from "./helpers/evidence.js";
 
-const sdk =
-  process.env.TYPED_SQL_DUCKDB_SDK === "15" ? await import("duckdb-node-15") : await import("@duckdb/node-api");
+const sdk: typeof import("@duckdb/node-api") = await import(
+  process.env.TYPED_SQL_DUCKDB_SDK_PACKAGE ?? "@duckdb/node-api"
+);
+if (process.env.TYPED_SQL_DUCKDB_EXPECTED_ENGINE)
+  strict.equal(sdk.version(), process.env.TYPED_SQL_DUCKDB_EXPECTED_ENGINE);
 const schema: DuckDBSchemaSnapshot = { formatVersion: 1, dialect: "duckdb", tables: {} };
 const options = { path: ":memory:", schema, sdkImporter: async () => sdk };
 const candidate = (sql: string) => ({
@@ -115,7 +118,8 @@ await describe("DuckDB non-executing native query contracts", async () => {
     for (const sql of [
       "SELECT * FROM read_csv('/tmp/private.csv')",
       "SELECT (SELECT 1) AS value",
-      "SELECT * FROM t",
+      "SELECT * EXCLUDE(id) FROM t",
+      "SELECT * FROM (SELECT 1) t",
       "DELETE FROM t",
       "WITH t AS (SELECT 1) SELECT * FROM t",
       "SELECT system.main.upper('x')",
@@ -341,6 +345,148 @@ await describe("DuckDB non-executing native query contracts", async () => {
         createNodeDuckDBNativeContractAdapter({ ...options, path: join(directory, "missing.duckdb") }).inspectContext(),
         /native-failure/,
       );
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  await it("describes guarded table projections, joins and defaults and fingerprints table DDL", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "typed-sql-duck-tables-"));
+    const path = join(directory, "tables.duckdb");
+    const change = async (sql: string) => {
+      const instance = await sdk.DuckDBInstance.create(path);
+      const connection = await instance.connect();
+      try {
+        const result = await connection.run(sql);
+        result.closeSync();
+      } finally {
+        connection.closeSync();
+        instance.closeSync();
+      }
+    };
+    try {
+      await change(
+        "CREATE TABLE entries(id BIGINT, amount DECIMAL(12,2), created_at DATE DEFAULT CURRENT_DATE); INSERT INTO entries VALUES (9007199254740993,12.34,DATE '2024-01-01'); CREATE VIEW item_view AS SELECT * FROM entries; CREATE TABLE generated(id BIGINT,doubled BIGINT GENERATED ALWAYS AS (id*2))",
+      );
+      const adapter = createNodeDuckDBNativeContractAdapter({ ...options, path });
+      const context = await adapter.inspectContext();
+      for (const sql of [
+        "SELECT id FROM entries WHERE id=$1",
+        "SELECT a.id FROM entries a LEFT JOIN entries b ON a.id=b.id WHERE a.id=$1::BIGINT",
+        "SELECT id FROM main.EnTrIeS",
+      ]) {
+        strict.equal(adapter.accept(candidate(sql)).accepted, true);
+        const result = await acquireNativeQueryContract({ adapter, context, candidate: candidate(sql) });
+        strict.equal(result.status, "acquired", sql);
+        if (result.status !== "acquired") throw Error("Missing native table contract");
+        strict.equal(result.contract.valuePlan.columns[0]?.type, "bigint");
+        if (sql.includes("$1")) strict.equal(result.contract.valuePlan.parameters[0]?.type, "bigint");
+      }
+      const star = await acquireNativeQueryContract({
+        adapter,
+        context,
+        candidate: candidate("SELECT * FROM entries"),
+      });
+      if (star.status !== "acquired") throw Error("Missing star metadata");
+      strict.deepEqual(
+        star.contract.nativeEvidence?.columns.map((column) => column.name),
+        ["id", "amount", "created_at"],
+      );
+      strict.deepEqual(star.contract.nativeEvidence?.columns[1]?.nativeType, {
+        status: "known",
+        value: { name: "DECIMAL(12,2)", complete: true },
+      });
+      for (const sql of [
+        "SELECT * FROM item_view",
+        "SELECT * FROM generated",
+        "SELECT * FROM entries WHERE getvariable('value')=1",
+        "SELECT id FROM entries a JOIN entries b ON nextval('missing')=1",
+      ])
+        await strict.rejects(
+          acquireNativeQueryContract({ adapter, context, candidate: candidate(sql) }),
+          /unsupported-statement/u,
+        );
+      await change("UPDATE entries SET amount=amount");
+      strict.equal(
+        (await adapter.inspectContext()).databaseContextHash,
+        context.databaseContextHash,
+        "DML must preserve catalog identity",
+      );
+      await change("ALTER TABLE entries ADD COLUMN label VARCHAR");
+      strict.notEqual(
+        (await adapter.inspectContext()).databaseContextHash,
+        context.databaseContextHash,
+        "DDL must change native context even with the same supplied schema",
+      );
+      strict.deepEqual(
+        await acquireNativeQueryContract({ adapter, context, candidate: candidate("SELECT id FROM entries") }),
+        { status: "unavailable", reason: "context-mismatch" },
+      );
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  await it("rejects session-dependent macro binding hidden behind operators and constructors", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "typed-sql-duck-implicit-"));
+    const path = join(directory, "implicit.duckdb");
+    const cases = [
+      ["+", "a,b", "1+2"],
+      ["array_extract", "a,b", "[1,2][1]"],
+      ["list_value", "a,b", "[1,2]"],
+      ["struct_pack", "x", "{'x':1}"],
+      ["row", "a,b", "(1,2)"],
+      ["struct_extract", "a,b", "{'x':1}.x"],
+    ] as const;
+    try {
+      for (const [name, args, expression] of cases) {
+        const instance = await sdk.DuckDBInstance.create(path);
+        const connection = await instance.connect();
+        try {
+          const created = await connection.run(
+            `CREATE TABLE IF NOT EXISTS entries(id INTEGER); CREATE MACRO "${name}"(${args}) AS coalesce(getvariable('typed_sql_implicit'),0)`,
+          );
+          created.closeSync();
+          if (name === "+") {
+            const before = await connection.prepare("SELECT 1+2 AS value");
+            try {
+              strict.equal(before.columnTypeId(0), sdk.DuckDBTypeId.INTEGER);
+            } finally {
+              before.destroySync();
+            }
+            const setting = await connection.run("SET VARIABLE typed_sql_implicit=9223372036854775807::BIGINT");
+            setting.closeSync();
+            const after = await connection.prepare("SELECT 1+2 AS value");
+            try {
+              strict.equal(after.columnTypeId(0), sdk.DuckDBTypeId.BIGINT);
+            } finally {
+              after.destroySync();
+            }
+          }
+        } finally {
+          connection.closeSync();
+          instance.closeSync();
+        }
+        const adapter = createNodeDuckDBNativeContractAdapter({ ...options, path });
+        await strict.rejects(
+          acquireNativeQueryContract({
+            adapter,
+            context: await adapter.inspectContext(),
+            candidate: candidate(`SELECT ${expression} AS value FROM entries`),
+          }),
+          /unsupported-statement/u,
+          name,
+        );
+        const cleanup = await sdk.DuckDBInstance.create(path);
+        const owner = await cleanup.connect();
+        try {
+          const result = await owner.run(`DROP MACRO "${name}"`);
+          result.closeSync();
+        } finally {
+          owner.closeSync();
+          cleanup.closeSync();
+        }
+      }
     } finally {
       await rm(directory, { recursive: true, force: true });
     }

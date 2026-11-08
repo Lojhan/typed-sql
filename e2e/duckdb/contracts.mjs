@@ -25,7 +25,10 @@ export async function verifyQueryContracts(fixture, application, artifacts, engi
     }),
   );
   await writeFile(join(directory, "entry.ts"), `import query from "./shape.sql"; export {query};\n`);
-  await writeFile(join(directory, "shape.sql"), `SELECT json_transform('{}', '{"x":"INTEGER"}') AS value`);
+  await writeFile(
+    join(directory, "shape.sql"),
+    `SELECT json_transform('{}', '{"x":"INTEGER"}') AS value FROM records a LEFT JOIN records b ON a.id=b.id WHERE a.id=9223372036854775807::BIGINT`,
+  );
   await writeFile(
     join(directory, "typed-sql.config.mjs"),
     `
@@ -68,7 +71,10 @@ export default defineConfig({
   assert.match(await readFile(join(directory, "shape.d.sql.ts"), "utf8"), /"x": number/u);
   const initial = await command(["typed-sql", "check", "--project", "tsconfig.json", "--show-types"]);
   assert.match(initial, /"x": number/u);
-  await writeFile(join(directory, "shape.sql"), `SELECT json_transform('{}', '{"x":"VARCHAR"}') AS value`);
+  await writeFile(
+    join(directory, "shape.sql"),
+    `SELECT json_transform('{}', '{"x":"VARCHAR"}') AS value FROM records a LEFT JOIN records b ON a.id=b.id WHERE a.id=9223372036854775807::BIGINT`,
+  );
   await command(["typed-sql", "generate", "--queries", "--live"]);
   await command(["typed-sql-build", "types"], true);
   assert.match(await readFile(join(directory, "shape.d.sql.ts"), "utf8"), /"x": string/u);

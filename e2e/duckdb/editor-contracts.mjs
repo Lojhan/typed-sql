@@ -26,7 +26,7 @@ finally{connection.closeSync();instance.closeSync();}
   for (const languageId of ["typescript", "sql"]) {
     const uri = pathToFileURL(join(directory, languageId === "sql" ? "shape.sql" : "live.ts")).href;
     const source = (type) => {
-      const sql = `SELECT json_transform('{}', '{"x":"${type}"}') AS value`;
+      const sql = `SELECT json_transform('{}', '{"x":"${type}"}') AS value FROM records WHERE id=9223372036854775807::BIGINT`;
       return languageId === "sql" ? sql : `import {sql} from "@typed-sql/duckdb";\nexport const query=sql\`${sql}\`;\n`;
     };
     const pull = async (client) => {
@@ -89,6 +89,13 @@ finally{connection.closeSync();instance.closeSync();}
           changed.workspaces[0].metrics.generation > status.workspaces[0].metrics.generation,
           "A live request must observe catalog drift even when the document text is unchanged",
         );
+        await ddl("ALTER TABLE records ADD COLUMN typed_sql_editor_context_column VARCHAR");
+        await inspect(live, initial, "boolean");
+        const tableChanged = await live.request("typedSql/status", {});
+        assert.ok(
+          tableChanged.workspaces[0].metrics.generation > changed.workspaces[0].metrics.generation,
+          "A live request must observe table DDL with an unchanged supplied schema",
+        );
       }
       // Two unsaved replacements must not allow the older result to replace the current view.
       live.notify("textDocument/didChange", {
@@ -114,7 +121,10 @@ finally{connection.closeSync();instance.closeSync();}
     } finally {
       await rename(join(directory, "contracts-held"), join(directory, "contracts"));
     }
-    if (languageId === "typescript") await ddl("DROP TYPE typed_sql_editor_context_marker");
+    if (languageId === "typescript") {
+      await ddl("DROP TYPE typed_sql_editor_context_marker");
+      await ddl("ALTER TABLE records DROP COLUMN typed_sql_editor_context_column");
+    }
   }
   await writeFile(join(artifacts, `${engine}-editor-contracts.log`), `${transcript.join("\n")}\n`);
 }

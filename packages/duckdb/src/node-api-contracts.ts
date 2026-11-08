@@ -11,11 +11,12 @@ import {
   queryContractDigest,
 } from "@typed-sql/analysis";
 import { calculateSchemaHash, calculateTypePolicyHash } from "@typed-sql/schema";
+import { duckDBGeneratedColumns } from "./catalog/ddl.js";
 import { duckDBContractAdapterVersion, duckDBContractIdentity } from "./contract-profile.js";
 import { duckDBAsciiFold, formatDuckDBType, parseDuckDBType } from "./native-types.js";
 import { type DuckDBSDKImporter, duckDBTypeFromSDK } from "./node-api.js";
 import { duckDBParameterOccurrences, parseDuckDBStatement } from "./parser/parser.js";
-import { duckDBExpressionChildren, type Expression } from "./parser/types.js";
+import { duckDBExpressionChildren, type Expression, type Relation } from "./parser/types.js";
 import { type DuckDBSchemaSnapshot, parseDuckDBSchemaSnapshot } from "./snapshot.js";
 import { duckDBVersionSupport } from "./support.js";
 import {
@@ -60,7 +61,11 @@ export interface NodeDuckDBNativeContractAdapter extends NativeContractAdapter {
 }
 
 /** Admission concerns syntax and binding safety, independently of the offline result resolver. */
-function selection(candidate: NativeContractCandidate): ReadonlySet<string> {
+function selection(candidate: NativeContractCandidate): {
+  readonly names: ReadonlySet<string>;
+  readonly implicitNames: ReadonlySet<string>;
+  readonly relations: readonly Relation[];
+} {
   const parsed = candidate;
   if (typeof parsed.sql !== "string" || !parsed.sql.length || parsed.sql.length > 8 * 1024 * 1024)
     throw new DuckDBContractAcquisitionError("unsupported-statement");
@@ -68,8 +73,6 @@ function selection(candidate: NativeContractCandidate): ReadonlySet<string> {
   if (
     statement.kind !== "select" ||
     statement.ctes.length ||
-    statement.relations.length ||
-    statement.where ||
     statement.group?.length ||
     statement.groupAll ||
     statement.having ||
@@ -83,6 +86,23 @@ function selection(candidate: NativeContractCandidate): ReadonlySet<string> {
     statement.set
   )
     throw new DuckDBContractAcquisitionError("unsupported-statement");
+  if (
+    statement.relations.some(
+      (relation) =>
+        !relation.name?.length ||
+        relation.name.length > 3 ||
+        relation.expression ||
+        relation.query ||
+        relation.lateral ||
+        relation.ordinality ||
+        relation.columns?.length,
+    ) ||
+    statement.projections.some(
+      (projection) => projection.exclude?.length || projection.replace?.length || projection.rename?.length,
+    ) ||
+    (statement.where && !statement.relations.length)
+  )
+    throw new DuckDBContractAcquisitionError("unsupported-statement");
   const actual = duckDBParameterOccurrences(parsed.sql).map(({ index, range }) => {
     if (!/^\$[1-9]\d*$/u.test(parsed.sql.slice(range.start, range.end)))
       throw new DuckDBContractAcquisitionError("unsupported-statement");
@@ -91,11 +111,61 @@ function selection(candidate: NativeContractCandidate): ReadonlySet<string> {
   if (canonicalContractData(actual) !== canonicalContractData(parsed.parameterOccurrences))
     throw new DuckDBContractAcquisitionError("unsupported-statement");
   const names = new Set<string>();
+  const implicitNames = new Set<string>();
+  const operatorAliases: Readonly<Record<string, readonly string[]>> = {
+    "/": ["//"],
+    LIKE: ["~~"],
+    "NOT LIKE": ["!~~"],
+    ILIKE: ["~~*"],
+    "NOT ILIKE": ["!~~*"],
+    "~": ["regexp_full_match"],
+    "!~": ["regexp_full_match"],
+    "->": ["json_extract"],
+    "->>": ["json_extract_string"],
+  };
   const visit = (expression: Expression): void => {
+    // The engine lowers these syntax forms into catalog function bindings. A user macro
+    // can otherwise hide session-dependent result types without an explicit call in our AST.
+    if ((expression.kind === "unary" || expression.kind === "binary") && expression.value) {
+      implicitNames.add(duckDBAsciiFold(expression.value));
+      if (expression.kind === "binary")
+        for (const name of operatorAliases[expression.value] ?? []) implicitNames.add(name);
+    }
+    if (expression.kind === "literal" && expression.literalSource?.startsWith("-")) implicitNames.add("-");
+    if (expression.kind === "list") implicitNames.add("list_value");
+    if (expression.kind === "struct") implicitNames.add("struct_pack");
+    if (expression.kind === "tuple") implicitNames.add("row");
     if (
-      !["literal", "parameter", "cast", "call", "unary", "binary", "case", "list", "struct", "tuple", "index"].includes(
-        expression.kind,
-      )
+      expression.kind === "index" ||
+      (expression.kind === "name" && (expression.left || (expression.names?.length ?? 0) > 1))
+    )
+      for (const name of [
+        "array_extract",
+        "array_slice",
+        "struct_extract",
+        "struct_extract_at",
+        "map_extract_value",
+        "union_extract",
+        "json_extract",
+        "variant_extract",
+      ])
+        implicitNames.add(name);
+
+    if (
+      ![
+        "literal",
+        "parameter",
+        "cast",
+        "call",
+        "unary",
+        "binary",
+        "case",
+        "list",
+        "struct",
+        "tuple",
+        "index",
+        ...(statement.relations.length ? ["name", "star"] : []),
+      ].includes(expression.kind)
     )
       throw new DuckDBContractAcquisitionError("unsupported-statement");
     if (
@@ -118,7 +188,9 @@ function selection(candidate: NativeContractCandidate): ReadonlySet<string> {
     for (const child of duckDBExpressionChildren(expression)) visit(child);
   };
   for (const projection of statement.projections) visit(projection.expression);
-  return names;
+  if (statement.where) visit(statement.where);
+  for (const relation of statement.relations) if (relation.condition) visit(relation.condition);
+  return { names, implicitNames, relations: statement.relations };
 }
 
 /** Native PREPARE metadata only: candidate SQL is never bound, executed or sampled. */
@@ -193,6 +265,9 @@ export function createNodeDuckDBNativeContractAdapter(
     };
     let routines: readonly (readonly NativeSDK.DuckDBValue[])[] = [];
     let types: readonly (readonly NativeSDK.DuckDBValue[])[] = [];
+    let relations: readonly (readonly NativeSDK.DuckDBValue[])[] = [];
+    let columns: readonly (readonly NativeSDK.DuckDBValue[])[] = [];
+    let binding: readonly NativeSDK.DuckDBValue[] = [];
     try {
       connection = await instance.connect();
       signal?.addEventListener("abort", interrupt, { once: true });
@@ -212,6 +287,17 @@ export function createNodeDuckDBNativeContractAdapter(
       types = await read(
         "SELECT database_name,schema_name,type_name,type_oid::VARCHAR,logical_type,labels::VARCHAR FROM system.main.duckdb_types() ORDER BY ALL LIMIT 20001",
       );
+      binding = (await read("SELECT current_database(),current_schema(),current_setting('search_path')"))[0] ?? [];
+      if (typeof binding[0] !== "string" || typeof binding[1] !== "string" || binding[2] !== "")
+        throw new DuckDBContractAcquisitionError("unsupported-context");
+      relations = await read(
+        "SELECT database_name,schema_name,table_name,'table' AS kind,temporary,sql FROM system.main.duckdb_tables() WHERE NOT internal UNION ALL SELECT database_name,schema_name,view_name,'view' AS kind,temporary,sql FROM system.main.duckdb_views() WHERE NOT internal ORDER BY ALL LIMIT 20001",
+      );
+      columns = await read(
+        "SELECT database_name,schema_name,table_name,column_name,column_index,data_type,is_nullable,column_default FROM system.main.duckdb_columns() WHERE NOT internal ORDER BY ALL LIMIT 65537",
+      );
+      if (relations.length > 20000 || columns.length > 65536)
+        throw new DuckDBContractAcquisitionError("unsupported-context");
       if (routines.length > 20000 || types.length > 20000)
         throw new DuckDBContractAcquisitionError("unsupported-context");
       signal?.throwIfAborted();
@@ -240,7 +326,15 @@ export function createNodeDuckDBNativeContractAdapter(
         ...duckDBContractIdentity(policy),
         schemaHash: calculateSchemaHash(schema),
         typePolicyHash: calculateTypePolicyHash(policy),
-        databaseContextHash: queryContractDigest({ version: sdk.version(), routines, types, settings }),
+        databaseContextHash: queryContractDigest({
+          version: sdk.version(),
+          routines,
+          types,
+          relations,
+          columns,
+          binding,
+          settings,
+        }),
       };
     };
     return {
@@ -250,8 +344,57 @@ export function createNodeDuckDBNativeContractAdapter(
           const current = requireOpen(describeSignal);
           if (described) throw new DuckDBContractAcquisitionError("unsupported-statement");
           described = true;
-          const names = selection(candidate);
-          for (const name of names) {
+          const selected = selection(candidate);
+          for (const relation of selected.relations) {
+            const parts = relation.name!;
+            const catalog = parts.length === 3 ? parts[0]! : String(binding[0]);
+            const namespace = parts.length >= 2 ? parts[parts.length - 2]! : String(binding[1]);
+            const name = parts.at(-1)!;
+            if (duckDBAsciiFold(catalog) !== duckDBAsciiFold(String(binding[0])))
+              throw new DuckDBContractAcquisitionError("unsupported-statement");
+            const matches = (row: readonly NativeSDK.DuckDBValue[]) =>
+              typeof row[0] === "string" &&
+              typeof row[1] === "string" &&
+              typeof row[2] === "string" &&
+              duckDBAsciiFold(row[0]) === duckDBAsciiFold(catalog) &&
+              duckDBAsciiFold(row[1]) === duckDBAsciiFold(namespace) &&
+              duckDBAsciiFold(row[2]) === duckDBAsciiFold(name);
+            const tables = relations.filter(matches),
+              table = tables[0],
+              fields = columns.filter(matches);
+            if (
+              tables.length !== 1 ||
+              table?.[3] !== "table" ||
+              table[4] !== false ||
+              typeof table[5] !== "string" ||
+              !fields.length
+            )
+              throw new DuckDBContractAcquisitionError("unsupported-statement");
+            const declarations = duckDBGeneratedColumns(table[5]);
+            if (
+              declarations.size !== fields.length ||
+              fields.some(
+                (field) =>
+                  typeof field[3] !== "string" ||
+                  typeof field[5] !== "string" ||
+                  declarations.get(duckDBAsciiFold(field[3]))?.generated !== false ||
+                  !isKnownDuckDBType(parseDuckDBType(field[5])),
+              )
+            )
+              throw new DuckDBContractAcquisitionError("unsupported-statement");
+          }
+          for (const name of selected.implicitNames) {
+            if (
+              routines.some(
+                (row) =>
+                  typeof row[2] === "string" &&
+                  duckDBAsciiFold(row[2]) === name &&
+                  (row[0] !== "system" || row[1] !== "main" || row[4] !== true),
+              )
+            )
+              throw new DuckDBContractAcquisitionError("unsupported-statement");
+          }
+          for (const name of selected.names) {
             // DuckDB 1.5.6 labels getvariable CONSISTENT even though its bound
             // result type depends on connection-local variables outside this context.
             if (name === "getvariable") throw new DuckDBContractAcquisitionError("unsupported-statement");
@@ -297,7 +440,7 @@ export function createNodeDuckDBNativeContractAdapter(
               consistency: {
                 mechanism: "snapshot",
                 scope:
-                  "duckdb-owned-readonly-catalog-snapshot-external-access-and-optimizer-disabled-consistent-builtin-expressions-v2",
+                  "duckdb-owned-readonly-catalog-snapshot-external-access-and-optimizer-disabled-guarded-select-v3",
               },
               resultKind: "rows",
               columns: Array.from({ length: native.columnCount }, (_, i) => ({
@@ -334,7 +477,7 @@ export function createNodeDuckDBNativeContractAdapter(
         selection(candidate);
         return { accepted: true as const };
       } catch {
-        return { accepted: false as const, reason: "duckdb-builtin-expression-scope" };
+        return { accepted: false as const, reason: "duckdb-guarded-select-scope" };
       }
     },
     open: (signal?: AbortSignal) => protect(() => open(signal)),
