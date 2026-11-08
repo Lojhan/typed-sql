@@ -15,7 +15,7 @@ import {
   postgresProjectCatalogOwner,
 } from "./contract-profile.js";
 import { parseStatement, SqlParseError } from "./parser/parser.js";
-import type { Expression } from "./parser/types.js";
+import type { Expression, NamedTableReference, TableReference } from "./parser/types.js";
 import type { PgLiveVerifierPool } from "./pg.js";
 import { describePgStatement, type PgProtocolDescription } from "./pg-description.js";
 import { type PostgresProfileSnapshot, validatePostgresSnapshot } from "./profile-snapshot.js";
@@ -35,6 +35,8 @@ const unknown = (reason: string) => ({ status: "unknown" as const, reason });
 const catalogs = [
   "pg_namespace",
   "pg_class",
+  "pg_inherits",
+  "pg_am",
   "pg_attribute",
   "pg_attrdef",
   "pg_proc",
@@ -186,16 +188,27 @@ export interface PgNativeContractOptions {
 export interface PgNativeContractAdapter extends NativeContractAdapter {
   inspectContext(signal?: AbortSignal): Promise<QueryContractContext>;
 }
-// Initial qualified scope deliberately excludes relation/view/FDW binding, unknown literal input
-// coercions and custom type-input functions. Ordinary function bodies are not executed by Parse.
+// Unknown literal input coercions and custom type-input casts remain outside the qualified scope.
+// Table binding is checked and locked separately before candidate Parse/Describe.
 const literalTypes =
   /^(?:pg_catalog\.)?(?:smallint|int2|integer|int4|bigint|int8|real|float4|double precision|float8|numeric|decimal|boolean|bool|text|varchar|character varying|char|character|bytea|date|timestamp(?: without time zone| with time zone)?|timestamptz|time(?: without time zone| with time zone)?|timetz|interval|uuid|json|jsonb)(?:\(\d+(?:,\s*-?\d+)?\))?$/u;
-function safeExpression(expression: Expression, typedLiteral = false): boolean {
+function safeExpression(expression: Expression, typedLiteral = false, columns = false): boolean {
+  if (expression.kind === "column") return columns;
+  if (expression.kind === "binary")
+    return (
+      columns &&
+      /^(?:=|<>|!=|<|>|<=|>=|AND|OR)$/iu.test(expression.operator) &&
+      safeExpression(expression.left, false, columns) &&
+      safeExpression(expression.right, false, columns)
+    );
   if (expression.kind === "parameter") return true;
   if (expression.kind === "literal")
     return typedLiteral || (expression.value !== null && typeof expression.value !== "string");
   if (expression.kind === "cast")
-    return literalTypes.test(expression.databaseType.name.toLowerCase()) && safeExpression(expression.expression, true);
+    return (
+      literalTypes.test(expression.databaseType.name.toLowerCase()) &&
+      safeExpression(expression.expression, true, columns)
+    );
   if (expression.kind === "call")
     return (
       !expression.filter &&
@@ -204,7 +217,7 @@ function safeExpression(expression: Expression, typedLiteral = false): boolean {
       !expression.orderBy?.length &&
       !expression.distinct &&
       !expression.variadic &&
-      expression.arguments.every((argument) => safeExpression(argument))
+      expression.arguments.every((argument) => safeExpression(argument, false, columns))
     );
   return false;
 }
@@ -214,9 +227,9 @@ function accepts(candidate: NativeContractCandidate): boolean {
     return (
       statement.kind === "select" &&
       !statement.with &&
-      !statement.from &&
-      !statement.joins.length &&
-      !statement.where &&
+      (!statement.from || safeTable(statement.from)) &&
+      statement.joins.every((join) => safeTable(join.table) && (!join.on || safeExpression(join.on, false, true))) &&
+      (!statement.where || (!!statement.from && safeExpression(statement.where, false, true))) &&
       !statement.groupBy.length &&
       !statement.having &&
       !statement.windows.length &&
@@ -229,13 +242,33 @@ function accepts(candidate: NativeContractCandidate): boolean {
       !statement.compounds.length &&
       !statement.distinct &&
       !statement.distinctOn.length &&
-      statement.columns.every((column) => safeExpression(column.expression))
+      statement.columns.every(
+        (column) =>
+          (column.expression.kind === "star" && !!statement.from) ||
+          safeExpression(column.expression, false, !!statement.from),
+      )
     );
   } catch {
     return false;
   }
 }
-/** PostgreSQL 18 expression-query Parse/Describe adapter. No Bind or Execute is sent for candidate SQL. */
+function safeTable(table: TableReference): table is NamedTableReference {
+  return table.kind === "table" && !table.sample && !table.lateral;
+}
+const quoteIdentifier = (name: string): string => `"${name.replaceAll('"', '""')}"`;
+const relationGuardSql = `SELECT c.oid::text AS oid, n.nspname AS namespace, c.relname AS name,
+  c.relkind = 'r' AND c.relpersistence = 'p' AND NOT c.relrowsecurity AND NOT c.relforcerowsecurity
+  AND NOT c.relhasrules AND c.relam = (SELECT oid FROM pg_catalog.pg_am WHERE amname = 'heap')
+  AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_inherits WHERE inhrelid = c.oid OR inhparent = c.oid)
+  AND NOT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_attribute a JOIN pg_catalog.pg_type t ON t.oid = a.atttypid
+    JOIN pg_catalog.pg_namespace tn ON tn.oid = t.typnamespace
+    WHERE a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+    AND (tn.nspname <> 'pg_catalog' OR t.typtype <> 'b' OR t.typelem <> 0 OR a.attgenerated <> '')
+  ) AS allowed
+FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+WHERE c.oid = pg_catalog.to_regclass($1)`;
+/** PostgreSQL 18 guarded SELECT Parse/Describe adapter. No Bind or Execute is sent for candidate SQL. */
 export function createPgNativeContractAdapter(options: PgNativeContractOptions): PgNativeContractAdapter {
   const schema = validatePostgresSnapshot(options.schema);
   const policy = Object.freeze({ ...(options.typePolicy ?? defaultPostgresTypePolicy) });
@@ -380,6 +413,36 @@ export function createPgNativeContractAdapter(options: PgNativeContractOptions):
         describeSignal?.throwIfAborted();
         if (described || catalogCollected || !accepts(candidate))
           throw new PostgresContractAcquisitionError("unsupported-context");
+        const statement = parseStatement(candidate.sql);
+        if (statement.kind !== "select") throw new PostgresContractAcquisitionError("unsupported-context");
+        const tables = [...(statement.from ? [statement.from] : []), ...statement.joins.map((join) => join.table)];
+        for (const table of tables) {
+          requireOpen();
+          describeSignal?.throwIfAborted();
+          if (!safeTable(table)) throw new PostgresContractAcquisitionError("unsupported-context");
+          const name = [...(table.schema ? [table.schema.name] : []), table.name.name].map(quoteIdentifier).join(".");
+          type Relation = { oid: string; namespace: string; name: string; allowed: boolean };
+          const relation = (await client.query<Relation>(relationGuardSql, [name])).rows[0];
+          if (
+            relation?.allowed !== true ||
+            !/^\d+$/u.test(relation.oid) ||
+            typeof relation.namespace !== "string" ||
+            typeof relation.name !== "string"
+          )
+            throw new PostgresContractAcquisitionError("unsupported-context");
+          // A concurrent replacement can change relation kind between lookup and lock. The
+          // server restriction rejects views/FDWs before LOCK can expand their dependencies.
+          describeSignal?.throwIfAborted();
+          await client.query("SET LOCAL restrict_nonsystem_relation_kind = 'view,foreign-table'");
+          await client.query(
+            `LOCK TABLE ONLY ${quoteIdentifier(relation.namespace)}.${quoteIdentifier(relation.name)} IN ACCESS SHARE MODE`,
+          );
+          const locked = (await client.query<Relation>(relationGuardSql, [name])).rows[0];
+          if (locked?.allowed !== true || locked.oid !== relation.oid)
+            throw new PostgresContractAcquisitionError("context-changed");
+        }
+        if (tables.length) checkEpoch((await client.query<{ epoch: string }>(epochSql)).rows[0]?.epoch);
+        describeSignal?.throwIfAborted();
         // Metadata queries subsequently replace this unnamed statement; no server/client name
         // cache can accumulate application SQL across live edits.
         const pending = describePgStatement(client, "", candidate.sql);
@@ -481,7 +544,7 @@ export function createPgNativeContractAdapter(options: PgNativeContractOptions):
           adapter: { id: adapterId, version: adapterVersion },
           consistency: {
             mechanism: "guarded",
-            scope: "postgres18-wal-quiescent-catalogs-owned-readonly-session-no-extensions-expression-query-v1",
+            scope: "postgres18-wal-quiescent-catalogs-owned-readonly-session-guarded-select-v2",
           },
           resultKind: "rows",
           columns,
@@ -501,7 +564,7 @@ export function createPgNativeContractAdapter(options: PgNativeContractOptions):
     accept: (candidate: NativeContractCandidate) =>
       accepts(candidate)
         ? { accepted: true as const }
-        : { accepted: false as const, reason: "postgres-expression-query-scope" },
+        : { accepted: false as const, reason: "postgres-guarded-select-scope" },
     open,
     async inspectContext(signal?: AbortSignal) {
       // Reading a cold catalog can itself advance WAL through hint pages. Retry a fresh capture,

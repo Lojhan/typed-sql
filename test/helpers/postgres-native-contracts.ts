@@ -43,6 +43,7 @@ import { createPostgresContractReconciler } from "../../packages/postgres/src/re
 import { createPostgresDatabase } from "../../packages/postgres/src/runtime.js";
 import { type RoutineSnapshot, upgradeSchemaSnapshotV1 } from "../../packages/schema/src/index.js";
 import { assertIsolatedPostgresContractConsumer } from "./frozen-contract-consumer.js";
+import { assertPostgresTableContracts } from "./postgres-table-contracts.js";
 import { ProtocolClient } from "./protocol-client.js";
 import { startWatchedCli } from "./watch-cli.js";
 
@@ -1120,6 +1121,7 @@ export default defineConfig({
         1,
         "Packed frozen CLI checks must not execute recorded queries",
       );
+      await assertPostgresTableContracts(cleanup, namespace);
       await cleanup.query(`DROP SCHEMA ${namespace} CASCADE`);
       created = false;
     } finally {

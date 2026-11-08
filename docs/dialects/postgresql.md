@@ -240,10 +240,18 @@ Execute message for the application statement. Close the pool when generation fi
 See [durable query contracts](../guides/query-manifests.md#consume-durable-query-contracts-in-a-compiler-host)
 for storage and compiler-host consumption.
 
-The adapter supports PostgreSQL 18 expression-only `SELECT` statements with ordinary calls,
-parameters, numeric/boolean literals and supported built-in casts. String and null literals need
-an explicit supported built-in cast. It rejects relation/view binding, subqueries, compounds,
-custom type-input casts and unsupported expressions before opening a session. The native
+The adapter supports PostgreSQL 18 `SELECT` statements with ordinary calls, parameters,
+numeric/boolean literals and supported built-in casts. It also describes projections, stars,
+comparison/boolean filters and joins over qualified ordinary tables. String and null literals
+need an explicit supported built-in cast. Subqueries, compounds, table functions, sampling,
+custom type-input casts and unsupported expressions fail the preliminary syntax check.
+
+Before candidate Parse, the adapter checks every referenced relation against the server catalog,
+locks it in access-share mode and rechecks its identity. Admitted tables are permanent heap tables
+with built-in scalar columns. Views, foreign tables, row-security tables, generated columns,
+custom/array column types, partitioning and inheritance remain unavailable through this adapter.
+Admission uses live metadata rather than assuming the supplied schema describes the remote objects.
+The native
 round-trip and disconnected-consumption test runs against PostgreSQL 18.3; other PostgreSQL
 major versions are unavailable through this acquisition adapter. This scope is separate from
 the full grammar's supported version range.

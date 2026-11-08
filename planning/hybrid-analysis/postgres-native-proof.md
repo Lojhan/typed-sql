@@ -34,9 +34,12 @@ Its synthetic evidence fixture is distinct from the real engine proof above.
 
 ## Acquisition scope and consistency
 
-The producer currently qualifies PostgreSQL 18 expression-only SELECT queries, known built-in
-casts and ordinary calls. Relation/view/FDW binding, subqueries, custom type-input coercions,
-extensions other than plpgsql and other majors are rejected. This bounded statement scope is
+The producer qualifies PostgreSQL 18 expression SELECT queries and guarded table projections,
+stars, comparison/boolean filters and joins. Table admission uses native catalog metadata,
+access-share locks, identity rechecks and the existing WAL guard. Only permanent heap tables
+with built-in scalar columns and no RLS, rules, generated columns or inheritance are admitted.
+Views, FDWs, partitions, custom/array columns, subqueries, custom type-input coercions,
+extensions other than plpgsql and other majors remain unavailable. This bounded scope is
 not a substitute for the final capability matrix.
 
 Parse/Describe sends no candidate Bind/Execute. RowDescription reports type OIDs/modifiers,
@@ -188,3 +191,29 @@ handling cannot establish a non-null output.
 
 This qualifies the explicit library path on the tested PostgreSQL 18 environment. Automatic
 project catalog acquisition, durable publication and editor refresh are not yet integrated.
+
+## Guarded table-query expansion
+
+Interpreter v3/profile v2 add table binding with a native metadata check before candidate Parse,
+an access-share lock held until session rollback, and a second relation identity/safety check.
+The lock uses quoted catalog identifiers and ONLY; the server's
+[relation-kind restriction](https://www.postgresql.org/docs/18/runtime-config-client.html) rejects
+view/foreign replacements before locking can expand dependencies. Catalog fingerprints now also
+include `pg_inherits` and `pg_am`; the WAL guard remains unchanged.
+
+The real PostgreSQL 18.3 helper checks custom calls over table columns, bound predicates, left
+joins, star order, numeric modifiers, ONLY and embedded quotes in identifiers. An immutable
+constant-call function that raises during evaluation describes successfully: candidate planning
+does not evaluate it. A side-effecting routine leaves its counter unchanged. Unsafe relation
+kinds and custom/generated/array/inherited/partitioned columns fail admission. A competing ALTER
+TABLE times out while acquisition owns its lock and succeeds after close. A serialized, separately
+reconciled table-query contract compiles in a frozen host with the matching schema and no analyzer. A missing-table
+static diagnostic remains blocking; native acquisition does not silently forgive stale schema inputs.
+
+The PostgreSQL 18.3 source shows statement Describe obtaining its target list through
+[CachedPlanGetTargetList](https://github.com/postgres/postgres/blob/REL_18_3/src/backend/utils/cache/plancache.c#L1633),
+which revalidates the analyzed query tree and parse-time locks rather than building an execution
+plan. The transport continues to send no candidate Bind or Execute. CTEs, compounds, grouping,
+ordering/limits and richer expressions remain outside this acquisition profile. Existing installed
+CLI/editor proofs retain their expression-query fixtures; the new table proof exercises native
+acquisition, reconciliation and serialized frozen compilation, not an expanded installed-host matrix.

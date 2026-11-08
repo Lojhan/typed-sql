@@ -30,9 +30,11 @@ function fixture(
     noContext?: boolean;
     noFormattedType?: boolean;
     columns?: number;
+    relations?: readonly Record<string, unknown>[];
   } = {},
 ) {
   const calls: string[] = [];
+  let relationReads = 0;
   let reads = 0,
     releases = 0;
   const epoch = () => options.epochs?.[reads++] ?? "0/100";
@@ -111,6 +113,12 @@ function fixture(
                   ...options.context,
                 },
               ],
+        });
+      if (value.includes("AS allowed"))
+        return Promise.resolve({
+          rows: options.relations
+            ? [options.relations[Math.min(relationReads++, options.relations.length - 1)]].filter(Boolean)
+            : [{ oid: "123", namespace: "public", name: "users", allowed: true }],
         });
       if (value.includes("AS epoch")) return Promise.resolve({ rows: [{ epoch: epoch() }] });
       if (value.includes("typelem AS element"))
@@ -193,7 +201,7 @@ await describe("PostgreSQL native contract adapter and lightweight profile", asy
     }
     strict.equal(calls.filter((sql) => sql.includes("format_type($1")).length, 1);
   });
-  await it("qualifies only the declared expression and cast scope", () => {
+  await it("qualifies guarded SELECT syntax without opening a session", () => {
     const { adapter, calls } = fixture();
     for (const text of [
       "SELECT vendor_fn($1::bigint)",
@@ -202,10 +210,16 @@ await describe("PostgreSQL native contract adapter and lightweight profile", asy
       "SELECT 1::integer",
       "SELECT true",
       "SELECT NULL::text",
+      "SELECT * FROM users",
+      "SELECT vendor_fn(u.id) FROM public.users u WHERE u.id = $1::bigint",
+      "SELECT a.id, b.id FROM users a LEFT JOIN users b ON a.id = b.id",
+      "SELECT * FROM ONLY public.users",
     ])
       strict.equal(adapter.accept({ sql: text, parameterOccurrences: [] }).accepted, true, text);
     for (const text of [
-      "SELECT * FROM users",
+      "SELECT * FROM users TABLESAMPLE SYSTEM (1)",
+      "SELECT * FROM (SELECT 1) t",
+      "SELECT * FROM generate_series(1, 2)",
       "SELECT 'text'",
       "SELECT NULL",
       "SELECT x::public.custom FROM users",
@@ -236,6 +250,61 @@ await describe("PostgreSQL native contract adapter and lightweight profile", asy
         }),
       RangeError,
     );
+  });
+  await it("locks and rechecks native relation identity before candidate Parse", async () => {
+    const { adapter, calls } = fixture();
+    const session = await adapter.open();
+    try {
+      await session.describe({
+        sql: "SELECT vendor_fn(u.id) FROM public.users u WHERE u.id = $1::bigint",
+        parameterOccurrences: occurrences,
+      });
+      const lock = calls.findIndex((call) => call.startsWith("LOCK TABLE ONLY"));
+      strict.equal(calls[lock], 'LOCK TABLE ONLY "public"."users" IN ACCESS SHARE MODE');
+      strict.ok(calls.indexOf("SET LOCAL restrict_nonsystem_relation_kind = 'view,foreign-table'") < lock);
+      strict.equal(calls.filter((call) => call.includes("AS allowed")).length, 2);
+      strict.ok(calls.indexOf("parse") > lock);
+    } finally {
+      await session.close();
+    }
+  });
+  await it("fails closed before Parse for absent, unsafe or replaced relations", async () => {
+    for (const relations of [
+      [],
+      [{ oid: "123", namespace: "public", name: "users", allowed: false }],
+      [{ oid: "bad", namespace: "public", name: "users", allowed: true }],
+      [
+        { oid: "123", namespace: "public", name: "users", allowed: true },
+        { oid: "124", allowed: true },
+      ],
+      [
+        { oid: "123", namespace: "public", name: "users", allowed: true },
+        { oid: "123", allowed: false },
+      ],
+    ]) {
+      const { adapter, calls } = fixture({ relations });
+      const session = await adapter.open();
+      try {
+        await strict.rejects(
+          session.describe({ sql: "SELECT * FROM users", parameterOccurrences: [] }),
+          /unsupported-context|context-changed/u,
+        );
+      } finally {
+        await session.close();
+      }
+      strict.ok(!calls.includes("parse"));
+    }
+    const { adapter, calls } = fixture({ epochs: ["0/100", "0/101"] });
+    const session = await adapter.open();
+    try {
+      await strict.rejects(
+        session.describe({ sql: "SELECT * FROM users", parameterOccurrences: [] }),
+        /context-changed/u,
+      );
+    } finally {
+      await session.close();
+    }
+    strict.ok(!calls.includes("parse"));
   });
   await it("rejects unknown contexts, WAL changes, unavailable protocols and native failures", async () => {
     for (const context of [
@@ -374,7 +443,7 @@ await describe("PostgreSQL native contract adapter and lightweight profile", asy
     await strict.rejects(session.context(signal), { name: "AbortError" });
     await strict.rejects(session.describe({ sql, parameterOccurrences: occurrences }, signal), { name: "AbortError" });
     await strict.rejects(
-      session.describe({ sql: "SELECT * FROM users", parameterOccurrences: [] }),
+      session.describe({ sql: "SELECT * FROM (SELECT 1) users", parameterOccurrences: [] }),
       /unsupported-context/u,
     );
     await session.describe({ sql, parameterOccurrences: occurrences });

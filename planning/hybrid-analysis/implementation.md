@@ -24,7 +24,7 @@ from their maintained catalog inputs, preserving compile-time/runtime policy agr
 
 ## Qualification limits
 
-PostgreSQL native acquisition is restricted to the documented expression-query profile.
+PostgreSQL native acquisition uses the documented guarded SELECT profile; table admission is restricted to checked permanent scalar-column heap tables.
 DuckDB native acquisition supports builtin scalar expression projections on 1.5.6 and 2.0.0;
 its real-engine tests exercise the shared live runner, persistent cache, offline reuse and conflicts.
 DuckDB packed CLI generation, changed-query regeneration and frozen checking pass on both SDKs;
@@ -565,3 +565,26 @@ All 20 compiler test files and the existing coverage gate pass, along with works
 The clean build, packed-consumer/API/package-boundary checks, documentation checks, quality and
 isolated performance gate pass for this addition. Representative corpus and schema/plan-growth
 measurements remain incomplete.
+
+## Guarded PostgreSQL table descriptions
+
+The native profile now admits ordinary table projections, stars, comparison/boolean predicates
+and joins. Native relation checks run before candidate Parse, with access-share locking and an
+identity recheck under the existing WAL guard. Profile/interpreter revisions invalidate the older
+acquisition identity. The real-engine proof adds immutable planner traps, no-execution counters,
+unsafe relation rejection, lock lifetime, quoted identifiers and serialized frozen compilation.
+See the [scope and evidence](./postgres-native-proof.md#guarded-table-query-expansion). Other native
+profiles and richer PostgreSQL statement forms still require expansion.
+
+The SQL Server installed-host rerun [42523069734](https://github.com/Lojhan/typed-sql/actions/runs/42523069734)
+passes all four engine jobs at f0d92547, including the SQL-file emission changes.
+
+Validation for this expansion: all 37 PostgreSQL files pass with 97.28% statement, 90.30% branch
+and 97.99% function coverage. The clean build, quality, documentation and three
+public-API/package-graph/packed-consumer files pass. The complete real PostgreSQL 18.3 helper
+passes catalog capture, live generation, editor/cache restart, conflict/DDL handling, installed
+frozen consumption and the new guarded table cases. An initial run rejected WAL drift during
+live catalog generation; the table fixtures now run after the existing host proof, preserving
+its isolated catalog context. The adapter's consistency guard and retry limits are unchanged.
+
+Final incremental workspace type checks, clean-tree quality and the isolated performance gate pass.
