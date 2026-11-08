@@ -1,4 +1,5 @@
 import { strict } from "poku";
+import type { LiveQueryVerifier } from "../../packages/core/src/index.js";
 import type {
   NativeDescription,
   NativePrepare,
@@ -36,4 +37,32 @@ export async function assertMySqlContractProtocol(prepare: NativePrepare): Promi
   await describe("SELECT CONCAT(?, ?) AS value", 2);
   const unsigned = await describe("SELECT CAST(1 AS UNSIGNED) AS value", 0);
   strict.equal(unsigned.columns![0]!.flags! & 32, 32, "Retain unsigned native identity");
+  for (const functionName of ["ATAN", "ATAN2"])
+    for (const argumentsSql of ["1", "1,2"])
+      strict.equal((await describe(`SELECT ${functionName}(${argumentsSql}) AS value`, 0)).columns![0]!.engineType, 5);
+}
+
+/** The packaged verifier must retain the same independently described protocol distinctions. */
+export async function assertMySqlVerificationMetadata(verifier: LiveQueryVerifier): Promise<void> {
+  const result = await verifier.verify({
+    fingerprint: `sha256:${"a".repeat(64)}`,
+    sql: "SELECT CAST(? AS DECIMAL(12,3)) AS amount, CAST(1 AS UNSIGNED) AS id, CONCAT(?, ?) AS text_value",
+    operation: "read",
+  });
+  strict.deepEqual(
+    result.columns.map(({ databaseType, tsType }) => [databaseType, tsType]),
+    [
+      ["decimal(12,3)", "string"],
+      ["bigint unsigned", "bigint"],
+      ["mediumtext", "string"],
+    ],
+  );
+  strict.deepEqual(
+    result.parameters.map(({ databaseType, tsType }) => [databaseType, tsType]),
+    [
+      ["decimal(65,30)", "string"],
+      ["varchar", "string"],
+      ["varchar", "string"],
+    ],
+  );
 }

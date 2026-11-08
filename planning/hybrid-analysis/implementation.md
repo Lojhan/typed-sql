@@ -169,3 +169,25 @@ evidence. Explicit query generation may overlay stale build-owned SQL declaratio
 while checking prospective types. It does not rewrite those declarations or waive application
 type errors, and application-owned declarations remain blocking. Ordinary checking still rejects
 stale declarations. This removes the generation/declaration cycle exposed by packed consumption.
+
+## MySQL protocol evidence and catalog bounds
+
+The audit adapter preserves independently ordered parameter definitions as well as result
+definitions. Real preparation-only checks on 8.4.11 and 9.7.2 retain decimal input/result
+differences, unsigned identity and text-versus-binary protocol evidence. The verifier now
+interprets these facets without assuming that a cast's result declaration describes its input.
+Missing required metadata stays unavailable. Its adapter revision advances to v3.
+
+The broader native audit caught a contradictory resolver bound for two-argument ATAN. Numeric
+and string-length families now declare their precise bounds in the maintained catalog input;
+the resolver's duplicate bounds are removed. Invalid catalog invocations return unknown with
+a diagnostic. Real preparation confirms both one- and two-argument ATAN/ATAN2 forms on the two
+qualified LTS patches, including the single-argument ATAN2 form not listed in the manual.
+
+These changes qualify metadata capture and verification, not MySQL contract acquisition.
+That adapter still needs a qualified consistency guard, binding scope and reconciliation owner.
+
+Validation: the full developer E2E flow passes on MySQL 8.4.11 and 9.7.2 under all three maintained
+SQL-mode profiles (default, lexical and numeric). Each flow includes native protocol checks,
+compiler verification, runtime decoding and reviewed independent language recognition. No live
+baseline or native finding is changed to accept the corrected argument bounds.

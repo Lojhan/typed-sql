@@ -1774,6 +1774,7 @@ class Resolver {
         (builtin.maximumArguments !== null && values.length > builtin.maximumArguments)
       ) {
         this.#diagnostic("TSQ227", `${functionName} has an invalid argument count`, expression.range);
+        return { tsType: "unknown", nullable: true };
       }
       const edition = this.#schema.server?.settings.edition;
       if (typeof edition === "string" && edition !== "unknown" && !builtin.editions.includes(edition as never)) {
@@ -2074,31 +2075,6 @@ class Resolver {
     range: SourceRange,
     expressions: readonly Expression[] = [],
   ): ResolvedType {
-    const exactUnary = [
-      "SIN",
-      "COS",
-      "TAN",
-      "ASIN",
-      "ACOS",
-      "ATAN",
-      "COT",
-      "LENGTH",
-      "CHAR_LENGTH",
-      "CHARACTER_LENGTH",
-      "OCTET_LENGTH",
-    ];
-    const minimum =
-      exactUnary.includes(functionName) ||
-      rule === "numeric-absolute" ||
-      rule === "numeric-integral" ||
-      rule === "numeric-round"
-        ? 1
-        : undefined;
-    const maximum = rule === "numeric-round" ? 2 : minimum;
-    if (minimum !== undefined && maximum !== undefined && (values.length < minimum || values.length > maximum)) {
-      this.#diagnostic("TSQ227", `${functionName} has an invalid argument count`, range);
-      return { tsType: "unknown", nullable: true };
-    }
     const argumentNullable = values.some((value) => value.nullable);
     if (rule === "numeric-absolute" || rule === "numeric-round" || rule === "numeric-integral") {
       const result = resolveMySqlNumeric(rule, values, expressions, this.#policy, this.#schema);

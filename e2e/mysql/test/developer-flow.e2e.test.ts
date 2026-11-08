@@ -39,7 +39,10 @@ import {
   assertLegacyValuePlans,
   assertMySqlRawJsonValuePlans,
 } from "../../../test/helpers/legacy-value-plans.js";
-import { assertMySqlContractProtocol } from "../../../test/helpers/mysql-contract-protocol.js";
+import {
+  assertMySqlContractProtocol,
+  assertMySqlVerificationMetadata,
+} from "../../../test/helpers/mysql-contract-protocol.js";
 import { assertMySqlNumericConformance } from "../../../test/helpers/mysql-numeric-conformance.js";
 import { mysqlCodecFidelity } from "../src/codec-query.js";
 import { mysqlJsonEmptyAggregate, mysqlJsonMutations, mysqlJsonProjection } from "../src/json-query.js";
@@ -273,6 +276,12 @@ try {
         const connection = await pool.getConnection();
         try {
           await assertMySqlContractProtocol((sql) => prepareMySql(connection, sql));
+          const verifier = createMySql2LiveVerifier({ connectionUri });
+          try {
+            await assertMySqlVerificationMetadata(verifier);
+          } finally {
+            await verifier.close();
+          }
         } finally {
           connection.release();
         }

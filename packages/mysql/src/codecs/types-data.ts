@@ -149,7 +149,7 @@ export const mySqlCodecTypes: Readonly<Record<string, Readonly<Record<string, My
   }
 };
 export const mySqlCatalogRevisions: Readonly<Record<string, string>> = {
-  "8.4": "sha256:50ab7ae828a07f7f7c3e2952337e820413b04322c3935c4f97b464202449ae5c",
-  "9.7": "sha256:b43d7d9250d075d534de587f7d01ddf7dc75321f5f7f289c4874da8745d4c366",
-  "26.7": "sha256:153e8b85912b32900129dca3a7635474af388ee130e868e2248f5b98be2dac8b"
+  "8.4": "sha256:9f71480c6afa8ac2568a0028d4e3d57e0b3e751ca1dbb93ced5f3e3497833be0",
+  "9.7": "sha256:69a8f46f93ca34ef41cdd3b8d4313ce8cb938c856b6d08869c397830f63b0351",
+  "26.7": "sha256:bf495703c04c2ead72799f285acb9c99ac255006f72122c4ebd1be222113942a"
 };

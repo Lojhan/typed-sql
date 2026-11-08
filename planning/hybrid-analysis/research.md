@@ -145,11 +145,21 @@ the result block, preserving missing blocks as unavailable.
 
 The [prepare protocol](https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_com_stmt_prepare.html)
 allows metadata omission during capability negotiation. Native acquisition must verify complete
-blocks and interpret their type/flag/charset/dimension facets under grammar policy. Existing
-verification's family-only type names do not establish a complete contract identity.
+blocks and interpret their type/flag/charset/dimension facets under grammar policy. The verifier
+now retains decimal dimensions and integer signedness, and distinguishes text from binary using
+the protocol character set. Missing required facets no longer produce an invented identity.
+This does not establish every facet of a complete contract: character lengths/collations,
+temporal dimensions and arbitrary routine binding still need acquisition qualification.
 
 MySQL also releases preparation metadata locks when preparation finishes, even inside a
 transaction ([metadata locking](https://dev.mysql.com/doc/refman/8.4/en/metadata-locking.html)).
 A read-only transaction alone therefore cannot guarantee dictionary stability across description
 and both context reads. A native acquisition implementation still needs a qualified consistency
 guard; the protocol regression does not claim that the acquisition adapter is implemented.
+
+A separate two-connection probe on 9.7.2 held `LOCK INSTANCE FOR BACKUP`, then attempted to
+create an owned fixture function from the second connection with `lock_wait_timeout=1`.
+Creation returned `ER_LOCK_WAIT_TIMEOUT`; unlocking allowed cleanup. This is evidence for a
+candidate guard, not full acquisition qualification. Before using it, tests must cover routine,
+table/view, extension/UDF and type/session dependencies, permissions, deadlines and release on
+cancellation or connection loss. No backup lock is acquired by the current verifier or audit.

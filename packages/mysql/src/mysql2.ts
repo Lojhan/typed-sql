@@ -74,6 +74,8 @@ interface MySql2VerificationField {
   readonly columnLength?: number;
   readonly length?: number;
   readonly flags?: number | readonly string[];
+  readonly decimals?: number;
+  readonly characterSet?: number;
 }
 
 interface MySql2VerificationStatement {
@@ -162,7 +164,7 @@ async function uri(value: MySql2Options["connectionUri"]): Promise<string> {
   return result;
 }
 
-const MYSQL_LIVE_VERIFIER_VERSION = "mysql-com-stmt-prepare-v2";
+const MYSQL_LIVE_VERIFIER_VERSION = "mysql-com-stmt-prepare-v3";
 const mysqlTypeNames = new Map<number, string>([
   [0, "decimal"],
   [1, "tinyint"],
@@ -204,6 +206,42 @@ function catalogColumnKey(schema: string, table: string, column: string): string
   return `${schema}\0${table}\0${column}`;
 }
 
+function protocolFlags(field: MySql2VerificationField): number | undefined {
+  const flags = field.flags;
+  return typeof flags === "number" && Number.isInteger(flags) && flags >= 0 && flags <= 65535 ? flags : undefined;
+}
+
+/** Protocol dimensions describe each slot independently; result casts are not input declarations. */
+function protocolType(field: MySql2VerificationField): string | undefined {
+  const code = field.columnType ?? field.type;
+  if (code === undefined) return undefined;
+  const base = mysqlTypeNames.get(code);
+  if (!base) return undefined;
+  const flags = protocolFlags(field);
+  const length = field.columnLength ?? field.length;
+  if ([0, 246].includes(code)) {
+    const scale = field.decimals;
+    if (flags === undefined || !Number.isSafeInteger(length) || !Number.isSafeInteger(scale)) return undefined;
+    const unsigned = (flags & 32) !== 0;
+    const precision = length! - (unsigned ? 0 : 1) - (scale! > 0 ? 1 : 0);
+    if (precision < 1 || precision > 65 || scale! < 0 || scale! > 30 || scale! > precision) return undefined;
+    return `decimal(${precision},${scale})${unsigned ? " unsigned" : ""}`;
+  }
+  if ([1, 2, 3, 8, 9].includes(code)) {
+    if (flags === undefined) return undefined;
+    return `${code === 1 && length === 1 ? "tinyint(1)" : base}${(flags & 32) !== 0 ? " unsigned" : ""}`;
+  }
+  if ([15, 253, 254, 249, 250, 251, 252].includes(code)) {
+    if (!Number.isSafeInteger(field.characterSet) || field.characterSet! <= 0 || field.characterSet! > 65535)
+      return undefined;
+    const binary = field.characterSet === 63;
+    if ([15, 253].includes(code)) return binary ? "varbinary" : "varchar";
+    if (code === 254) return binary ? "binary" : "char";
+    return binary ? base : base.replace("blob", "text");
+  }
+  return base;
+}
+
 function verificationField(
   field: MySql2VerificationField,
   index: number,
@@ -212,9 +250,6 @@ function verificationField(
   catalogColumns?: ReadonlyMap<string, string>,
   exposeNullability = true,
 ) {
-  const code = field.columnType ?? field.type ?? 6;
-  const length = field.columnLength ?? field.length;
-  const base = mysqlTypeNames.get(code) ?? `mysql-type-${code}`;
   const originSchema = field.schema ?? field.db;
   const originTable = field.orgTable ?? field.table;
   const originColumn = field.orgName;
@@ -227,13 +262,15 @@ function verificationField(
     originColumn.length === 0
       ? undefined
       : catalogColumns?.get(catalogColumnKey(originSchema, originTable, originColumn));
-  const databaseType = catalogType ?? (code === 1 && length === 1 ? "tinyint(1)" : base);
-  const flags = field.flags;
+  const databaseType = catalogType ?? protocolType(field);
+  const flags = protocolFlags(field);
   return {
     index,
     ...(field.name === undefined || field.name.length === 0 ? {} : { name: field.name }),
-    databaseType,
-    ...(isKnownMySqlType(databaseType, schema) ? { tsType: mapMySqlType(databaseType, policy, schema) } : {}),
+    ...(databaseType === undefined ? {} : { databaseType }),
+    ...(databaseType !== undefined && isKnownMySqlType(databaseType, schema)
+      ? { tsType: mapMySqlType(databaseType, policy, schema) }
+      : {}),
     ...(exposeNullability && typeof flags === "number" ? { nullable: (flags & 1) === 0 } : {}),
   };
 }

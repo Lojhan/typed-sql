@@ -16,6 +16,51 @@ const schema = {
 const resolve = (expression: string) => resolveMySqlStatement(parseStatement(`SELECT ${expression} AS value`), schema);
 
 await describe("MySQL numeric result families", async () => {
+  await it("uses catalog argument bounds for unary, optional and binary builtin families", () => {
+    for (const target of [...MYSQL_SUPPORT_POLICY.stable, MYSQL_SUPPORT_POLICY.canary]) {
+      for (const expression of [
+        "ATAN(1)",
+        "ATAN(1,2)",
+        "ATAN2(1)",
+        "ATAN2(1,2)",
+        "LOG(2)",
+        "LOG(2,8)",
+        "POW(2,3)",
+        "LENGTH('x')",
+        "LOCATE('x','text')",
+      ])
+        strict.deepEqual(
+          resolveMySqlStatement(parseStatement(`SELECT ${expression} AS value`), {
+            ...schema,
+            version: target.matrixVersion,
+          }).diagnostics,
+          [],
+          expression,
+        );
+      for (const expression of [
+        "ATAN()",
+        "ATAN(1,2,3)",
+        "ATAN2()",
+        "ATAN2(1,2,3)",
+        "LOG()",
+        "LOG(1,2,3)",
+        "LN(1,2)",
+        "POW(1)",
+        "LENGTH('x','y')",
+        "LOCATE('x')",
+      ]) {
+        const result = resolveMySqlStatement(parseStatement(`SELECT ${expression} AS value`), {
+          ...schema,
+          version: target.matrixVersion,
+        });
+        strict.equal(result.diagnostics.length, 1, expression);
+        strict.equal(result.diagnostics[0]?.code, "TSQ227", expression);
+        strict.equal(result.diagnostics[0]?.range.start, 7, expression);
+        strict.equal(result.columns[0]?.tsType, "unknown", expression);
+      }
+    }
+  });
+
   await it("preserves native numeric categories, domain nullability and source spans in every catalog band", () => {
     for (const target of [...MYSQL_SUPPORT_POLICY.stable, MYSQL_SUPPORT_POLICY.canary]) {
       for (const test of mysqlNumericCases) {
