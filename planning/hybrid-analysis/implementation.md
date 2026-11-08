@@ -689,3 +689,31 @@ passes all four Linux x64 jobs at a30e4d95, including native table contracts and
 Downloaded artifacts contain 70 reconciled contracts and 40 unsafe-object rejections across ten
 engine/compatibility targets. Clean build, quality, docs, API/package graph, three packed suites
 and isolated performance gates pass. Broader architecture acceptance remains outstanding.
+
+## Migration-derived qualification and disconnected builds
+
+The PostgreSQL developer-flow E2E suite now provisions isolated qualification/replay databases,
+plans and applies actual file-backed migrations through the public migration engine, introspects
+the resulting schema and exports an independently reconciled native query contract. Missing
+routines/extensions and changed semantic settings reject the previous context even when the
+table remains. An unqualified pgcrypto installation is explicitly rejected by native acquisition;
+its routine metadata is still introspectable. No extension admission policy was weakened.
+
+Both fixture databases are dropped before a separate packed installation consumes the durable
+inputs. The shared frozen-consumer proof removes analysis/catalog/native modules and excludes
+the pg driver, installs Node connection/DNS/fetch traps, checks compatible/incompatible downstream
+types, bundles through the public esbuild integration and inspects the generated query's value
+plan. Missing durable evidence remains an explicit failure. This proves scenario 21 for the
+qualified PostgreSQL profile, not every grammar/extension combination or an OS network namespace.
+
+The real flow exposed an introspection bug: PostgreSQL uses empty proargnames entries for unnamed
+parameters alongside named outputs. The shared routine codec now omits that absent name while
+preserving slots, modes and output labels. The provider regression fails before the fix and
+passes afterward; real pgcrypto metadata now introspects successfully.
+
+After the clean rebuild, the new migration/frozen flow and existing full PostgreSQL native/host
+proof pass on 18.3. All 37 PostgreSQL files and coverage, workspace types, nine soundness files,
+API/package graph, three packed suites and docs pass. See the
+[detailed scope and evidence](./migration-qualification-proof.md). Representative corpus
+measurements, reusable catalogs/packs and the full architecture acceptance remain outstanding.
+Final clean-tree quality and isolated performance checks pass.

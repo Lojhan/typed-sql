@@ -38,6 +38,7 @@ import {
   assertLegacyValuePlans,
   assertPostgresRawJsonValuePlans,
 } from "../../../test/helpers/legacy-value-plans.js";
+import { assertMigrationContractConsumer } from "../../../test/helpers/migration-contracts.js";
 import { assertPostgresNativeContracts } from "../../../test/helpers/postgres-native-contracts.js";
 import { postgresCodecFidelity } from "../src/codec-query.js";
 import { postgresJsonEmptyAggregate, postgresJsonNonfinite, postgresJsonProjection } from "../src/json-query.js";
@@ -201,6 +202,12 @@ try {
   }
 
   await describe("developer PostgreSQL flow", async () => {
+    await it("qualifies migration-derived contracts for a separate network-denied frozen consumer", async () => {
+      await assertMigrationContractConsumer(
+        connectionString,
+        resolve(dirname(fileURLToPath(import.meta.url)), "../../.."),
+      );
+    });
     await it("qualifies native query contracts within the adapter's declared version scope", async () => {
       await assertPostgresNativeContracts(
         connectionString,

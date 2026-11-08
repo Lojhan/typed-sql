@@ -337,7 +337,13 @@ export async function assertIsolatedPostgresContractConsumer(input: {
 }): Promise<void> {
   const workspace = fileURLToPath(new URL("../../", import.meta.url));
   const { NODE_PATH: _nodePath, ...env } = process.env;
-  const packed = await createPackedNativeEditorConsumer(workspace, env, ["postgres"]);
+  const packed = await createPackedNativeEditorConsumer(
+    workspace,
+    env,
+    ["postgres"],
+    ["@typed-sql/build"],
+    ["esbuild"],
+  );
   const { consumer } = packed;
   try {
     await omitPostgresAnalyzer(consumer);
@@ -368,7 +374,7 @@ globalThis.fetch = denied;
 syncBuiltinESMExports();
 `,
     );
-    const application = `${input.source}\nimport type { QueryRow } from "@typed-sql/core";\ndeclare const result: QueryRow<ReturnType<typeof query>>;\nconst checked: bigint | null = result.result;\nvoid checked;\n`;
+    const application = `${input.source}\nimport type { QueryRow } from "@typed-sql/core";\nfunction checkResult(result: QueryRow<ReturnType<typeof query>>) { const checked: bigint | null = result.result; return checked; }\nvoid checkResult;\n`;
     await writeFile(join(consumer, "application.ts"), application);
     await writeFile(join(consumer, "schema.json"), JSON.stringify(input.schema));
     await writeFile(
@@ -418,6 +424,27 @@ export default defineConfig({
     }
     if (!rejected) throw Error("Frozen packed CLI accepted an incompatible downstream result type");
     await writeFile(join(consumer, "application.ts"), application);
+    await writeFile(
+      join(consumer, "build.mjs"),
+      `
+import assert from "node:assert/strict";
+import {createRequire} from "node:module";
+import {typedSql} from "@typed-sql/build/esbuild";
+import {getQueryValuePlan} from "@typed-sql/core";
+const {build}=createRequire(import.meta.resolve("@typed-sql/build/esbuild"))("esbuild");
+await build({entryPoints:["application.ts"],outfile:"application.mjs",bundle:true,format:"esm",platform:"node",external:["@typed-sql/*"],plugins:[typedSql()]});
+const {query}=await import("./application.mjs");
+const statement=query(7n), plan=getQueryValuePlan(statement);
+assert.ok(plan);
+assert.equal(plan.columns[0].name,"result");assert.equal(plan.columns[0].type,"bigint");
+assert.equal(plan.columns[0].nullable,true);assert.equal(plan.parameters[0].type,"bigint");
+`,
+    );
+    await execFile(process.execPath, ["--import", join(consumer, "deny-network.mjs"), join(consumer, "build.mjs")], {
+      cwd: consumer,
+      env,
+      maxBuffer: 4 * 1024 * 1024,
+    });
     await writeFile(
       join(consumer, "consume.mjs"),
       `

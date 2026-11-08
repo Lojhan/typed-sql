@@ -104,7 +104,10 @@ export function postgresRoutineSnapshot(
     .filter((index) => argumentMode(modes[index]) !== "out");
   const defaultStart = inputPositions.length - (row.argument_defaults ?? 0);
   const argumentsList = row.argument_types.map((databaseType, index) => ({
-    ...(row.argument_names?.[index] == null ? {} : { name: row.argument_names[index]! }),
+    // pg_proc uses an empty entry for an unnamed parameter when other parameters are named.
+    ...(row.argument_names?.[index] == null || row.argument_names[index] === ""
+      ? {}
+      : { name: row.argument_names[index]! }),
     mode: argumentMode(modes[index]),
     typeIdentity: row.argument_type_identities?.[index] ?? databaseType,
     databaseType,

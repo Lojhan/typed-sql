@@ -539,6 +539,17 @@ class CatalogClient implements PostgresIntrospectionClient {
         },
         {
           schema_name: "public",
+          function_name: "pgp_armor_headers",
+          argument_types: ["text", "text", "text"],
+          database_return_type: "record",
+          set_returning: true,
+          volatility: "i",
+          routine_kind: "f",
+          argument_names: ["", "key", "value"],
+          argument_modes: ["i", "t", "t"],
+        },
+        {
+          schema_name: "public",
           function_name: "refresh_users",
           argument_types: [],
           database_return_type: "void",
@@ -863,6 +874,15 @@ await describe("PostgreSQL schema provider", async () => {
     strict.strictEqual(snapshot.routines.user_count?.length, 2);
     strict.strictEqual(snapshot.routines.user_count?.[1]?.polymorphicFamily, "postgres-anyelement");
     strict.strictEqual(snapshot.routines.table_result?.[0]?.extension?.attributes.parallelSafety, "safe");
+    const headers = snapshot.routines.pgp_armor_headers?.[0];
+    strict.equal(headers?.arguments[0]?.name, undefined);
+    strict.deepEqual(
+      headers?.arguments.map(({ mode }) => mode),
+      ["in", "out", "out"],
+    );
+    strict.equal(headers?.result.kind, "table");
+    if (headers?.result.kind !== "table") throw Error("Expected pgcrypto table result");
+    strict.deepEqual(Object.keys(headers.result.columns), ["key", "value"]);
   });
 
   await it("is canonical across shuffled catalog row order and version-safe catalog branches", async () => {
