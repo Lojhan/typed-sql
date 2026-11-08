@@ -1,0 +1,1593 @@
+{
+  "formatVersion": 1,
+  "sourceRevision": "4f19d94701cb58123681d5804e23bd424d3807d3",
+  "nodeVersion": "v24.22.2",
+  "esbuildVersion": "0.28.2",
+  "toolDigest": "f7eb9f6274ff346fa516081ff0880523d946253d9b0b9f74b14058b7e22b6f5b",
+  "lockfileDigest": "3dd42212226234b44678b68d5c169e8fac598db1268227bc9738e65885f198f1",
+  "method": {
+    "corpus": "Maintained commerceFiles query modules and DDL for every ledger grammar; schema comes from the same example parser used by the playground, not live introspection.",
+    "contracts": "Actual exported/reopened offline-rule contracts. No native evidence or qualification is manufactured; this does not measure native acquisition success or latency.",
+    "scaling": "Copy 1 is the unmodified commerce workload. Copies 10/50 add SQL comments to create exact-text variants; these are synthetic identity-growth stress tests, not additional application features or production popularity.",
+    "runtime": "All eligible TS query exports retained; SQL assets contribute artifacts but are excluded from both runtime bundle columns. rendererOnlyBundle has original tags; withValuePlansBundle has compiler-injected plans. Neither bundle contains schema snapshots or durable contract envelopes.",
+    "schemaGrowth": "Add 50/500 unused product-shaped relations, validated by each owner. This isolates compiler-input growth from query-plan/runtime growth.",
+    "compression": "gzip level 9; Brotli quality 11; closure compression uses sorted name/NUL/length/NUL/content framing, not a tarball or install size.",
+    "limitations": [
+      "Example DDL snapshots are conservative partial models, not full live catalog snapshots; complete index/constraint/introspection metadata costs are excluded.",
+      "Curated application examples are not production telemetry, a usage ranking, or a proof of full SQL coverage.",
+      "Inexact/dynamic rendering stays visible and is excluded from exact artifacts; compilable runtime-sized fragments still contribute their selector plans to runtime bundles. Diagnostic template files are excluded from bundles.",
+      "Known runtime descriptors do not certify nullability, JSON shape, precision or all semantic facets.",
+      "Installation payload and native contract evidence overhead are separate measurements."
+    ]
+  },
+  "corpusDigest": "cdb81ba26636921273199fb329e73846a92be22f7c62978e1fc402f4f873a4a9",
+  "runtimeInputDigests": {
+    "packages/core/dist/packages/core/src/json-input.js": "cb25e675cba97a7346bd0f83c7d4289c8df4e5c753a47a3b7cf090ac7f67675e",
+    "packages/core/dist/packages/core/src/json.js": "afb38afe71385be6c113129978395d7e6ebfe0d6c9e1fd113bf32151ff19c78c",
+    "packages/core/dist/packages/core/src/query-value-plan-selection.js": "0bdc7ecb7b98abec711be11203e6601a3b82806fe4bad3cf9b809c0878f10180",
+    "packages/core/dist/packages/core/src/query-value-plan.js": "e88a46c7c0e971eb15789cd5b0dab7c8e6ec96158e7d81a7077560ad8f961c3f",
+    "packages/core/dist/packages/core/src/query.js": "cf34c9d24bb951ea4093fc037bc00e7e7b3fe9a25bed51c1d10a3a9c8dc1fbd9",
+    "packages/core/dist/packages/core/src/result-validation.js": "86fa17e55601ba7d3dd96ef0a372a7b48379118bb0db64db18def8a27de230f1",
+    "packages/core/dist/packages/core/src/utf8.js": "72264ce3d38e1b74eb2fc643c74630a2e69ebcf6a29df9cd97163c1ef191ac7e",
+    "packages/duckdb/dist/packages/duckdb/src/query.js": "7d4d3d4ce05974d5dd0941562891ca15d6d6c42699f8206d40abf504114c920f",
+    "packages/mysql/dist/packages/mysql/src/query.js": "090ae3aefe58b6e7962eb898abe97521eae44dc0b6211a5c9567fde85d482728",
+    "packages/postgres/dist/packages/postgres/src/rendering.js": "5cb19e1f8608f11e2fcda326849bf5fc0f8a15ffbefa14b9a13d8db18a18a452",
+    "packages/sqlite/dist/packages/sqlite/src/query.js": "64ffb8acc9e0d559494e06157a6eb0137024a2ef73b413053df19be1a3bc7080",
+    "packages/sqlserver/dist/packages/sqlserver/src/query.js": "a227080c7b044d0ab8082af4e2a23ed22b34ee9685169d1896f1ddf204d899c9"
+  },
+  "rows": [
+    {
+      "grammar": "duckdb",
+      "schema": {
+        "bytes": 12583,
+        "gzipBytes": 1497,
+        "brotliBytes": 1267,
+        "digest": "3fcaeb3e5fbff00b757e439d488aea288c5f6010d62f46f7b182edfb9c03d0b0"
+      },
+      "coverage": [
+        {
+          "file": "queries/account.ts",
+          "sourceDigest": "d1921d5d9446c1e095e1dde93cb22b5fc2e5534203ded75cd6eb30fca048d14c",
+          "completeRendering": true,
+          "candidates": 1,
+          "eligible": true,
+          "runtimeTemplateEligible": true,
+          "runtimeQueryCount": 1,
+          "diagnostics": [],
+          "queryFacts": [
+            {
+              "sqlDigest": "ed21d8923fb54061176c9c8ccb21e793166ebdbb4eded957a1be218f2194fc90",
+              "unresolvedCodecDescriptors": []
+            }
+          ]
+        },
+        {
+          "file": "queries/audit.ts",
+          "sourceDigest": "50b115136484de803fc25bf79ee2ce8a8193f55fa96c21574a5748cc09aa4a85",
+          "completeRendering": true,
+          "candidates": 1,
+          "eligible": true,
+          "runtimeTemplateEligible": true,
+          "runtimeQueryCount": 1,
+          "diagnostics": [],
+          "queryFacts": [
+            {
+              "sqlDigest": "de93d63c2d1649ad371f492d5c0f2fb749f230997a6a1f67fd2b3d274f79ab5c",
+              "unresolvedCodecDescriptors": []
+            }
+          ]
+        },
+        {
+          "file": "queries/catalog.ts",
+          "sourceDigest": "4ebc00e2d8350284c4d05e50f2fecdd7fe2d74b2abe06bc371a72fe2d54a16b5",
+          "completeRendering": true,
+          "candidates": 2,
+          "eligible": true,
+          "runtimeTemplateEligible": true,
+          "runtimeQueryCount": 2,
+          "diagnostics": [],
+          "queryFacts": [
+            {
+              "sqlDigest": "49f3833e6eb018f238f8fe6c6339bcc8d9eaa78194047657185450855472c0b7",
+              "unresolvedCodecDescriptors": []
+            },
+            {
+              "sqlDigest": "f1562089e9b5e932eb1d4420fec957b1f24727b1e69e79e6e5bca4c2de46a6ca",
+              "unresolvedCodecDescriptors": []
+            }
+          ]
+        },
+        {
+          "file": "queries/insert-pair.ts",
+          "sourceDigest": "fde165a84dea255743ff672de5d09d976b86127d00f13792024604e38cf8370c",
+          "completeRendering": true,
+          "candidates": 1,
+          "eligible": true,
+          "runtimeTemplateEligible": true,
+          "runtimeQueryCount": 1,
+          "diagnostics": [],
+          "queryFacts": [
+            {
+              "sqlDigest": "ed53ded62f868bd6e22024b7f3ad610e285f38d78f221b11cb36ff585f6a6ac3",
+              "unresolvedCodecDescriptors": []
+            }
+          ]
+        },
+        {
+          "file": "queries/insert-products.ts",
+          "sourceDigest": "1c6c0d9f549fdf71e22277d7fa088e6f6eb1b6e39cebbfdc48a18e9915198dc5",
+          "completeRendering": false,
+          "candidates": 0,
+          "eligible": false,
+          "runtimeTemplateEligible": true,
+          "runtimeQueryCount": 1,
+          "diagnostics": ["TSQ013"],
+          "queryFacts": []
+        },
+        {
+          "file": "queries/native.sql",
+          "sourceDigest": "eb0565fbe09ce4f90e229ae632740398ad18cf75ff75e0c32d0d32fcae9cb721",
+          "completeRendering": true,
+          "candidates": 1,
+          "eligible": true,
+          "runtimeTemplateEligible": false,
+          "runtimeQueryCount": 0,
+          "diagnostics": [],
+          "queryFacts": [
+            {
+              "sqlDigest": "51ec793b6bec3eaf288ba8c4fa3d3d6fdb5e480901b9c0c387606a59d8183f6d",
+              "unresolvedCodecDescriptors": []
+            }
+          ]
+        },
+        {
+          "file": "queries/order-json.ts",
+          "sourceDigest": "5ae79a14a1c7b3371c745e197204c8f16c657388e0c3fcd05957434357e60672",
+          "completeRendering": true,
+          "candidates": 1,
+          "eligible": true,
+          "runtimeTemplateEligible": true,
+          "runtimeQueryCount": 1,
+          "diagnostics": [],
+          "queryFacts": [
+            {
+              "sqlDigest": "748fb57b38e5aff55f5931ea8de729ec0acdcba444e2a690fb0bf3b46009bbbf",
+              "unresolvedCodecDescriptors": []
+            }
+          ]
+        },
+        {
+          "file": "queries/revenue.sql",
+          "sourceDigest": "662af5d0b6cb3cf10f4e3fe1abcea18186c64f6fdd4ee3fba2ec0a310737988a",
+          "completeRendering": true,
+          "candidates": 1,
+          "eligible": true,
+          "runtimeTemplateEligible": false,
+          "runtimeQueryCount": 0,
+          "diagnostics": [],
+          "queryFacts": [
+            {
+              "sqlDigest": "662af5d0b6cb3cf10f4e3fe1abcea18186c64f6fdd4ee3fba2ec0a310737988a",
+              "unresolvedCodecDescriptors": []
+            }
+          ]
+        }
+      ],
+      "workloads": [
+        {
+          "copies": 1,
+          "sourceQueryFiles": 8,
+          "collectedCandidates": 8,
+          "knownCodecCandidates": 8,
+          "uniqueContracts": 8,
+          "runtimeTemplateModules": 6,
+          "durableFiles": 10,
+          "durableFileBytes": 14801,
+          "durableClosure": {
+            "bytes": 15566,
+            "gzipBytes": 2492,
+            "brotliBytes": 2049,
+            "digest": "27dccca1d5229ecee05bbf4a8886b0647ac7bf21a15e8b8d56b8a8109e5db9d7"
+          },
+          "valuePlans": {
+            "bytes": 6476,
+            "gzipBytes": 1005,
+            "brotliBytes": 849,
+            "digest": "3f24a2b68041a589a9099e0e1bed84d2bad95058cf5d3295ed1fc0eb83c2a650"
+          },
+          "rendererOnlyBundle": {
+            "bytes": 19464,
+            "gzipBytes": 6328,
+            "brotliBytes": 5675,
+            "digest": "79f586972a674343871c020deea5c6fe51db738979de991002c67bc06d73a17e",
+            "attribution": { "application": 1790, "core": 17489 },
+            "retainedApplicationModules": 6,
+            "retainedModules": 11
+          },
+          "withValuePlansBundle": {
+            "bytes": 29277,
+            "gzipBytes": 8532,
+            "brotliBytes": 7653,
+            "digest": "12285ddf328b952a0b898ff3554de1d3b4db26f0ab546410abd660f4b0fa6da7",
+            "attribution": { "application": 7082, "core": 21717, "duckdb": 293 },
+            "retainedApplicationModules": 6,
+            "retainedModules": 14
+          },
+          "selectedModuleThroughBarrel": {
+            "bytes": 18987,
+            "gzipBytes": 6099,
+            "brotliBytes": 5502,
+            "digest": "34dd745a340218f28ee0349cebac3a92ccdcf0e2647fcc4033e31ef89d30e12e",
+            "attribution": { "application": 1089, "core": 17490, "duckdb": 293 },
+            "retainedApplicationModules": 1,
+            "retainedModules": 7
+          }
+        },
+        {
+          "copies": 10,
+          "sourceQueryFiles": 80,
+          "collectedCandidates": 80,
+          "knownCodecCandidates": 80,
+          "uniqueContracts": 80,
+          "runtimeTemplateModules": 60,
+          "durableFiles": 82,
+          "durableFileBytes": 141422,
+          "durableClosure": {
+            "bytes": 148164,
+            "gzipBytes": 12613,
+            "brotliBytes": 7848,
+            "digest": "e00abc986421f67d3196ff714550a8703984dee9e14fdc494a347fb65e5331a7"
+          },
+          "valuePlans": {
+            "bytes": 64751,
+            "gzipBytes": 1467,
+            "brotliBytes": 855,
+            "digest": "f3547a8d8349e48abb9889602a145aa80204294a110a4d884f50564452a609e7"
+          },
+          "rendererOnlyBundle": {
+            "bytes": 37703,
+            "gzipBytes": 7634,
+            "brotliBytes": 6372,
+            "digest": "f273d32c221be3b76621462494facec97f2279378e0752477b074ed7523f3334",
+            "attribution": { "application": 19223, "core": 17489 },
+            "retainedApplicationModules": 60,
+            "retainedModules": 65
+          },
+          "withValuePlansBundle": {
+            "bytes": 95325,
+            "gzipBytes": 10812,
+            "brotliBytes": 8705,
+            "digest": "0797c059c981b39d49de9fb3ae8476b0d1216c999cf95716ef36745c25b12fa3",
+            "attribution": { "application": 72322, "core": 21720, "duckdb": 292 },
+            "retainedApplicationModules": 60,
+            "retainedModules": 68
+          },
+          "selectedModuleThroughBarrel": {
+            "bytes": 18987,
+            "gzipBytes": 6098,
+            "brotliBytes": 5504,
+            "digest": "72c9dc69392857c6ed6240c533ce24ac09acbd1efc2659e7d4eedfc1efa2cc28",
+            "attribution": { "application": 1089, "core": 17490, "duckdb": 293 },
+            "retainedApplicationModules": 1,
+            "retainedModules": 7
+          }
+        },
+        {
+          "copies": 50,
+          "sourceQueryFiles": 400,
+          "collectedCandidates": 400,
+          "knownCodecCandidates": 400,
+          "uniqueContracts": 400,
+          "runtimeTemplateModules": 300,
+          "durableFiles": 402,
+          "durableFileBytes": 704182,
+          "durableClosure": {
+            "bytes": 737485,
+            "gzipBytes": 57825,
+            "brotliBytes": 32589,
+            "digest": "ffba07ce463f270ce457e1f482f2cb20f8422d28883483cfc0256e41d2396769"
+          },
+          "valuePlans": {
+            "bytes": 323751,
+            "gzipBytes": 3140,
+            "brotliBytes": 856,
+            "digest": "06d54a1931dd5a81a061fd7af951e1ef6a10c7e6afe868c869cf0abd873fea98"
+          },
+          "rendererOnlyBundle": {
+            "bytes": 119263,
+            "gzipBytes": 12953,
+            "brotliBytes": 8869,
+            "digest": "7a783a006eb6b4798812a236759173a9b627c3f121401c8944f23bc624f8aa9b",
+            "attribution": { "application": 96983, "core": 17489 },
+            "retainedApplicationModules": 300,
+            "retainedModules": 305
+          },
+          "withValuePlansBundle": {
+            "bytes": 389405,
+            "gzipBytes": 20125,
+            "brotliBytes": 12706,
+            "digest": "15ca2acb3e8808a1b367428354ed1bdb3152806b030d02f344de32a0eb6bc2ec",
+            "attribution": { "application": 362602, "core": 21720, "duckdb": 292 },
+            "retainedApplicationModules": 300,
+            "retainedModules": 308
+          },
+          "selectedModuleThroughBarrel": {
+            "bytes": 18987,
+            "gzipBytes": 6099,
+            "brotliBytes": 5506,
+            "digest": "ac4f0a3497185ad36a381d4cb49340419614c744fe2548f276decaecedb7cfc9",
+            "attribution": { "application": 1089, "core": 17490, "duckdb": 293 },
+            "retainedApplicationModules": 1,
+            "retainedModules": 7
+          }
+        }
+      ],
+      "schemaGrowth": [
+        {
+          "extraTables": 0,
+          "totalRelations": 7,
+          "snapshot": {
+            "bytes": 12583,
+            "gzipBytes": 1497,
+            "brotliBytes": 1267,
+            "digest": "3fcaeb3e5fbff00b757e439d488aea288c5f6010d62f46f7b182edfb9c03d0b0"
+          }
+        },
+        {
+          "extraTables": 50,
+          "totalRelations": 57,
+          "snapshot": {
+            "bytes": 191163,
+            "gzipBytes": 3086,
+            "brotliBytes": 1635,
+            "digest": "685d97b6f236227a41cbc16758f05f874a008b506a6f78eb8b3d7b81aa895dc8"
+          }
+        },
+        {
+          "extraTables": 500,
+          "totalRelations": 507,
+          "snapshot": {
+            "bytes": 1799363,
+            "gzipBytes": 14851,
+            "brotliBytes": 3749,
+            "digest": "5e0198f039b33d28f226ae11e5ce28e01bdd4503925523a01560b0f8ce070960"
+          }
+        }
+      ]
+    },
+    {
+      "grammar": "mysql",
+      "schema": {
+        "bytes": 11164,
+        "gzipBytes": 1222,
+        "brotliBytes": 1037,
+        "digest": "781dee287cbb92a65f5371932f1222f91cc5f882c2c9d7a7f58c10e60d0830ba"
+      },
+      "coverage": [
+        {
+          "file": "queries/account.ts",
+          "sourceDigest": "6ef35de9ca93c80f1f84b8395e265f4977d2110ecf7a9ed022ee19f76e4ad4ac",
+          "completeRendering": true,
+          "candidates": 1,
+          "eligible": true,
+          "runtimeTemplateEligible": true,
+          "runtimeQueryCount": 1,
+          "diagnostics": [],
+          "queryFacts": [
+            {
+              "sqlDigest": "6134b8f32c6563e4b860c849d0e968af88bec642d16c372e2d86609b0504f50d",
+              "unresolvedCodecDescriptors": []
+            }
+          ]
+        },
+        {
+          "file": "queries/audit.ts",
+          "sourceDigest": "2f35e44fd18b2de23d178525f3189363805118109c6efaf43dfff4caf55a6dbe",
+          "completeRendering": true,
+          "candidates": 1,
+          "eligible": true,
+          "runtimeTemplateEligible": true,
+          "runtimeQueryCount": 1,
+          "diagnostics": [],
+          "queryFacts": [
+            {
+              "sqlDigest": "fb4e02e1d878417de0c8aae131b1d39f402e146dbb3ade0e1b2e910e898f57a7",
+              "unresolvedCodecDescriptors": [{ "target": "parameter", "index": 3, "databaseType": "JSON" }]
+            }
+          ]
+        },
+        {
+          "file": "queries/catalog.ts",
+          "sourceDigest": "ed42d933132848b445c881a50b4f04ac645a585985ae6988e337de2459d3df04",
+          "completeRendering": true,
+          "candidates": 2,
+          "eligible": true,
+          "runtimeTemplateEligible": true,
+          "runtimeQueryCount": 2,
+          "diagnostics": [],
+          "queryFacts": [
+            {
+              "sqlDigest": "302cec30542eeb7c9884b3185448ea04bc718d4c40b51612c9be8870937835fd",
+              "unresolvedCodecDescriptors": []
+            },
+            {
+              "sqlDigest": "0a889c7c3b4debfdd14bd0be523ff23db02b244440e1b89f920f8ed338604aa9",
+              "unresolvedCodecDescriptors": []
+            }
+          ]
+        },
+        {
+          "file": "queries/insert-pair.ts",
+          "sourceDigest": "cd152cfb08880cb00580c9e56ffb21ec6b953eb12ede0d7ddc4b7b79ca570182",
+          "completeRendering": true,
+          "candidates": 1,
+          "eligible": true,
+          "runtimeTemplateEligible": true,
+          "runtimeQueryCount": 1,
+          "diagnostics": [],
+          "queryFacts": [
+            {
+              "sqlDigest": "bf9867440d02c22bc5c7dbc632f0128106f5e194533f4743276cb43ff352f2e5",
+              "unresolvedCodecDescriptors": []
+            }
+          ]
+        },
+        {
+          "file": "queries/insert-products.ts",
+          "sourceDigest": "0af37fd76936752e6969cd960d6788da9d3252a03a987543c721dbc76c32c1c0",
+          "completeRendering": false,
+          "candidates": 0,
+          "eligible": false,
+          "runtimeTemplateEligible": true,
+          "runtimeQueryCount": 1,
+          "diagnostics": ["TSQ013"],
+          "queryFacts": []
+        },
+        {
+          "file": "queries/order-json.ts",
+          "sourceDigest": "e86e776c1d6e277d812126608fb2b8493be9ca3f123a5e27a17bd34f6a9af204",
+          "completeRendering": true,
+          "candidates": 1,
+          "eligible": true,
+          "runtimeTemplateEligible": true,
+          "runtimeQueryCount": 1,
+          "diagnostics": [],
+          "queryFacts": [
+            {
+              "sqlDigest": "1f62680e943a1f976cf95612692f42e63611a32c5feaf968db0d1c144df2495b",
+              "unresolvedCodecDescriptors": []
+            }
+          ]
+        },
+        {
+          "file": "queries/revenue.sql",
+          "sourceDigest": "2b63c708369ee165048f3a56575b463db6d141b4a7808891da8183615c3aded0",
+          "completeRendering": true,
+          "candidates": 1,
+          "eligible": true,
+          "runtimeTemplateEligible": false,
+          "runtimeQueryCount": 0,
+          "diagnostics": [],
+          "queryFacts": [
+            {
+              "sqlDigest": "2b63c708369ee165048f3a56575b463db6d141b4a7808891da8183615c3aded0",
+              "unresolvedCodecDescriptors": []
+            }
+          ]
+        }
+      ],
+      "workloads": [
+        {
+          "copies": 1,
+          "sourceQueryFiles": 7,
+          "collectedCandidates": 7,
+          "knownCodecCandidates": 6,
+          "uniqueContracts": 7,
+          "runtimeTemplateModules": 6,
+          "durableFiles": 9,
+          "durableFileBytes": 11504,
+          "durableClosure": {
+            "bytes": 12186,
+            "gzipBytes": 2035,
+            "brotliBytes": 1684,
+            "digest": "d1cd0c79e6861f70f4a6a98c60eb5f51cb32cc6bf7af1db4df4caf418bd0ac10"
+          },
+          "valuePlans": {
+            "bytes": 4357,
+            "gzipBytes": 723,
+            "brotliBytes": 592,
+            "digest": "71b09873dbdd28d6638a6582fc331b325fb877c3218aa26cf96e144daaa82bcd"
+          },
+          "rendererOnlyBundle": {
+            "bytes": 19604,
+            "gzipBytes": 6414,
+            "brotliBytes": 5750,
+            "digest": "2fcf862e4d1b2f4b15f24178df5b13e5747d6d688a89c62fc09c011faedc97d8",
+            "attribution": { "application": 1930, "core": 17489 },
+            "retainedApplicationModules": 6,
+            "retainedModules": 11
+          },
+          "withValuePlansBundle": {
+            "bytes": 28447,
+            "gzipBytes": 8474,
+            "brotliBytes": 7624,
+            "digest": "1070d32cae6bfa08001da4c0480306e504df0bf63aaf04f36b8f60439dfc398b",
+            "attribution": { "application": 6450, "core": 21717, "mysql": 95 },
+            "retainedApplicationModules": 6,
+            "retainedModules": 14
+          },
+          "selectedModuleThroughBarrel": {
+            "bytes": 18710,
+            "gzipBytes": 6039,
+            "brotliBytes": 5469,
+            "digest": "cfaaadd9a31326498c03ff34bea30acc4d2be6bdfb0503612e04cab31599d280",
+            "attribution": { "application": 1010, "core": 17490, "mysql": 95 },
+            "retainedApplicationModules": 1,
+            "retainedModules": 7
+          }
+        },
+        {
+          "copies": 10,
+          "sourceQueryFiles": 70,
+          "collectedCandidates": 70,
+          "knownCodecCandidates": 60,
+          "uniqueContracts": 70,
+          "runtimeTemplateModules": 60,
+          "durableFiles": 72,
+          "durableFileBytes": 108470,
+          "durableClosure": {
+            "bytes": 114382,
+            "gzipBytes": 10010,
+            "brotliBytes": 6748,
+            "digest": "652921093c727dd76a724c7d400a0fd07398c4beea72d74fdd533282ba59725a"
+          },
+          "valuePlans": {
+            "bytes": 43561,
+            "gzipBytes": 1044,
+            "brotliBytes": 599,
+            "digest": "dff24668be8ea1285f7ab387902f22392fecb8d49cc5645a430c91eadeee2742"
+          },
+          "rendererOnlyBundle": {
+            "bytes": 39103,
+            "gzipBytes": 7788,
+            "brotliBytes": 6500,
+            "digest": "6bf6ad05f0a57667a0ab70679991f194b30b98c9f9338d34fbec94e12684bdd1",
+            "attribution": { "application": 20623, "core": 17489 },
+            "retainedApplicationModules": 60,
+            "retainedModules": 65
+          },
+          "withValuePlansBundle": {
+            "bytes": 88807,
+            "gzipBytes": 10708,
+            "brotliBytes": 8649,
+            "digest": "92becc2f001305637098751c2b5f2fd76a1aecab3a5ef78569d8f67658eaafbe",
+            "attribution": { "application": 66002, "core": 21720, "mysql": 94 },
+            "retainedApplicationModules": 60,
+            "retainedModules": 68
+          },
+          "selectedModuleThroughBarrel": {
+            "bytes": 18710,
+            "gzipBytes": 6036,
+            "brotliBytes": 5472,
+            "digest": "0be28476385019b9cde2263854acde55c724965063d2b426352456cb52cb03fa",
+            "attribution": { "application": 1010, "core": 17490, "mysql": 95 },
+            "retainedApplicationModules": 1,
+            "retainedModules": 7
+          }
+        },
+        {
+          "copies": 50,
+          "sourceQueryFiles": 350,
+          "collectedCandidates": 350,
+          "knownCodecCandidates": 300,
+          "uniqueContracts": 350,
+          "runtimeTemplateModules": 300,
+          "durableFiles": 352,
+          "durableFileBytes": 539430,
+          "durableClosure": {
+            "bytes": 568583,
+            "gzipBytes": 47874,
+            "brotliBytes": 28618,
+            "digest": "e7deb9c80de17bee694a12e8cc7bf60411855a882febb5c1494296cd2e9a9679"
+          },
+          "valuePlans": {
+            "bytes": 217801,
+            "gzipBytes": 2168,
+            "brotliBytes": 599,
+            "digest": "457be55ab01dd9bb542503e2c3ae03f995ac00e7a06a3428deb1124fef4402ed"
+          },
+          "rendererOnlyBundle": {
+            "bytes": 126263,
+            "gzipBytes": 13369,
+            "brotliBytes": 9142,
+            "digest": "9415564c7740f62398c7b6774a5e6a0a102142e3b4c0b4edc9fdbe14f79ebf49",
+            "attribution": { "application": 103983, "core": 17489 },
+            "retainedApplicationModules": 300,
+            "retainedModules": 305
+          },
+          "withValuePlansBundle": {
+            "bytes": 357607,
+            "gzipBytes": 19852,
+            "brotliBytes": 12574,
+            "digest": "5aca7a28a23a73bc22ebaa44a499386572229820864599bfb8b345f3b2a57d66",
+            "attribution": { "application": 331002, "core": 21720, "mysql": 94 },
+            "retainedApplicationModules": 300,
+            "retainedModules": 308
+          },
+          "selectedModuleThroughBarrel": {
+            "bytes": 18710,
+            "gzipBytes": 6039,
+            "brotliBytes": 5444,
+            "digest": "cf5c43a63c21eb9d745feace0f5c752bd7e5178aa19f923f3294243e5241445b",
+            "attribution": { "application": 1010, "core": 17490, "mysql": 95 },
+            "retainedApplicationModules": 1,
+            "retainedModules": 7
+          }
+        }
+      ],
+      "schemaGrowth": [
+        {
+          "extraTables": 0,
+          "totalRelations": 7,
+          "snapshot": {
+            "bytes": 11164,
+            "gzipBytes": 1222,
+            "brotliBytes": 1037,
+            "digest": "781dee287cbb92a65f5371932f1222f91cc5f882c2c9d7a7f58c10e60d0830ba"
+          }
+        },
+        {
+          "extraTables": 50,
+          "totalRelations": 57,
+          "snapshot": {
+            "bytes": 101994,
+            "gzipBytes": 2191,
+            "brotliBytes": 1310,
+            "digest": "f65717d0d0de910969b7acfd7e9b29b50117e7257a24f5cc2c543294bfca329d"
+          }
+        },
+        {
+          "extraTables": 500,
+          "totalRelations": 507,
+          "snapshot": {
+            "bytes": 920444,
+            "gzipBytes": 8922,
+            "brotliBytes": 2635,
+            "digest": "b8267c2262f8755264838f8ee014ddaaaff1c1b9e3c05ef2d95064e4af7b8a22"
+          }
+        }
+      ]
+    },
+    {
+      "grammar": "postgres",
+      "schema": {
+        "bytes": 11522,
+        "gzipBytes": 1264,
+        "brotliBytes": 1062,
+        "digest": "25faf7249418a8ce8a106e85a2bb7a296aafa7e4686cc7708a99d8fb386cc4b0"
+      },
+      "coverage": [
+        {
+          "file": "queries/account.ts",
+          "sourceDigest": "f991555e5cbf09a79d4b68d53a7211ee51b30a4da9942110e6fa0947e71f560d",
+          "completeRendering": true,
+          "candidates": 1,
+          "eligible": true,
+          "runtimeTemplateEligible": true,
+          "runtimeQueryCount": 1,
+          "diagnostics": [],
+          "queryFacts": [
+            {
+              "sqlDigest": "ed21d8923fb54061176c9c8ccb21e793166ebdbb4eded957a1be218f2194fc90",
+              "unresolvedCodecDescriptors": [
+                { "target": "column", "name": "status", "databaseType": "account_status" },
+                { "target": "column", "name": "role", "databaseType": "membership_role" }
+              ]
+            }
+          ]
+        },
+        {
+          "file": "queries/audit.ts",
+          "sourceDigest": "4af15d15227a3810dafc6e2f6da10355e9849d321ed7427a76feea5b4c40e139",
+          "completeRendering": true,
+          "candidates": 1,
+          "eligible": true,
+          "runtimeTemplateEligible": true,
+          "runtimeQueryCount": 1,
+          "diagnostics": [],
+          "queryFacts": [
+            {
+              "sqlDigest": "1b01d7f68b04ace4e20130a6b15ff228ba8ec98845af89c840e86b55b7f13932",
+              "unresolvedCodecDescriptors": []
+            }
+          ]
+        },
+        {
+          "file": "queries/catalog.ts",
+          "sourceDigest": "c1fb0ae8f9b8d365e83142281813cf53de8cac253225a6eff2416f1398ba9645",
+          "completeRendering": true,
+          "candidates": 2,
+          "eligible": true,
+          "runtimeTemplateEligible": true,
+          "runtimeQueryCount": 2,
+          "diagnostics": [],
+          "queryFacts": [
+            {
+              "sqlDigest": "18afec7b91a04192e2d207fa6dbe54d1fb701405f5665cf4a2db7195fae64f48",
+              "unresolvedCodecDescriptors": []
+            },
+            {
+              "sqlDigest": "5fdb0b27095544b34ea92a78e6e2ff23ebd99beb34f38ca88eabcbc471bf2edf",
+              "unresolvedCodecDescriptors": [{ "target": "column", "name": "status", "databaseType": "order_status" }]
+            }
+          ]
+        },
+        {
+          "file": "queries/insert-pair.ts",
+          "sourceDigest": "0e19fd98ebc18bc0fbe72f94446c5abad4c8a7cd1aa3d4deb99efc84f9c00d5c",
+          "completeRendering": true,
+          "candidates": 1,
+          "eligible": true,
+          "runtimeTemplateEligible": true,
+          "runtimeQueryCount": 1,
+          "diagnostics": [],
+          "queryFacts": [
+            {
+              "sqlDigest": "1c92601e7095b6a8d0647fd0f2193b17e78bc5799ff54ec2e50f519ae94f05db",
+              "unresolvedCodecDescriptors": []
+            }
+          ]
+        },
+        {
+          "file": "queries/insert-products.ts",
+          "sourceDigest": "2028d90240cab990fef4c750e1dcb954a8eb7a66c95635ca8b06aa03ed42ad6a",
+          "completeRendering": false,
+          "candidates": 0,
+          "eligible": false,
+          "runtimeTemplateEligible": true,
+          "runtimeQueryCount": 1,
+          "diagnostics": ["TSQ013"],
+          "queryFacts": []
+        },
+        {
+          "file": "queries/order-json.ts",
+          "sourceDigest": "b1f1a436d4cccf872726b4fc7e241fa2266d087a0683145320c7cf73eb5909f9",
+          "completeRendering": true,
+          "candidates": 1,
+          "eligible": true,
+          "runtimeTemplateEligible": true,
+          "runtimeQueryCount": 1,
+          "diagnostics": [],
+          "queryFacts": [
+            {
+              "sqlDigest": "0ddff0cd316bad4bf4393eb1dcfa16b18d09df6ade69bbd35cc0151f426cd9ea",
+              "unresolvedCodecDescriptors": []
+            }
+          ]
+        },
+        {
+          "file": "queries/revenue.sql",
+          "sourceDigest": "4d27fedf94f9bbd1893b7eddb57fb5ca180db2a2c7c67fd14d150056e721c7e8",
+          "completeRendering": true,
+          "candidates": 1,
+          "eligible": true,
+          "runtimeTemplateEligible": false,
+          "runtimeQueryCount": 0,
+          "diagnostics": [],
+          "queryFacts": [
+            {
+              "sqlDigest": "4d27fedf94f9bbd1893b7eddb57fb5ca180db2a2c7c67fd14d150056e721c7e8",
+              "unresolvedCodecDescriptors": []
+            }
+          ]
+        }
+      ],
+      "workloads": [
+        {
+          "copies": 1,
+          "sourceQueryFiles": 7,
+          "collectedCandidates": 7,
+          "knownCodecCandidates": 5,
+          "uniqueContracts": 7,
+          "runtimeTemplateModules": 6,
+          "durableFiles": 9,
+          "durableFileBytes": 12193,
+          "durableClosure": {
+            "bytes": 12875,
+            "gzipBytes": 2005,
+            "brotliBytes": 1644,
+            "digest": "7186b5774590da7967c84dfcede17f202025e61f0dda4b51cf6d0e4ee93c64fe"
+          },
+          "valuePlans": {
+            "bytes": 4848,
+            "gzipBytes": 663,
+            "brotliBytes": 540,
+            "digest": "dd065394452491e661ca0580dde925ef8fa6d650644a1aab12c16d11b3527f2f"
+          },
+          "rendererOnlyBundle": {
+            "bytes": 19770,
+            "gzipBytes": 6447,
+            "brotliBytes": 5770,
+            "digest": "f4e3511331256e9666cbe07ffdfa9c1d1eef9c633193876fdf0ddfe35288caca",
+            "attribution": { "application": 2096, "core": 17489 },
+            "retainedApplicationModules": 6,
+            "retainedModules": 11
+          },
+          "withValuePlansBundle": {
+            "bytes": 29329,
+            "gzipBytes": 8545,
+            "brotliBytes": 7686,
+            "digest": "ade21fd39fa79315991055029eeb9c488e090ef0eba6a4174c8e5fa2f2147745",
+            "attribution": { "application": 7229, "core": 21720, "postgres": 195 },
+            "retainedApplicationModules": 6,
+            "retainedModules": 14
+          },
+          "selectedModuleThroughBarrel": {
+            "bytes": 18559,
+            "gzipBytes": 5936,
+            "brotliBytes": 5364,
+            "digest": "f4b9794109c3424032d9aa77e39f2690e94b7f2ce97ff42db74484fc7a7e2078",
+            "attribution": { "application": 954, "core": 17490 },
+            "retainedApplicationModules": 1,
+            "retainedModules": 6
+          }
+        },
+        {
+          "copies": 10,
+          "sourceQueryFiles": 70,
+          "collectedCandidates": 70,
+          "knownCodecCandidates": 50,
+          "uniqueContracts": 70,
+          "runtimeTemplateModules": 60,
+          "durableFiles": 72,
+          "durableFileBytes": 115324,
+          "durableClosure": {
+            "bytes": 121236,
+            "gzipBytes": 10207,
+            "brotliBytes": 6714,
+            "digest": "8263d94cc2c36440ee2cc7a687a7580d4102627134821a5c16a9c477f98befc2"
+          },
+          "valuePlans": {
+            "bytes": 48471,
+            "gzipBytes": 1003,
+            "brotliBytes": 547,
+            "digest": "6dfebc19eb66e58004f7f56b5610c51aea02be53ad5e6e9a3b2654da4ac153f6"
+          },
+          "rendererOnlyBundle": {
+            "bytes": 40763,
+            "gzipBytes": 7833,
+            "brotliBytes": 6495,
+            "digest": "2091b0cdec96bcf46a97cfe169be381207bd5a2153961c82c900f24e19dbd6e7",
+            "attribution": { "application": 22283, "core": 17489 },
+            "retainedApplicationModules": 60,
+            "retainedModules": 65
+          },
+          "withValuePlansBundle": {
+            "bytes": 96708,
+            "gzipBytes": 10845,
+            "brotliBytes": 8697,
+            "digest": "8058402dccbeaa722bc766847b7b5fe645677b53826f23b915cb742c1c31fa67",
+            "attribution": { "application": 73802, "core": 21720, "postgres": 195 },
+            "retainedApplicationModules": 60,
+            "retainedModules": 68
+          },
+          "selectedModuleThroughBarrel": {
+            "bytes": 18559,
+            "gzipBytes": 5937,
+            "brotliBytes": 5374,
+            "digest": "16d3b1c19ff37928b0f66fe71447936c921dce77d6614cc110ff39fb22dcb0a7",
+            "attribution": { "application": 954, "core": 17490 },
+            "retainedApplicationModules": 1,
+            "retainedModules": 6
+          }
+        },
+        {
+          "copies": 50,
+          "sourceQueryFiles": 350,
+          "collectedCandidates": 350,
+          "knownCodecCandidates": 250,
+          "uniqueContracts": 350,
+          "runtimeTemplateModules": 300,
+          "durableFiles": 352,
+          "durableFileBytes": 573684,
+          "durableClosure": {
+            "bytes": 602837,
+            "gzipBytes": 48217,
+            "brotliBytes": 28598,
+            "digest": "c1bfbbdc3310063f7abfe162324e74953db2f40233902aeb87cd39cd1fc7bde7"
+          },
+          "valuePlans": {
+            "bytes": 242351,
+            "gzipBytes": 2250,
+            "brotliBytes": 547,
+            "digest": "261a1542b8a4ee9a1e5d270fef47315f6d9dc3ca9a9bc9ecc574670c1778b909"
+          },
+          "rendererOnlyBundle": {
+            "bytes": 134563,
+            "gzipBytes": 13458,
+            "brotliBytes": 9225,
+            "digest": "aef72b3ef6c2e461910a3126e619cf6a2e227a83b1a959a191cf28c6826f3600",
+            "attribution": { "application": 112283, "core": 17489 },
+            "retainedApplicationModules": 300,
+            "retainedModules": 305
+          },
+          "withValuePlansBundle": {
+            "bytes": 396708,
+            "gzipBytes": 20260,
+            "brotliBytes": 12643,
+            "digest": "7d9a8c8029a43d95aa2b10493f73727829f2d12e73a10e82f77c0475a73565f1",
+            "attribution": { "application": 370002, "core": 21720, "postgres": 195 },
+            "retainedApplicationModules": 300,
+            "retainedModules": 308
+          },
+          "selectedModuleThroughBarrel": {
+            "bytes": 18559,
+            "gzipBytes": 5932,
+            "brotliBytes": 5355,
+            "digest": "78bbb08219c1556631fc5d649ecea5bf7565e25b45c298ed0123eb833db3e56a",
+            "attribution": { "application": 954, "core": 17490 },
+            "retainedApplicationModules": 1,
+            "retainedModules": 6
+          }
+        }
+      ],
+      "schemaGrowth": [
+        {
+          "extraTables": 0,
+          "totalRelations": 7,
+          "snapshot": {
+            "bytes": 11522,
+            "gzipBytes": 1264,
+            "brotliBytes": 1062,
+            "digest": "25faf7249418a8ce8a106e85a2bb7a296aafa7e4686cc7708a99d8fb386cc4b0"
+          }
+        },
+        {
+          "extraTables": 50,
+          "totalRelations": 57,
+          "snapshot": {
+            "bytes": 100902,
+            "gzipBytes": 2245,
+            "brotliBytes": 1351,
+            "digest": "fffeca752d9e142a96476b698693104d3aea3f5c08753163556851afae763661"
+          }
+        },
+        {
+          "extraTables": 500,
+          "totalRelations": 507,
+          "snapshot": {
+            "bytes": 906302,
+            "gzipBytes": 8953,
+            "brotliBytes": 2638,
+            "digest": "77c10b64f90e78fc415c850cde2212991a451c596df5c1c87a0eacf540435c90"
+          }
+        }
+      ]
+    },
+    {
+      "grammar": "sqlite",
+      "schema": {
+        "bytes": 10469,
+        "gzipBytes": 879,
+        "brotliBytes": 724,
+        "digest": "981098c7897f72a1cd4264b66070ff54e833549de74bf5e0533d8998a4322669"
+      },
+      "coverage": [
+        {
+          "file": "queries/account.ts",
+          "sourceDigest": "22102dd102849b83414426fe09e3d486e368a2e905ef78c67e3c9619fabec394",
+          "completeRendering": true,
+          "candidates": 1,
+          "eligible": true,
+          "runtimeTemplateEligible": true,
+          "runtimeQueryCount": 1,
+          "diagnostics": [],
+          "queryFacts": [
+            {
+              "sqlDigest": "6134b8f32c6563e4b860c849d0e968af88bec642d16c372e2d86609b0504f50d",
+              "unresolvedCodecDescriptors": []
+            }
+          ]
+        },
+        {
+          "file": "queries/audit.ts",
+          "sourceDigest": "249450e2a3dfa4eb53e95dc3cf740d5ef69e6db56289559c2c5257ee0a8a1149",
+          "completeRendering": true,
+          "candidates": 1,
+          "eligible": true,
+          "runtimeTemplateEligible": true,
+          "runtimeQueryCount": 1,
+          "diagnostics": [],
+          "queryFacts": [
+            {
+              "sqlDigest": "be1b2ef417d5c2bc74ff36039ce19bcdbdcd63360a2c603f1df5de0cbe432d86",
+              "unresolvedCodecDescriptors": []
+            }
+          ]
+        },
+        {
+          "file": "queries/catalog.ts",
+          "sourceDigest": "81c0906ed7ff231549ba7511d27a204c074c2ddb5c011775e8a58bad7ec32025",
+          "completeRendering": true,
+          "candidates": 2,
+          "eligible": true,
+          "runtimeTemplateEligible": true,
+          "runtimeQueryCount": 2,
+          "diagnostics": [],
+          "queryFacts": [
+            {
+              "sqlDigest": "302cec30542eeb7c9884b3185448ea04bc718d4c40b51612c9be8870937835fd",
+              "unresolvedCodecDescriptors": []
+            },
+            {
+              "sqlDigest": "47f5c8550617384f0a2ec0d4af8f9a01d5f6c0e8abfcbf247bd3fa570a1690ea",
+              "unresolvedCodecDescriptors": []
+            }
+          ]
+        },
+        {
+          "file": "queries/insert-pair.ts",
+          "sourceDigest": "58631971d18895a3d0b679cdb49ec102f2af9bd992b8491755eff5d4418aead4",
+          "completeRendering": true,
+          "candidates": 1,
+          "eligible": true,
+          "runtimeTemplateEligible": true,
+          "runtimeQueryCount": 1,
+          "diagnostics": [],
+          "queryFacts": [
+            {
+              "sqlDigest": "15b69fa0f4b97a02aae95e3db45758d80c6528b6da62f467985ac5c6baac6a45",
+              "unresolvedCodecDescriptors": []
+            }
+          ]
+        },
+        {
+          "file": "queries/insert-products.ts",
+          "sourceDigest": "4331c744aedf71179717418d39849bf7ae56f101dc8ecdbf4d39b96580081522",
+          "completeRendering": false,
+          "candidates": 0,
+          "eligible": false,
+          "runtimeTemplateEligible": true,
+          "runtimeQueryCount": 1,
+          "diagnostics": ["TSQ013"],
+          "queryFacts": []
+        },
+        {
+          "file": "queries/order-json.ts",
+          "sourceDigest": "a66ed9257f984ac318a14e03478ef1253dcea5f7d4d78a20b34be5345ed8e3ea",
+          "completeRendering": true,
+          "candidates": 1,
+          "eligible": true,
+          "runtimeTemplateEligible": true,
+          "runtimeQueryCount": 1,
+          "diagnostics": [],
+          "queryFacts": [
+            {
+              "sqlDigest": "79675504bd9951a2798a06c4f86331d20fbabf5328c9690750010144b09b9875",
+              "unresolvedCodecDescriptors": []
+            }
+          ]
+        },
+        {
+          "file": "queries/revenue.sql",
+          "sourceDigest": "c1385569fe7cc746820edd5e1fc7ef176ab4d2e92aeed72bda83f92229872c8a",
+          "completeRendering": true,
+          "candidates": 1,
+          "eligible": true,
+          "runtimeTemplateEligible": false,
+          "runtimeQueryCount": 0,
+          "diagnostics": [],
+          "queryFacts": [
+            {
+              "sqlDigest": "c1385569fe7cc746820edd5e1fc7ef176ab4d2e92aeed72bda83f92229872c8a",
+              "unresolvedCodecDescriptors": [
+                { "target": "column", "name": "revenue_cents", "databaseType": "numeric" },
+                { "target": "parameter", "index": 1, "databaseType": "numeric" }
+              ]
+            }
+          ]
+        }
+      ],
+      "workloads": [
+        {
+          "copies": 1,
+          "sourceQueryFiles": 7,
+          "collectedCandidates": 7,
+          "knownCodecCandidates": 6,
+          "uniqueContracts": 7,
+          "runtimeTemplateModules": 6,
+          "durableFiles": 9,
+          "durableFileBytes": 12095,
+          "durableClosure": {
+            "bytes": 12777,
+            "gzipBytes": 1936,
+            "brotliBytes": 1600,
+            "digest": "a7ad535b7b9261df0d11ba8c84e5df8f177ecef706da0f7ec2403b6ecd13ffdb"
+          },
+          "valuePlans": {
+            "bytes": 4766,
+            "gzipBytes": 606,
+            "brotliBytes": 497,
+            "digest": "e3368d2e0c693c4fec975ad53486f07d25dfb02cd7846a11143f1a02b862a3a7"
+          },
+          "rendererOnlyBundle": {
+            "bytes": 19745,
+            "gzipBytes": 6434,
+            "brotliBytes": 5764,
+            "digest": "cedc6f7916fb2e899eb371d549b49e3ec1080dc1f0fb97143996ac3bbc2acb69",
+            "attribution": { "application": 2071, "core": 17489 },
+            "retainedApplicationModules": 6,
+            "retainedModules": 11
+          },
+          "withValuePlansBundle": {
+            "bytes": 29102,
+            "gzipBytes": 8393,
+            "brotliBytes": 7565,
+            "digest": "3120840fca33d9cce01c6e961b87507418e712f10afaa3b3447b4fdb69a134ef",
+            "attribution": { "application": 7107, "core": 21717, "sqlite": 93 },
+            "retainedApplicationModules": 6,
+            "retainedModules": 14
+          },
+          "selectedModuleThroughBarrel": {
+            "bytes": 18624,
+            "gzipBytes": 5958,
+            "brotliBytes": 5384,
+            "digest": "04986a591c9cdb846ad85375e14a1d3b0a5002deae6291c8fb5df73f32ac2436",
+            "attribution": { "application": 926, "core": 17490, "sqlite": 93 },
+            "retainedApplicationModules": 1,
+            "retainedModules": 7
+          }
+        },
+        {
+          "copies": 10,
+          "sourceQueryFiles": 70,
+          "collectedCandidates": 70,
+          "knownCodecCandidates": 60,
+          "uniqueContracts": 70,
+          "runtimeTemplateModules": 60,
+          "durableFiles": 72,
+          "durableFileBytes": 114362,
+          "durableClosure": {
+            "bytes": 120274,
+            "gzipBytes": 10037,
+            "brotliBytes": 6651,
+            "digest": "dd4acda05ee0e285971c967782ed13dd7c3eff6db54a2c1fd4b47f09a7c5fcc6"
+          },
+          "valuePlans": {
+            "bytes": 47651,
+            "gzipBytes": 936,
+            "brotliBytes": 500,
+            "digest": "a66d01272361d727b37d6248347ec9a9918ab2e4091ce6f788af755bc9c78686"
+          },
+          "rendererOnlyBundle": {
+            "bytes": 40513,
+            "gzipBytes": 7814,
+            "brotliBytes": 6489,
+            "digest": "1b36efe01575fa9c2490bd61954b2b7a56eb40caa37bffd19e5147588a442248",
+            "attribution": { "application": 22033, "core": 17489 },
+            "retainedApplicationModules": 60,
+            "retainedModules": 65
+          },
+          "withValuePlansBundle": {
+            "bytes": 95375,
+            "gzipBytes": 10679,
+            "brotliBytes": 8566,
+            "digest": "05f32363c295f4209dfa188315bfe6fa968c3e2c4057486495cbdaa8e8b4bb5a",
+            "attribution": { "application": 72572, "core": 21720, "sqlite": 92 },
+            "retainedApplicationModules": 60,
+            "retainedModules": 68
+          },
+          "selectedModuleThroughBarrel": {
+            "bytes": 18624,
+            "gzipBytes": 5957,
+            "brotliBytes": 5390,
+            "digest": "b33edc9013728a5046413fd0985c6bde888a8d79636d09841f9960c82ac766e8",
+            "attribution": { "application": 926, "core": 17490, "sqlite": 93 },
+            "retainedApplicationModules": 1,
+            "retainedModules": 7
+          }
+        },
+        {
+          "copies": 50,
+          "sourceQueryFiles": 350,
+          "collectedCandidates": 350,
+          "knownCodecCandidates": 300,
+          "uniqueContracts": 350,
+          "runtimeTemplateModules": 300,
+          "durableFiles": 352,
+          "durableFileBytes": 568882,
+          "durableClosure": {
+            "bytes": 598035,
+            "gzipBytes": 47664,
+            "brotliBytes": 28554,
+            "digest": "307a509eb5db485b755c86f01ebf35adf752c55ee82666e49f0c6495f38f4342"
+          },
+          "valuePlans": {
+            "bytes": 238251,
+            "gzipBytes": 2161,
+            "brotliBytes": 501,
+            "digest": "7341c0531c0754db62d63936c61f57fe13eee350171b152d119c3723d9ace964"
+          },
+          "rendererOnlyBundle": {
+            "bytes": 133313,
+            "gzipBytes": 13412,
+            "brotliBytes": 9198,
+            "digest": "b369afea22a377e8a0822f5c81e2c05795d4efa23609f697adfb86e93e7547ff",
+            "attribution": { "application": 111033, "core": 17489 },
+            "retainedApplicationModules": 300,
+            "retainedModules": 305
+          },
+          "withValuePlansBundle": {
+            "bytes": 390455,
+            "gzipBytes": 19988,
+            "brotliBytes": 12512,
+            "digest": "f6d18ec0e28909ddd615710c3067528966b5ab637dc20a4e6fa7e332e202ab0d",
+            "attribution": { "application": 363852, "core": 21720, "sqlite": 92 },
+            "retainedApplicationModules": 300,
+            "retainedModules": 308
+          },
+          "selectedModuleThroughBarrel": {
+            "bytes": 18624,
+            "gzipBytes": 5959,
+            "brotliBytes": 5377,
+            "digest": "d9604c07ab076c101727e8172f309980cf0d589b37bf44a453b13d79e84b5561",
+            "attribution": { "application": 926, "core": 17490, "sqlite": 93 },
+            "retainedApplicationModules": 1,
+            "retainedModules": 7
+          }
+        }
+      ],
+      "schemaGrowth": [
+        {
+          "extraTables": 0,
+          "totalRelations": 7,
+          "snapshot": {
+            "bytes": 10469,
+            "gzipBytes": 879,
+            "brotliBytes": 724,
+            "digest": "981098c7897f72a1cd4264b66070ff54e833549de74bf5e0533d8998a4322669"
+          }
+        },
+        {
+          "extraTables": 50,
+          "totalRelations": 57,
+          "snapshot": {
+            "bytes": 101499,
+            "gzipBytes": 1816,
+            "brotliBytes": 993,
+            "digest": "3ef6dd127488a1c345ccb55471216be901ae75284fcefaab101f6332729bd64e"
+          }
+        },
+        {
+          "extraTables": 500,
+          "totalRelations": 507,
+          "snapshot": {
+            "bytes": 921749,
+            "gzipBytes": 8469,
+            "brotliBytes": 2451,
+            "digest": "de0c621064df72469961da06c16aa3014480deb9fb988867a57357e786c4bc7e"
+          }
+        }
+      ]
+    },
+    {
+      "grammar": "sqlserver",
+      "schema": {
+        "bytes": 10946,
+        "gzipBytes": 1083,
+        "brotliBytes": 916,
+        "digest": "32788c4f299094bb0f1e6aac69cdd3b2cd5348bbd29f21f091c5b5adb43b0f25"
+      },
+      "coverage": [
+        {
+          "file": "queries/account.ts",
+          "sourceDigest": "34d8df603c33ae2d1a8eae03ba2a2c9a8c7a9d81ed991a722f129df3d7032df7",
+          "completeRendering": true,
+          "candidates": 1,
+          "eligible": true,
+          "runtimeTemplateEligible": true,
+          "runtimeQueryCount": 1,
+          "diagnostics": [],
+          "queryFacts": [
+            {
+              "sqlDigest": "9bbd2e5b93a38e889e6e416efc5ee6115cbbb75e01939836eaed37b6468818b3",
+              "unresolvedCodecDescriptors": []
+            }
+          ]
+        },
+        {
+          "file": "queries/audit.ts",
+          "sourceDigest": "57850508011d263b4fc87f6faaf9b1e0c9768dd0e1cd04b0f57cbcb46aab22fc",
+          "completeRendering": true,
+          "candidates": 1,
+          "eligible": true,
+          "runtimeTemplateEligible": true,
+          "runtimeQueryCount": 1,
+          "diagnostics": [],
+          "queryFacts": [
+            {
+              "sqlDigest": "7ac28ffd17ef7dbc7365961d0d583919ac605083368056d12cd9c9aa1fff0855",
+              "unresolvedCodecDescriptors": []
+            }
+          ]
+        },
+        {
+          "file": "queries/catalog.ts",
+          "sourceDigest": "c6a0b6786ccb72dcf3887be1a9005f028b4a09a135adb50004c495f6e03c6257",
+          "completeRendering": true,
+          "candidates": 2,
+          "eligible": true,
+          "runtimeTemplateEligible": true,
+          "runtimeQueryCount": 2,
+          "diagnostics": [],
+          "queryFacts": [
+            {
+              "sqlDigest": "285f0598f473e285ad0b6bdb207ede3c388579c859595637dd59fd658d506c76",
+              "unresolvedCodecDescriptors": []
+            },
+            {
+              "sqlDigest": "13a1794dde12430633981aba975cec4dc8daa11e4bdec3f61d7a8150e18c330d",
+              "unresolvedCodecDescriptors": []
+            }
+          ]
+        },
+        {
+          "file": "queries/insert-pair.ts",
+          "sourceDigest": "6641bd6460a80b26951007d04772f3a75cbaaa1f21f7d29481e9bd6b5f43414c",
+          "completeRendering": true,
+          "candidates": 1,
+          "eligible": true,
+          "runtimeTemplateEligible": true,
+          "runtimeQueryCount": 1,
+          "diagnostics": [],
+          "queryFacts": [
+            {
+              "sqlDigest": "0fee8ccd783f9e0ac4a9402682d4d2b3d275c876ee8f6892f9576686b44d99d0",
+              "unresolvedCodecDescriptors": []
+            }
+          ]
+        },
+        {
+          "file": "queries/insert-products.ts",
+          "sourceDigest": "e4d1b75736abdfef0b439488301d19f3a787242a8840003caf383b111b1051bc",
+          "completeRendering": false,
+          "candidates": 0,
+          "eligible": false,
+          "runtimeTemplateEligible": true,
+          "runtimeQueryCount": 1,
+          "diagnostics": ["TSQ013"],
+          "queryFacts": []
+        },
+        {
+          "file": "queries/native.sql",
+          "sourceDigest": "e6142d80f38879e8c0ba63c6e4742aa343e5dfc4b6d2fa4492afcccc83700b60",
+          "completeRendering": true,
+          "candidates": 1,
+          "eligible": true,
+          "runtimeTemplateEligible": false,
+          "runtimeQueryCount": 0,
+          "diagnostics": [],
+          "queryFacts": [
+            {
+              "sqlDigest": "fdd05e00f623c316e9f81588c8838b2fa5a43b037f800b344a49cc3404ef298f",
+              "unresolvedCodecDescriptors": []
+            }
+          ]
+        },
+        {
+          "file": "queries/order-json.ts",
+          "sourceDigest": "3370bbfbd456292a4c706636431af5f13b0999dc2810cc1dff5a908117e235ff",
+          "completeRendering": true,
+          "candidates": 1,
+          "eligible": true,
+          "runtimeTemplateEligible": true,
+          "runtimeQueryCount": 1,
+          "diagnostics": [],
+          "queryFacts": [
+            {
+              "sqlDigest": "05079575044070dbfe29c90369cd2259a0a6443e5b50890349fdb915572cab9f",
+              "unresolvedCodecDescriptors": []
+            }
+          ]
+        },
+        {
+          "file": "queries/revenue.sql",
+          "sourceDigest": "04b281c2975f1065b8bd64bbd932cbb320714c617916eb8380024b43dafb74ad",
+          "completeRendering": true,
+          "candidates": 1,
+          "eligible": true,
+          "runtimeTemplateEligible": false,
+          "runtimeQueryCount": 0,
+          "diagnostics": [],
+          "queryFacts": [
+            {
+              "sqlDigest": "300a37f40e5c085d6b3f63c26881814e7cf1700ad0e1c5cb28d481a66453856a",
+              "unresolvedCodecDescriptors": []
+            }
+          ]
+        }
+      ],
+      "workloads": [
+        {
+          "copies": 1,
+          "sourceQueryFiles": 8,
+          "collectedCandidates": 8,
+          "knownCodecCandidates": 8,
+          "uniqueContracts": 8,
+          "runtimeTemplateModules": 6,
+          "durableFiles": 10,
+          "durableFileBytes": 13795,
+          "durableClosure": {
+            "bytes": 14560,
+            "gzipBytes": 2024,
+            "brotliBytes": 1693,
+            "digest": "370614795341745560e4c927a51e513ded2373ba063e890f98a7e4a4f21175d7"
+          },
+          "valuePlans": {
+            "bytes": 5509,
+            "gzipBytes": 607,
+            "brotliBytes": 507,
+            "digest": "35f45cf00e11dcc206062803f59486d424fdf646ce889b275dd005866d1c6045"
+          },
+          "rendererOnlyBundle": {
+            "bytes": 19459,
+            "gzipBytes": 6298,
+            "brotliBytes": 5638,
+            "digest": "94a8bec0de4855fc7f366f8e5c775ec8a7139298a8d4658b19e4ace4a578e786",
+            "attribution": { "application": 1785, "core": 17489 },
+            "retainedApplicationModules": 6,
+            "retainedModules": 11
+          },
+          "withValuePlansBundle": {
+            "bytes": 29713,
+            "gzipBytes": 8390,
+            "brotliBytes": 7546,
+            "digest": "78a7e1a8a604ae84855d64a93fa4d1b02cf40d4b7a3fd737ebe2d14d2878c5f9",
+            "attribution": { "application": 7446, "core": 21717, "sqlserver": 365 },
+            "retainedApplicationModules": 6,
+            "retainedModules": 14
+          },
+          "selectedModuleThroughBarrel": {
+            "bytes": 19113,
+            "gzipBytes": 6103,
+            "brotliBytes": 5513,
+            "digest": "2b9d1d1d1eea089a17d0a9425cecff198238fbc957e6893b602eae9946114e47",
+            "attribution": { "application": 1143, "core": 17490, "sqlserver": 365 },
+            "retainedApplicationModules": 1,
+            "retainedModules": 7
+          }
+        },
+        {
+          "copies": 10,
+          "sourceQueryFiles": 80,
+          "collectedCandidates": 80,
+          "knownCodecCandidates": 80,
+          "uniqueContracts": 80,
+          "runtimeTemplateModules": 60,
+          "durableFiles": 82,
+          "durableFileBytes": 131335,
+          "durableClosure": {
+            "bytes": 138077,
+            "gzipBytes": 11386,
+            "brotliBytes": 7467,
+            "digest": "1357d3a7556e81c529dfad1575e3e8fb9182ef956be67088b2cad72bf196f146"
+          },
+          "valuePlans": {
+            "bytes": 55081,
+            "gzipBytes": 976,
+            "brotliBytes": 513,
+            "digest": "599bbf10421cfde2583318c4683cc1eb6d2d82d553c9afd5794802a1f1fcd249"
+          },
+          "rendererOnlyBundle": {
+            "bytes": 37653,
+            "gzipBytes": 7609,
+            "brotliBytes": 6403,
+            "digest": "e08cea3621bc4465bc896e42e25316079e91619a26048cbfa66b6f580864bd80",
+            "attribution": { "application": 19173, "core": 17489 },
+            "retainedApplicationModules": 60,
+            "retainedModules": 65
+          },
+          "withValuePlansBundle": {
+            "bytes": 99037,
+            "gzipBytes": 10720,
+            "brotliBytes": 8550,
+            "digest": "7fa6a5d95cedcd409a3b6b2af6dc752e42c0ba72d7f3ade5bd011bbc01ee3362",
+            "attribution": { "application": 75962, "core": 21720, "sqlserver": 364 },
+            "retainedApplicationModules": 60,
+            "retainedModules": 68
+          },
+          "selectedModuleThroughBarrel": {
+            "bytes": 19113,
+            "gzipBytes": 6101,
+            "brotliBytes": 5520,
+            "digest": "3ddc834352b7681352f67ca04cf3f2a58ad3f26e2f7c5346ea4e598e2f8a2285",
+            "attribution": { "application": 1143, "core": 17490, "sqlserver": 365 },
+            "retainedApplicationModules": 1,
+            "retainedModules": 7
+          }
+        },
+        {
+          "copies": 50,
+          "sourceQueryFiles": 400,
+          "collectedCandidates": 400,
+          "knownCodecCandidates": 400,
+          "uniqueContracts": 400,
+          "runtimeTemplateModules": 300,
+          "durableFiles": 402,
+          "durableFileBytes": 653735,
+          "durableClosure": {
+            "bytes": 687038,
+            "gzipBytes": 54833,
+            "brotliBytes": 32588,
+            "digest": "8cce4b445933c7d0ebfe9791e157714ff08af74e3d11655149c2c6d1091c9868"
+          },
+          "valuePlans": {
+            "bytes": 275401,
+            "gzipBytes": 2386,
+            "brotliBytes": 514,
+            "digest": "7c7c84d45b83c9be39cc72d9c9fb980fc60af0458a2f45b68caca6714c79a467"
+          },
+          "rendererOnlyBundle": {
+            "bytes": 119013,
+            "gzipBytes": 12925,
+            "brotliBytes": 8867,
+            "digest": "9bd430ef363cf8f9dae37518b2a05b58ff3caa0e73ad154fa017c7ccc366c355",
+            "attribution": { "application": 96733, "core": 17489 },
+            "retainedApplicationModules": 300,
+            "retainedModules": 305
+          },
+          "withValuePlansBundle": {
+            "bytes": 407677,
+            "gzipBytes": 20279,
+            "brotliBytes": 12423,
+            "digest": "48592fbb9bd586abc0193a57a592a122cacd76d16fc370b0f272fc6bf6746978",
+            "attribution": { "application": 380802, "core": 21720, "sqlserver": 364 },
+            "retainedApplicationModules": 300,
+            "retainedModules": 308
+          },
+          "selectedModuleThroughBarrel": {
+            "bytes": 19113,
+            "gzipBytes": 6101,
+            "brotliBytes": 5516,
+            "digest": "ad1dbacf15d0a826fb49243bd64dcc22c7428e42a7bcf2527c7bf5fc059676fc",
+            "attribution": { "application": 1143, "core": 17490, "sqlserver": 365 },
+            "retainedApplicationModules": 1,
+            "retainedModules": 7
+          }
+        }
+      ],
+      "schemaGrowth": [
+        {
+          "extraTables": 0,
+          "totalRelations": 7,
+          "snapshot": {
+            "bytes": 10946,
+            "gzipBytes": 1083,
+            "brotliBytes": 916,
+            "digest": "32788c4f299094bb0f1e6aac69cdd3b2cd5348bbd29f21f091c5b5adb43b0f25"
+          }
+        },
+        {
+          "extraTables": 50,
+          "totalRelations": 57,
+          "snapshot": {
+            "bytes": 115876,
+            "gzipBytes": 2153,
+            "brotliBytes": 1177,
+            "digest": "e39913921bef0c08b669a8cd7b65c3877e6653c870b1d7b2f3cb699662f77fb4"
+          }
+        },
+        {
+          "extraTables": 500,
+          "totalRelations": 507,
+          "snapshot": {
+            "bytes": 1061226,
+            "gzipBytes": 9869,
+            "brotliBytes": 2612,
+            "digest": "4fc258da5e7e17ca2b3a5303e0ebf87592b34c86ecf4de21eb1799f1fea67b3f"
+          }
+        }
+      ]
+    }
+  ]
+}

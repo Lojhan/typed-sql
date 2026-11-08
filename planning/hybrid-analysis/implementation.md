@@ -717,3 +717,36 @@ API/package graph, three packed suites and docs pass. See the
 [detailed scope and evidence](./migration-qualification-proof.md). Representative corpus
 measurements, reusable catalogs/packs and the full architecture acceptance remain outstanding.
 Final clean-tree quality and isolated performance checks pass.
+
+## Project growth measurements and template tree shaking
+
+The [commerce project report](./project-size.md) and [machine-readable measurements](./project-measurements.json)
+now cover every grammar discovered from the feature ledger at 4f19d947. They reuse the maintained
+commerce DDL and queries, export/reopen actual offline-rule contracts, measure minified/gzip/Brotli
+runtime graphs and named artifact closures, and separate the base workload from 10/50-copy
+exact-text stress cases and 50/500 extra product-shaped schema relations. The public-entry
+baseline scenarios are rerun at the same revision against the original exhaustive-catalog ref.
+These are curated examples and partial model snapshots, not production usage or native evidence.
+
+The first run exposed an actual template metadata leak through barrels: unused static plans and
+conditional/repeated selectors retained their constructor calls. The compiler now validates their
+static data before emitting pure initializer annotations. A new bundled-consumer regression fails
+before the fix and passes afterward, retains observable application initialization and rejects
+invalid descriptors during compilation. All 21 compiler files pass with 96.87% statements,
+91.15% branches and 99.58% functions; workspace types and clean build pass.
+
+The selected-module graph retains exactly one application module and the same minified byte count at 1, 10 and
+50 copies for every grammar (18,559–19,113 minified bytes). Retaining the full base example's
+template modules adds about 1.9–2.2 KiB gzip for runtime plans. At 50 copies the actual exported
+offline closures contain 350/400 exact contracts and 539–704 KB of file contents; their framed
+gzip sizes are 47–58 KB. No schema, durable envelope or global analysis catalog enters those
+runtime bundles. Unknown codec descriptors remain visible rather than counting as full support.
+
+[Run 42535227376](https://github.com/Lojhan/typed-sql/actions/runs/42535227376) passes all four
+SQL Server jobs at compiler commit 57e35256, including the installed native/table/editor/frozen
+flows. The PostgreSQL migration-derived isolated frozen build passes with the new compiler.
+Build adapter, CLI, language-server, bridge, nine soundness files and docs pass. Public API/package
+graph, all three packed-consumer/editor suites, clean-tree quality and the isolated performance
+gate pass. An independent report check verifies five workload rows, 15 scaling cases, 15 schema
+cases and 50 before/current public-entry graphs. Native-qualified project payload/latency,
+production workload selection, reusable catalogs/packs and the full acceptance audit remain open.

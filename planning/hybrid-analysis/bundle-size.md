@@ -1,7 +1,7 @@
 # Bundle measurements and remaining boundaries
 
 The [machine-readable report](./bundle-measurements.json) measures committed source at
-`ab69557c7704635e92c8653cc47d444c2674fdbf`, compared with the earlier exhaustive-catalog revision
+`4f19d94701cb58123681d5804e23bd424d3807d3`, compared with the earlier exhaustive-catalog revision
 `a1f27fc894e48021e91ce4c9a4b98929890f233d`. Both use the same measurement tool, esbuild 0.28.2,
 Node 24.22.2, minified ESM, Node platform, ES2022, tree-shaking, gzip level 9 and Brotli quality 11.
 
@@ -27,11 +27,11 @@ tables still contribute to analyzers; workload-selected core/pack distribution r
 
 | Grammar | Root query tag minified / gzip | Profile minified / gzip | Frozen host helpers minified / gzip |
 | --- | ---: | ---: | ---: |
-| PostgreSQL | 17.1 / 5.4 | 43.7 / 12.1 | 124.5 / 35.9 |
-| MySQL | 17.1 / 5.4 | 47.1 / 13.2 | 128.0 / 37.0 |
-| SQLite | 17.1 / 5.4 | 49.5 / 13.3 | 130.3 / 37.2 |
-| SQL Server | 17.1 / 5.4 | 43.4 / 12.1 | 124.1 / 35.9 |
-| DuckDB | 17.1 / 5.4 | 63.0 / 17.8 | 143.9 / 41.2 |
+| PostgreSQL | 17.1 / 5.4 | 43.7 / 12.1 | 128.8 / 37.3 |
+| MySQL | 17.1 / 5.4 | 47.1 / 13.2 | 132.3 / 38.5 |
+| SQLite | 17.1 / 5.4 | 49.5 / 13.3 | 134.6 / 38.6 |
+| SQL Server | 17.1 / 5.4 | 43.4 / 12.1 | 128.4 / 37.3 |
+| DuckDB | 17.1 / 5.4 | 63.0 / 17.8 | 148.1 / 42.6 |
 
 Root tags, `/query` tags, profiles and frozen hosts contain zero global grammar catalog inputs
 in these measurements. Frozen hosts export `createContractDialect`, `loadQueryContracts`,
@@ -51,7 +51,7 @@ Run from an installed repository with Node 24.22.2:
 
 ```sh
 node planning/hybrid-analysis/measure-bundles.mjs a1f27fc894e48021e91ce4c9a4b98929890f233d /tmp/typed-sql-bundle-baseline.json
-node planning/hybrid-analysis/measure-bundles.mjs ab69557c7704635e92c8653cc47d444c2674fdbf planning/hybrid-analysis/bundle-measurements.json /tmp/typed-sql-bundle-baseline.json
+node planning/hybrid-analysis/measure-bundles.mjs 4f19d94701cb58123681d5804e23bd424d3807d3 planning/hybrid-analysis/bundle-measurements.json /tmp/typed-sql-bundle-baseline.json
 ```
 
 The tool discovers grammars from the committed feature ledger and public entrypoints from package
@@ -62,9 +62,11 @@ scenarios. The report includes byte counts, output digests, source/lockfile/tool
 attribution and whole-output compression. Generated attribution counts explicit generation
 headers. Input contributions are minified bytes, not proportional compressed savings.
 
-These are synthetic source graphs, not a representative application corpus. Migration-derived
-project contracts, schema/value-plan growth and a realistic workload corpus remain required
-measurements. The report does not claim those acceptance requirements are complete.
+These are synthetic public-entry graphs. The separate [commerce project report](./project-size.md)
+adds maintained application queries, exact artifact/value-plan growth, synthetic schema expansion
+and selected-module tree shaking. Native-qualified project artifact overhead, production workload
+telemetry and other acceptance requirements remain separate; no source-graph measurement proves
+complete architecture acceptance.
 
 ## Published dependency payloads
 

@@ -1,6 +1,6 @@
 {
   "formatVersion": 2,
-  "sourceRevision": "ab69557c7704635e92c8653cc47d444c2674fdbf",
+  "sourceRevision": "4f19d94701cb58123681d5804e23bd424d3807d3",
   "nodeVersion": "v24.22.2",
   "esbuildVersion": "0.28.2",
   "measurementToolDigest": "e0544c2e81419a8a3f6ea76eb48f9628bc4fde1b55db6be77345f07557dbca31",
@@ -191,7 +191,7 @@
       }
     ]
   },
-  "lockfileDigest": "4702053489a10c09b2deff79f353bbd0e52105de51f96f841a6ff0fce96e7b88",
+  "lockfileDigest": "3dd42212226234b44678b68d5c169e8fac598db1268227bc9738e65885f198f1",
   "method": {
     "source": "Git blobs at sourceRevision; public exports resolve to their committed source files",
     "format": "esm",
@@ -242,18 +242,18 @@
     {
       "grammar": "duckdb",
       "scenario": "execution",
-      "minifiedBytes": 103193,
+      "minifiedBytes": 103195,
       "gzipBytes": 32284,
-      "brotliBytes": 28498,
+      "brotliBytes": 28492,
       "generatedInputBytes": 0,
       "globalCatalogInputs": [],
       "attribution": {
         "duckdb/other": 45270,
-        "core/other": 35300,
+        "core/other": 35302,
         "schema/other": 399,
         "duckdb/parser": 22184
       },
-      "outputDigest": "e0f77d1f4440fcd6a082c8fe5712fc58070ac17e8560260fc0bb274a4d7d5174"
+      "outputDigest": "8f40bbdbedefd8f728554ae81cf674fa88a2bb34787db10e3f46e56c085ac401"
     },
     {
       "grammar": "duckdb",
@@ -298,20 +298,20 @@
     {
       "grammar": "duckdb",
       "scenario": "frozenHost",
-      "minifiedBytes": 147314,
-      "gzipBytes": 42197,
-      "brotliBytes": 36920,
+      "minifiedBytes": 151693,
+      "gzipBytes": 43630,
+      "brotliBytes": 38098,
       "generatedInputBytes": 0,
       "globalCatalogInputs": [],
       "attribution": {
         "analysis/other": 22967,
-        "core/other": 27657,
+        "core/other": 31883,
         "schema/other": 24086,
-        "compiler/other": 39654,
+        "compiler/other": 39807,
         "duckdb/other": 10660,
         "duckdb/parser": 22188
       },
-      "outputDigest": "7eeafa2cf8b6000ff28ab07cdafd35c4b3a80b6ee81c1b717e7488a12c838a7f"
+      "outputDigest": "fe3ddf4e05955fb8c5dfc5424fbbeff03e3273d6bc635801ec3c59fa8bc44efb"
     },
     {
       "grammar": "mysql",
@@ -345,19 +345,19 @@
     {
       "grammar": "mysql",
       "scenario": "execution",
-      "minifiedBytes": 91677,
-      "gzipBytes": 27321,
-      "brotliBytes": 24018,
+      "minifiedBytes": 91901,
+      "gzipBytes": 27433,
+      "brotliBytes": 24104,
       "generatedInputBytes": 0,
       "globalCatalogInputs": [],
       "attribution": {
-        "mysql/other": 25778,
-        "core/other": 36951,
+        "mysql/other": 26000,
+        "core/other": 36953,
         "schema/other": 399,
         "ast/other": 1645,
         "mysql/parser": 26864
       },
-      "outputDigest": "f9d4d9619f481ee0f61d24fc70672738cc6812a37b4e202ea34cf9b86b3fe68c"
+      "outputDigest": "d5561afc71089dee5a0c11e519520c8a1d0b9e02f0d7ee05cffb08ac30ac873f"
     },
     {
       "grammar": "mysql",
@@ -401,20 +401,20 @@
     {
       "grammar": "mysql",
       "scenario": "frozenHost",
-      "minifiedBytes": 131054,
-      "gzipBytes": 37930,
-      "brotliBytes": 33098,
+      "minifiedBytes": 135430,
+      "gzipBytes": 39384,
+      "brotliBytes": 34263,
       "generatedInputBytes": 0,
       "globalCatalogInputs": [],
       "attribution": {
         "analysis/other": 22967,
-        "core/other": 28653,
+        "core/other": 32888,
         "schema/other": 24086,
-        "compiler/other": 39661,
+        "compiler/other": 39802,
         "mysql/other": 10167,
         "mysql/parser": 5419
       },
-      "outputDigest": "e6b25c5611b903e3808421dc4b21f6f5a8d785e6f443286901462d55c084c039"
+      "outputDigest": "4ad13204efa2afa07d2a4e89d0aff1b18adbdd96f7f52c5549bdd524f40969eb"
     },
     {
       "grammar": "postgres",
@@ -447,19 +447,19 @@
     {
       "grammar": "postgres",
       "scenario": "execution",
-      "minifiedBytes": 113093,
-      "gzipBytes": 31748,
-      "brotliBytes": 27724,
+      "minifiedBytes": 113095,
+      "gzipBytes": 31746,
+      "brotliBytes": 27720,
       "generatedInputBytes": 0,
       "globalCatalogInputs": [],
       "attribution": {
         "postgres/other": 23657,
-        "core/other": 36951,
+        "core/other": 36953,
         "schema/other": 399,
         "ast/other": 1645,
         "postgres/parser": 50401
       },
-      "outputDigest": "baa6adbc4c05a0379336d74847c202e81acb1f56f2d192638bcfd5f04f94d485"
+      "outputDigest": "e136c16f4fa333db4b51538a8badec3a8eb84fd9226434c8dd02b74659c1bb5b"
     },
     {
       "grammar": "postgres",
@@ -506,20 +506,20 @@
     {
       "grammar": "postgres",
       "scenario": "frozenHost",
-      "minifiedBytes": 127489,
-      "gzipBytes": 36763,
-      "brotliBytes": 32096,
+      "minifiedBytes": 131865,
+      "gzipBytes": 38207,
+      "brotliBytes": 33355,
       "generatedInputBytes": 0,
       "globalCatalogInputs": [],
       "attribution": {
         "analysis/other": 22967,
-        "core/other": 28455,
+        "core/other": 32690,
         "schema/other": 24086,
-        "compiler/other": 39661,
+        "compiler/other": 39802,
         "postgres/other": 5548,
         "postgres/parser": 6668
       },
-      "outputDigest": "70a6bd7cadbfd443560ffbb098e03d08c2af0e7df283b606b753e182bed6ef19"
+      "outputDigest": "a3029abf2ebf915bf26b227d747272d238118cc6ae8ff0572b42a1bb8e98aebe"
     },
     {
       "grammar": "sqlite",
@@ -553,17 +553,17 @@
     {
       "grammar": "sqlite",
       "scenario": "execution",
-      "minifiedBytes": 38070,
-      "gzipBytes": 11762,
-      "brotliBytes": 10590,
+      "minifiedBytes": 38072,
+      "gzipBytes": 11760,
+      "brotliBytes": 10589,
       "generatedInputBytes": 0,
       "globalCatalogInputs": [],
       "attribution": {
         "sqlite/other": 5505,
-        "core/other": 32126,
+        "core/other": 32128,
         "schema/other": 399
       },
-      "outputDigest": "e12b6a85e99c540110e790f6571eedc1a323a762551c35bb2b48b107d7b42260"
+      "outputDigest": "1f29a1eccf61f302ab580796acedc6d4df5fe27473281feb90bc1426d746ec0e"
     },
     {
       "grammar": "sqlite",
@@ -610,20 +610,20 @@
     {
       "grammar": "sqlite",
       "scenario": "frozenHost",
-      "minifiedBytes": 133440,
-      "gzipBytes": 38117,
-      "brotliBytes": 33223,
+      "minifiedBytes": 137816,
+      "gzipBytes": 39563,
+      "brotliBytes": 34380,
       "generatedInputBytes": 0,
       "globalCatalogInputs": [],
       "attribution": {
         "analysis/other": 22967,
-        "core/other": 27832,
+        "core/other": 32067,
         "schema/other": 24086,
-        "compiler/other": 39661,
+        "compiler/other": 39802,
         "sqlite/other": 13591,
         "sqlite/parser": 5201
       },
-      "outputDigest": "7fafed547afada6e389e4cbdda0e7a5635d8c8980dde56b745d650a8fb7b015d"
+      "outputDigest": "947c92d53be39f1925549fb6040da0c4c067b416854415748e6003b8d73ecc8e"
     },
     {
       "grammar": "sqlserver",
@@ -657,18 +657,18 @@
     {
       "grammar": "sqlserver",
       "scenario": "execution",
-      "minifiedBytes": 90549,
-      "gzipBytes": 27767,
-      "brotliBytes": 24553,
+      "minifiedBytes": 90551,
+      "gzipBytes": 27765,
+      "brotliBytes": 24551,
       "generatedInputBytes": 0,
       "globalCatalogInputs": [],
       "attribution": {
-        "core/other": 36122,
+        "core/other": 36124,
         "schema/other": 399,
         "sqlserver/other": 32111,
         "sqlserver/parser": 21877
       },
-      "outputDigest": "6b8dba280ded66d56d9a65cab65ffdd89f620e14b87d78b8806baead70484869"
+      "outputDigest": "b59978d69b2dcaae931ac46c2c2e749bc2e6db0aeb447474f5b34128af98287a"
     },
     {
       "grammar": "sqlserver",
@@ -706,20 +706,20 @@
     {
       "grammar": "sqlserver",
       "scenario": "frozenHost",
-      "minifiedBytes": 127128,
-      "gzipBytes": 36760,
-      "brotliBytes": 32189,
+      "minifiedBytes": 131507,
+      "gzipBytes": 38204,
+      "brotliBytes": 33422,
       "generatedInputBytes": 0,
       "globalCatalogInputs": [],
       "attribution": {
         "analysis/other": 22967,
-        "core/other": 27855,
+        "core/other": 32081,
         "schema/other": 24086,
-        "compiler/other": 39638,
+        "compiler/other": 39791,
         "sqlserver/other": 8486,
         "sqlserver/parser": 3991
       },
-      "outputDigest": "a5beaf7613f0d9826e4e8262fc37dbad24d7a774356eaacdc09da5d7072dbe58"
+      "outputDigest": "4ca9c5c165f945c34f49027cdb70156012cb2b19f3d1a41f7a482ab301342f76"
     }
   ],
   "inputDigests": {
@@ -757,13 +757,13 @@
     "packages/ast/src/toolkit/index.ts": "82b29b0d9b0b8501272ddd64a0944fef4d5bbb43323330c7b1caf0cbb1fdb587",
     "packages/ast/src/toolkit/tokenizer.ts": "5662aee420d594accf2fa14958de400274f1bc4204254a99ebec15215f019828",
     "packages/ast/src/toolkit/types.ts": "d5aa80f836cd1d3b29ab6d3cd41141696c0a6f65c74c02282486877e4ad14153",
-    "packages/compiler/package.json": "dfd2798a4fff8517cf68867a63ff2ca13be58e535204d7905df2a7b4e06f1ac8",
+    "packages/compiler/package.json": "fd7bc81c75a1493b29c2ecf772fb5dc59a9dd1cdfd90d0800aded10add2e7d31",
     "packages/compiler/src/analysis.ts": "e522f847a2e80d940b58b23e48ad0ae9b545f30a30fcd78bf38a307115dd72e6",
     "packages/compiler/src/artifact-serialization.ts": "a224a3bb3b9da2d9869ef56e8d9eed68640dfb216ce029fbb15a1506ee8601f9",
     "packages/compiler/src/candidates.ts": "da2a5009351e44f343a042da0fb7c63de0fd0c43243345ff54c4c0a61bfc88a3",
     "packages/compiler/src/check.ts": "7d92e3f5558180c0bab69747bc06e4178ec93928a9a246527a2545f1e4188f68",
     "packages/compiler/src/compatibility.ts": "8b87dd05f2cae212a780602c6c0cc3c42e25cec6c532b102a99444a390357a65",
-    "packages/compiler/src/compiler.ts": "9479e41285d45b77579f8cacc0619c40cf2db77bef5071bedb2189cc8e76e916",
+    "packages/compiler/src/compiler.ts": "847ecb84680617d29f5a2194f95bcebdf0003210b212e66f785309e611408705",
     "packages/compiler/src/index.ts": "fa0f02efbfa076d618be1e8f551bf3ebed54d7aa5b82ac1ded8719595421b286",
     "packages/compiler/src/javascript.ts": "68a8fb1fe835d479f8487c94f544e149e850253165b2961fac2d5827ebcf05bc",
     "packages/compiler/src/limits.ts": "7a69c2ea50c28557d72e35b4ae65da2c2d0f4f7bb3d06442b1238dffae423a97",
@@ -778,7 +778,7 @@
     "packages/compiler/src/sql-declaration.ts": "a4944b40bfc91bc3efc4344f598ab9ff02d38ca568eca8453ff750c54e7c502e",
     "packages/compiler/src/sql-file-analysis.ts": "d9b6d811c0b541d616afd86488c0fc5322395d2f1c8e7abe2f692b087bedb6ef",
     "packages/compiler/src/sql-file-preparation.ts": "717523299986b1f5d9ca97638e1b9c942a5e3d7823e20baaf20d7d318935cb22",
-    "packages/compiler/src/sql-file.ts": "a2ecb25856c054d57a87eefae477a1b91f2e7ff40e1bac7d0d5a91a45c00a345",
+    "packages/compiler/src/sql-file.ts": "88ff0b96694327bc65e90a37b51e864d47851b3b29518aac0e3225122523667c",
     "packages/compiler/src/structural.ts": "18c6bc4303c92cb9b74c420db0d3e31d6d499d40aea8d9829bb1a7652766f5d5",
     "packages/compiler/src/typescript.ts": "84052265e8018e246dff398bcaf378dcd5e22ebb79184c2ee5d069078218103b",
     "packages/compiler/src/value-plan.ts": "ca45a25bd25ddd7cf6b41385a2e409a2c6e2f6201c571f5f21acf2bccda45515",
@@ -800,7 +800,7 @@
     "packages/core/src/observation.ts": "d7945fe333318993e54a8d63a30da216e559541f35f30dc67c6a03b9ffcfec15",
     "packages/core/src/prepared.ts": "0ace4b5bba642d457b09e7921517aeb3ce8d44fd9abb9fa9394e8a9048bd5019",
     "packages/core/src/query-value-plan-selection.ts": "ea4e96eca77f65b064be14d4342a0d3fbc1b4017927efd24224ec1b3f362066d",
-    "packages/core/src/query-value-plan.ts": "33b5bcefffb9c7532ee64e570bf29ee13f24f52bfd84f1c70e0778922d3bead4",
+    "packages/core/src/query-value-plan.ts": "dfb248849d1ccb125d7b0fcbbbc902473bf84e1d1573131a756857f89ce111d5",
     "packages/core/src/query.ts": "33dd4b515504eaa45d1e5a35f18aa444b4d6400d0bf9e3886d906813e5d4eca3",
     "packages/core/src/resolver.ts": "ece3854a5d0aa8e23446994a98d0771238ddd4ccc3445410485d516d90420c2a",
     "packages/core/src/result-validation.ts": "9f7bf46afec435359a937b23e51506daf56b25793b53bb76e089fe99d7094a7f",
@@ -808,7 +808,7 @@
     "packages/core/src/semantics.ts": "03f8125bd43457d69d15409ff6d9e56f6e90ea2454a93f3da4e873d3db3c1364",
     "packages/core/src/types.ts": "da19fcdbc55e7a97997143b60d507bcaf1eac508de438d9f4f791cd0013a4cc9",
     "packages/core/src/utf8.ts": "2dc97045241fa81c7c3b2e6b47ac48cbe5cf676961c84561ef9c22167f779875",
-    "packages/duckdb/package.json": "f3e7d4c7ca89d263a4d4146240006a978c0fb8b212af74055a4e36698503128f",
+    "packages/duckdb/package.json": "58a8a72c13e62b48e5529304cf8731f181bcf771e32c3e4c0be6a60cd4863562",
     "packages/duckdb/src/analysis.ts": "c950ef4bb7b6678c32ee7ebdd1b11736c4c1a69d475e97ebce539771339fb493",
     "packages/duckdb/src/browser.ts": "34ba27f491690dab982a7002d9c7c49ae2c9265c5808a5d1c22172c4c8006aac",
     "packages/duckdb/src/bulk.ts": "c9aab56298944b0a321efdb239dd8b4a973d97ab2922aa2f3262a12d4171f126",
@@ -865,7 +865,7 @@
     "packages/mysql/src/repeated-inputs.ts": "6c92a254c0279aec2ee1f2158a29e8d2eaa4957d46f259b6f953a4a3ccef95ac",
     "packages/mysql/src/resolver.ts": "8517f1b10ece7a072d328e7d6083674f84e34de5925d2e2791b826a84c7dab11",
     "packages/mysql/src/routing.ts": "b1811dcfbd832f4d8f8837dc2a7a825bbb1e505b2732213a68fe9d5dbc9a333e",
-    "packages/mysql/src/runtime.ts": "177f6f318bded85571111883ba8c043f7a829978ec1cf762ca849f26800a9450",
+    "packages/mysql/src/runtime.ts": "d2bf0501cb76154b5dc9028cf6ec38e968a07ba38af5a83f51c80ba8d476a036",
     "packages/mysql/src/semantics.ts": "1dab8e48d05c1b443cf99f6dd9d5d0356ca4ee193f14b25b227a9af3d0045bde",
     "packages/mysql/src/stream.ts": "4bf2241130b86c21f8b542766ddd19353c6b8329039994fa0401cec2b0021a36",
     "packages/mysql/src/support.ts": "968b9ad7e2d8ec0107a4bff99b29048600afed46005c243433a9ab80032148c2",
@@ -904,7 +904,7 @@
     "packages/postgres/src/rendering.ts": "d837d87d4f8cda3d1c0615e7992e372a7d058ffb10f6e321fc25c158bf8d4b01",
     "packages/postgres/src/repeated-inputs.ts": "6c92a254c0279aec2ee1f2158a29e8d2eaa4957d46f259b6f953a4a3ccef95ac",
     "packages/postgres/src/resolver.ts": "ad4b56d03aaade43439b4f66e9a4082ee131f230def4b9b7739e91529af7d14b",
-    "packages/postgres/src/routine-catalog.ts": "d1ae2eea2a42fdfcb1b1751b9dc19926cd7e9264485214e6078ed0cc8189bb40",
+    "packages/postgres/src/routine-catalog.ts": "9cb18b5b2aa7fb75da6e9d1cc874f105f5225cbe7155b7a58cc4c2ab278d13d8",
     "packages/postgres/src/routing.ts": "ad20ee9dad164de04175fd2759d14af1dc06d26ba3d12452464642ee39839991",
     "packages/postgres/src/runtime-compatibility.ts": "118901da7f1ffe75d078e3ae66df9ffd5bf94c89c376a78a9e61dce6e68adc47",
     "packages/postgres/src/runtime.ts": "4a04d94edd2258d53b77ff4b6b635eb7b033508fc18caf22d350ad89b890d0f9",
@@ -990,6 +990,6 @@
     "packages/sqlserver/src/support.ts": "b62fb01824537b9a9e034cda555e709ba0ba12d71691f7974509ad14b819acda",
     "packages/sqlserver/src/type-policy.ts": "44ba0b37d09dfe0693bf43d692ce33302dd2090b1abeec50dc458876e5f78be9",
     "packages/sqlserver/src/version.ts": "2a1a108d79320e3bd1a5a94bedad57992262a6a5a63ef0453e4d0b7def36386f",
-    "pnpm-lock.yaml": "4702053489a10c09b2deff79f353bbd0e52105de51f96f841a6ff0fce96e7b88"
+    "pnpm-lock.yaml": "3dd42212226234b44678b68d5c169e8fac598db1268227bc9738e65885f198f1"
   }
 }

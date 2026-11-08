@@ -13,6 +13,11 @@ the choice of deployment target to your bundler configuration.
 Keep your existing entrypoints, output format, framework plugins, and external dependencies.
 These snippets show where to add typed-sql to those configurations.
 
+Generated metadata constructors support tree shaking through application barrels, including
+template plans, conditional/repeated selectors and SQL-file plans. Static metadata is validated
+during compilation so unused constructors can be removed. Application initialization effects
+remain observable; your bundler's normal rules still govern unused application code.
+
 ## Recorded query contracts
 
 Build adapters and `typed-sql-build types` consume [durable query contracts](../guides/query-manifests.md)
