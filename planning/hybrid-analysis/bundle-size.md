@@ -62,7 +62,43 @@ scenarios. The report includes byte counts, output digests, source/lockfile/tool
 attribution and whole-output compression. Generated attribution counts explicit generation
 headers. Input contributions are minified bytes, not proportional compressed savings.
 
-These are synthetic source graphs, not a representative application corpus. Package installation
-sizes, migration-derived project contracts, schema/value-plan growth and a realistic workload
-corpus remain required measurements. The report does not claim those acceptance requirements
-are complete.
+These are synthetic source graphs, not a representative application corpus. Migration-derived
+project contracts, schema/value-plan growth and a realistic workload corpus remain required
+measurements. The report does not claim those acceptance requirements are complete.
+
+## Published dependency payloads
+
+The separate [installation report](./installation-measurements.json) measures a fresh, isolated,
+offline pnpm installation of built tarballs from source revision
+`43b4193e820cea92905d532b8fadbe8e94ba635a`, on Node 24.22.2 / Darwin arm64. External versions
+are pinned to the repository installation. These are sums of published file contents once per
+package name/version, not filesystem blocks or pnpm store usage. Driver/engine binaries, optional
+peers and application toolchains are excluded. Source maps and declaration files are included.
+
+| Grammar | Compressed grammar tarball, KiB | Grammar package payload, MiB | Mandatory dependency payload, MiB | With compiler/contract packages, MiB |
+| --- | ---: | ---: | ---: | ---: |
+| PostgreSQL | 302.1 | 2.01 | 6.43 | 7.16 |
+| MySQL | 174.8 | 0.92 | 2.46 | 3.19 |
+| SQLite | 131.9 | 0.69 | 2.24 | 2.96 |
+| SQL Server | 186.9 | 0.91 | 2.46 | 3.18 |
+| DuckDB | 220.6 | 1.94 | 3.49 | 4.21 |
+
+The grammar payload includes its public analysis and optional adapter implementations even when
+a bundle does not retain them. PostgreSQL's dependency closure also includes its declared type
+dependencies. Smaller import graphs therefore do not imply equally small installation payloads.
+The compiler/contract column includes published package dependencies, not an entire TypeScript,
+editor or bundler installation. The report records every package, file-category totals, content
+digests, archive hashes and resolved dependency edges; it is not an earlier-versus-current
+installation comparison.
+
+To reproduce from a clean package worktree with the repository's Node/pnpm versions:
+
+```sh
+pnpm install --frozen-lockfile
+pnpm build
+node planning/hybrid-analysis/measure-installation.mjs
+```
+
+The tool discovers grammars from the feature ledger, recursively packs workspace dependencies,
+pins external dependencies and installs outside the workspace with lifecycle scripts disabled.
+It removes the owned installation after measurement. A dirty package input fails before packing.

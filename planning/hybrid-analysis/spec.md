@@ -767,7 +767,9 @@ isolating profiles/packs. Profile isolation independently saves unused versions;
 benefit unique to query contracts. Current frozen hosts contain zero global grammar catalog
 inputs but include contract loading and compilation machinery; SQL Server's helper sample is
 slightly larger than its analyzer-only sample. Workload-selected core/packs, representative
-project corpora, installation size and schema/value-plan growth remain unmeasured.
+project corpora and schema/value-plan growth remain unmeasured. Fresh installed package payloads
+are reported separately, including their maps/declarations and mandatory dependencies; they do
+not represent filesystem/store usage or complete application toolchains.
 
 Final distribution requirements are zero global analysis catalog bytes in runtime entrypoints,
 zero global analyzer catalog bytes in frozen contract-only consumers, and explicit bounded
