@@ -62,7 +62,10 @@ export interface AnalysisCacheLookup {
 }
 export interface AnalysisCache {
   areTokensCurrent(tokens: readonly AnalysisCacheToken[]): Promise<boolean>;
-  lookupContext(scope: AnalysisContextScope): Promise<AnalysisContextLookup>;
+  lookupContext(
+    scope: AnalysisContextScope,
+    recordedContext?: import("./contracts.js").QueryContractContext,
+  ): Promise<AnalysisContextLookup>;
   publishContext(input: {
     readonly token: AnalysisCacheToken;
     readonly scope: AnalysisContextScope;
@@ -533,9 +536,12 @@ export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<
         );
       });
     },
-    async lookupContext(input: AnalysisContextScope): Promise<AnalysisContextLookup> {
+    async lookupContext(input: AnalysisContextScope, recordedContext): Promise<AnalysisContextLookup> {
       const scope = parseAnalysisContextScope(input),
         key = analysisContextScopeKey(scope);
+      const recorded = recordedContext === undefined ? undefined : parseQueryContractContext(recordedContext);
+      if (recorded) assertContextScope(recorded, scope);
+      const recordedHash = recorded ? queryContractDigest(recorded) : undefined;
       return withLock(async () => {
         await layout();
         await readUsage();
@@ -549,7 +555,22 @@ export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<
           requestKey: key,
           entryRevision: head?.revision ?? null,
         });
-        if (!head) return Object.freeze({ token: captured });
+        if (!head) {
+          const retired =
+            recorded &&
+            current.entries.find((item) => item.contextHash === recordedHash && item.result.kind === "stale-context");
+          if (recorded && retired)
+            return Object.freeze({
+              token: captured,
+              recorded: Object.freeze({
+                context: recorded,
+                status: "stale" as const,
+                observedAt: retired.recordedAt,
+                freshness: "unverified" as const,
+              }),
+            });
+          return Object.freeze({ token: captured });
+        }
         const context = parseQueryContractContext(
           JSON.parse(await readCacheFile(join(path.contexts, `${head.contextHash}.json`), maxObjectBytes)),
         );

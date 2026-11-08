@@ -11,6 +11,7 @@ import {
   exportQueryContracts,
   loadFrozenContractView,
   loadQueryContractContext,
+  loadQueryContractInputs,
   loadQueryContracts,
   openAnalysisCache,
   prepareLiveContractView,
@@ -51,7 +52,7 @@ export async function runContractCommand(
   const generating = options.queries === "true";
   if (generating && options.file !== undefined)
     throw new Error("Query generation requires complete projects; use --project or config.projects");
-  const { live, ...data } = defineAnalysisRegistration(loaded.config.analysis as AnalysisRegistration);
+  const { live, projectCatalogs, ...data } = defineAnalysisRegistration(loaded.config.analysis as AnalysisRegistration);
   const raw = defineAnalysisConfiguration(data);
   let configuration = defineAnalysisConfiguration({
     ...raw,
@@ -72,8 +73,8 @@ export async function runContractCommand(
   const profile = loaded.config.dialect,
     policy = loaded.config.typePolicy ?? profile.defaultTypePolicy;
   const schemaFile = fromConfig(loaded.directory, options.schema ?? loaded.config.schema.file);
-  const schemaText = await readFile(schemaFile, "utf8"),
-    schema = profile.validateSnapshot(JSON.parse(schemaText));
+  const schemaText = await readFile(schemaFile, "utf8");
+  let schema = profile.validateSnapshot(JSON.parse(schemaText));
   const directory = fromConfig(
     loaded.directory,
     (generating ? options.out : undefined) ?? configuration.contractsDir ?? `${loaded.config.outDir}/contracts`,
@@ -180,15 +181,52 @@ export async function runContractCommand(
     : undefined;
   const automaticScope = raw.context === undefined ? bindingScope! : undefined;
   const recordedContext =
-    bindingScope && baselineManifest !== null ? await loadQueryContractContext(directory, bindingScope) : undefined;
+    configuration.mode !== "frozen" && bindingScope && baselineManifest !== null
+      ? await loadQueryContractContext(directory, bindingScope)
+      : undefined;
+  let selectedCatalogs: import("@typed-sql/analysis").ProjectCatalogClosure | undefined;
+  let selectionToken: import("@typed-sql/analysis").AnalysisCacheToken | undefined;
+  if (configuration.mode === "offline" && baselineManifest !== null) {
+    const durableInputs = await loadQueryContractInputs(directory, bindingScope);
+    if (durableInputs.manifestDigest !== baselineManifest) throw new Error("Catalog inputs changed; retry checking");
+    if (durableInputs.projectCatalogs) {
+      const restored = await loadFrozenContractView({
+        profile,
+        schema,
+        typePolicy: policy,
+        configuration,
+        directory,
+        ...(projectCatalogs
+          ? {
+              loadProjectCatalogContributions: () =>
+                runConfigFactory(loaded, () => projectCatalogs.loadContributions()),
+            }
+          : {}),
+      });
+      if (restored.manifestDigest !== baselineManifest) throw new Error("Catalog inputs changed; retry checking");
+      if (cache && bindingScope) {
+        const captured = await cache.lookupContext(bindingScope, durableInputs.projectCatalogs.baseContext);
+        if (
+          captured.recorded &&
+          (captured.recorded.status !== "usable" ||
+            queryContractDigest(captured.recorded.context) !==
+              queryContractDigest(durableInputs.projectCatalogs.baseContext))
+        )
+          throw new Error("Recorded catalog context is stale; refresh live evidence before offline reuse");
+        selectionToken = captured.token;
+      }
+      selectedCatalogs = restored.projectCatalogs;
+      schema = restored.schema;
+      configuration = restored.configuration;
+    }
+  }
   if (
     recordedContext &&
     configuration.context &&
     queryContractDigest(recordedContext) !== queryContractDigest(configuration.context)
   )
     throw new Error("Pinned context differs from the durable target selection");
-  let selectionToken: import("@typed-sql/analysis").AnalysisCacheToken | undefined;
-  if (automaticScope && configuration.mode === "offline") {
+  if (automaticScope && configuration.mode === "offline" && !selectedCatalogs) {
     const context = await selectOfflineAnalysisContext({
       profile,
       schema,
@@ -211,7 +249,19 @@ export async function runContractCommand(
   }
   const view =
     configuration.mode === "frozen"
-      ? await loadFrozenContractView({ profile, schema, typePolicy: policy, configuration, directory })
+      ? await loadFrozenContractView({
+          profile,
+          schema,
+          typePolicy: policy,
+          configuration,
+          directory,
+          ...(projectCatalogs
+            ? {
+                loadProjectCatalogContributions: () =>
+                  runConfigFactory(loaded, () => projectCatalogs.loadContributions()),
+              }
+            : {}),
+        })
       : configuration.mode === "live"
         ? await prepareLiveContractView({
             profile,
@@ -246,7 +296,15 @@ export async function runContractCommand(
             loadAnalyzer: async () => (await resolveConfigDialect(loaded)).config.dialect,
           });
   const context = view.context;
-  const selection = bindingScope ? { scope: bindingScope, context } : undefined;
+  if ("schema" in view) schema = view.schema;
+  if ("projectCatalogs" in view) selectedCatalogs = view.projectCatalogs;
+  const selection = bindingScope
+    ? {
+        scope: bindingScope,
+        context,
+        ...(selectedCatalogs ? { projectCatalogs: selectedCatalogs } : {}),
+      }
+    : undefined;
   let dialect = view.dialect;
   const generated: QueryContract[] = [];
   if (generating) {

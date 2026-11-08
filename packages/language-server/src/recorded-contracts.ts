@@ -9,6 +9,7 @@ import {
   type LiveContractView,
   loadFrozenContractView,
   loadQueryContractContext,
+  loadQueryContractInputs,
   loadQueryContracts,
   type NativeContractCandidate,
   openAnalysisCache,
@@ -28,7 +29,11 @@ export function recordedContractPaths(
   loaded: LoadedConfigSource,
 ): { directory: string; watched: readonly string[] } | undefined {
   if (loaded.config.analysis === undefined) return undefined;
-  const { live: _live, ...configuration } = defineAnalysisRegistration(loaded.config.analysis as AnalysisRegistration);
+  const {
+    live: _live,
+    projectCatalogs: _catalogs,
+    ...configuration
+  } = defineAnalysisRegistration(loaded.config.analysis as AnalysisRegistration);
   const directory = fromConfig(loaded.directory, configuration.contractsDir ?? `${loaded.config.outDir}/contracts`);
   const workspace = queryContractDigest({ workspace: loaded.directory, config: loaded.file });
   return {
@@ -52,6 +57,8 @@ export type LiveEditorSessionInput = Parameters<typeof createLiveContractSession
 export interface RecordedDocumentView {
   readonly dialect: DialectPlugin<SchemaSnapshot, unknown>;
   readonly revision: string;
+  readonly schema: SchemaSnapshot;
+  readonly files?: readonly string[];
   assertCurrent(): Promise<void>;
 }
 /** Prepares only recorded inputs/offline rules. No live factory is called at this boundary. */
@@ -71,10 +78,13 @@ export async function prepareRecordedDocument(input: {
   if (!paths)
     return {
       dialect: (await resolveConfigDialect(loaded)).config.dialect,
+      schema,
       revision: "legacy",
       assertCurrent: async () => {},
     };
-  const { live, ...registered } = defineAnalysisRegistration(loaded.config.analysis as AnalysisRegistration);
+  const { live, projectCatalogs, ...registered } = defineAnalysisRegistration(
+    loaded.config.analysis as AnalysisRegistration,
+  );
   const configuration = { ...registered, mode: input.forceOffline ? ("offline" as const) : registered.mode };
   const profile = loaded.config.dialect;
   const typePolicy = loaded.config.typePolicy ?? profile.defaultTypePolicy;
@@ -88,6 +98,8 @@ export async function prepareRecordedDocument(input: {
     readonly dialect: DialectPlugin<SchemaSnapshot, unknown>;
     readonly context: QueryContractContext;
     readonly contracts: readonly QueryContract[];
+    readonly schema?: SchemaSnapshot;
+    readonly files?: readonly string[];
     assertCurrent?(): Promise<void>;
   };
   if (configuration.mode === "live") {
@@ -158,7 +170,16 @@ export async function prepareRecordedDocument(input: {
       }
     }
   } else if (configuration.mode === "frozen") {
-    view = await loadFrozenContractView({ profile, schema, typePolicy, configuration, directory: paths.directory });
+    view = await loadFrozenContractView({
+      profile,
+      schema,
+      typePolicy,
+      configuration,
+      directory: paths.directory,
+      ...(projectCatalogs
+        ? { loadProjectCatalogContributions: () => runConfigFactory(loaded, () => projectCatalogs.loadContributions()) }
+        : {}),
+    });
   } else {
     const cache = configuration.cache
       ? await openAnalysisCache({
@@ -166,55 +187,88 @@ export async function prepareRecordedDocument(input: {
           workspaceContext: queryContractDigest({ workspace: loaded.directory, config: loaded.file }),
         })
       : undefined;
-    const context = await selectOfflineAnalysisContext({
-      profile,
-      schema,
-      typePolicy,
-      configuration,
-      directory: paths.directory,
-      ...(cache ? { cache } : {}),
-    });
-    const scope = configuration.cache
+    const baseScope = configuration.cache
       ? createAnalysisContextScope({ profile, schema, typePolicy, configuration })
       : undefined;
-    const captured = cache && scope ? await cache.lookupContext(scope) : undefined;
-    if (
-      captured?.recorded &&
-      (captured.recorded.status !== "usable" ||
-        queryContractDigest(captured.recorded.context) !== queryContractDigest(context))
-    )
-      throw new Error("Recorded context changed during editor preparation; retry analysis");
-    const declared = before !== null && scope ? await loadQueryContractContext(paths.directory, scope) : undefined;
-    if (
-      declared &&
-      configuration.context &&
-      queryContractDigest(declared) !== queryContractDigest(configuration.context)
-    )
-      throw new Error("Pinned context differs from the durable target selection");
+    const durable = before !== null ? await loadQueryContractInputs(paths.directory, baseScope) : undefined;
+    let effectiveSchema = schema;
+    let preparedConfiguration = configuration;
+    let captured: Awaited<ReturnType<NonNullable<typeof cache>["lookupContext"]>> | undefined;
+    let contracts: readonly QueryContract[];
+    if (durable?.projectCatalogs) {
+      const restored = await loadFrozenContractView({
+        profile,
+        schema,
+        typePolicy,
+        configuration,
+        directory: paths.directory,
+        ...(projectCatalogs
+          ? {
+              loadProjectCatalogContributions: () =>
+                runConfigFactory(loaded, () => projectCatalogs.loadContributions()),
+            }
+          : {}),
+      });
+      if (restored.manifestDigest !== before) throw new Error("Catalog inputs changed during editor preparation");
+      captured =
+        cache && baseScope ? await cache.lookupContext(baseScope, durable.projectCatalogs.baseContext) : undefined;
+      if (
+        captured?.recorded &&
+        (captured.recorded.status !== "usable" ||
+          queryContractDigest(captured.recorded.context) !== queryContractDigest(durable.projectCatalogs.baseContext))
+      )
+        throw new Error("Recorded catalog context is stale; refresh live evidence before offline reuse");
+      effectiveSchema = restored.schema;
+      preparedConfiguration = restored.configuration;
+      contracts = restored.contracts;
+    } else {
+      const context = await selectOfflineAnalysisContext({
+        profile,
+        schema,
+        typePolicy,
+        configuration,
+        directory: paths.directory,
+        ...(cache ? { cache } : {}),
+      });
+      captured = cache && baseScope ? await cache.lookupContext(baseScope) : undefined;
+      if (
+        captured?.recorded &&
+        (captured.recorded.status !== "usable" ||
+          queryContractDigest(captured.recorded.context) !== queryContractDigest(context))
+      )
+        throw new Error("Recorded context changed during editor preparation; retry analysis");
+      const declared = durable?.context;
+      if (
+        declared &&
+        configuration.context &&
+        queryContractDigest(declared) !== queryContractDigest(configuration.context)
+      )
+        throw new Error("Pinned context differs from the durable target selection");
+      preparedConfiguration = { ...configuration, context };
+      contracts = configuration.context || declared ? (durable?.contracts ?? []) : [];
+    }
     const collection = (input.sqlFile ? collectSqlFileQueryCandidates : collectSourceQueryCandidates)({
       source: input.source,
       profile,
-      schema,
+      schema: effectiveSchema,
       typePolicy,
       ...loaded.config.compiler,
     });
-    // The normal compiler reports source diagnostics; only fully rendered candidates can reuse evidence.
-    let contracts: readonly QueryContract[] = [];
-    if (before !== null) {
-      contracts = await loadQueryContracts(paths.directory);
-    }
+    // Candidate extraction remains conservative; the compiler reports unsupported source.
     const prepared = await prepareOfflineContractView({
       profile,
-      schema,
+      schema: effectiveSchema,
       typePolicy,
-      configuration: { ...configuration, context },
+      configuration: preparedConfiguration,
+      contracts,
       candidates: collection.candidates.map(({ sql, parameterOccurrences }) => ({ sql, parameterOccurrences })),
-      contracts: configuration.context || declared ? contracts : [],
       ...(cache ? { cache } : {}),
       loadAnalyzer: async () => (await resolveConfigDialect(loaded)).config.dialect,
     });
     view = {
       ...prepared,
+      schema: effectiveSchema,
+      ...(durable ? { files: durable.files } : {}),
       async assertCurrent() {
         await prepared.assertCurrent();
         if (cache && captured && !(await cache.areTokensCurrent([captured.token])))
@@ -232,6 +286,8 @@ export async function prepareRecordedDocument(input: {
   await assertCurrent();
   return {
     dialect: view.dialect,
+    schema: view.schema ?? schema,
+    ...(view.files ? { files: view.files } : {}),
     revision: queryContractDigest({
       context: view.context,
       contracts: view.contracts.map((contract) => contract.digest).sort(),

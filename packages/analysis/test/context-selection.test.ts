@@ -29,6 +29,23 @@ async function temporary(test: (directory: string) => Promise<void>) {
   }
 }
 await describe("automatic recorded context selection", async () => {
+  await it("retains retirement evidence for a durable context without publishing it as a usable target head", async () => {
+    await temporary(async (directory) => {
+      const cache = await openAnalysisCache({ directory, workspaceContext: hash });
+      const initial = await cache.lookupContext(scope, context);
+      strict.equal(initial.recorded, undefined);
+      await cache.retireContext(context);
+      strict.equal((await cache.lookupContext(scope)).recorded, undefined);
+      const retired = await cache.lookupContext(scope, context);
+      strict.equal(retired.recorded?.status, "stale");
+      strict.deepEqual(retired.recorded?.context, context);
+      strict.equal(await cache.areTokensCurrent([initial.token]), false);
+      await strict.rejects(
+        cache.lookupContext(scope, { ...context, profileHash: queryContractDigest("wrong-scope") }),
+        /Observed context/u,
+      );
+    });
+  });
   await it("keeps compatibility identities independently configured and permits unobserved hybrid rules only", async () => {
     strict.equal(defineAnalysisConfiguration(automatic).context, undefined);
     const offline = await selectOfflineAnalysisContext({

@@ -267,8 +267,8 @@ The PostgreSQL real-engine helper exercises captured fixed-result routine declar
 this export/rematerialization path and compiles a different invocation offline without executing
 the routine. Neutral tests cover interrupted publication, missing/replaced catalog objects,
 forged effective schema hashes, changed owners and exact base/effective identity separation.
-Automatic CLI/editor capture, registration of catalog interpreters and live application remain
-incomplete; this closure supplies their required durable boundary.
+Automatic CLI/editor capture and live application remain incomplete; recorded interpreter
+registration and host consumption are described below.
 
 Validation of the catalog closure boundary: all 18 analysis test files pass with 98.60%
 statement, 93.36% branch and 99.41% function coverage. Build/type checks, public API/package
@@ -276,3 +276,35 @@ graph contracts, the complete packed-consumer suite, documentation checks/build,
 performance gates pass. The PostgreSQL 18 native helper passes with catalog rematerialization
 included. One earlier run observed stale context in the subsequent pre-existing conflict-cache
 check; an isolated recheck passed that full flow without changing the guard or its assertion.
+
+## Recorded catalog host consumption
+
+Configurations register `analysis.projectCatalogs.loadContributions` without evaluating it at
+registration time. CLI, build and editor hosts invoke it only for selected catalog closures.
+Frozen consumers carry the rematerialized schema into compiler calls, SQL declarations and
+build transforms; the base snapshot remains an independently checked input. Offline hybrid
+checking can use selected declarations for new exact SQL, without invoking native factories.
+
+CLI offline generation preserves the catalog closure and its base target scope. Builds read
+only durable inputs and interpreter code, while editor dependency tracking includes immutable
+catalog objects and lazily imported local interpreter modules. Offline CLI/editor consumption
+checks retirement against the base context and guards its cache token. Context lookup can
+report an explicitly retired durable context even when no target head was ever published;
+it never promotes that supplied context to usable evidence. Frozen checking ignores the
+disposable development cache.
+
+The PostgreSQL native helper now exports an empty query set with selected fixed-result routine
+metadata, checks a new invocation through the offline CLI, generates its exact contract offline,
+then consumes it frozen. An unsaved different invocation resolves in the editor from the same
+selected metadata. Native factories are guarded against initialization, and the routine's side
+effect counter remains unchanged. Automatic catalog capture/refresh and live schema application
+are still outstanding, as are SQLite/SQL Server native acquisition and broader native statements.
+
+Validation: 18 analysis test files pass with 98.74% statement, 93.47% branch and 99.41%
+function coverage; all 11 CLI files, the build suite and all 16 language-server files pass.
+The final real PostgreSQL helper, clean workspace build, API/package graph checks, complete
+packed-consumer suite, documentation checks/build, quality and isolated performance gates pass.
+The packed consumer also creates a sparse contributed catalog after analyzer/catalog modules
+and drivers are physically removed, then compiles and checks its exact contract through the
+installed frozen CLI. This qualifies the neutral contribution boundary; it does not claim that
+every built-in project interpreter is independent of its grammar's semantic catalog.

@@ -211,8 +211,30 @@ installed grammar contributions. It recomputes the enriched schema and rejects a
 interpreter or stored result. `loadFrozenContractView` accepts those contributions through
 `projectCatalogContributions` and returns the resulting `schema` alongside its dialect. Compile
 using that schema; the base schema cannot stand in for an enriched compiler input. Without the
-required interpreters, frozen loading fails explicitly. These are programmatic host APIs;
-catalog capture and CLI/editor registration remain separate integration work.
+required interpreters, frozen loading fails explicitly.
+
+Register interpreters in configuration through `analysis.projectCatalogs.loadContributions`.
+For PostgreSQL selected routine declarations, assign this object to `analysis.projectCatalogs`:
+
+```ts
+const projectCatalogs = {
+  async loadContributions() {
+    const { createPostgresProjectCatalogContribution } =
+      await import("@typed-sql/postgres/project-catalog");
+    return [createPostgresProjectCatalogContribution()];
+  },
+};
+```
+
+The CLI, build integrations and editor load this factory only when selected catalog inputs require
+it. Interpreters must be deterministic and offline; native acquisition belongs to the separate
+live adapter. Offline checks can analyze uncovered queries against the enriched schema, while
+frozen checks require an exact query contract. Builds consume durable catalog inputs without
+opening the development cache or native services. Editors track both the catalog objects and
+local interpreter dependencies. A known retired base context blocks offline reuse of its derived
+catalog, even if a target head was never published; frozen builds remain independent of that
+disposable cache. Catalog acquisition and automatic live refresh remain separate from this
+recorded-input registration.
 
 
 ### Acquire evidence through an explicit adapter

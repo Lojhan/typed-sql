@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, it, strict } from "poku";
 import { TextDocument } from "vscode-languageserver-textdocument";
+import { installCatalogContractFixture } from "../../../test/helpers/catalog-contract-fixture.js";
 import { ProtocolClient } from "../../../test/helpers/protocol-client.js";
 import {
   type AnalysisRegistration,
@@ -10,6 +11,7 @@ import {
   defineAnalysisRegistration,
   exportQueryContracts,
   loadQueryContracts,
+  openAnalysisCache,
   queryContractDigest,
 } from "../../analysis/src/index.js";
 import { context, fixture } from "../../cli/test/helpers/contract-fixture.js";
@@ -25,6 +27,55 @@ const document = (directory: string, source: string, sql = false) =>
   );
 const service = (directory: string) => new TypedSqlLanguageService(directory, { nativePreview: false });
 await describe("recorded contracts in the editor", async () => {
+  await it("checks catalog-bound contracts using the enriched schema and rejects changed interpreters", async () => {
+    await fixture(async (directory) => {
+      const loaded = await loadConfigSource({ cwd: directory });
+      const artifacts = join(directory, "generated/contracts");
+      const contracts = await loadQueryContracts(artifacts);
+      const closure = await installCatalogContractFixture({
+        directory,
+        contractsDirectory: artifacts,
+        profile: loaded.config.dialect,
+        schema: loaded.config.dialect.validateSnapshot(
+          JSON.parse(await readFile(join(directory, "schema.json"), "utf8")),
+        ),
+        configuration: defineAnalysisRegistration(loaded.config.analysis as AnalysisRegistration),
+        queries: [{ sql: "SELECT $1::bigint AS value", valuePlan: contracts[0]!.valuePlan }],
+      });
+      const current = service(directory);
+      try {
+        const ts = document(directory, await readFile(join(directory, "src/query.ts"), "utf8"));
+        const before = await current.analysis(ts);
+        strict.deepEqual(before?.diagnostics, []);
+        strict.equal(before?.identity.schema.hash, closure.context.schemaHash);
+        strict.ok((await current.watchedFiles()).includes(join(artifacts, "catalogs", `${closure.digest}.json`)));
+        strict.match(JSON.stringify(await current.hover(ts, ts.positionAt(ts.getText().indexOf("SELECT")))), /bigint/u);
+        const owner = join(directory, "catalog-owner.mjs");
+        strict.ok((await current.watchedFiles()).includes(owner));
+        const configPath = join(directory, "typed-sql.config.mjs");
+        const frozenConfig = await readFile(configPath, "utf8");
+        await writeFile(configPath, frozenConfig.replace('mode:"frozen"', 'mode:"offline"'));
+        current.invalidate();
+        const offline = await current.analysis(ts);
+        strict.deepEqual(offline?.diagnostics, []);
+        strict.equal(offline?.identity.schema.hash, closure.context.schemaHash);
+        const cache = await openAnalysisCache({
+          directory: join(directory, ".typed-sql/cache/analysis/v1"),
+          workspaceContext: queryContractDigest({ workspace: loaded.directory, config: loaded.file }),
+        });
+        await cache.retireContext(context);
+        await strict.rejects(current.analysis(ts), /catalog context is stale/u);
+        await writeFile(configPath, frozenConfig);
+        current.invalidate();
+        await writeFile(owner, (await readFile(owner, "utf8")).replace('"integer"', '"text"'));
+        current.invalidate();
+        await strict.rejects(current.analysis(ts), /installed interpretation/u);
+        if (before) strict.equal(current.isAnalysisCurrent(ts, before), false);
+      } finally {
+        await current.close();
+      }
+    });
+  });
   await it("checks templates and raw SQL with cold factories and ignores corrupt disposable state in frozen mode", async () => {
     await fixture(async (directory) => {
       const config = join(directory, "typed-sql.config.mjs");

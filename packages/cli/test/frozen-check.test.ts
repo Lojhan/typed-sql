@@ -1,10 +1,50 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, it, strict } from "poku";
-import { exportQueryContracts } from "../../analysis/src/index.js";
+import { installCatalogContractFixture } from "../../../test/helpers/catalog-contract-fixture.js";
+import {
+  type AnalysisRegistration,
+  defineAnalysisRegistration,
+  exportQueryContracts,
+  loadQueryContracts,
+  openAnalysisCache,
+  queryContractDigest,
+} from "../../analysis/src/index.js";
+import { loadConfigSource } from "../../config/src/index.js";
 import { context, execute, fixture } from "./helpers/contract-fixture.js";
 
 await describe("frozen CLI project checking", async () => {
+  await it("loads selected catalog interpreters and checks against the enriched schema", async () => {
+    await fixture(async (directory) => {
+      const loaded = await loadConfigSource({ cwd: directory });
+      const artifacts = join(directory, "generated/contracts");
+      const contracts = await loadQueryContracts(artifacts);
+      await installCatalogContractFixture({
+        directory,
+        contractsDirectory: artifacts,
+        profile: loaded.config.dialect,
+        schema: loaded.config.dialect.validateSnapshot(
+          JSON.parse(await readFile(join(directory, "schema.json"), "utf8")),
+        ),
+        configuration: defineAnalysisRegistration(loaded.config.analysis as AnalysisRegistration),
+        queries: [{ sql: "SELECT $1::bigint AS value", valuePlan: contracts[0]!.valuePlan }],
+      });
+      strict.match((await execute(directory, ["--frozen", "--show-types"])).stdout, /bigint/u);
+      strict.match((await execute(directory, ["--queries", "--check"], "generate")).stdout, /matches/u);
+      strict.match((await execute(directory, ["--offline", "--show-types"])).stdout, /bigint/u);
+      strict.match((await execute(directory, ["--queries", "--offline", "--check"], "generate")).stdout, /matches/u);
+      const cache = await openAnalysisCache({
+        directory: join(directory, ".typed-sql/cache/analysis/v1"),
+        workspaceContext: queryContractDigest({ workspace: loaded.directory, config: loaded.file }),
+      });
+      await cache.retireContext(context);
+      await strict.rejects(execute(directory, ["--offline"]), /catalog context is stale/u);
+      strict.match((await execute(directory, ["--frozen", "--show-types"])).stdout, /bigint/u);
+      const owner = join(directory, "catalog-owner.mjs");
+      await writeFile(owner, (await readFile(owner, "utf8")).replace('"integer"', '"text"'));
+      await strict.rejects(execute(directory, ["--frozen"]), /installed interpretation/u);
+    });
+  });
   await it("keeps registered live factories cold for offline/frozen overrides and invalid source", async () => {
     await fixture(async (directory) => {
       const path = join(directory, "typed-sql.config.mjs");

@@ -29,6 +29,19 @@ await describe("explicit live registration", async () => {
     strict.equal(invoked, false);
     strict.ok(Object.isFrozen(selected));
     strict.ok(Object.isFrozen(selected.live));
+    const loadContributions = () => {
+      invoked = true;
+      throw Error("not during registration");
+    };
+    for (const live of [undefined, { adapter }]) {
+      const registered = defineAnalysisRegistration({
+        ...configuration,
+        ...(live ? { live } : {}),
+        projectCatalogs: { loadContributions },
+      });
+      strict.equal(registered.projectCatalogs?.loadContributions, loadContributions);
+      strict.ok(Object.isFrozen(registered.projectCatalogs));
+    }
     for (const invalid of [
       null,
       [],
@@ -49,6 +62,19 @@ await describe("explicit live registration", async () => {
       { ...configuration, live: { adapter, batchDeadlineMs: 3_600_001 } },
       { ...configuration, live: { adapter, maxActive: 65 } },
       { ...configuration, live: { adapter, concurrencyPerContext: 1.5 } },
+      { ...configuration, projectCatalogs: null },
+      { ...configuration, projectCatalogs: {} },
+      { ...configuration, projectCatalogs: { loadContributions: 1 } },
+      { ...configuration, projectCatalogs: { loadContributions, extra: true } },
+      {
+        ...configuration,
+        projectCatalogs: {
+          get loadContributions() {
+            invoked = true;
+            return loadContributions;
+          },
+        },
+      },
     ])
       strict.throws(() => defineAnalysisRegistration(invalid as AnalysisRegistration));
     strict.equal(invoked, false);

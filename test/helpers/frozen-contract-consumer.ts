@@ -248,8 +248,10 @@ export async function assertFrozenContractConsumer(consumer: string, env: NodeJS
     `
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
-import { readFile, rm } from "node:fs/promises";
-import { createContractDialect, createQueryContract, exportQueryContracts, loadQueryContracts, queryContractDigest } from "@typed-sql/analysis";
+import { readFile, rm, mkdir, writeFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import { join } from "node:path";
+import { createContractDialect, createQueryContract, exportQueryContracts, loadQueryContracts, queryContractDigest, createAnalysisContextScope, createProjectCatalog, createProjectCatalogClosure, loadFrozenContractView } from "@typed-sql/analysis";
 import { collectSourceQueryCandidates, compileSource } from "@typed-sql/compiler";
 import { calculateSchemaHash, calculateTypePolicyHash } from "@typed-sql/schema";
 import { postgresProfile } from "@typed-sql/postgres/profile";
@@ -291,6 +293,30 @@ assert.match(result.queries[0].rowType, /score.*bigint.*null/u);
 assert.match(result.queries[0].parameterType, /bigint.*null/u);
 const query = withQueryValuePlan(sql\`SELECT vendor_score(\${7n}::bigint) AS score\`, result.queries[0].valuePlan);
 assert.deepEqual(decodeQueryResultRows(query, [{ score: 8n }], { id: "packed-native", dialect: "postgres", integer: "lossless", jsonWire: "text", typePolicyHash: context.typePolicyHash }), [{ score: 8n }]);
+// A sparse contributed interpreter works after all built-in analyzer/catalog modules are removed.
+const functions={catalog_fixture:{name:"catalog_fixture",argumentTypes:[],returnType:"number",databaseReturnType:"integer",nullable:true}};
+const owner={id:"packed/catalog-owner",version:"1",grammar:context.grammar,apply(schema){return {...schema,functions};}};
+const catalogClosure=createProjectCatalogClosure({schema,context,typePolicy:profile.defaultTypePolicy,
+  catalogs:[createProjectCatalog({context,owner:{id:owner.id,version:owner.version},entries:[{kind:"fixture",identity:"fixture",permission:"fixed-result",evidenceDigest:queryContractDigest(functions),definition:functions}]})],contributions:[owner]});
+const configured={mode:"frozen",context,identity:{profileHash:context.profileHash,codecHash:context.codecHash,interpreterHash:context.interpreterHash},
+  qualification:{mode:"hybrid",owner:{id:"packed/offline",version:"1"},requiredNativeFacets:[]},contractsDir:"contracts",
+  cache:{connectionContext:queryContractDigest("packed-target"),adapter:{id:"packed/adapter",version:"1"}}};
+const project=join(process.cwd(),"frozen-catalog-project");
+await mkdir(project);
+await exportQueryContracts(join(project,"contracts"),[createQueryContract({sql:text,context:catalogClosure.context,origin:"offline-rule",valuePlan})],{
+  selection:{scope:createAnalysisContextScope({profile,schema,configuration:configured}),context:catalogClosure.context,projectCatalogs:catalogClosure}});
+await writeFile(join(project,"catalog-owner.mjs"),"export const contributions=[{id:'packed/catalog-owner',version:'1',grammar:"+JSON.stringify(context.grammar)+",apply(schema){return {...schema,functions:"+JSON.stringify(functions)+"};}}];");
+await writeFile(join(project,"schema.json"),JSON.stringify(schema));
+await writeFile(join(project,"package.json"),'{"type":"module"}');
+await writeFile(join(project,"application.ts"),source.replace("const query=sql","export function query(input:bigint){return sql")+"}");
+await writeFile(join(project,"tsconfig.json"),JSON.stringify({compilerOptions:{strict:true,target:"ESNext",module:"NodeNext",moduleResolution:"NodeNext",noEmit:true},files:["application.ts"]}));
+await writeFile(join(project,"typed-sql.config.mjs"),"import {postgresProfile} from '@typed-sql/postgres/profile';export default {dialect:{...postgresProfile(),loadAnalyzer(){throw Error('Frozen catalog CLI initialized an analyzer');}},schema:{file:'schema.json'},outDir:'generated',projects:['tsconfig.json'],analysis:{..."+JSON.stringify(configured)+",projectCatalogs:{async loadContributions(){return (await import('./catalog-owner.mjs')).contributions;}},live:{adapter(){throw Error('Frozen catalog CLI initialized native services');}}}};");
+const selected=await loadFrozenContractView({profile,schema,configuration:configured,directory:join(project,"contracts"),loadProjectCatalogContributions:async()=>[owner]});
+assert.notEqual(calculateSchemaHash(selected.schema),calculateSchemaHash(schema));
+assert.deepEqual(compileSource({source,schema:selected.schema,dialect:selected.dialect}).diagnostics,[]);
+const checked=spawnSync(process.execPath,[join(process.cwd(),"node_modules/@typed-sql/cli/dist/packages/cli/src/cli.js"),"check","--frozen","--show-types"],{cwd:project,env:process.env,encoding:"utf8",timeout:60000});
+assert.equal(checked.status,0,checked.stdout+checked.stderr);
+assert.match(checked.stdout,/bigint/u);
 const manifest = JSON.parse(await readFile("./frozen-contracts/manifest.json", "utf8"));
 await rm("./frozen-contracts/queries/" + manifest.queries[0] + ".json");
 await assert.rejects(loadQueryContracts("./frozen-contracts"), { code: "ENOENT" });

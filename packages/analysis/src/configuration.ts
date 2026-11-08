@@ -114,6 +114,9 @@ export async function loadFrozenContractView<Snapshot extends SchemaSnapshot, Po
   readonly configuration: AnalysisConfiguration;
   readonly directory: string;
   readonly projectCatalogContributions?: readonly ProjectCatalogContribution<Snapshot, Policy>[];
+  readonly loadProjectCatalogContributions?: () =>
+    | readonly ProjectCatalogContribution<Snapshot, Policy>[]
+    | Promise<readonly ProjectCatalogContribution<Snapshot, Policy>[]>;
 }): Promise<{
   readonly dialect: DialectPlugin<Snapshot, Policy>;
   readonly contracts: readonly QueryContract[];
@@ -122,6 +125,8 @@ export async function loadFrozenContractView<Snapshot extends SchemaSnapshot, Po
   readonly files: readonly string[];
   readonly manifestDigest: string;
   readonly schema: Snapshot;
+  readonly projectCatalogs?: import("./project-catalog.js").ProjectCatalogClosure;
+  readonly configuration: ResolvedAnalysisConfiguration;
 }> {
   const configuration = defineAnalysisConfiguration(input.configuration),
     profile = input.profile;
@@ -145,13 +150,13 @@ export async function loadFrozenContractView<Snapshot extends SchemaSnapshot, Po
   if (inputs.projectCatalogs) {
     if (configuration.cache && !inputs.context)
       throw new TypeError("Frozen project catalog base scope differs from installed inputs");
-    if (!input.projectCatalogContributions)
-      throw new TypeError("Frozen project catalogs require independently installed interpreters");
+    const contributions = input.projectCatalogContributions ?? (await input.loadProjectCatalogContributions?.());
+    if (!contributions) throw new TypeError("Frozen project catalogs require independently installed interpreters");
     const projected = materializeProjectCatalogClosure({
       closure: inputs.projectCatalogs,
       schema,
       typePolicy: policy,
-      contributions: input.projectCatalogContributions,
+      contributions,
     });
     schema = projected.schema;
   }
@@ -180,6 +185,16 @@ export async function loadFrozenContractView<Snapshot extends SchemaSnapshot, Po
   return Object.freeze({
     dialect,
     schema,
+    configuration: defineAnalysisConfiguration({
+      ...configuration,
+      context,
+      identity: {
+        profileHash: context.profileHash,
+        codecHash: context.codecHash,
+        interpreterHash: context.interpreterHash,
+      },
+    }),
+    ...(inputs.projectCatalogs ? { projectCatalogs: inputs.projectCatalogs } : {}),
     contracts,
     context,
     digest: queryContractDigest(contracts.map((item) => item.digest).sort()),

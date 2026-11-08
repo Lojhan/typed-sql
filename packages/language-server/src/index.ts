@@ -253,6 +253,7 @@ export class TypedSqlLanguageService {
   readonly #schemaCache = new Map<string, CachedSchema>();
   readonly #analysisCache = new Map<string, DocumentAnalysis>();
   readonly #inspectionCache = new Map<string, Promise<readonly NativeTypeInspection[] | undefined>>();
+  #contractFiles: readonly string[] = [];
   #nativeBridgePromise: Promise<TypeScriptBridge> | undefined;
   readonly #nativeBridgeFactory: () => TypeScriptBridge;
   #configPromise: ReturnType<typeof loadConfigSource> | undefined;
@@ -283,6 +284,7 @@ export class TypedSqlLanguageService {
     this.#settings = this.#validatedSettings(settings);
     this.#generation += 1;
     this.#schemaCache.clear();
+    this.#contractFiles = [];
     this.#analysisCache.clear();
     this.#inspectionCache.clear();
     this.#configPromise = undefined;
@@ -619,6 +621,7 @@ export class TypedSqlLanguageService {
         resolve(schemaPath),
         ...(loaded.dependencies ?? []),
         ...(recordedContractPaths(loaded)?.watched ?? []),
+        ...this.#contractFiles,
       ]),
     ];
   }
@@ -760,12 +763,13 @@ export class TypedSqlLanguageService {
         await view.assertCurrent().catch(inputFailure);
         cancelled(token);
         if (generation !== this.#generation) continue;
+        this.#contractFiles = view.files ?? [];
         cacheSet(this.#analysisCache, document.uri, cached, this.#maxCacheEntries(), this.#cacheCounters.analyses);
         return cached;
       }
       const analysis = analyzeSource(
         document.getText(),
-        view.dialect.validateSnapshot(schema.snapshot),
+        view.schema,
         view.dialect,
         loaded.config.typePolicy ?? view.dialect.defaultTypePolicy,
         {
@@ -787,7 +791,7 @@ export class TypedSqlLanguageService {
         configHash,
         schemaPath,
         schemaModified: schema.modified,
-        snapshot: schema.snapshot,
+        snapshot: view.schema,
         dialect: view.dialect,
         typePolicy: loaded.config.typePolicy ?? view.dialect.defaultTypePolicy,
         ...(projectFile === undefined ? {} : { projectFile }),
@@ -797,6 +801,7 @@ export class TypedSqlLanguageService {
       await view.assertCurrent().catch(inputFailure);
       cancelled(token);
       if (generation !== this.#generation) continue;
+      this.#contractFiles = view.files ?? [];
       cacheSet(this.#analysisCache, document.uri, result, this.#maxCacheEntries(), this.#cacheCounters.analyses);
       return result;
     }

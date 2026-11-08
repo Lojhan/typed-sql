@@ -110,7 +110,7 @@ export async function loadBuildProject(
       .update(relative(directory, file).replaceAll("\\", "/"))
       .update("\0")
       .update(contents[index] === null ? "missing" : `present:${contents[index]}`);
-  const project = { loaded, snapshot, watchedFiles, configIdentity: hash.digest("hex") };
+  const project = { loaded, snapshot: analysis?.schema ?? snapshot, watchedFiles, configIdentity: hash.digest("hex") };
   if (analysis) {
     const assertCurrent = async () => {
       if ((await loadConfigSource({ file: source.file, ...(importer ? { importer } : {}) })) !== source)

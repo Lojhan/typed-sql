@@ -3,6 +3,7 @@ import type { NativeContractAdapter } from "./acquisition.js";
 import { type AnalysisConfiguration, defineAnalysisConfiguration } from "./configuration.js";
 import type { QueryContractContext } from "./contracts.js";
 import type { LiveAnalysisFailure } from "./live.js";
+import type { ProjectCatalogContribution } from "./project-catalog.js";
 import type { ContractReconciliationContribution } from "./reconciliation.js";
 
 export interface LiveAnalysisServices {
@@ -30,6 +31,12 @@ export interface LiveAnalysisRegistration<Snapshot extends SchemaSnapshot = Sche
 export interface AnalysisRegistration<Snapshot extends SchemaSnapshot = SchemaSnapshot, Policy = unknown>
   extends AnalysisConfiguration {
   readonly live?: LiveAnalysisRegistration<Snapshot, Policy>;
+  readonly projectCatalogs?: {
+    /** Installed grammar interpreters; loaded only when selected catalog inputs require them. */
+    loadContributions():
+      | readonly ProjectCatalogContribution<Snapshot, Policy>[]
+      | Promise<readonly ProjectCatalogContribution<Snapshot, Policy>[]>;
+  };
 }
 
 /** Registers explicit factories without invoking them or serializing executable configuration. */
@@ -37,10 +44,20 @@ export function defineAnalysisRegistration<Snapshot extends SchemaSnapshot = Sch
   input: AnalysisRegistration<Snapshot, Policy>,
 ): AnalysisRegistration<Snapshot, Policy> & { readonly mode: "offline" | "frozen" | "live" } {
   const data = fields(input),
-    live = data.live;
+    live = data.live,
+    projectCatalogs = data.projectCatalogs;
   delete data.live;
+  delete data.projectCatalogs;
   const configuration = defineAnalysisConfiguration(data);
-  if (live === undefined) return configuration;
+  let catalogs: AnalysisRegistration<Snapshot, Policy>["projectCatalogs"];
+  if (projectCatalogs !== undefined) {
+    const registered = fields(projectCatalogs);
+    if (Object.keys(registered).join() !== "loadContributions" || typeof registered.loadContributions !== "function")
+      throw new TypeError("Invalid project catalog registration");
+    catalogs = Object.freeze(registered) as unknown as NonNullable<typeof catalogs>;
+  }
+  const base = catalogs ? Object.freeze({ ...configuration, projectCatalogs: catalogs }) : configuration;
+  if (live === undefined) return base;
   const registration = fields(live);
   if (
     Object.keys(registration).some(
@@ -72,7 +89,7 @@ export function defineAnalysisRegistration<Snapshot extends SchemaSnapshot = Sch
     )
       throw new TypeError(`Invalid live analysis ${key}`);
   return Object.freeze({
-    ...configuration,
+    ...base,
     live: Object.freeze(registration) as unknown as LiveAnalysisRegistration<Snapshot, Policy>,
   });
 }

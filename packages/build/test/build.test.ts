@@ -5,7 +5,13 @@ import { fileURLToPath } from "node:url";
 import { originalPositionFor, TraceMap } from "@jridgewell/trace-mapping";
 import { describe, it, strict } from "poku";
 import { buildInline, buildSnapshot, prepareBuildProject } from "../../../test/helpers/build-project.js";
-import { createQueryContract, exportQueryContracts, queryContractDigest } from "../../analysis/src/index.js";
+import { installCatalogContractFixture } from "../../../test/helpers/catalog-contract-fixture.js";
+import {
+  createQueryContract,
+  defineAnalysisConfiguration,
+  exportQueryContracts,
+  queryContractDigest,
+} from "../../analysis/src/index.js";
 import { collectSqlFileQueryCandidates } from "../../compiler/src/index.js";
 import { calculateSchemaHash, calculateTypePolicyHash } from "../../schema/src/index.js";
 import { sqliteProfile, typePolicy } from "../../sqlite/src/profile.js";
@@ -85,6 +91,23 @@ export default {dialect:{...sqliteProfile({typePolicy:{...typePolicy,integer:"nu
       const first = await session.transform(source, join(cwd, "query.sql"));
       strict.ok(first?.dependencies.includes(join(await realpath(artifacts), "manifest.json")));
       strict.ok(first?.dependencies.some((path) => path.includes(`${sep}queries${sep}`)));
+      const closure = await installCatalogContractFixture({
+        directory: cwd,
+        contractsDirectory: artifacts,
+        profile,
+        schema: snapshot,
+        configuration: defineAnalysisConfiguration(configuration),
+        queries: [{ sql, valuePlan: contract(false).valuePlan }],
+      });
+      const withCatalog = await session.transform(source, join(cwd, "query.sql"));
+      strict.notEqual(withCatalog?.cacheKey, first?.cacheKey);
+      strict.ok(withCatalog?.dependencies.some((path) => path.includes(`${sep}catalogs${sep}`)));
+      strict.equal(calculateSchemaHash((await loadBuildProject(cwd)).snapshot), closure.context.schemaHash);
+      const catalogConfig = await readFile(join(cwd, "typed-sql.config.mjs"), "utf8");
+      await writeFile(join(cwd, "typed-sql.config.mjs"), catalogConfig.replace('"mode":"frozen"', '"mode":"offline"'));
+      strict.ok((await session.transform(source, join(cwd, "query.sql")))?.code);
+      strict.equal(calculateSchemaHash((await loadBuildProject(cwd)).snapshot), closure.context.schemaHash);
+      await writeFile(join(cwd, "typed-sql.config.mjs"), catalogConfig);
       await generateSqlTypes({ cwd });
       strict.match(await readFile(join(cwd, "query.d.sql.ts"), "utf8"), /"id": number/u);
       await exportQueryContracts(artifacts, [contract(true)]);

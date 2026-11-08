@@ -233,6 +233,75 @@ export async function assertPostgresNativeContracts(connectionString: string, di
       );
       strict.match(frozenReuse.queries[0]!.rowType, /result.*bigint.*null/u);
       strict.notEqual(frozenCatalog.context.schemaHash, projectCatalog.context.schemaHash);
+      // A selected declaration supports a new query without an exact query contract or native factory.
+      await exportQueryContracts(catalogDirectory, [], {
+        selection: {
+          scope: createAnalysisContextScope({ profile, schema: projectBase, configuration: configured }),
+          context: catalogClosure.context,
+          projectCatalogs: catalogClosure,
+        },
+      });
+      const catalogSource = application.replace("::bigint) AS result", "::bigint + 7::bigint) AS result");
+      await writeFile(join(catalogDirectory, "application.ts"), catalogSource);
+      await writeFile(join(catalogDirectory, "schema.json"), JSON.stringify(projectBase));
+      await writeFile(join(catalogDirectory, "package.json"), '{"type":"module"}');
+      await writeFile(
+        join(catalogDirectory, "tsconfig.json"),
+        JSON.stringify({
+          compilerOptions: {
+            strict: true,
+            target: "ESNext",
+            module: "NodeNext",
+            moduleResolution: "NodeNext",
+            noEmit: true,
+          },
+          files: ["application.ts"],
+        }),
+      );
+      await writeFile(
+        join(catalogDirectory, "typed-sql.config.mjs"),
+        `
+import {postgresProfile} from "@typed-sql/postgres/profile";
+export default {dialect:{...postgresProfile(),async loadAnalyzer(){return (await import("@typed-sql/postgres/analysis")).postgres();}},schema:{file:"schema.json",provider:{introspect(){throw Error("Recorded catalogs must not introspect");}}},outDir:"generated",projects:["tsconfig.json"],analysis:{...${JSON.stringify(configured)},mode:"offline",contractsDir:".",projectCatalogs:{async loadContributions(){return [(await import("@typed-sql/postgres/project-catalog")).createPostgresProjectCatalogContribution()];}},live:{adapter(){throw Error("Recorded catalogs must not acquire native services");}}}};`,
+      );
+      const cli = join(directory, "packages/cli/dist/packages/cli/src/cli.js");
+      const command = (args: string[]) =>
+        promisify(callback)(process.execPath, [cli, ...args], { cwd: catalogDirectory, maxBuffer: 8 * 1024 * 1024 });
+      strict.match((await command(["check", "--offline", "--show-types"])).stdout, /bigint/u);
+      await command(["generate", "--queries", "--offline"]);
+      strict.equal((await loadQueryContracts(catalogDirectory)).length, 1);
+      strict.match((await command(["check", "--frozen", "--show-types"])).stdout, /bigint/u);
+      const editor = new ProtocolClient(
+        process.execPath,
+        [join(directory, "packages/language-server/dist/packages/language-server/src/server.js"), "--stdio"],
+        catalogDirectory,
+      );
+      try {
+        const uri = pathToFileURL(join(catalogDirectory, "application.ts")).href;
+        const unsaved = catalogSource.replace("+ 7::bigint", "+ 9::bigint");
+        await editor.request("initialize", {
+          processId: null,
+          rootUri: pathToFileURL(catalogDirectory).href,
+          capabilities: { textDocument: { diagnostic: {} } },
+          initializationOptions: { nativePreview: false },
+        });
+        editor.notify("initialized", {});
+        editor.notify("textDocument/didOpen", {
+          textDocument: { uri, languageId: "typescript", version: 1, text: unsaved },
+        });
+        const diagnostics = (await editor.request("textDocument/diagnostic", { textDocument: { uri } })) as {
+          items: { severity?: number }[];
+        };
+        strict.ok(!diagnostics.items.some((item) => item.severity === 1), JSON.stringify(diagnostics));
+        const prefix = unsaved.slice(0, unsaved.indexOf("SELECT")).split("\n");
+        const hover = await editor.request("textDocument/hover", {
+          textDocument: { uri },
+          position: { line: prefix.length - 1, character: prefix.at(-1)!.length },
+        });
+        strict.match(JSON.stringify(hover), /bigint/u);
+      } finally {
+        await editor.close();
+      }
     } finally {
       await rm(catalogDirectory, { recursive: true, force: true });
     }

@@ -114,7 +114,15 @@ await describe("explicit analysis configuration", async () => {
     try {
       await exportQueryContracts(directory, [contract]);
       const configuration = defineAnalysisConfiguration({ ...selected, mode: "frozen" });
-      const view = await loadFrozenContractView({ directory, profile, schema, configuration });
+      const view = await loadFrozenContractView({
+        directory,
+        profile,
+        schema,
+        configuration,
+        loadProjectCatalogContributions() {
+          throw Error("No selected catalog needs an interpreter");
+        },
+      });
       strict.equal(view.digest, queryContractDigest([contract.digest]));
       strict.ok(Object.isFrozen(view));
       strict.deepEqual(view.dialect.analyze("SELECT 1 AS value", schema).diagnostics, []);

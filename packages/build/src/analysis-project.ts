@@ -13,12 +13,13 @@ import {
   selectOfflineAnalysisContext,
 } from "@typed-sql/analysis";
 import { collectSourceQueryCandidates, collectSqlFileQueryCandidates } from "@typed-sql/compiler";
-import { type LoadedConfig, type LoadedConfigSource, resolveConfigDialect } from "@typed-sql/config";
+import { type LoadedConfig, type LoadedConfigSource, resolveConfigDialect, runConfigFactory } from "@typed-sql/config";
 import type { DialectPlugin, SchemaSnapshot } from "@typed-sql/core";
 
 export interface BuildAnalysis {
   readonly loaded: LoadedConfig;
   readonly files: readonly string[];
+  readonly schema: SchemaSnapshot;
   assertCurrent(): Promise<void>;
   prepare(source: string, id: string): Promise<{ readonly dialect: DialectPlugin }>;
 }
@@ -26,7 +27,7 @@ export interface BuildAnalysis {
 /** Build inputs are durable artifacts and offline rules; live factories and disposable caches stay idle. */
 export async function loadBuildAnalysis(source: LoadedConfigSource, schema: SchemaSnapshot): Promise<BuildAnalysis> {
   const registration = defineAnalysisRegistration(source.config.analysis as AnalysisRegistration);
-  const { live: _live, ...data } = registration;
+  const { live: _live, projectCatalogs, ...data } = registration;
   const mode = registration.mode === "frozen" ? "frozen" : "offline";
   let configuration = defineAnalysisConfiguration({ ...data, mode });
   const profile = source.config.dialect;
@@ -37,7 +38,17 @@ export async function loadBuildAnalysis(source: LoadedConfigSource, schema: Sche
   let manifestDigest: string | undefined;
   let initial: { readonly dialect: DialectPlugin };
   if (mode === "frozen") {
-    const view = await loadFrozenContractView({ profile, schema, typePolicy: policy, configuration, directory });
+    const view = await loadFrozenContractView({
+      profile,
+      schema,
+      typePolicy: policy,
+      configuration,
+      directory,
+      ...(projectCatalogs
+        ? { loadProjectCatalogContributions: () => runConfigFactory(source, () => projectCatalogs.loadContributions()) }
+        : {}),
+    });
+    schema = view.schema;
     files = view.files;
     manifestDigest = view.manifestDigest;
     initial = view;
@@ -59,6 +70,24 @@ export async function loadBuildAnalysis(source: LoadedConfigSource, schema: Sche
       contracts = input.contracts;
       files = input.files;
       declared = input.context;
+      if (input.projectCatalogs) {
+        const view = await loadFrozenContractView({
+          profile,
+          schema,
+          typePolicy: policy,
+          configuration,
+          directory,
+          ...(projectCatalogs
+            ? {
+                loadProjectCatalogContributions: () =>
+                  runConfigFactory(source, () => projectCatalogs.loadContributions()),
+              }
+            : {}),
+        });
+        if (view.manifestDigest !== manifestDigest) throw new Error("Build catalog inputs changed; retry building");
+        schema = view.schema;
+        configuration = view.configuration;
+      }
     }
     if (
       configuration.context &&
@@ -103,6 +132,7 @@ export async function loadBuildAnalysis(source: LoadedConfigSource, schema: Sche
   };
   return {
     loaded,
+    schema,
     files,
     assertCurrent,
     async prepare(text, id) {
