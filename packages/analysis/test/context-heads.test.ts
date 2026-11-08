@@ -21,6 +21,109 @@ async function temporary(test: (cache: AnalysisCache, directory: string) => Prom
   }
 }
 await describe("recorded context selection", async () => {
+  await it("keeps previous retirements when query or context publication reaches capacity", async () => {
+    for (const publication of ["query", "observation"] as const)
+      await temporary(
+        async (cache, directory) => {
+          await cache.retireContext(context);
+          const second = { ...context, databaseContextHash: queryContractDigest("second-retired-context") };
+          const oldToken = (await cache.lookupContext(scope)).token;
+          if (publication === "query") {
+            const { digest: _, ...claim } = request.staticClaim;
+            const changed = { ...claim, context: second };
+            const query = { ...request, staticClaim: { ...changed, digest: queryContractDigest(changed) } };
+            strict.equal(
+              (
+                await cache.publish({
+                  token: (await cache.lookup(query)).token,
+                  request: query,
+                  outcome: { kind: "stale-context", code: "context-changed" },
+                })
+              ).status,
+              "capacity",
+            );
+          } else {
+            strict.equal(
+              (
+                await cache.publishContext({
+                  token: oldToken,
+                  scope,
+                  previousContext: second,
+                  context: { ...context, databaseContextHash: queryContractDigest("new-observed-context") },
+                })
+              ).status,
+              "capacity",
+            );
+          }
+          strict.equal(await cache.areTokensCurrent([oldToken]), false);
+          const reopened = await openAnalysisCache({ directory, workspaceContext: hash, maxEntries: 1 });
+          for (const retired of [context, second])
+            strict.equal((await reopened.lookupContext(scope, retired)).recorded?.status, "stale");
+          const fresh = { ...context, databaseContextHash: queryContractDigest("fresh") };
+          const observation = await reopened.lookupContext(scope);
+          strict.equal(
+            (
+              await reopened.publishContext({
+                token: observation.token,
+                scope,
+                previousContext: second,
+                context: fresh,
+              })
+            ).status,
+            "published",
+          );
+          strict.equal((await reopened.lookupContext(scope)).recorded?.status, "usable");
+        },
+        { maxEntries: 1 },
+      );
+  });
+  await it("retains headless retirements across other contexts, restart and quota compaction", async () => {
+    for (const limits of [{ maxEntries: 4 }, { maxEntries: 1 }, { maxEntries: 4, maxObjectBytes: 1024 }])
+      await temporary(async (cache, directory) => {
+        const contexts = [
+          context,
+          ...["second", "third"].map((label) => ({ ...context, databaseContextHash: queryContractDigest(label) })),
+        ];
+        for (const retired of contexts) await cache.retireContext(retired);
+        const reopened = await openAnalysisCache({ directory, workspaceContext: hash, ...limits });
+        await reopened.prune({ retentionMs: 0 });
+        for (const retired of contexts) {
+          strict.equal((await reopened.lookupContext(scope, retired)).recorded?.status, "stale");
+          strict.equal(
+            (
+              await reopened.lookupRecorded({
+                connectionContext: request.connectionContext,
+                adapter: request.adapter,
+                candidate: request.candidate,
+                context: retired,
+                policy: request.policy,
+              })
+            ).cached?.outcome.kind,
+            "stale-context",
+          );
+        }
+        if (limits.maxObjectBytes) {
+          strict.ok(
+            Buffer.byteLength(await readFile(join(directory, "indexes", `${hash}.json`))) <= limits.maxObjectBytes,
+          );
+          return;
+        }
+        const fresh = { ...context, databaseContextHash: queryContractDigest("fresh-observation") };
+        strict.equal(
+          (
+            await reopened.publishContext({
+              token: (await reopened.lookupContext(scope)).token,
+              scope,
+              context: fresh,
+            })
+          ).status,
+          "published",
+        );
+        strict.equal((await reopened.lookupContext(scope)).recorded?.status, "usable");
+        const otherScope = { ...scope, connectionContext: queryContractDigest("unobserved-connection") };
+        strict.equal((await reopened.lookupContext(otherScope, context)).recorded?.status, "stale");
+      }, limits);
+  });
   await it("refreshes unchanged observations without invalidating active views, while changes and retirement remain fenced", async () => {
     let time = 0;
     await temporary(

@@ -486,3 +486,17 @@ The real-engine probe is wired into the existing Linux x64 qualification matrix 
 requires exact fixture builds. This probe has not yet passed on real engines. The adapter,
 identity and reconciliation modules remain private; public CLI/editor integration and installed
 consumer qualification are still outstanding. Local fixture tests do not establish native support.
+
+## Retirement history under cache pressure
+
+Retiring an unrelated context previously replaced the entire retirement index. A second process
+could then treat an earlier, headless durable context as eligible again. Retirement now preserves
+previous stale-context records. If their count or serialized size exceeds the configured bound,
+the namespace retains a compact conservative barrier: unobserved contexts require a fresh
+observation. A fresh scoped observation can restore that scope while other unobserved scopes
+remain blocked. Explicit live query acquisition can still qualify fresh evidence; ordinary
+offline lookup does not clear the barrier. Explicit cache invalidation remains a reset operation.
+
+Regression tests reproduce the prior failure and cover consecutive retirements, query-reported
+staleness, capacity-limited context publication, restart, pruning, count/byte bounds and recovery
+through fresh observation. The existing index format and publication-token contracts are retained.

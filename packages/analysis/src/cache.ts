@@ -151,6 +151,10 @@ interface Owner {
   readonly instance: string;
 }
 const nonce = () => queryContractDigest(randomUUID());
+// A bounded, conservative replacement when individual retirement history no longer fits.
+const retirementBarrierKey = queryContractDigest({ kind: "unobserved-contexts-require-refresh-v1" });
+const isRetirementBarrier = (entry: Entry) =>
+  entry.requestKey === retirementBarrierKey && entry.result.kind === "stale-context";
 function hash(value: unknown): asserts value is string {
   if (typeof value !== "string" || !cacheDigestPattern.test(value))
     throw new TypeError("Invalid analysis cache identity");
@@ -424,6 +428,35 @@ export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<
   };
   const readIndex = () =>
     readCacheFile(path.index, maxObjectBytes).then((text) => index(JSON.parse(text), workspaceContext, maxEntries));
+  const writeRetirementIndex = async (
+    current: Index,
+    retired: Entry,
+    assertLock: () => Promise<void>,
+    heads: readonly ContextHead[] = current.heads ?? [],
+  ) => {
+    const epoch = nonce();
+    let entries = [
+      ...current.entries.filter(
+        (entry) => entry.result.kind === "stale-context" && entry.requestKey !== retired.requestKey,
+      ),
+      retired,
+    ];
+    const barrier = entries.find(isRetirementBarrier);
+    if (barrier) entries = [barrier];
+    if (entries.length > maxEntries || Buffer.byteLength(indexText(epoch, entries, heads)) > maxObjectBytes) {
+      entries = [
+        {
+          requestKey: retirementBarrierKey,
+          contextHash: retirementBarrierKey,
+          revision: nonce(),
+          recordedAt: now(),
+          result: { kind: "stale-context", code: "context-history-compacted" },
+        },
+      ];
+      heads = [];
+    }
+    await writeIndex(epoch, entries, assertLock, heads);
+  };
   await withLock(async (assertLock) => {
     try {
       instance = owner(JSON.parse(await readCacheFile(path.ownership, maxObjectBytes))).instance;
@@ -508,9 +541,12 @@ export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<
       const selected =
         current.entries.find(
           (item) => item.result.kind === "stale-context" && item.contextHash === expectedContextHash,
-        ) ?? entry;
+        ) ??
+        entry ??
+        current.entries.find(isRetirementBarrier);
       if (!selected) return Object.freeze({ token: captured });
-      if (selected.contextHash !== expectedContextHash) throw new TypeError("Analysis cache context identity differs");
+      if (selected.contextHash !== expectedContextHash && !isRetirementBarrier(selected))
+        throw new TypeError("Analysis cache context identity differs");
       let result: LiveAnalysisOutcome;
       if (selected.result.kind === "usable-recorded-context") {
         const contract = parseQueryContract(
@@ -705,7 +741,11 @@ export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<
         if (!head) {
           const retired =
             recorded &&
-            current.entries.find((item) => item.contextHash === recordedHash && item.result.kind === "stale-context");
+            current.entries.find(
+              (item) =>
+                (item.contextHash === recordedHash && item.result.kind === "stale-context") ||
+                isRetirementBarrier(item),
+            );
           if (recorded && retired)
             return Object.freeze({
               token: captured,
@@ -790,12 +830,20 @@ export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<
             item.contextHash !== (changed ? priorHash : "") &&
             (item.result.kind !== "stale-context" || item.contextHash !== contextHash),
         );
-        if (retired) entries.push(retired);
+        if (retired && !entries.some(isRetirementBarrier)) entries.push(retired);
         const capacity = async () => {
-          if (retired) await writeIndex(nonce(), [retired], assertLock);
+          if (retired)
+            await writeRetirementIndex(
+              current,
+              retired,
+              assertLock,
+              heads.map((head) =>
+                head.contextHash === priorHash ? { ...head, status: "stale", revision: nonce() } : head,
+              ),
+            );
           return { status: "capacity" as const };
         };
-        if (!previous && heads.length >= maxEntries) return capacity();
+        if (entries.length > maxEntries || (!previous && heads.length >= maxEntries)) return capacity();
         const text = indexText(epoch, entries, [...heads.filter((item) => item.scopeHash !== key), head]);
         const contextText = `${canonicalContractData(context)}\n`,
           contextFile = join(path.contexts, `${contextHash}.json`);
@@ -853,13 +901,12 @@ export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<
         const contextHash = queryContractDigest(request.staticClaim.context);
         const retainedEntries =
           result.kind === "stale-context"
-            ? []
+            ? current.entries.filter((item) => item.result.kind === "stale-context" && item.contextHash !== contextHash)
             : result.kind === "usable-recorded-context"
               ? current.entries.filter(
                   (item) => item.result.kind !== "stale-context" || item.contextHash !== contextHash,
                 )
               : current.entries;
-        if (!previous && retainedEntries.length >= maxEntries) return { status: "capacity" as const };
         const recordedAt = now();
         const stored: CacheResult =
           result.kind === "usable-recorded-context"
@@ -867,6 +914,18 @@ export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<
             : result;
         const revision = nonce(),
           entry: Entry = { requestKey: expected.requestKey, revision, recordedAt, contextHash, result: stored };
+        if (!previous && retainedEntries.length >= maxEntries) {
+          if (result.kind === "stale-context")
+            await writeRetirementIndex(
+              current,
+              entry,
+              assertLock,
+              current.heads?.map((head) =>
+                head.contextHash === contextHash ? { ...head, status: "stale", revision: nonce() } : head,
+              ),
+            );
+          return { status: "capacity" as const };
+        }
         const entries = [...retainedEntries.filter((item) => item.requestKey !== entry.requestKey), entry];
         const text = indexText(result.kind === "stale-context" ? nonce() : current.epoch, entries, current.heads);
         const contextText =
@@ -890,17 +949,15 @@ export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<
         ) {
           // Resource pressure cannot preserve a result that has just been disproved.
           if (retiresKnownEvidence)
-            await writeIndex(
-              nonce(),
-              [
-                {
-                  requestKey: queryContractDigest({ kind: "retired-context", contextHash }),
-                  contextHash,
-                  revision: nonce(),
-                  recordedAt,
-                  result: { kind: "stale-context", code: "context-changed" },
-                },
-              ],
+            await writeRetirementIndex(
+              current,
+              {
+                requestKey: queryContractDigest({ kind: "retired-context", contextHash }),
+                contextHash,
+                revision: nonce(),
+                recordedAt,
+                result: { kind: "stale-context", code: "context-changed" },
+              },
               assertLock,
               current.heads?.map((head) =>
                 head.contextHash === contextHash ? { ...head, status: "stale", revision: nonce() } : head,
@@ -941,9 +998,9 @@ export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<
           recordedAt: now(),
           result: { kind: "stale-context", code: "context-changed" },
         };
-        await writeIndex(
-          nonce(),
-          [entry],
+        await writeRetirementIndex(
+          current,
+          entry,
           assertLock,
           current.heads?.map((head) =>
             head.contextHash === contextHash ? { ...head, status: "stale", revision: nonce() } : head,
