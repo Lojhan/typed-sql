@@ -850,8 +850,10 @@ Unrelated planning work is left unchanged.
   quality were corrected; the affected emitter suite and targeted quality checks pass again.
 - Bundle measurement provenance now accepts ignored projections only when their exact bytes match
   the committed ownership manifest, recording that manifest digest and every such input separately.
-  Fresh committed-input measurements are separate evidence; installed-size and native qualification
-  claims do not follow from deleting generated source from Git.
+  Committed-input measurements at `2e5417d8` verify 79 PostgreSQL and 11 DuckDB ignored
+  projection inputs against the committed ownership manifest. All previously recorded analyzer
+  byte counts are unchanged. Installed-size and native qualification claims do not follow from
+  deleting generated source from Git.
 - Remaining architecture work includes other compact cores/packs, all-engine native contract
   qualification, project catalogs and complete cross-host contribution/facet acceptance. Removing
   tracked projections does not finish those requirements.

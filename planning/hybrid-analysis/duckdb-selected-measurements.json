@@ -1,6 +1,23 @@
 {
   "status": "committed-inputs",
-  "baseRevision": "267085ca6ae0f47c9a4904e5a218a7f151bc08df",
+  "baseRevision": "2e5417d897eff84248b9faee909159f90dcd6487",
+  "projectionManifest": {
+    "path": "grammar/catalog/generation.json",
+    "digest": "e4168e5a0ea5f407b8261e5f6b1729875aad437c5a2f6ec5b654f5c38315751c"
+  },
+  "generatedInputs": {
+    "packages/duckdb/src/catalog/generated/aliases.ts": "b1f92e08e256c4a41401fe03c9aa2f72ffb32e21ce55421c3757477a03b40f74",
+    "packages/duckdb/src/catalog/generated/profiles.ts": "b9d0a90f8578ca00ec6404c28a72db8b96c4ec3cbd3ed386f509c8f2a1251917",
+    "packages/duckdb/src/catalog/generated/profiles/2.0.0.ts": "5b4ce2c66a1095aea9f14737b4c832dd32133a4532db835e62a9abd0f3fbfa92",
+    "packages/duckdb/src/catalog/generated/invocation-policy.ts": "37809af0e14956a32b34910a40a30f8bc9f26fd19ec9c0a3b1d6940b7d2fbf3d",
+    "packages/duckdb/src/catalog/generated/profiles/1.5.6.ts": "1a94446ac8b117f35851cde4c334d6a70108c975a0f12ffdb32ad9a4c638f699",
+    "packages/duckdb/src/catalog/generated/common-2.0.0.ts": "ccf74a4ebd60f9769fd683518888a1b611091c1423baea3c8e645f98f5ee2ec7",
+    "packages/duckdb/src/catalog/generated/2.0.0.ts": "a3c974abfcd81ac6c45e2838cea71f54cdefd45442276d041371a3f2fd51ffe8",
+    "packages/duckdb/src/catalog/generated/common-1.5.6.ts": "54e1912d1f405f8effe912612d284cc4a78c89eb0d2c65f82a8ea8ec168f8110",
+    "packages/duckdb/src/catalog/generated/1.5.6.ts": "4643208f2eade251ff60a711cf14ec7fb5aa4df04f84e36fc552b99dba4fdfbc",
+    "packages/duckdb/src/analysis/generated/1.5.6.ts": "afac0cf56dcc7b364e6199990b46ac07c01c8acbef7d3d89f16696d402b8a486",
+    "packages/duckdb/src/analysis/generated/2.0.0.ts": "b800d47a7a8cf4927e766dd5bdf4cf8eb6e9964ea77f5a407614d17d5edaaadc"
+  },
   "baselineRevision": "01f17bad743762d9ae58a190670a2f234b280a3a",
   "parity": [
     {
@@ -293,6 +310,7 @@
     "packages/schema/src/v2/codec.ts": "72a315a3bb28f25b70b0f3bdead5605b3635f272d0ffa041620a7f1b3d9c7bda",
     "packages/schema/src/v2/model.ts": "4377b06fb950972480c44f3be19731c297028ba8295c5f37ab9f3d8ff99e388f",
     "planning/hybrid-analysis/measure-selected-duckdb.mjs": "33aa2fc48ed784d575ab78ed2917f5ccc61eaad18111090c385f2167335c9d25",
-    "planning/hybrid-analysis/selected-measurement.mjs": "ef6c16e9838aed7782a6461d8f61d160b6eaf2ea951e322afb979806ffb4fc3b"
+    "planning/hybrid-analysis/selected-measurement.mjs": "670ea7d5d02c0df10ed96d06c12cfded8678aca26f506b6ab44dd2a06136f530",
+    "scripts/catalog-generation/lifecycle.mjs": "359ca6bfce4e0d1a3793abc8d566eba1c5142ffc849c57d7f5a7289cf1712636"
   }
 }
