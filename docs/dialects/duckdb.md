@@ -34,15 +34,41 @@ the native adapter does not claim their compatibility.
 
 | Import | Purpose |
 | --- | --- |
-| `@typed-sql/duckdb` | `sql`, grammar factory, policies, native type helpers, catalog and snapshot provider contracts |
+| `@typed-sql/duckdb` | Lightweight `sql`, rendering, runtime plans and policies |
+| `@typed-sql/duckdb/analysis` | Full compatibility analyzer, policies, native types, catalog and snapshot provider |
+| `@typed-sql/duckdb/analysis/profiles/1.5.6` and `@typed-sql/duckdb/analysis/profiles/2.0.0` | Portable analyzer with one exact engine catalog |
+| `@typed-sql/duckdb/analysis/selected` | Asynchronous `loadDuckDBAnalyzer({ version })` |
 | `@typed-sql/duckdb/browser` | Portable grammar factory, policies, parsing, catalog and snapshot validation; no Node services |
 | `@typed-sql/duckdb/query` | Lightweight query construction and native `$N` rendering |
 | `@typed-sql/duckdb/runtime` | Driver-neutral native connection and execution contracts |
 | `@typed-sql/duckdb/node-api` | Lazy official SDK loading, catalog provider and executable adapter |
 
-The browser and query entrypoints do not import Node services or the driver. The root entrypoint also
-exports the catalog provider, whose fingerprinting services use Node APIs. Installing the grammar
-does not install the SDK. The SDK is loaded when the explicit native adapter is constructed.
+The browser, selected analyzer and query entrypoints do not import Node services or the driver.
+The full analysis entrypoint exports the catalog provider, whose fingerprinting services use Node
+APIs. Installing the grammar does not install the SDK. The SDK is loaded when the explicit native
+adapter is constructed.
+
+## Select an analyzer catalog
+
+Use a fixed version when the engine target is known:
+
+```ts
+import { duckdb } from '@typed-sql/duckdb/analysis/profiles/2.0.0'
+
+const dialect = duckdb()
+```
+
+For a configured target, `loadDuckDBAnalyzer({ version: '2.0.0' })` from
+`@typed-sql/duckdb/analysis/selected` loads its catalog asynchronously. Both forms retain the
+selected version’s function signatures, parameter bindings, implicit casts and common-type rules.
+Fixed entrypoints exclude other versions from their import graph. A bundler can emit additional
+chunks for the asynchronous loader’s other potential targets.
+
+A selected analyzer requires matching exact `server.versionKey` evidence and the qualified
+semantic settings described below. Missing or mismatched evidence produces `TSQ402`;
+unsupported loader versions reject loading. Application `sql` imports remain at the grammar root.
+The full compatibility analyzer continues to select among all retained catalogs. Selection does
+not choose a compact common-function core or remove compatibility catalogs from the installed package.
 
 ## Native values
 

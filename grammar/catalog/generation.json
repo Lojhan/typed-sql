@@ -1,10 +1,10 @@
 {
   "formatVersion": 1,
-  "inputFingerprint": "sha256:d2a15be9c1c2063d3477b7ece0a02603f8abf8948b93c89b7f69468ddedf83da",
+  "inputFingerprint": "sha256:4ddf7f4aa1e2e689f16241f7a3c192e521485fc948692b0fb3cebcdf2aac3c18",
   "model": {
     "formatVersion": 2,
     "schemaDigest": "sha256:031e9b8d6e85bee77edaae2610b6d800825003be70ffb72ff23d660fd9efdf2b",
-    "normalizerDigest": "sha256:de0eed5b91edfa4b6a5e1021d2fafc3c9f9e9ec15969decf60893afd2d74e7a2",
+    "normalizerDigest": "sha256:935fbf35e7e00d23d8eacccc8bedd5cdfd3a4f302c6ff4da2d22368ec75ee5ac",
     "inputDigest": "sha256:c9866b5b675f65b76090b0de006b3857e90cb642d887c59663025af87049e14b",
     "profiles": 33,
     "entities": 26829,
@@ -12,11 +12,18 @@
   },
   "outputs": [
     "grammar/catalog/format.schema.json",
+    "packages/duckdb/src/analysis/generated/1.5.6.ts",
+    "packages/duckdb/src/analysis/generated/2.0.0.ts",
     "packages/duckdb/src/catalog/generated/1.5.6.ts",
     "packages/duckdb/src/catalog/generated/2.0.0.ts",
     "packages/duckdb/src/catalog/generated/aliases.ts",
     "packages/duckdb/src/catalog/generated/common-1.5.6.ts",
     "packages/duckdb/src/catalog/generated/common-2.0.0.ts",
+    "packages/duckdb/src/catalog/generated/invocation-policy.ts",
+    "packages/duckdb/src/catalog/generated/profile-loader.ts",
+    "packages/duckdb/src/catalog/generated/profiles.ts",
+    "packages/duckdb/src/catalog/generated/profiles/1.5.6.ts",
+    "packages/duckdb/src/catalog/generated/profiles/2.0.0.ts",
     "packages/duckdb/src/catalog/generated/registry.ts",
     "packages/mysql/src/catalog/generated/26.7.ts",
     "packages/mysql/src/catalog/generated/8.4.ts",
@@ -86,6 +93,13 @@
   "outputDigests": {
     "grammar/catalog/format.schema.json": "sha256:6bc7e3c66d1b8a777f213054835f08b30c0c1ba7f231ce5b32bb593432e481ff",
     "packages/duckdb/src/catalog/generated/registry.ts": "sha256:5926d83ced29b6d39151959234b0cdc93ab93ce061c54035246a54cd76e878a4",
+    "packages/duckdb/src/catalog/generated/invocation-policy.ts": "sha256:37809af0e14956a32b34910a40a30f8bc9f26fd19ec9c0a3b1d6940b7d2fbf3d",
+    "packages/duckdb/src/catalog/generated/profiles/1.5.6.ts": "sha256:1a94446ac8b117f35851cde4c334d6a70108c975a0f12ffdb32ad9a4c638f699",
+    "packages/duckdb/src/analysis/generated/1.5.6.ts": "sha256:afac0cf56dcc7b364e6199990b46ac07c01c8acbef7d3d89f16696d402b8a486",
+    "packages/duckdb/src/catalog/generated/profiles/2.0.0.ts": "sha256:5b4ce2c66a1095aea9f14737b4c832dd32133a4532db835e62a9abd0f3fbfa92",
+    "packages/duckdb/src/analysis/generated/2.0.0.ts": "sha256:b800d47a7a8cf4927e766dd5bdf4cf8eb6e9964ea77f5a407614d17d5edaaadc",
+    "packages/duckdb/src/catalog/generated/profiles.ts": "sha256:b9d0a90f8578ca00ec6404c28a72db8b96c4ec3cbd3ed386f509c8f2a1251917",
+    "packages/duckdb/src/catalog/generated/profile-loader.ts": "sha256:a6da68d1ad4406a8023c2d990702c535b489ce8c78e1f43770ba15fe4367cc28",
     "packages/duckdb/src/catalog/generated/common-1.5.6.ts": "sha256:54e1912d1f405f8effe912612d284cc4a78c89eb0d2c65f82a8ea8ec168f8110",
     "packages/duckdb/src/catalog/generated/1.5.6.ts": "sha256:4643208f2eade251ff60a711cf14ec7fb5aa4df04f84e36fc552b99dba4fdfbc",
     "packages/duckdb/src/catalog/generated/common-2.0.0.ts": "sha256:ccf74a4ebd60f9769fd683518888a1b611091c1423baea3c8e645f98f5ee2ec7",
@@ -155,7 +169,7 @@
     "packages/sqlserver/src/catalog/generated/types.ts": "sha256:1d6fcef8dcaeefc24e64d8c3a00eaec05e710ffb59393e336cb39904ac5a9f5c",
     "packages/sqlserver/src/catalog/generated/policy.ts": "sha256:bd065ab384934ac04640e0029b051520d920238d0510907725ecf1d6f6d6f102"
   },
-  "artifactFingerprint": "sha256:45d1387e18aa42a9659966a26b7b4c750807f2dc84c0444f2eec6d32e360630f",
+  "artifactFingerprint": "sha256:a2aab1873199923d068a4accdbf8af58a14a2d2d788f7a615652e0bdeeb53403",
   "bands": [
     {
       "dialect": "duckdb",

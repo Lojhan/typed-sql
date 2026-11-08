@@ -1,12 +1,14 @@
 import { it, strict } from "poku";
 import { duckdb } from "../src/analysis.js";
 import { duckDBNamedArgumentOrder } from "../src/catalog/named-arguments.js";
+import { loadDuckDBAnalyzer } from "../src/selected-analysis.js";
 import { fixtureEvidence } from "./helpers/evidence.js";
 
 const legacy = process.env.TYPED_SQL_DUCKDB_SDK === "15";
 const sdk = legacy ? await import("duckdb-node-15") : await import("@duckdb/node-api");
 const version = legacy ? "1.5.6" : "2.0.0";
 await it(`binds generated formal names using native DuckDB ${version} rules`, async () => {
+  const selected = await loadDuckDBAnalyzer({ version });
   strict.equal(sdk.version(), `v${version}`);
   const instance = await sdk.DuckDBInstance.create(),
     connection = await instance.connect();
@@ -45,7 +47,8 @@ await it(`binds generated formal names using native DuckDB ${version} rules`, as
         strict.match(String(error), /Binder Error|Parser Error|Conversion Error/u);
       }
       strict.equal(accepted, valid, sql);
-      const result = duckdb().analyze(sql, snapshot);
+      const result = selected.analyze(sql, snapshot);
+      strict.deepEqual(result, duckdb().analyze(sql, snapshot), sql);
       strict.equal(result.diagnostics.length === 0, valid, `${sql}: ${JSON.stringify(result.diagnostics)}`);
       if (!valid) {
         strict.ok(
@@ -103,7 +106,8 @@ await it(`binds generated formal names using native DuckDB ${version} rules`, as
       } finally {
         native.destroySync();
       }
-      const result = duckdb().analyze(sql, snapshot);
+      const result = selected.analyze(sql, snapshot);
+      strict.deepEqual(result, duckdb().analyze(sql, snapshot), sql);
       // The eligible DECIMAL overload has a bind callback whose result differs from its catalog return type.
       strict.ok(result.columns.every((column) => column.tsType === "unknown"));
     }

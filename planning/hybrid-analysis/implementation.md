@@ -748,6 +748,32 @@ Unrelated planning work is left unchanged.
 - This removes unselected core data from selected analyzer graphs. Full compatibility data still
   ships in npm; compact common-function cores, optional packs and bulk deletion remain required.
 
+## Selected DuckDB engine catalog isolation
+
+- Add fixed exact-version analyzer entrypoints and an asynchronous selector for every retained
+  DuckDB engine version. The generator owns profile modules and loading targets; ledger-driven
+  tests require complete manifest coverage. The compatibility `/analysis` and `/browser` APIs
+  retain their automatic selection and previous exports.
+- A catalog instance owns immutable signatures, formal parameter bindings, literal constraints,
+  named-argument policy, implicit casts and both common-type matrices. Resolver, overload matching
+  and named binding receive that catalog explicitly; they do not import the all-version registry.
+  Selected analyzers fail closed without matching exact server-version and semantic-setting evidence.
+- Tests compare all retained signatures and parameter metadata with the original generated data
+  and compare complete selected/fixed/compatibility results. Native named-argument tests exercise
+  selected analyzers against the actual 1.5.6 and 2.0.0 SDK installations. Packed tests remove the
+  other engine's data/matrices, compatibility registries, wrappers and declarations/maps, then run,
+  bundle and type-check the remaining selected APIs. Source attribution rejects unrelated profiles.
+- Verification passes: clean root build and final project/test type checks; all 43 DuckDB files
+  against both native SDK installations, with 98.83% line / 91.01% branch / 96.09% function coverage;
+  all repository contract files after correcting the new documentation and packed assertions;
+  quality, production documentation and the isolated performance gate. The packed assertion uses
+  an explicit VARCHAR parameter cast because ordinary offline `lower($1)` retains `ANY` input.
+- Shared measurement tooling records source digests, pinned data parity and consistent minified,
+  gzip and Brotli settings for PostgreSQL and DuckDB. These measurements do not claim application
+  workload savings or an npm installation-size reduction.
+- Full semantic catalogs still ship. Compact cores, optional packs, other selected grammars and
+  all-engine query-contract qualification remain required.
+
 ## Required work still open
 
 1. Complete the contract/evidence model: native descriptors and provenance, reusable/facet-specific

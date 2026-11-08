@@ -70,6 +70,7 @@ async function assertRuntimeWithoutSemanticCatalogs(consumer: string, env: NodeJ
     if (name === "postgres") await rm(join(grammar, "analysis"), { recursive: true, force: true });
     for (const module of [
       "analysis",
+      ...(name === "duckdb" ? ["analysis-factory", "selected-analysis", "resolver-engine"] : []),
       ...(name === "postgres"
         ? [
             "analysis-factory",

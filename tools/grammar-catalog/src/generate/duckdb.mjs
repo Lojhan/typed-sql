@@ -62,6 +62,29 @@ export async function generateCatalog({ groups, semanticGroups, input, emit, hea
     throw new TypeError("Missing DuckDB table constant-NULL typing policy");
   duckRegistry += `export const tableConstantNullTyping: Readonly<Record<string, string>> = ${literal(duckPolicy.tableConstantNullTyping)};\n`;
   await emit("packages/duckdb/src/catalog/generated/registry.ts", duckRegistry);
+  await emit(
+    "packages/duckdb/src/catalog/generated/invocation-policy.ts",
+    `${header}export const explicitInvocationArity: Readonly<Record<string,number>> = ${literal(duckPolicy.explicitInvocationArity)};\n`,
+  );
+  for (const group of duckdb) {
+    const version = JSON.stringify(group.version);
+    await emit(
+      `packages/duckdb/src/catalog/generated/profiles/${group.version}.ts`,
+      `${header}import * as native from "../${group.version}.js";\nimport {commonTypes,expressionTypes} from "../common-${group.version}.js";\nimport {explicitInvocationArity} from "../invocation-policy.js";\nimport {DuckDBCatalog} from "../../profile.js";\nexport const catalog = new DuckDBCatalog({...native,version:${version},commonTypes,expressionTypes,explicitInvocationArity,tableConstantNullTyping:${JSON.stringify(duckPolicy.tableConstantNullTyping[group.version])}});\n`,
+    );
+    await emit(
+      `packages/duckdb/src/analysis/generated/${group.version}.ts`,
+      `${header}import {createDuckDBAnalyzer} from "../../analysis-factory.js";\nimport {catalog} from "../../catalog/generated/profiles/${group.version}.js";\nimport type {DuckDBProfileOptions as DuckDBDialectOptions} from "../../profile.js";\nexport type {DuckDBProfileOptions as DuckDBDialectOptions} from "../../profile.js";\nexport function duckdb(options:DuckDBDialectOptions={}) {return createDuckDBAnalyzer(options,()=>catalog,${version});}\n`,
+    );
+  }
+  await emit(
+    "packages/duckdb/src/catalog/generated/profiles.ts",
+    `${header}import {DuckDBCatalog} from "../profile.js";\nimport {explicitInvocationArity} from "./invocation-policy.js";\n${duckdb.map((group, index) => `import {catalog as catalog${index}} from "./profiles/${group.version}.js";`).join("\n")}\nexport const catalogs:Readonly<Record<string,DuckDBCatalog>> = Object.freeze({${duckdb.map((group, index) => `${JSON.stringify(group.version)}:catalog${index}`).join(",")}});\nexport const emptyCatalog = new DuckDBCatalog({version:"",signatures:[],parameterNames:[],nonNullLiteralArguments:{},parameterBindings:[],implicitCasts:[],keywordInvocationForms:[],commonTypes:{},expressionTypes:{},explicitInvocationArity,tableConstantNullTyping:""});\n`,
+  );
+  await emit(
+    "packages/duckdb/src/catalog/generated/profile-loader.ts",
+    `${header}import type {DuckDBCatalog} from "../profile.js";\nconst loaders:Readonly<Record<string,()=>Promise<{readonly catalog:DuckDBCatalog}>>> = {${duckdb.map((group) => `${JSON.stringify(group.version)}:()=>import("./profiles/${group.version}.js")`).join(",")}};\nexport async function loadDuckDBCatalog(version:string):Promise<DuckDBCatalog> {if(!Object.hasOwn(loaders,version))throw new RangeError("Unsupported DuckDB analysis profile");return (await loaders[version]!()).catalog;}\n`,
+  );
   const duckAliases = {};
   const routineProjections = {};
   for (const group of duckdb) {

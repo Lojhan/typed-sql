@@ -238,6 +238,7 @@ import * as duckdbRootApi from "../../packages/duckdb/src/index.js";
 import * as duckdbNodeApiApi from "../../packages/duckdb/src/node-api.js";
 import * as duckdbQueryApi from "../../packages/duckdb/src/query.js";
 import * as duckdbRuntimeApi from "../../packages/duckdb/src/runtime.js";
+import * as duckdbSelectedApi from "../../packages/duckdb/src/selected-analysis.js";
 import * as languageServerApi from "../../packages/language-server/src/index.js";
 import type {
   MySqlBulkCapability,
@@ -968,6 +969,7 @@ const expectedRuntimeExports = {
     "validateSqlServerDecimal",
     "validateSqlServerTypePolicy",
   ],
+  duckdbSelected: ["loadDuckDBAnalyzer"],
   duckdbAnalysis: [
     "DUCKDB_CAPABILITIES",
     "DUCKDB_DIALECT_VERSION",
@@ -1474,6 +1476,7 @@ await describe("stable public API", async () => {
       sqlServerOdbc: Object.keys(sqlServerOdbcApi).sort(),
       sqlServerMsnodesqlv8: Object.keys(sqlServerMsnodesqlv8Api).sort(),
       sqlServerBrowser: Object.keys(sqlServerBrowserApi).sort(),
+      duckdbSelected: Object.keys(duckdbSelectedApi).sort(),
       duckdbAnalysis: Object.keys(duckdbApi).sort(),
       duckdb: Object.keys(duckdbRootApi).sort(),
       duckdbQuery: Object.keys(duckdbQueryApi).sort(),
