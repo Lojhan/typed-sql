@@ -432,3 +432,35 @@ build and final type checks, installed package/whole-query editor proof, public 
 documentation checks/build, quality and the isolated performance gate pass. Runtime/profile
 distribution checks continue working with optional development exports and semantic catalogs
 physically removed. Native children exclude application preloads and module-search overrides.
+
+## SQL Server descriptor foundation
+
+The internal `contract-descriptors` module now preserves independent result and parameter facets
+from SQL Server's native description APIs. It records byte widths, precision/scale, collation,
+qualified alias/CLR/XML provenance, native ordinals and safe parameter declarations. Missing
+dimensions or alias evidence cannot become complete identities. Alias and typed XML identities
+remain partial; CLR and opaque representations remain unknown without a qualified codec.
+Character parameter identities retain unknown collation while their validated system binding
+declarations remain usable. Native nullable results retain an upper bound, while a native
+non-null result is exact. Contradictory dimensions, invalid declarations, duplicate labels and
+ambiguous slots fail closed. No static claim or application sample enters this conversion.
+
+These rules follow the documented fields of
+[parameter description](https://learn.microsoft.com/en-us/sql/relational-databases/system-stored-procedures/sp-describe-undeclared-parameters-transact-sql)
+and [result description](https://learn.microsoft.com/en-us/sql/relational-databases/system-dynamic-management-objects/sys-dm-exec-describe-first-result-set-transact-sql).
+Descriptor tests cover metadata fixtures; they do not qualify a live SQL Server acquisition path.
+No native acquisition entrypoint is exposed yet, and the existing verification API is unchanged.
+
+The next layer needs an independently attested exclusive lease, bounded cancellation/discard and
+a consistency guard around both metadata operations. A transaction-log quiescence guard is an
+option that requires real-engine qualification: Microsoft's
+[log statistics API](https://learn.microsoft.com/sql/relational-databases/system-dynamic-management-views/sys-dm-db-log-stats-transact-sql)
+exposes the last LSN, with VIEW SERVER STATE before SQL Server 2022 and VIEW SERVER PERFORMANCE
+STATE from 2022. Database/recovery-fork identity and schema/session evidence must accompany that
+guard; a schema fingerprint alone cannot rule out intervening changes. Broad native statements,
+custom bindings and public CLI/editor proofs remain unqualified for SQL Server.
+
+Validation: all 23 SQL Server test files pass (96.33% statements, 91.4% branches,
+95.73% functions). The descriptor module has full statement/function coverage. Final workspace
+type checks, public API/package graph checks, the installed packed-consumer suite and quality
+checks pass. Public exports and application behavior are unchanged by this preparatory module.

@@ -54,7 +54,8 @@
   "dependencies": {
     "@typed-sql/ast": "workspace:*",
     "@typed-sql/core": "workspace:*",
-    "@typed-sql/schema": "workspace:*"
+    "@typed-sql/schema": "workspace:*",
+    "@typed-sql/analysis": "workspace:*"
   },
   "devDependencies": {
     "@typed-sql/conformance": "workspace:*"
