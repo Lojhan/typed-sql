@@ -274,6 +274,8 @@ await describe("independent upstream language auditing", async () => {
       },
       "SELECT ? AS value",
     );
+    if (!missing.metadata || !("parameterCount" in missing.metadata))
+      throw new Error("Expected the metadata outcome with a known column block");
     strict.equal(missing.metadata.parameterCount, null, "A missing parameter block must not become zero inputs");
     strict.equal(Object.hasOwn(missing.metadata, "parameters"), false);
   });
