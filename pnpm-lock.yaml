@@ -552,6 +552,9 @@ importers:
 
   packages/language-server:
     dependencies:
+      '@typed-sql/analysis':
+        specifier: workspace:*
+        version: link:../analysis
       '@typed-sql/compiler':
         specifier: workspace:*
         version: link:../compiler

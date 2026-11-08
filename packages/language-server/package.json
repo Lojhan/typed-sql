@@ -62,6 +62,7 @@
     "start": "node dist/packages/language-server/src/server.js --stdio"
   },
   "dependencies": {
+    "@typed-sql/analysis": "workspace:*",
     "@typed-sql/config": "workspace:*",
     "@typed-sql/core": "workspace:*",
     "@typed-sql/schema": "workspace:*",

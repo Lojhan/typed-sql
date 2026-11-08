@@ -35,6 +35,7 @@ import { postgresProfile } from "../../packages/postgres/src/profile.js";
 import { createPostgresContractReconciler } from "../../packages/postgres/src/reconciliation.js";
 import { createPostgresDatabase } from "../../packages/postgres/src/runtime.js";
 import { assertIsolatedPostgresContractConsumer } from "./frozen-contract-consumer.js";
+import { ProtocolClient } from "./protocol-client.js";
 
 /** Real engine proof: independent description, compiled metadata, actual decoding and offline reuse. */
 export async function assertPostgresNativeContracts(connectionString: string, directory: string): Promise<void> {
@@ -321,6 +322,49 @@ export default defineConfig({
       );
       strict.match(cachedCheck.stdout, /Offline checked 1 project\(s\), 1 query\(s\)/u);
       strict.match(cachedCheck.stdout, /bigint/u);
+      const editorConfig = await readFile(join(temporary, "typed-sql.config.mjs"), "utf8");
+      await writeFile(
+        join(temporary, "typed-sql.config.mjs"),
+        editorConfig.replace('mode: "frozen"', 'mode: "offline"'),
+      );
+      const editor = new ProtocolClient(
+        process.execPath,
+        [join(directory, "packages/language-server/dist/packages/language-server/src/server.js"), "--stdio"],
+        temporary,
+      );
+      try {
+        const uri = pathToFileURL(join(temporary, "application.ts")).href;
+        const source = await readFile(join(temporary, "application.ts"), "utf8");
+        await editor.request("initialize", {
+          processId: null,
+          rootUri: pathToFileURL(temporary).href,
+          capabilities: { textDocument: { diagnostic: {} } },
+          initializationOptions: { nativePreview: false },
+        });
+        editor.notify("initialized", {});
+        editor.notify("textDocument/didOpen", {
+          textDocument: { uri, languageId: "typescript", version: 1, text: source },
+        });
+        const diagnostics = (await editor.request("textDocument/diagnostic", { textDocument: { uri } })) as {
+          items: { message: string; severity?: number }[];
+        };
+        strict.ok(!diagnostics.items.some((item) => item.severity === 1), JSON.stringify(diagnostics));
+        const offset = source.indexOf("SELECT");
+        const prefix = source.slice(0, offset).split("\n");
+        const hover = await editor.request("textDocument/hover", {
+          textDocument: { uri },
+          position: { line: prefix.length - 1, character: prefix.at(-1)!.length },
+        });
+        strict.match(
+          JSON.stringify(hover),
+          /bigint/u,
+          "The built editor host must reuse native cache evidence with durable contracts hidden and factories cold",
+        );
+      } finally {
+        await editor.close();
+        await writeFile(join(temporary, "typed-sql.config.mjs"), editorConfig);
+      }
+
       const liveConfig = (await readFile(join(temporary, "typed-sql.config.mjs"), "utf8"))
         .replace(
           'loadAnalyzer(){throw Error("Frozen native proof initialized an analyzer");}',

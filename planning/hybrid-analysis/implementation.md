@@ -402,6 +402,33 @@ Unrelated planning work is left unchanged.
   TypeScript build checking, changed-file quality and the extended real PostgreSQL proof pass.
   This does not qualify other native transports or finish long-lived host integration.
 
+## Recorded contract editor checkpoint
+
+- The language service loads raw config registrations rather than requiring an eager analyzer.
+  Offline documents prepare a contract-first view using the same workspace/config cache namespace
+  as the CLI; frozen documents consume only the declared durable closure. Analyzer/provider/live
+  factories stay cold for fully covered recorded inputs. Hybrid misses can load the offline owner;
+  native-required misses retain unavailable diagnostics.
+- Templates and raw SQL use the selected view and policy. Contract identities enter source-analysis
+  revisions; unchanged source/version is rechecked when its durable closure changes. A newer known
+  analysis revision fences older results. Publication checks complete durable object integrity,
+  manifest identity and the captured query/context cache tokens, as well as cancellation/generation.
+- Contract manifests and offline cache indexes participate in workspace file watching. Frozen
+  editor analysis ignores even corrupt disposable storage. Target/scope validation and automatic
+  durable context selection share the neutral host implementation.
+- Service tests cover cold factories, SQL/template parity, changed closures, hybrid owner loading,
+  strict missing evidence and target mismatch. Built stdio server tests exercise both modes and
+  prove contract-derived bigint types reach downstream TypeScript diagnostics.
+- The real PostgreSQL proof hides durable contracts and uses the built editor host to recover its
+  unknown-function result from native cache evidence, with analyzer/provider factories guarded.
+- Local full build/typechecking, all 16 language-server test files, packed consumer/editor tests,
+  package/API boundaries, documentation checks/production build, quality and performance gate pass.
+  Exact-head CI and the complete repository audit remain separate evidence.
+- Live editor scheduling/context observation, SQL-file content-mapper/build-host integration,
+  proactive immutable-object corruption watching and project-wide publication coordination remain
+  required. Live editor mode reports unavailable without constructing native resources; this is
+  not the final live editor implementation.
+
 ## Required work still open
 
 1. Complete the contract/evidence model: native descriptors and provenance, reusable/facet-specific

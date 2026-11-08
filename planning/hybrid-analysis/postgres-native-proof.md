@@ -157,3 +157,8 @@ observation and description. Both description and rollback fail. Adapter-owned c
 returns transport unavailability, and the parsed persistent cache lookup, including its publication token and recorded outcome,
 is unchanged before and after the failed acquisition. This proves
 record preservation for an actual mid-acquisition disconnect, not successful remote verification.
+
+The built language server also consumes the native cache in offline mode while durable contracts
+are hidden. Its configuration guards analyzer/provider construction. A protocol client checks the
+actual document diagnostics and bigint SQL hover through the pinned TypeScript proxy. This covers
+recorded editor reuse; live editor acquisition and SQL-file content-mapper integration remain open.

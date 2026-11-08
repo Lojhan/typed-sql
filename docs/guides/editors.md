@@ -26,6 +26,24 @@ original source. It does not reimplement TypeScript's language service or load t
 If startup reports a TypeScript compatibility error, run `pnpm exec typed-sql doctor` in the
 workspace. The bridge refuses an overridden or mismatched preview patch before project loading.
 
+## Recorded query contracts
+
+The language server reads the project's `analysis` configuration. In `"frozen"` mode it uses only
+[declared durable query contracts](../getting-started/configuration.md#checking-durable-query-contracts);
+missing or incompatible evidence remains a diagnostic. It does not open the disposable cache or
+initialize an analyzer, schema provider, or native adapter.
+
+In `"offline"` mode it reuses compatible durable or cached contracts. Hybrid qualification loads
+the configured offline analyzer for uncovered queries; native-required qualification leaves those
+queries unknown. Templates and raw SQL documents use the same prepared contract view. Contract
+manifest and cache-index changes participate in editor invalidation, and each request validates its
+recorded inputs before publishing types.
+
+Live adapter registration does not grant this editor host database access. A configuration with
+`analysis.mode: "live"` reports that live editor analysis is unavailable; select an offline or frozen
+editor configuration to consume recorded evidence. SQL-file content mappers and other build hosts
+have separate configuration support.
+
 ## Zed
 
 Install the native extension from the repository's [`editors/zed`](https://github.com/Lojhan/typed-sql/tree/main/editors/zed) directory as a development extension. The following opt-in configuration selects the proxy as the active TypeScript server; its upstream process supplies ordinary TypeScript language features:

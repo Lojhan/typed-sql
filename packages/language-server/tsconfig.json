@@ -3,6 +3,7 @@
   "compilerOptions": { "outDir": "dist" },
   "include": ["src/**/*.ts"],
   "references": [
+    { "path": "../analysis" },
     { "path": "../compiler" },
     { "path": "../config" },
     { "path": "../core" },

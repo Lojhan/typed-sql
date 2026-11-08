@@ -5,8 +5,8 @@ import { dirname, isAbsolute, join, resolve } from "node:path";
 import { setTimeout as wait } from "node:timers/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { compileSqlFile } from "@typed-sql/compiler";
-import { fromConfig, loadConfig } from "@typed-sql/config";
-import type { SchemaSnapshot, TableSnapshot } from "@typed-sql/core";
+import { fromConfig, loadConfigSource } from "@typed-sql/config";
+import type { DialectPlugin, SchemaSnapshot, TableSnapshot } from "@typed-sql/core";
 import { loadSchemaSnapshot } from "@typed-sql/schema";
 import {
   analyzeSource,
@@ -30,6 +30,8 @@ import {
   type Position,
 } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
+
+import { prepareRecordedDocument, recordedContractPaths } from "./recorded-contracts.js";
 
 export type {
   TypedSqlProtocolCapability,
@@ -87,6 +89,8 @@ interface DocumentAnalysis {
   readonly schemaPath: string;
   readonly schemaModified: number;
   readonly snapshot: SchemaSnapshot;
+  readonly dialect: DialectPlugin<SchemaSnapshot, unknown>;
+  readonly typePolicy: unknown;
   readonly projectFile?: string;
   readonly analysis: BridgeAnalysis;
 }
@@ -243,7 +247,7 @@ export class TypedSqlLanguageService {
   readonly #inspectionCache = new Map<string, Promise<readonly NativeTypeInspection[] | undefined>>();
   #nativeBridgePromise: Promise<TypeScriptBridge> | undefined;
   readonly #nativeBridgeFactory: () => TypeScriptBridge;
-  #configPromise: ReturnType<typeof loadConfig> | undefined;
+  #configPromise: ReturnType<typeof loadConfigSource> | undefined;
   #generation = 0;
   #bridgeRestarts = 0;
   readonly #cacheCounters = {
@@ -314,12 +318,11 @@ export class TypedSqlLanguageService {
   }
 
   async #sql(document: TextDocument, result: DocumentAnalysis) {
-    const loaded = await this.#config();
     return compileSqlFile({
       source: document.getText(),
-      dialect: loaded.config.dialect,
-      schema: loaded.config.dialect.validateSnapshot(result.snapshot),
-      typePolicy: loaded.config.typePolicy ?? loaded.config.dialect.defaultTypePolicy,
+      dialect: result.dialect,
+      schema: result.dialect.validateSnapshot(result.snapshot),
+      typePolicy: result.typePolicy,
     });
   }
 
@@ -546,6 +549,7 @@ export class TypedSqlLanguageService {
 
   isAnalysisCurrent(document: TextDocument, analysis: BridgeAnalysis): boolean {
     return (
+      this.#analysisCache.get(document.uri)?.analysis.revision === analysis.revision &&
       analysis.identity.project?.generation === this.#generation &&
       analysis.identity.source.id === document.uri &&
       analysis.identity.source.version === document.version &&
@@ -594,7 +598,14 @@ export class TypedSqlLanguageService {
       this.#settings.schemaPath === undefined
         ? fromConfig(loaded.directory, loaded.config.schema.file)
         : this.#configuredPath(this.#settings.schemaPath);
-    return [...new Set([resolve(loaded.file), resolve(schemaPath), ...(loaded.dependencies ?? [])])];
+    return [
+      ...new Set([
+        resolve(loaded.file),
+        resolve(schemaPath),
+        ...(loaded.dependencies ?? []),
+        ...(recordedContractPaths(loaded)?.watched ?? []),
+      ]),
+    ];
   }
 
   async handlesWatchedFile(uri: string): Promise<boolean> {
@@ -615,13 +626,17 @@ export class TypedSqlLanguageService {
       cancelled(token);
       if (document.uri.startsWith("file:") === false) return undefined;
       const generation = this.#generation;
-      const loaded = await this.#config();
+      const inputFailure = (error: unknown): never => {
+        if (generation === this.#generation && !token?.isCancellationRequested) this.forget(document.uri);
+        throw error;
+      };
+      const loaded = await this.#config().catch(inputFailure);
       if (generation !== this.#generation) continue;
       const schemaPath =
         this.#settings.schemaPath === undefined
           ? fromConfig(loaded.directory, loaded.config.schema.file)
           : this.#configuredPath(this.#settings.schemaPath);
-      const schema = await this.#schemaAt(schemaPath);
+      const schema = await this.#schemaAt(schemaPath).catch(inputFailure);
       if (generation !== this.#generation) {
         this.#schemaCache.clear();
         continue;
@@ -641,6 +656,14 @@ export class TypedSqlLanguageService {
         projectFile === undefined ? undefined : readFile(projectFile, "utf8").catch(() => undefined),
       ]);
       if (generation !== this.#generation) continue;
+      const view = await prepareRecordedDocument({
+        loaded,
+        schema: loaded.config.dialect.validateSnapshot(schema.snapshot),
+        source: document.getText(),
+        sqlFile: document.uri.endsWith(".sql"),
+      }).catch(inputFailure);
+      cancelled(token);
+      if (generation !== this.#generation) continue;
       const configHash = sha256(
         JSON.stringify(
           canonical({
@@ -650,6 +673,7 @@ export class TypedSqlLanguageService {
             projectSource,
             settings: this.#settings,
             compiler: loaded.config.compiler,
+            contracts: view.revision,
           }),
         ),
       );
@@ -664,14 +688,17 @@ export class TypedSqlLanguageService {
         cached.schemaModified === schema.modified &&
         cached.analysis.identity.source.hash === sourceHash
       ) {
+        await view.assertCurrent().catch(inputFailure);
+        cancelled(token);
+        if (generation !== this.#generation) continue;
         cacheSet(this.#analysisCache, document.uri, cached, this.#maxCacheEntries(), this.#cacheCounters.analyses);
         return cached;
       }
       const analysis = analyzeSource(
         document.getText(),
-        loaded.config.dialect.validateSnapshot(schema.snapshot),
-        loaded.config.dialect,
-        loaded.config.typePolicy ?? loaded.config.dialect.defaultTypePolicy,
+        view.dialect.validateSnapshot(schema.snapshot),
+        view.dialect,
+        loaded.config.typePolicy ?? view.dialect.defaultTypePolicy,
         {
           ...loaded.config.compiler,
           sourceId: document.uri,
@@ -692,10 +719,15 @@ export class TypedSqlLanguageService {
         schemaPath,
         schemaModified: schema.modified,
         snapshot: schema.snapshot,
+        dialect: view.dialect,
+        typePolicy: loaded.config.typePolicy ?? view.dialect.defaultTypePolicy,
         ...(projectFile === undefined ? {} : { projectFile }),
         analysis,
       };
       cancelled(token);
+      await view.assertCurrent().catch(inputFailure);
+      cancelled(token);
+      if (generation !== this.#generation) continue;
       cacheSet(this.#analysisCache, document.uri, result, this.#maxCacheEntries(), this.#cacheCounters.analyses);
       return result;
     }
@@ -722,8 +754,8 @@ export class TypedSqlLanguageService {
     return this.#nativeBridgePromise;
   }
 
-  #config(): ReturnType<typeof loadConfig> {
-    this.#configPromise ??= loadConfig({
+  #config(): ReturnType<typeof loadConfigSource> {
+    this.#configPromise ??= loadConfigSource({
       cwd: this.#rootDirectory,
       ...(this.#settings.configPath === undefined ? {} : { file: this.#configuredPath(this.#settings.configPath) }),
     });
