@@ -35,6 +35,8 @@
       "!!packages/*/src/codecs/generated",
       "!!packages/postgres/src/catalog/generated",
       "!!packages/postgres/src/analysis/generated",
+      "!!packages/postgres/src/analysis/core/generated",
+      "!!packages/postgres/src/analysis/packs/generated",
       "!!packages/mysql/src/catalog/generated",
       "!!packages/duckdb/src/catalog/generated",
       "!!packages/duckdb/src/analysis/generated",

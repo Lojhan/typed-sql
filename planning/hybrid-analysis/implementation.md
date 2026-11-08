@@ -780,6 +780,40 @@ Unrelated planning work is left unchanged.
 - Full semantic catalogs still ship. Compact cores, optional packs, other selected grammars and
   all-engine query-contract qualification remain required.
 
+## PostgreSQL compact offline core and complement packs
+
+- Add a reviewed initial policy of 200 native function names with MIT synthetic application
+  scenarios; this is not a measured production popularity ranking. Retain complete overload
+  families for each selected name and all existing shared semantic/type/cast rules. Across the
+  six retained majors the projection contains 197–200 native names and 437–470 signatures,
+  compared with 3,191–3,426 signatures in the complete projected profile. The selection audit
+  records both populations and shared family counts separately.
+- Partition native records into the core and its compatibility complement, sharing identical
+  records only among owning versions. Legacy full arrays reference those records directly and
+  preserve all 19,857 ordered entries; they do not load intermediate profile arrays. Remove the
+  retired unsplit group modules. This is a distribution split, not bulk catalog deletion.
+- Publish a compact all-version entrypoint, fixed-major cores and explicit major-specific
+  compatibility packs. Packs contain only the long tail, bind the exact core digest, grammar
+  revision and type/cast catalog revision, and describe source-projected facets rather than
+  native query qualification. Reject incompatible dependencies and conflicting signatures.
+  Existing full analyzers retain their API and semantics; duplicate packs do not duplicate overloads.
+- New PostgreSQL scaffolds and quickstarts lazily load the core. Long-tail calls remain unknown
+  with diagnostics until supplied by a matching pack, declared schema routine or native contract.
+- Tests discover every supported major from the ledger, compare complete selected families and
+  corpus results, exercise pack admission and restoration, and run packed fixed cores with the
+  full native and compatibility projections physically removed. The real restricted PostgreSQL
+  live/editor/watch/frozen proof now registers the compact analyzer during live analysis.
+- Verification passes: clean build, final TypeScript project checks, all 38 PostgreSQL files
+  (97.59% line / 90.62% branch / 97.76% function coverage), all 11 CLI files, all 68 repository
+  contracts, quality, production documentation and the restricted native proof. After removing
+  avoidable legacy array assembly, the five affected source/packed/bootstrap files pass again.
+  The final isolated performance recheck passes after that assembly change. Committed-input
+  bundle attribution is recorded separately.
+- Remaining: equivalent compact cores/packs for the other grammars, broader real application
+  workload selection evidence, richer project catalogs, pack/contribution identity integration
+  across every host and bulk generated-code removal. This does not qualify additional native
+  transports or close the complete architecture acceptance audit.
+
 ## Required work still open
 
 1. Complete the contract/evidence model: native descriptors and provenance, reusable/facet-specific

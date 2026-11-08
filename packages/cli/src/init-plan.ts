@@ -6,11 +6,11 @@ import { checkInitPath, readInitFile } from "./init-files.js";
 import { editInitJson, initJson } from "./init-json.js";
 
 const grammars = {
-  postgres: { package: "@typed-sql/postgres", factory: "postgres" },
-  mysql: { package: "@typed-sql/mysql", factory: "mysql" },
-  sqlite: { package: "@typed-sql/sqlite", factory: "sqlite" },
-  sqlserver: { package: "@typed-sql/sqlserver", factory: "sqlserver" },
-  duckdb: { package: "@typed-sql/duckdb", factory: "duckdb" },
+  postgres: { package: "@typed-sql/postgres", factory: "postgres", analyzer: "analysis/core" },
+  mysql: { package: "@typed-sql/mysql", factory: "mysql", analyzer: "analysis" },
+  sqlite: { package: "@typed-sql/sqlite", factory: "sqlite", analyzer: "analysis" },
+  sqlserver: { package: "@typed-sql/sqlserver", factory: "sqlserver", analyzer: "analysis" },
+  duckdb: { package: "@typed-sql/duckdb", factory: "duckdb", analyzer: "analysis" },
 } as const;
 const managers = ["npm", "pnpm", "yarn", "bun"] as const;
 type Manager = (typeof managers)[number];
@@ -192,7 +192,7 @@ export async function planInit(options: Readonly<Record<string, string>>, versio
   if (found.length === 0)
     add(
       "typed-sql.config.ts",
-      `import { ${grammars[grammar].factory}Profile } from ${JSON.stringify(`${grammars[grammar].package}/profile`)};\n\nexport default {\n  dialect: {\n    ...${grammars[grammar].factory}Profile(),\n    loadAnalyzer: async () => (await import(${JSON.stringify(`${grammars[grammar].package}/analysis`)})).${grammars[grammar].factory}(),\n  },\n  schema: { file: "schema.json" },\n  outDir: "generated",\n  projects: ["tsconfig.json"],\n};\n`,
+      `import { ${grammars[grammar].factory}Profile } from ${JSON.stringify(`${grammars[grammar].package}/profile`)};\n\nexport default {\n  dialect: {\n    ...${grammars[grammar].factory}Profile(),\n    loadAnalyzer: async () => (await import(${JSON.stringify(`${grammars[grammar].package}/${grammars[grammar].analyzer}`)})).${grammars[grammar].factory}(),\n  },\n  schema: { file: "schema.json" },\n  outDir: "generated",\n  projects: ["tsconfig.json"],\n};\n`,
     );
   else {
     detected.push(join(root, found[0]!));

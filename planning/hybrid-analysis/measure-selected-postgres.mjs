@@ -31,10 +31,15 @@ const parity = majors.map((major) => {
 });
 const scenarios = {
   runtimeRoot: 'export {sql,renderer,defineQueryValuePlan,withQueryValuePlan} from "@typed-sql/postgres";',
+  coreAll: 'export {postgres} from "@typed-sql/postgres/analysis/core";',
   compatibility: 'export {postgres} from "@typed-sql/postgres/analysis";',
 };
-for (const major of majors)
+for (const major of majors) {
   scenarios[`selected${major}`] = `export {postgres} from "@typed-sql/postgres/analysis/profiles/${major}";`;
+  scenarios[`core${major}`] = `export {postgres} from "@typed-sql/postgres/analysis/core/profiles/${major}";`;
+  scenarios[`packed${major}`] =
+    `import {postgres as core} from "@typed-sql/postgres/analysis/core/profiles/${major}";import {compatibilityPack} from "@typed-sql/postgres/analysis/packs/compatibility/${major}";export function postgres(options={}){return core({...options,packs:[compatibilityPack]});}`;
+}
 const rows = [];
 for (const [scenario, contents] of Object.entries(scenarios)) {
   const row = await measurement.bundle(scenario, contents);
@@ -58,7 +63,29 @@ for (const [scenario, contents] of Object.entries(scenarios)) {
     if (nativeProfiles.length !== 1 || nativeProfiles[0] !== major)
       throw Error(`Selected bundle includes unrelated native profiles: ${scenario}`);
   }
-  rows.push({ ...row, nativeProfiles, typeProfiles });
+  const offlineProfiles = catalogInputs.flatMap(({ path }) => {
+    const match = /catalog\/generated\/offline\/(\d+)\.ts$/u.exec(path);
+    return match ? [Number(match[1])] : [];
+  });
+  const compatibilityProfiles = catalogInputs.flatMap(({ path }) => {
+    const match = /catalog\/generated\/compatibility\/(\d+)\.ts$/u.exec(path);
+    return match ? [Number(match[1])] : [];
+  });
+  if (/^core\d/u.test(scenario)) {
+    const major = Number(scenario.slice(4));
+    if (
+      nativeProfiles.length ||
+      compatibilityProfiles.length ||
+      offlineProfiles.length !== 1 ||
+      offlineProfiles[0] !== major ||
+      typeProfiles.length !== 1 ||
+      typeProfiles[0] !== major
+    )
+      throw Error(`Core imports full or unrelated profiles: ${scenario}`);
+  }
+  if (scenario === "coreAll" && (nativeProfiles.length || compatibilityProfiles.length))
+    throw Error("The default core imports full catalog data");
+  rows.push({ ...row, nativeProfiles, typeProfiles, offlineProfiles, compatibilityProfiles });
 }
 measurement.finish(
   "artifacts/grammar-catalog/postgres-selected-bundles.json",
@@ -66,7 +93,7 @@ measurement.finish(
     baselineRevision,
     baselineSourceDigest: hash(baselineSource),
     scope:
-      "Exported analyzer factory footprint; selected factories retain only their native and core version profiles. Not an application workload, installation-size reduction, compact-core claim or complete engine inventory.",
+      "Exported analyzer factory footprint; selected factories retain their version profiles; compact cores exclude the compatibility projection and optional packs restore that projection. Not an application workload, installation-size reduction, production-popularity coverage or complete engine inventory.",
     parity,
   },
   rows,

@@ -15,6 +15,7 @@ async function omitPostgresAnalyzer(consumer: string): Promise<void> {
     "analysis.js",
     "analysis-factory.js",
     "selected-analysis.js",
+    "core-analysis.js",
     "resolver-engine.js",
     "semantics-engine.js",
     "resolver.js",
@@ -75,6 +76,7 @@ async function assertRuntimeWithoutSemanticCatalogs(consumer: string, env: NodeJ
         ? [
             "analysis-factory",
             "selected-analysis",
+            "core-analysis",
             "resolver-engine",
             "semantics-engine",
             "type-resolution-engine",

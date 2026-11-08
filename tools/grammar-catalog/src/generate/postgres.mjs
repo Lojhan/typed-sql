@@ -9,9 +9,10 @@ import {
   validateSourceVersion,
 } from "../sources/postgres/facts.mjs";
 import { prepareSourceProfile } from "../sources/postgres/model.mjs";
-import { literal, ordered, parserVocabulary, rowsLiteral } from "./common.mjs";
+import { literal, ordered, parserVocabulary } from "./common.mjs";
 import { postgresSemanticSignature } from "./facts/postgres-semantic.mjs";
 import { generateCore } from "./postgres-core.mjs";
+import { generatePostgresOffline } from "./postgres-offline.mjs";
 
 export async function generateCatalog({ groups, semanticGroups, input, emit, header }) {
   const policy = await input("policy", "grammar/postgres/catalog/policy.json");
@@ -65,45 +66,36 @@ export async function generateCatalog({ groups, semanticGroups, input, emit, hea
       return [group.band, ordered(signatures)];
     }),
   );
-  // Partition by exact profile membership. A selected profile imports only groups it uses.
-  const memberships = new Map();
-  for (const [major, signatures] of sourceSignatures)
-    for (const signature of signatures) {
-      const key = JSON.stringify(signature);
-      const entry = memberships.get(key) ?? { signature, majors: [] };
-      entry.majors.push(major);
-      memberships.set(key, entry);
-    }
-  const partitions = new Map();
-  for (const { signature, majors } of memberships.values()) {
-    const name = majors
-      .map(Number)
-      .sort((a, b) => a - b)
-      .join("-");
-    const rows = partitions.get(name) ?? [];
-    rows.push(signature);
-    partitions.set(name, rows);
-  }
-  const locations = new Map();
-  for (const [name, values] of [...partitions].sort(([a], [b]) => a.localeCompare(b))) {
-    const signatures = ordered(values);
-    signatures.forEach((signature, index) => {
-      locations.set(JSON.stringify(signature), { name, index });
-    });
-    await emit(
-      `packages/postgres/src/catalog/generated/native/groups/${name}.ts`,
-      `${header}import type { PostgresNativeSignature } from "../../../native-resolution.js";\nexport const entries: readonly PostgresNativeSignature[] = ${rowsLiteral(signatures)};\n`,
-    );
-  }
+  const { coreLocations, compatibilityLocations } = await generatePostgresOffline({
+    sourceSignatures,
+    core,
+    input,
+    emit,
+    header,
+  });
   for (const [major, signatures] of sourceSignatures) {
-    const groups = [...new Set(signatures.map((signature) => locations.get(JSON.stringify(signature)).name))].sort();
-    const aliases = new Map(groups.map((name, index) => [name, `group${index}`]));
+    const location = (row) => {
+      const key = JSON.stringify(row),
+        core = coreLocations.get(key),
+        value = core ?? compatibilityLocations.get(key);
+      if (!value) throw new TypeError("Missing PostgreSQL offline partition row");
+      return { directory: core === undefined ? "compatibility" : "offline", ...value };
+    };
+    const groups = [
+      ...new Set(
+        signatures.map((row) => {
+          const value = location(row);
+          return `${value.directory}/groups/${value.name}`;
+        }),
+      ),
+    ].sort();
+    const aliases = new Map(groups.map((group, index) => [group, `group${index}`]));
     await emit(
       `packages/postgres/src/catalog/generated/native/${major}.ts`,
-      `${header}import type { PostgresNativeSignature } from "../../native-resolution.js";\n${groups.map((name) => `import {entries as ${aliases.get(name)}} from "./groups/${name}.js";`).join("\n")}\nexport const nativeSignatures: readonly PostgresNativeSignature[] = Object.freeze([${signatures
-        .map((signature) => {
-          const { name, index } = locations.get(JSON.stringify(signature));
-          return `${aliases.get(name)}[${index}]!`;
+      `${header}import type {PostgresNativeSignature} from "../../native-resolution.js";\n${groups.map((group) => `import {entries as ${aliases.get(group)}} from "../${group}.js";`).join("\n")}\nexport const nativeSignatures:readonly PostgresNativeSignature[] = Object.freeze([${signatures
+        .map((row) => {
+          const value = location(row);
+          return `${aliases.get(`${value.directory}/groups/${value.name}`)}[${value.index}]!`;
         })
         .join(",")}]);\n`,
     );

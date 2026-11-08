@@ -57,8 +57,13 @@ export async function assertSelectedPostgresConsumer(consumer: string, workspace
     const native = join(source, "catalog/generated/native");
     for (const entry of await readdir(native, { withFileTypes: true }))
       if (entry.isFile() && entry.name.split(".")[0] !== String(major)) await rm(join(native, entry.name));
-    for (const entry of await readdir(join(native, "groups")))
-      if (!entry.split(".")[0]!.split("-").includes(String(major))) await rm(join(native, "groups", entry));
+    for (const folder of ["offline", "compatibility"]) {
+      const data = join(source, "catalog/generated", folder);
+      for (const entry of await readdir(data, { withFileTypes: true }))
+        if (entry.isFile() && entry.name.split(".")[0] !== String(major)) await rm(join(data, entry.name));
+      for (const entry of await readdir(join(data, "groups")))
+        if (!entry.split(".")[0]!.split("-").includes(String(major))) await rm(join(data, "groups", entry));
+    }
     const bundled = await build({
       stdin: {
         contents: `export {postgres} from "@typed-sql/postgres/analysis/profiles/${major}";`,
@@ -78,7 +83,9 @@ export async function assertSelectedPostgresConsumer(consumer: string, workspace
       strict.ok(!/catalog\/(?:index|generated\/registry)\.js$/u.test(file), file);
       const nativeProfile = /catalog\/generated\/native\/(\d+)\.[cm]?js$/u.exec(file);
       if (nativeProfile) strict.equal(Number(nativeProfile[1]), major);
-      const group = /catalog\/generated\/native\/groups\/([\d-]+)\.[cm]?js$/u.exec(file);
+      const projected = /catalog\/generated\/(?:offline|compatibility)\/(\d+)\.[cm]?js$/u.exec(file);
+      if (projected) strict.equal(Number(projected[1]), major);
+      const group = /catalog\/generated\/(?:offline|compatibility)\/groups\/([\d-]+)\.[cm]?js$/u.exec(file);
       if (group) strict.ok(group[1]!.split("-").includes(String(major)), file);
       strict.ok(!/catalog\/generated\/native\.js$/u.test(file), file);
     }
@@ -90,6 +97,8 @@ import assert from "node:assert/strict";
 import {loadPostgresAnalyzer} from "@typed-sql/postgres/analysis/selected";
 import {postgres} from "@typed-sql/postgres/analysis/profiles/${major}";
 import {postgres as bundledPostgres} from "./bundle.mjs";
+import {postgres as corePostgres} from "@typed-sql/postgres/analysis/core/profiles/${major}";
+import {compatibilityPack} from "@typed-sql/postgres/analysis/packs/compatibility/${major}";
 import {sql} from "@typed-sql/postgres";
 await assert.rejects(import("@typed-sql/postgres/analysis"),{code:"ERR_MODULE_NOT_FOUND"});
 const dialect=await loadPostgresAnalyzer({major:${major},versionPolicy:"canary"});
@@ -105,6 +114,8 @@ assert.equal(result.columns[0].databaseType,"text");
 assert.equal(text.slice(result.columns[0].range.start,result.columns[0].range.end),"lpad($2, $1, $3) AS value");
 assert.deepEqual(result.parameters.map(({index,databaseType})=>({index,databaseType})),[{index:1,databaseType:"integer"},{index:2,databaseType:"text"},{index:3,databaseType:"text"}]);
 assert.ok(sql\`SELECT 1\`);
+const tail="SELECT pg_backend_pid() AS process";
+assert.deepEqual(corePostgres({versionPolicy:"canary",packs:[compatibilityPack]}).analyze(tail,schema),dialect.analyze(tail,schema));
 const wrong=dialect.analyze(text,{...schema,version:"unknown"});
 assert.equal(wrong.diagnostics[0].code,"TSQ402");assert.deepEqual(wrong.columns,[]);
 `,
@@ -137,6 +148,60 @@ import {postgres} from "@typed-sql/postgres/analysis/profiles/${major}";const di
         { cwd: directory, env, timeout: 60_000 },
       );
     }
+    // A fresh process must use the compact core with the full native projection physically absent.
+    await rm(join(source, "catalog/generated/native"), { recursive: true, force: true });
+    await rm(join(source, "catalog/generated/compatibility"), { recursive: true, force: true });
+    await rm(join(source, "analysis/packs/generated"), { recursive: true, force: true });
+    for (const name of [
+      "catalog/generated/native",
+      "catalog/generated/native-loader",
+      "selected-analysis",
+      "core-analysis",
+    ])
+      for (const extension of [".js", ".d.ts", ".js.map", ".d.ts.map"])
+        await rm(join(source, name + extension), { force: true });
+    for (const other of majors.filter((other) => other !== major))
+      for (const name of [`catalog/generated/offline/${other}`, `analysis/core/generated/${other}`])
+        for (const extension of [".js", ".d.ts", ".js.map", ".d.ts.map"])
+          await rm(join(source, name + extension), { force: true });
+    const coreBundle = await build({
+      stdin: {
+        contents: `export {postgres} from "@typed-sql/postgres/analysis/core/profiles/${major}";`,
+        resolveDir: directory,
+      },
+      bundle: true,
+      write: false,
+      format: "esm",
+      platform: "node",
+      target: "es2022",
+      minify: true,
+      metafile: true,
+    });
+    for (const file of Object.keys(coreBundle.metafile!.inputs)) {
+      strict.ok(!/catalog\/generated\/(?:native|compatibility)(?:[/.])/u.test(file), file);
+      const profile = /catalog\/generated\/offline\/(\d+)\.js$/u.exec(file);
+      if (profile) strict.equal(Number(profile[1]), major);
+    }
+    await writeFile(join(directory, "core-bundle.mjs"), coreBundle.outputFiles![0]!.contents);
+    await writeFile(
+      join(directory, "core-check.mjs"),
+      `
+import assert from "node:assert/strict";
+import {postgres} from "@typed-sql/postgres/analysis/core/profiles/${major}";
+import {postgres as bundled} from "./core-bundle.mjs";
+const schema={formatVersion:1,dialect:"postgres",version:"${major}",tables:{}};
+const dialect=postgres({versionPolicy:"canary"});
+const text="SELECT lpad($2,$1,$3) AS label";
+const result=dialect.analyze(text,schema);
+assert.deepEqual(result.diagnostics,[]);assert.equal(result.columns[0].tsType,"string");
+assert.deepEqual(result.parameters.map(row=>row.databaseType),["integer","text","text"]);
+assert.deepEqual(bundled({versionPolicy:"canary"}).analyze(text,schema),result);
+const tail=dialect.analyze("SELECT pg_backend_pid() AS process",schema);
+assert.equal(tail.columns[0].tsType,"unknown");assert.ok(tail.diagnostics.some(row=>row.code==="TSQ202"));
+await assert.rejects(import("@typed-sql/postgres/analysis/packs/compatibility/${major}"),{code:"ERR_MODULE_NOT_FOUND"});
+`,
+    );
+    await execFile(process.execPath, [join(directory, "core-check.mjs")], { cwd: directory, env });
   }
   await rm(join(consumer, "selected-profiles"), { recursive: true, force: true });
 }

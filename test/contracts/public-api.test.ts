@@ -268,6 +268,7 @@ import type {
   PostgresRoutedDatabaseOptions,
 } from "../../packages/postgres/src/analysis.js";
 import * as postgresApi from "../../packages/postgres/src/analysis.js";
+import * as postgresCoreApi from "../../packages/postgres/src/core-analysis.js";
 import * as postgresRootApi from "../../packages/postgres/src/index.js";
 import * as pgApi from "../../packages/postgres/src/pg.js";
 import type {
@@ -1311,6 +1312,7 @@ const expectedRuntimeExports = {
     "MySqlWarningInspectionError",
   ],
   opentelemetry: ["createOpenTelemetryObserver"],
+  postgresCore: ["postgres"],
   postgresSelected: ["loadPostgresAnalyzer"],
   postgresAnalysis: [
     "POSTGRES_DIALECT_VERSION",
@@ -1498,6 +1500,7 @@ await describe("stable public API", async () => {
       mysqlRuntime: Object.keys(mysqlRuntimeApi).sort(),
       opentelemetry: Object.keys(openTelemetryApi).sort(),
       postgresAnalysis: Object.keys(postgresApi).sort(),
+      postgresCore: Object.keys(postgresCoreApi).sort(),
       postgresSelected: Object.keys(postgresSelectedApi).sort(),
       postgres: Object.keys(postgresRootApi).sort(),
       pg: Object.keys(pgApi).sort(),

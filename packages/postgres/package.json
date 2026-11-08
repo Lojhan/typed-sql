@@ -39,7 +39,20 @@
       "./analysis/profiles/16",
       "./analysis/profiles/17",
       "./analysis/profiles/18",
-      "./analysis/profiles/19"
+      "./analysis/profiles/19",
+      "./analysis/core",
+      "./analysis/core/profiles/14",
+      "./analysis/packs/compatibility/14",
+      "./analysis/core/profiles/15",
+      "./analysis/packs/compatibility/15",
+      "./analysis/core/profiles/16",
+      "./analysis/packs/compatibility/16",
+      "./analysis/core/profiles/17",
+      "./analysis/packs/compatibility/17",
+      "./analysis/core/profiles/18",
+      "./analysis/packs/compatibility/18",
+      "./analysis/core/profiles/19",
+      "./analysis/packs/compatibility/19"
     ]
   },
   "sideEffects": false,
@@ -67,7 +80,20 @@
     "./analysis/profiles/16": "./dist/packages/postgres/src/analysis/generated/16.js",
     "./analysis/profiles/17": "./dist/packages/postgres/src/analysis/generated/17.js",
     "./analysis/profiles/18": "./dist/packages/postgres/src/analysis/generated/18.js",
-    "./analysis/profiles/19": "./dist/packages/postgres/src/analysis/generated/19.js"
+    "./analysis/profiles/19": "./dist/packages/postgres/src/analysis/generated/19.js",
+    "./analysis/core": "./dist/packages/postgres/src/core-analysis.js",
+    "./analysis/core/profiles/14": "./dist/packages/postgres/src/analysis/core/generated/14.js",
+    "./analysis/packs/compatibility/14": "./dist/packages/postgres/src/analysis/packs/generated/14.js",
+    "./analysis/core/profiles/15": "./dist/packages/postgres/src/analysis/core/generated/15.js",
+    "./analysis/packs/compatibility/15": "./dist/packages/postgres/src/analysis/packs/generated/15.js",
+    "./analysis/core/profiles/16": "./dist/packages/postgres/src/analysis/core/generated/16.js",
+    "./analysis/packs/compatibility/16": "./dist/packages/postgres/src/analysis/packs/generated/16.js",
+    "./analysis/core/profiles/17": "./dist/packages/postgres/src/analysis/core/generated/17.js",
+    "./analysis/packs/compatibility/17": "./dist/packages/postgres/src/analysis/packs/generated/17.js",
+    "./analysis/core/profiles/18": "./dist/packages/postgres/src/analysis/core/generated/18.js",
+    "./analysis/packs/compatibility/18": "./dist/packages/postgres/src/analysis/packs/generated/18.js",
+    "./analysis/core/profiles/19": "./dist/packages/postgres/src/analysis/core/generated/19.js",
+    "./analysis/packs/compatibility/19": "./dist/packages/postgres/src/analysis/packs/generated/19.js"
   },
   "dependencies": {
     "@typed-sql/ast": "workspace:*",
