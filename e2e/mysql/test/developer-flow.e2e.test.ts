@@ -45,6 +45,7 @@ import {
 } from "../../../test/helpers/mysql-contract-protocol.js";
 import { assertMySqlNativeContracts } from "../../../test/helpers/mysql-native-contracts.js";
 import { assertMySqlNumericConformance } from "../../../test/helpers/mysql-numeric-conformance.js";
+import { assertMySqlPackedContracts } from "../../../test/helpers/mysql-packed-contracts.js";
 import { mysqlCodecFidelity } from "../src/codec-query.js";
 import { mysqlJsonEmptyAggregate, mysqlJsonMutations, mysqlJsonProjection } from "../src/json-query.js";
 import { streamAccountsQuery } from "../src/stream-query.js";
@@ -293,6 +294,13 @@ try {
 
     await it("acquires guarded native query contracts, reuses them offline and rejects conflicts", async () => {
       await assertMySqlNativeContracts(`mysql://root:typed_sql_root@127.0.0.1:${port}/typed_sql_e2e`);
+    });
+
+    await it("regenerates native contracts through installed CLI and editor artifacts", async () => {
+      await assertMySqlPackedContracts(
+        workspaceDirectory,
+        `mysql://root:typed_sql_root@127.0.0.1:${port}/typed_sql_e2e`,
+      );
     });
 
     await it("matches native numeric descriptors and compiled runtime values", async () => {

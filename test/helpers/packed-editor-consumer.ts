@@ -42,6 +42,7 @@ export async function createPackedNativeEditorConsumer(
   workspace: string,
   env: NodeJS.ProcessEnv,
   dialects: readonly string[] = ["sqlserver", "duckdb"],
+  extraPackages: readonly string[] = [],
 ): Promise<{ consumer: string; close(): Promise<void> }> {
   const temporary = await mkdtemp(join(tmpdir(), "typed-sql-packed-native-editors-"));
   const consumer = join(temporary, "consumer");
@@ -78,6 +79,7 @@ export async function createPackedNativeEditorConsumer(
       "@typed-sql/cli",
       "@typed-sql/language-server",
       ...dialects.map((dialect) => `@typed-sql/${dialect}`),
+      ...extraPackages,
     ])
       await pack(name);
     await writeFile(

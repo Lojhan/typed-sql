@@ -28,8 +28,8 @@ DuckDB native acquisition supports builtin scalar expression projections on 1.5.
 its real-engine tests exercise the shared live runner, persistent cache, offline reuse and conflicts.
 DuckDB packed CLI generation, changed-query regeneration and frozen checking pass on both SDKs;
 its packaged editor path is also qualified for SQL documents and TypeScript templates.
-MySQL library acquisition is qualified on 8.4.11 and 9.7.2 for builtin expression projections;
-packaged CLI/editor acquisition is not yet qualified. SQLite and SQL Server retain their existing
+MySQL acquisition is qualified on 8.4.11 and 9.7.2 for builtin expression projections, including
+installed CLI/build/editor entrypoints. SQLite and SQL Server retain their existing
 offline support and contract-profile interfaces without native acquisition qualification.
 Build transforms and `typed-sql-build types` consume durable query contracts. Frozen builds avoid
 analyzer/native initialization; offline and live-configured builds use offline rules for unrecorded
@@ -229,3 +229,23 @@ contracts, quality gate and documentation checks/build. All 28 MySQL test files 
 96.05% statement, 91.02% branch and 99.09% function coverage. Packed frozen consumers continue
 to import runtime/profile modules after every manifest-declared development entrypoint is
 physically removed.
+
+## MySQL installed host qualification
+
+A separate packed consumer installs the CLI, build integration, language server and MySQL
+grammar from tarballs. It first proves the driver is not a transitive dependency, then explicitly
+provides the application's mysql2 driver and bundler. Public live generation records an unknown
+builtin invocation; changing the SQL regenerates its durable contract and SQL declaration.
+Frozen declaration generation, TypeScript checking and bundling reuse those exports while
+analyzer/native factories throw if initialized. The bundled query retains its recorded value
+plan and executes through the installed mysql2 adapter.
+
+Installed editor checks cover TypeScript templates and standalone SQL with native preview
+disabled. Pull diagnostics and hovers update after unsaved replacements, and request-driven
+context observation notices routine-catalog changes without a document edit. After hiding
+durable exports and closing the live process, a new offline process reuses the disposable cache
+with no connection URI and analyzer/native factories guarded against initialization.
+
+Direct packed proofs and all six maintained engine/SQL-mode E2E flows pass with this same
+expanded proof. The complete packed-consumer regression suite, TypeScript project checks,
+documentation checks and quality gate also pass after this fixture extension.
