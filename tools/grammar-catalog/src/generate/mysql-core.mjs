@@ -83,7 +83,7 @@ export async function generateCore({ source, facts, ledger, emit, header }) {
   }
 
   const projections = {};
-  function render(source, target) {
+  function build(source, target) {
     const profiles = Object.values(facts.versions).filter(
       (profile) => profile.version.split(".").slice(0, 2).join(".") === target,
     );
@@ -118,12 +118,29 @@ export async function generateCore({ source, facts, ledger, emit, header }) {
     });
     const canonical = JSON.stringify(selected);
     const catalog = { ...selected, revision: `sha256:${createHash("sha256").update(canonical).digest("hex")}` };
-    const serialized = JSON.stringify(catalog);
-    return `${header}import type { MySqlCoreCatalog } from "../types.js";\n\nconst catalog: MySqlCoreCatalog = ${serialized};\n\nexport default catalog;\n`;
+    return catalog;
   }
 
   validate(source);
-  for (const target of series) await emit(`packages/mysql/src/catalog/generated/${target}.ts`, render(source, target));
+  const profiles = new Map();
+  const codecSeries = [];
+  for (const target of series) {
+    const catalog = build(source, target);
+    await emit(
+      `packages/mysql/src/catalog/generated/${target}.ts`,
+      `${header}import type { MySqlCoreCatalog } from "../types.js";\n\nconst catalog: MySqlCoreCatalog = ${JSON.stringify(catalog)};\n\nexport default catalog;\n`,
+    );
+    const mapping = Object.fromEntries(
+      catalog.types.flatMap((type) => [type.name, ...type.aliases].map((name) => [name, type.mapping])),
+    );
+    const identity = JSON.stringify(stable(mapping));
+    if (!profiles.has(identity)) profiles.set(identity, `types${profiles.size}`);
+    codecSeries.push(`${JSON.stringify(target)}:${profiles.get(identity)}`);
+  }
+  await emit(
+    "packages/mysql/src/codecs/generated/types.ts",
+    `${header}import type { MySqlCodecTypeMapping } from "../types.js";\n${[...profiles].map(([mapping, name]) => `const ${name}: Readonly<Record<string,MySqlCodecTypeMapping>> = Object.freeze(Object.fromEntries<MySqlCodecTypeMapping>(${JSON.stringify(Object.entries(JSON.parse(mapping)))}));`).join("\n")}\nexport const mySqlCodecTypes: Readonly<Record<string,Readonly<Record<string,MySqlCodecTypeMapping>>>> = Object.freeze({${codecSeries.join(",")}});\n`,
+  );
   await emit(
     "planning/grammar-completeness/mysql-routine-projection.json",
     `${JSON.stringify({ formatVersion: 1, grammar: "mysql", profiles: projections }, null, 2)}\n`,

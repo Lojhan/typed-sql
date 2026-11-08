@@ -1,10 +1,10 @@
 {
   "formatVersion": 1,
-  "inputFingerprint": "sha256:a58bb49e8b32a9145a0530d13931556f979ce8dd903e0c478539ca0d20796d10",
+  "inputFingerprint": "sha256:ed2f42c6a1fbe3cdda4b55222661b39e3e41808fe6985cb455b70f2fd3a5f734",
   "model": {
     "formatVersion": 2,
     "schemaDigest": "sha256:031e9b8d6e85bee77edaae2610b6d800825003be70ffb72ff23d660fd9efdf2b",
-    "normalizerDigest": "sha256:72ba80100a4ac91042c4fa996e8785e9b1f09277f889693362722c52cb223ee3",
+    "normalizerDigest": "sha256:20c8cc2abf42cd298675892d3f0b7627a11aef849cd99a468916a87e0eb8f49e",
     "inputDigest": "sha256:c9866b5b675f65b76090b0de006b3857e90cb642d887c59663025af87049e14b",
     "profiles": 33,
     "entities": 26829,
@@ -22,6 +22,7 @@
     "packages/mysql/src/catalog/generated/8.4.ts",
     "packages/mysql/src/catalog/generated/9.7.ts",
     "packages/mysql/src/catalog/generated/registry.ts",
+    "packages/mysql/src/codecs/generated/types.ts",
     "packages/mysql/src/parser/vocabulary.generated.ts",
     "packages/postgres/src/catalog/generated/14.ts",
     "packages/postgres/src/catalog/generated/15.ts",
@@ -32,6 +33,7 @@
     "packages/postgres/src/catalog/generated/native.ts",
     "packages/postgres/src/catalog/generated/registry.ts",
     "packages/postgres/src/catalog/generated/semantics.ts",
+    "packages/postgres/src/codecs/generated/types.ts",
     "packages/postgres/src/parser/vocabulary.generated.ts",
     "packages/sqlite/src/catalog/generated/policy.ts",
     "packages/sqlite/src/catalog/generated/types.ts",
@@ -60,6 +62,7 @@
     "packages/mysql/src/catalog/generated/8.4.ts": "sha256:30caf598c16a22639c36fca9fcf026e9bb4dd64ab7c19e3869ccdd00a85061a6",
     "packages/mysql/src/catalog/generated/9.7.ts": "sha256:68bb1134d194a600e7e5069f328ccf992abdb82269b60aa5a283f72a4de03bb0",
     "packages/mysql/src/catalog/generated/26.7.ts": "sha256:7ac6dc5f8691ffc16fe49bfd0a5b13e0dfa7bae17ef60f256aa291308742b752",
+    "packages/mysql/src/codecs/generated/types.ts": "sha256:5a4422a3d26dc41667d15cdb4af287edbd415fa8dce62165ad16f5a89c50b663",
     "planning/grammar-completeness/mysql-routine-projection.json": "sha256:8ef4424f989abefa3da2e20b12936829b41502d13d7eb30fc4e1211be4136bbb",
     "packages/mysql/src/catalog/generated/registry.ts": "sha256:aa3e1153b0873fc55bdc7aa33de054e21430de14213e87ce03672c62e92cc33b",
     "packages/mysql/src/parser/vocabulary.generated.ts": "sha256:30452e1788ea467c59d5a0a4ed39e56d67a6d047c178aef10d06c887fb199cdc",
@@ -70,6 +73,7 @@
     "packages/postgres/src/catalog/generated/17.ts": "sha256:3740354bde241c156c962313a1f080087e8fedbc01bca8fb3f3214a445ad804a",
     "packages/postgres/src/catalog/generated/18.ts": "sha256:3c03314963d30d040390d0af82c8fe4f4e8459e277cf3e5f423ce1760d221f05",
     "packages/postgres/src/catalog/generated/19.ts": "sha256:2ec3a73874ad59ec42328ba252e4b519da28313d58d18750e164aa7889c92c8c",
+    "packages/postgres/src/codecs/generated/types.ts": "sha256:aadbebc0866674bf6cd4c01fab79388a70939aa6e9975d5055d2f4682238dd5c",
     "packages/postgres/src/catalog/generated/registry.ts": "sha256:b904c98964554c5174e2ba4b710ea473a6bab263cd1cbb3f3ab29a353ca3628b",
     "packages/postgres/src/parser/vocabulary.generated.ts": "sha256:96fc0f19424e03c9c92896b5cc408298538721715b081d25407381b62a8f3f73",
     "packages/postgres/src/catalog/generated/semantics.ts": "sha256:3307139315e6ff09c19064292b5e07fb0a170f0e63f19639997c2096140d6a44",
@@ -83,7 +87,7 @@
     "packages/sqlserver/src/catalog/generated/types.ts": "sha256:1d6fcef8dcaeefc24e64d8c3a00eaec05e710ffb59393e336cb39904ac5a9f5c",
     "packages/sqlserver/src/catalog/generated/policy.ts": "sha256:bd065ab384934ac04640e0029b051520d920238d0510907725ecf1d6f6d6f102"
   },
-  "artifactFingerprint": "sha256:8ba8b030ba48d01e40cc03322fed4803ad0280d78b74c4b9436d2fa69f6e9814",
+  "artifactFingerprint": "sha256:eae8ca687742b16a7508cbdbf73894830f2a64f554913310b76f6485cf2be2fe",
   "bands": [
     {
       "dialect": "duckdb",

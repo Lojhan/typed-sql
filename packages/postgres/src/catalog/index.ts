@@ -1,4 +1,5 @@
 import type { SchemaSnapshot } from "@typed-sql/schema";
+import { normalizePostgresDatabaseType as normalizeType } from "../codecs/normalize.js";
 import { POSTGRES_SUPPORT_POLICY, parsePostgresMajor } from "../support.js";
 import { postgresCatalogs } from "./generated/registry.js";
 import type {
@@ -75,16 +76,6 @@ function index(catalog: PostgresCoreCatalog): CatalogIndex {
   };
   indexes.set(catalog, created);
   return created;
-}
-
-function normalizeType(value: string): string {
-  const normalized = value
-    .trim()
-    .toLowerCase()
-    .replace(/\[\]$/u, "")
-    .replace(/\(\d+(?:,\s*\d+)?\)/gu, "")
-    .replace(/\s+/gu, " ");
-  return /^interval(?:\s|$)/u.test(normalized) ? "interval" : normalized;
 }
 
 export function postgresCoreCatalog(major: number): PostgresCoreCatalog | undefined {

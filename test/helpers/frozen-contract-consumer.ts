@@ -1,5 +1,5 @@
 import { execFile as callback } from "node:child_process";
-import { cp, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -26,8 +26,62 @@ async function omitPostgresAnalyzer(consumer: string): Promise<void> {
     await rm(join(grammar, path), { recursive: true, force: true });
 }
 
+/** Runtime decoding keeps scalar codec facts, but must not require semantic inventories. */
+async function assertRuntimeWithoutSemanticCatalogs(consumer: string, env: NodeJS.ProcessEnv): Promise<void> {
+  const workspace = fileURLToPath(new URL("../../", import.meta.url));
+  const ledger = JSON.parse(await readFile(join(workspace, "grammar/features/ledger.json"), "utf8"));
+  const grammars = Object.keys(ledger.dialects).sort();
+  if (!grammars.length) throw new Error("No declared grammars in the runtime boundary audit");
+  const essential = new Set(["coercions.js", "generated/types.js", "generated/aliases.js"]);
+  const strip = async (directory: string, prefix = ""): Promise<void> => {
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      const relative = prefix + entry.name,
+        path = join(directory, entry.name);
+      if (entry.isDirectory()) await strip(path, `${relative}/`);
+      else if (entry.isFile() && entry.name.endsWith(".js") && !essential.has(relative)) await rm(path);
+    }
+  };
+  for (const name of grammars) {
+    const grammar = join(consumer, "node_modules", "@typed-sql", name, "dist", "packages", name, "src");
+    await strip(join(grammar, "catalog"));
+    for (const path of ["index.js", "resolver.js", "semantics.js"]) await rm(join(grammar, path), { force: true });
+  }
+  await writeFile(join(consumer, "runtime-grammars.json"), JSON.stringify(grammars));
+  const file = join(consumer, "runtime-without-catalogs.mjs");
+  await writeFile(
+    file,
+    `
+import assert from "node:assert/strict";
+import {readFile} from "node:fs/promises";
+for (const grammar of JSON.parse(await readFile("./runtime-grammars.json","utf8"))) {
+  const runtime=await import("@typed-sql/"+grammar+"/runtime");
+  assert.ok(Object.keys(runtime).length,grammar+" runtime has no exports");
+}
+import {sql,defineQueryValuePlan,withQueryValuePlan} from "@typed-sql/postgres/tag";
+import {createPostgresDatabase} from "@typed-sql/postgres/runtime";
+import {calculateTypePolicyHash} from "@typed-sql/schema";
+import {typePolicy} from "@typed-sql/postgres/profile";
+let invalid=false;
+const calls=[];
+const pool={query:async config=>{calls.push(config);return {rows:[{value:invalid?"invalid":42n}]};},connect:async()=>{throw Error("Unexpected lease");}};
+const database=createPostgresDatabase({pool});
+const plan=defineQueryValuePlan({dialect:"postgres",typePolicyHash:calculateTypePolicyHash(typePolicy),
+  columns:[{name:"value",type:"bigint",databaseType:"bigint",nullable:false}],
+  parameters:[{index:1,type:"bigint",databaseType:"bigint",nullable:false}]});
+const query=withQueryValuePlan(sql\`SELECT \${41n}::bigint AS value\`,plan);
+assert.deepEqual(await database.all(query),[{value:42n}]);
+assert.equal(calls[0].text,"SELECT $1::bigint AS value");
+assert.equal(calls[0].values.length,1);
+invalid=true;
+await assert.rejects(database.all(query));
+`,
+  );
+  await execFile(process.execPath, [file], { cwd: consumer, env });
+}
+
 /** Mutates only this disposable packed installation, after its other consumer checks finish. */
 export async function assertFrozenContractConsumer(consumer: string, env: NodeJS.ProcessEnv): Promise<void> {
+  await assertRuntimeWithoutSemanticCatalogs(consumer, env);
   await omitPostgresAnalyzer(consumer);
   const file = join(consumer, "frozen-contract.mjs");
   await writeFile(

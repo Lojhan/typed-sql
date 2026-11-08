@@ -88,7 +88,7 @@ export async function generateCore({ source, ledger, semanticGroups, emit, heade
     }
   }
 
-  function render(source, major) {
+  function build(source, major) {
     const semantic = semanticGroups.find((group) => Number(group.band) === major);
     if (!semantic) throw new Error(`Missing PostgreSQL semantic profile: ${major}`);
     const types = postgresSemanticTypes(
@@ -118,7 +118,7 @@ export async function generateCore({ source, ledger, semanticGroups, emit, heade
     });
     const canonical = JSON.stringify(selected);
     const catalog = { ...selected, revision: `sha256:${createHash("sha256").update(canonical).digest("hex")}` };
-    return `${header}import type { PostgresCoreCatalog } from "../types.js";\n\nconst catalog: PostgresCoreCatalog = ${JSON.stringify(catalog, null, 2)};\nexport default Object.freeze(catalog);\n`;
+    return catalog;
   }
 
   if (source.formatVersion !== 1) throw new TypeError("Unsupported PostgreSQL catalog source format");
@@ -129,7 +129,27 @@ export async function generateCore({ source, ledger, semanticGroups, emit, heade
   validateEntries(source.routines, "routines", "routines");
   validateEntries(source.tableRoutines, "tableRoutines", "routines");
 
-  for (const major of majors) await emit(`packages/postgres/src/catalog/generated/${major}.ts`, render(source, major));
+  const profiles = new Map();
+  const codecMajors = [],
+    revisions = {};
+  for (const major of majors) {
+    const catalog = build(source, major);
+    await emit(
+      `packages/postgres/src/catalog/generated/${major}.ts`,
+      `${header}import type { PostgresCoreCatalog } from "../types.js";\n\nconst catalog: PostgresCoreCatalog = ${JSON.stringify(catalog, null, 2)};\nexport default Object.freeze(catalog);\n`,
+    );
+    const mapping = Object.fromEntries(
+      catalog.types.flatMap((type) => [type.name, ...type.aliases].map((name) => [name, type.mapping])),
+    );
+    const identity = JSON.stringify(stable(mapping));
+    if (!profiles.has(identity)) profiles.set(identity, `types${major}`);
+    codecMajors.push(`${JSON.stringify(major)}:${profiles.get(identity)}`);
+    revisions[major] = catalog.revision;
+  }
+  await emit(
+    "packages/postgres/src/codecs/generated/types.ts",
+    `${header}import type { PostgresCodecTypeMapping } from "../types.js";\n${[...profiles].map(([mapping, name]) => `const ${name}: Readonly<Record<string,PostgresCodecTypeMapping>> = Object.freeze(Object.fromEntries<PostgresCodecTypeMapping>(${JSON.stringify(Object.entries(JSON.parse(mapping)))}));`).join("\n")}\nexport const postgresCodecTypes: Readonly<Record<number,Readonly<Record<string,PostgresCodecTypeMapping>>>> = Object.freeze({${codecMajors.join(",")}});\nexport const postgresCatalogRevisions: Readonly<Record<number,string>> = Object.freeze(${JSON.stringify(revisions)});\n`,
+  );
   const registry = `${header}${majors.map((major) => `import catalog${major} from "./${major}.js";`).join("\n")}\nexport const postgresCatalogs = [${majors.map((major) => `catalog${major}`).join(", ")}] as const;\n`;
   await emit("packages/postgres/src/catalog/generated/registry.ts", registry);
 }

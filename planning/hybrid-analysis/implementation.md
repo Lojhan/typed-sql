@@ -479,6 +479,29 @@ Unrelated planning work is left unchanged.
   compact cores, all-engine profiles, root migration, bulk catalog deletion and final acceptance remain
   open. Request-driven sessions do not claim idle remote-change detection or complete host parity.
 
+## Runtime codec projection checkpoint
+
+- PostgreSQL and MySQL runtime type-policy helpers load generated codec projections rather than
+  full routine/operator/cast catalogs. Identical version tables share one immutable mapping;
+  generated source sizes are 2,801 and 2,490 bytes respectively. PostgreSQL compatibility retains
+  the existing per-version catalog revision hashes. Semantic catalogs and codecs share type-name
+  normalization. Projection tests compare every declared version, mapped name and alias against
+  the existing analyzer policy, including absent/unsupported version behavior.
+- The packed-consumer proof discovers all five grammars from the feature ledger, removes semantic
+  catalog JavaScript and resolver/root modules from a disposable install, then imports each public
+  driver-neutral runtime entrypoint. Essential type/alias/coercion projections remain available.
+  A PostgreSQL application-owned fake pool additionally verifies planned bigint decoding and
+  invalid-value rejection. This is import/boundary evidence, not native transport qualification
+  for the other engines or complete physical stripping of the CLI host.
+- PostgreSQL/MySQL suites, projection parity, generator reproducibility, public API/package graph,
+  packed consumers, typechecking, quality and the restricted real PostgreSQL contract proof pass.
+  The concurrent performance run exceeded the large-query parser p95 budget (39.83ms versus 30ms);
+  an isolated rerun with unchanged budgets passes. Performance evidence is collected without
+  competing coverage/packing jobs; the earlier concurrent failure remains recorded here.
+- Root/analyzer and explicit driver entrypoints still load heavy semantics; all bulk semantic
+  catalogs remain shipped. This checkpoint establishes the runtime codec boundary, not production
+  bundle savings, compact-core/pack migration, all-engine qualification or bulk catalog deletion.
+
 ## Required work still open
 
 1. Complete the contract/evidence model: native descriptors and provenance, reusable/facet-specific

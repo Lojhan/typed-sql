@@ -32,6 +32,7 @@
       "!!grammar/postgres/facts/catalog.json",
       "!!grammar/mysql/facts/catalog.json",
       "!!grammar/sqlserver/facts/catalog.json",
+      "!!packages/*/src/codecs/generated",
       "!!packages/postgres/src/catalog/generated",
       "!!packages/mysql/src/catalog/generated",
       "!!packages/duckdb/src/catalog/generated",

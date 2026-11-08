@@ -1,5 +1,5 @@
 import type { SchemaSnapshot } from "@typed-sql/schema";
-import { postgresCatalogTypeMapping } from "./catalog/index.js";
+import { postgresCodecTypeMapping } from "./codecs/index.js";
 
 import type { PostgresTypePolicy } from "./policy.js";
 
@@ -27,7 +27,7 @@ function snapshotType(databaseType: string, schema?: SchemaSnapshot) {
 
 export function isKnownPostgresType(databaseType: string, schema?: SchemaSnapshot): boolean {
   const type = withoutModifiers(arrayType(normalized(databaseType)).base);
-  if (postgresCatalogTypeMapping(type, schema) !== undefined) return true;
+  if (postgresCodecTypeMapping(type, schema) !== undefined) return true;
   if (snapshotType(type, schema) !== undefined) return true;
   return schema?.enums?.[type] !== undefined || schema?.domains?.[type] !== undefined;
 }
@@ -35,7 +35,7 @@ export function isKnownPostgresType(databaseType: string, schema?: SchemaSnapsho
 export function mapPostgresType(databaseType: string, policy: PostgresTypePolicy, schema?: SchemaSnapshot): string {
   const { base: unmodifiedType, dimensions } = arrayType(normalized(databaseType));
   const type = withoutModifiers(unmodifiedType);
-  const catalogMapping = postgresCatalogTypeMapping(type, schema);
+  const catalogMapping = postgresCodecTypeMapping(type, schema);
   const snapshotMapping = snapshotType(unmodifiedType, schema);
   let mapped: string;
   if (catalogMapping === "number") mapped = "number";

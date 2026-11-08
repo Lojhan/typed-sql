@@ -1,5 +1,5 @@
 import type { SchemaSnapshot } from "@typed-sql/schema";
-import { mySqlCatalogType } from "./catalog/index.js";
+import { mySqlCodecTypeMapping } from "./codecs/index.js";
 
 export interface MySqlTypePolicy {
   readonly bigint: "bigint" | "string" | "number";
@@ -116,7 +116,7 @@ export function isKnownMySqlType(databaseType: string, schema?: SchemaSnapshot):
       scale = Number(dimensions[2] ?? "0");
     if (precision < 1 || precision > 65 || scale > precision || scale > 30) return false;
   }
-  return mySqlCatalogType(type, schema) !== undefined || schema?.domains?.[type] !== undefined;
+  return mySqlCodecTypeMapping(type, schema) !== undefined || schema?.domains?.[type] !== undefined;
 }
 
 export function mapMySqlType(databaseType: string, policy: MySqlTypePolicy, schema?: SchemaSnapshot): string {
@@ -126,7 +126,7 @@ export function mapMySqlType(databaseType: string, policy: MySqlTypePolicy, sche
   if (values !== undefined) return values.map((value) => JSON.stringify(value)).join(" | ") || "never";
   if (type === "enum") return policy.unknown;
   if (type === "tinyint" && /^tinyint\(1\)/iu.test(databaseType)) return policy.tinyint1;
-  const mapping = mySqlCatalogType(type, schema)?.mapping;
+  const mapping = mySqlCodecTypeMapping(type, schema);
   if (mapping === "number") return "number";
   if (mapping === "bytes") return "Uint8Array";
   if (mapping === "bigint") return policy.bigint;
