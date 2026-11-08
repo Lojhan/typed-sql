@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it, strict } from "poku";
@@ -464,6 +464,46 @@ await describe("deterministic query manifests", async () => {
     }
   });
 
+  await it("cancels and terminates an active TypeScript discovery process", async () => {
+    const directory = await mkdtemp(join(workspace, ".typed-sql-project-cancel-")),
+      controller = new AbortController();
+    let discovery: Promise<readonly string[]> | undefined;
+    try {
+      const compiler = join(directory, "node_modules/typescript");
+      await mkdir(compiler, { recursive: true });
+      await writeFile(join(compiler, "package.json"), JSON.stringify({ name: "typescript", bin: { tsc: "slow.mjs" } }));
+      await writeFile(
+        join(compiler, "slow.mjs"),
+        'import {writeFile} from "node:fs/promises";await writeFile("started.pid",String(process.pid));setInterval(()=>{},1000);',
+      );
+      discovery = listProjectSourceFiles({ project: "tsconfig.json", cwd: directory, signal: controller.signal });
+      const deadline = Date.now() + 5_000;
+      let pid: number | undefined;
+      while (pid === undefined) {
+        try {
+          pid = Number(await readFile(join(directory, "started.pid"), "utf8"));
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+        }
+        if (Date.now() > deadline) throw Error("Discovery process did not start");
+        if (pid === undefined) await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      controller.abort();
+      await strict.rejects(discovery, (error: unknown) => (error as Error).name === "AbortError");
+      strict.throws(
+        () => process.kill(pid!, 0),
+        (error: unknown) => (error as NodeJS.ErrnoException).code === "ESRCH",
+      );
+      await strict.rejects(
+        listProjectSourceFiles({ project: "tsconfig.json", cwd: directory, signal: controller.signal }),
+        (error: unknown) => (error as Error).name === "AbortError",
+      );
+    } finally {
+      controller.abort();
+      await discovery?.catch(() => {});
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
   await it("enumerates application sources through the workspace TypeScript project", async () => {
     const directory = await mkdtemp(join(workspace, ".typed-sql-project-files-"));
     try {

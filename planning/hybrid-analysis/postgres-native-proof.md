@@ -174,3 +174,17 @@ changes, a request beyond the five-second observation interval advances the edit
 generation without changing document text/version. Diagnostics remain valid and the function
 counter remains one. This proves request-driven refresh through the actual proxy; it does not
 prove idle DDL notification, general SQL statement support or qualification of other engines.
+
+## Triggered CLI watch qualification
+
+The compiled public CLI stays alive in `check --watch --live` with three project queries. An
+application assertion initially accepts the native `bigint | null` result. The helper replaces
+the routine with a text-returning definition, then edits the source to request another check.
+Native context observation and requalification produce a TypeScript `TS2322` error for the stale
+bigint assertion. Restoring the bigint routine and source produces a successful check. The
+watcher stops through its ordinary SIGTERM path, and the final function counter remains one.
+
+This proves triggered native refresh and failure recovery through the compiled watch host. It
+does not prove idle database notifications, other transport profiles or general project-graph
+watch coverage. Separate CLI tests cover new source discovery, external schema/config inputs,
+cache-parent creation without feedback loops and an active check that ignores graceful shutdown.

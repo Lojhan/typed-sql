@@ -36,6 +36,7 @@ import { createPostgresContractReconciler } from "../../packages/postgres/src/re
 import { createPostgresDatabase } from "../../packages/postgres/src/runtime.js";
 import { assertIsolatedPostgresContractConsumer } from "./frozen-contract-consumer.js";
 import { ProtocolClient } from "./protocol-client.js";
+import { startWatchedCli } from "./watch-cli.js";
 
 /** Real engine proof: independent description, compiled metadata, actual decoding and offline reuse. */
 export async function assertPostgresNativeContracts(connectionString: string, directory: string): Promise<void> {
@@ -479,6 +480,45 @@ export default defineConfig({
         },
       );
       strict.match(liveCheck.stdout, /Live checked 1 project\(s\), 3 query\(s\)/u);
+      const watchedSourceFile = join(temporary, "application.ts"),
+        originalWatchSource = await readFile(watchedSourceFile, "utf8");
+      const watchedSource = `${originalWatchSource}\nimport type {QueryRow} from "@typed-sql/core";\ndeclare const watchedRow: QueryRow<ReturnType<typeof query>>;\nexport const expectedWatchResult: bigint | null = watchedRow.result;`;
+      await writeFile(watchedSourceFile, watchedSource);
+      const watched = startWatchedCli(
+        join(directory, "packages/cli/dist/packages/cli/src/cli.js"),
+        ["--live", "--config", "live-config.mjs"],
+        {
+          cwd: temporary,
+          env: {
+            ...process.env,
+            TYPED_SQL_CONTRACT_LIVE_TEST: "1",
+            TYPED_SQL_CONTRACT_TEST_DATABASE_URL: connectionString,
+          },
+        },
+      );
+      try {
+        strict.match(await watched.pass(), /Live checked 1 project\(s\), 3 query\(s\)/u);
+        await pool.query(`DROP FUNCTION ${namespace}.increment(bigint)`);
+        await pool.query(
+          `CREATE FUNCTION ${namespace}.increment(value bigint) RETURNS text LANGUAGE plpgsql AS $$BEGIN UPDATE ${namespace}.calls SET count=count+1; RETURN value::text; END$$`,
+        );
+        const failed = await watched.pass(() =>
+          writeFile(watchedSourceFile, `${watchedSource}\n// Request a fresh native check after database drift.\n`),
+        );
+        strict.match(failed, /TS2322/u);
+        strict.match(failed, /string/u);
+        strict.match(failed, /check finished \(1\)/u);
+        await pool.query(`DROP FUNCTION ${namespace}.increment(bigint)`);
+        await pool.query(
+          `CREATE FUNCTION ${namespace}.increment(value bigint) RETURNS bigint LANGUAGE plpgsql AS $$BEGIN UPDATE ${namespace}.calls SET count=count+1; RETURN value+1; END$$`,
+        );
+        const recovered = await watched.pass(() => writeFile(watchedSourceFile, watchedSource));
+        strict.match(recovered, /Live checked 1 project\(s\), 3 query\(s\)/u);
+        strict.match(recovered, /check finished \(0\)/u);
+      } finally {
+        strict.equal(await watched.close(), 143);
+        await writeFile(watchedSourceFile, originalWatchSource);
+      }
       const reused = await promisify(callback)(
         process.execPath,
         [

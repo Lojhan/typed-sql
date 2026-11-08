@@ -622,6 +622,36 @@ Unrelated planning work is left unchanged.
 - Full semantic compatibility catalogs still ship. Selected compact cores, optional packs,
   reusable project catalogs and bulk generated semantic TypeScript removal remain required.
 
+## Serialized CLI watch and native result drift
+
+- `check --watch` runs the existing one-shot command in a fresh owned process for each pass.
+  Ordinary/offline/frozen/live policy and qualification behavior stay with the existing checker.
+  Edits debounce for 250 ms, active checks serialize and coalesce changes, and failed checks keep
+  watching. Config/source/schema and discovered external inputs refresh between passes; durable
+  contract directories are observed without exporting them.
+- Directory discovery skips dependency, Git and disposable cache trees before creating directory
+  watches. Creating a cache parent observes its siblings without scheduling cache feedback loops.
+  Shutdown cancels discovery and stops the active check, escalating a noncooperative process after
+  one second. POSIX checks own a process group. Node's early AbortError no longer releases a
+  TypeScript discovery process before its close event.
+- The compiled CLI tests cover new source discovery, error/recovery, external schema and eager
+  configuration dependencies, ignored cache writes, invalid flags and noncooperative shutdown.
+  The compiler regression cancels an actual discovery subprocess and checks that it has exited.
+  All 11 CLI and 20 compiler test files pass; compiler coverage thresholds pass. All 68 contract
+  files, quality, E2E PostgreSQL helper typechecking, documentation production build and isolated
+  performance gate pass.
+- The real PostgreSQL watch proof replaces a bigint routine with a text routine while the watcher
+  stays alive. A source edit triggers native requalification and TS2322 on the stale bigint claim;
+  restoring the routine recovers. Candidate SQL is never executed. The complete existing native,
+  editor, offline and independently packed frozen CLI proof still passes.
+- This is request-driven file watching, not idle database polling. Inherited project configuration
+  outside discovered roots, lazy external contribution dependency reporting, complete host graph
+  invalidation and all-engine watch qualification still need explicit acceptance evidence.
+- Remote checks at driver checkpoint `fa41d4f6` show all four SQL Server native transport lanes,
+  DuckDB/Next.js build integrations and CodeQL succeeding. The complete 58-check observation
+  exposes stale eager-root imports in crash-worker/UI fixtures and the runtime benchmark. Those
+  failures also block the aggregate quality job; they require a separate compatibility follow-up.
+
 ## Required work still open
 
 1. Complete the contract/evidence model: native descriptors and provenance, reusable/facet-specific
@@ -636,7 +666,8 @@ Unrelated planning work is left unchanged.
 5. Complete cache/scheduler host integration, context observations and project catalog/declaration
    persistence; qualify ownership, admission, cross-process interruption/recovery and pruning in
    the actual CLI/editor workflows. Concrete query storage and process tests are implemented above.
-6. Explicit offline/frozen/live configuration and CLI generation/check/watch operations.
+6. Complete explicit offline/frozen/live configuration and CLI generation/check/watch acceptance.
+   Serialized triggered watch is implemented above; inherited/external graph coverage remains open.
 7. Integrate the bounded live scheduler with editor/project invalidation, request-driven context
    freshness, persistent restart reuse and finite batch generation.
 8. Finite/repeated structural variant coverage, ambiguous/repeated parameters, unsupported syntax

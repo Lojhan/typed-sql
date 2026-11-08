@@ -45,6 +45,7 @@ import {
   writeArtifactFiles,
 } from "@typed-sql/schema";
 import { reportCheckedFiles } from "./check-report.js";
+import { watchChecks } from "./check-watch.js";
 import { runContractCommand } from "./contract-check.js";
 import { runInit } from "./init.js";
 import { runMigrationCli } from "./migrate.js";
@@ -116,6 +117,7 @@ Examples:
   typed-sql check --frozen --project tsconfig.json
   typed-sql check --offline --project tsconfig.json
   typed-sql check --live --project tsconfig.json
+  typed-sql check --watch --live --project tsconfig.json
   typed-sql generate --queries --live
   typed-sql generate --queries --offline --check
   typed-sql check --project tsconfig.json
@@ -142,6 +144,7 @@ function parseArguments(args: readonly string[]): ParsedArguments {
     if (
       argument === "--no-open" ||
       argument === "--show-types" ||
+      argument === "--watch" ||
       argument === "--queries" ||
       argument === "--check" ||
       argument === "--live" ||
@@ -393,6 +396,8 @@ async function main(): Promise<void> {
   if (parsed.command === undefined || !commands.has(parsed.command)) {
     throw new Error(`Unknown command ${parsed.command ?? "<none>"}. Run typed-sql --help for usage.`);
   }
+  if (parsed.options.watch !== undefined && (parsed.command !== "check" || parsed.options.watch !== "true"))
+    throw new Error("--watch is supported as a boolean check option");
   if (parsed.command === "playground") {
     await runPlayground(parsed.options);
     return;
@@ -443,6 +448,15 @@ async function main(): Promise<void> {
     throw new Error(
       "Query qualification/generation requires an explicit analysis configuration and native adapter registration for live operation",
     );
+  if (parsed.options.watch === "true") {
+    await watchChecks({
+      loaded,
+      options: parsed.options,
+      args: args.filter((arg) => arg !== "--watch" && arg !== "--watch=true"),
+      entrypoint: fileURLToPath(import.meta.url),
+    });
+    return;
+  }
   if (
     queryGeneration ||
     (parsed.command === "check" && (parsed.options.frozen !== undefined || loaded.config.analysis !== undefined))

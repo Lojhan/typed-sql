@@ -265,6 +265,26 @@ observations are request-driven and coalesced; optional `live.contextIntervalMs`
 five-second default interval. Other build hosts must implement analysis-mode handling explicitly
 and do not inherit database access from this setting. See [recorded contracts in editors](../guides/editors.md#recorded-query-contracts).
 
+## Watching query checks
+
+Use `--watch` with `check` to recheck after source, schema, configuration or durable contract
+changes. Choose the same analysis mode as for a one-shot check:
+
+```sh
+pnpm exec typed-sql check --watch --offline
+pnpm exec typed-sql check --watch --frozen
+pnpm exec typed-sql check --watch --live
+```
+
+Checks run serially and coalesce edits received during an active pass. Each pass reloads its
+configuration and uses the ordinary checking and qualification rules. Errors keep the watcher
+running so correcting an input triggers another check. Disposable cache writes do not trigger
+checks, and watching does not export durable contracts or refresh the schema snapshot.
+
+Live watching contacts the database during a triggered check. It does not poll an idle database;
+database-only changes are observed during the next triggered check. Offline and frozen passes
+leave native adapter factories unloaded. Stop watching with Ctrl+C.
+
 ## Generating durable query inputs
 
 Query generation reads the configured schema and installed interpreter identity, prepares every

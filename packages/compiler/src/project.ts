@@ -1,4 +1,4 @@
-import { execFile as execFileCallback } from "node:child_process";
+import { type ExecFileOptionsWithStringEncoding, execFile as execFileCallback } from "node:child_process";
 import { constants } from "node:fs";
 import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
@@ -8,9 +8,21 @@ import { promisify } from "node:util";
 import { extractSqlFileImports } from "./scanner.js";
 
 const execFile = promisify(execFileCallback);
+async function runTypeScript(binary: string, args: readonly string[], options: ExecFileOptionsWithStringEncoding) {
+  const running = execFile(binary, args, options);
+  const closed = new Promise<void>((resolve) => running.child.once("close", () => resolve()));
+  try {
+    return await running;
+  } finally {
+    // Node reports AbortError before the process closes. Do not release ownership until it exits.
+    await closed;
+  }
+}
 
 export interface ListProjectSourceFilesOptions {
   readonly project: string;
+  /** Cancel owned TypeScript discovery processes when the host shuts down. */
+  readonly signal?: AbortSignal;
   /** Include literal SQL imports in the discovered application graph. */
   readonly includeSqlAssets?: boolean;
   readonly entryFile?: string;
@@ -49,6 +61,7 @@ function isApplicationSource(file: string): boolean {
 
 /** Uses the workspace TypeScript executable only for tsconfig file discovery, never compiler analysis. */
 export async function listProjectSourceFiles(options: ListProjectSourceFilesOptions): Promise<readonly string[]> {
+  options.signal?.throwIfAborted();
   const cwd = resolve(options.cwd ?? process.cwd());
   const project = resolve(cwd, options.project);
   const timeout = options.typeScriptTimeoutMs ?? 60_000;
@@ -70,11 +83,12 @@ export async function listProjectSourceFiles(options: ListProjectSourceFilesOpti
   const selectedProject = temporary === undefined ? project : join(temporary, "tsconfig.json");
   try {
     if (temporary !== undefined) {
-      const shown = await execFile(binary, [...prefix, "--project", project, "--showConfig"], {
+      const shown = await runTypeScript(binary, [...prefix, "--project", project, "--showConfig"], {
         cwd,
         encoding: "utf8",
         maxBuffer: 16 * 1024 * 1024,
         timeout,
+        ...(options.signal ? { signal: options.signal } : {}),
       });
       const effective = JSON.parse(shown.stdout) as { compilerOptions?: { typeRoots?: string[] } };
       const typeRoots = effective.compilerOptions?.typeRoots?.map((path) => resolve(dirname(project), path)) ?? [];
@@ -100,7 +114,7 @@ export async function listProjectSourceFiles(options: ListProjectSourceFilesOpti
         }),
       );
     }
-    const result = await execFile(
+    const result = await runTypeScript(
       binary,
       [...prefix, "--project", selectedProject, "--listFilesOnly", "--pretty", "false"],
       {
@@ -108,6 +122,7 @@ export async function listProjectSourceFiles(options: ListProjectSourceFilesOpti
         encoding: "utf8",
         maxBuffer: 16 * 1024 * 1024,
         timeout,
+        ...(options.signal ? { signal: options.signal } : {}),
       },
     );
     const sources = [
@@ -135,6 +150,7 @@ export async function listProjectSourceFiles(options: ListProjectSourceFilesOpti
     }
     return [...new Set([...sources, ...assets])].sort();
   } catch (error) {
+    options.signal?.throwIfAborted();
     const candidate = error as {
       readonly stdout?: string;
       readonly stderr?: string;
