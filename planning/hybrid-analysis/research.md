@@ -163,3 +163,21 @@ Creation returned `ER_LOCK_WAIT_TIMEOUT`; unlocking allowed cleanup. This is evi
 candidate guard, not full acquisition qualification. Before using it, tests must cover routine,
 table/view, extension/UDF and type/session dependencies, permissions, deadlines and release on
 cancellation or connection loss. No backup lock is acquired by the current verifier or audit.
+
+
+## MySQL acquisition guard follow-up
+
+The implementation evidence now records the restricted backup-locked acquisition profile; the
+previous probe above described the earlier investigation stage. Two-connection checks on 8.4.11
+and 9.7.2 block table/view/routine DDL while allowing ordinary data writes. Cancellation and
+deadline disposal release the owned lock. This qualifies expression projections, not arbitrary
+statements or custom routines. The driver implementation also confirms that both text and binary
+protocols otherwise parse GEOMETRY into objects; the owned execution pool now explicitly retains
+its raw bytes to match the grammar's declared policy.
+
+Routine-name comparison must follow the server's system collation. Real preparation binds an
+ASCII name to an accent-equivalent stored routine on both pinned engines. The acquisition adapter
+therefore checks these aliases with `utf8mb3_general_ci` before preparation. MySQL's own
+[8.4 UDF registry](https://github.com/mysql/mysql-server/blob/mysql-8.4.11/sql/sql_udf.cc) and
+[9.7 UDF registry](https://github.com/mysql/mysql-server/blob/mysql-9.7.2/sql/sql_udf.cc) use the
+system character set; an ASCII case-folded set alone is insufficient evidence of builtin binding.

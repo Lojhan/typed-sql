@@ -30,7 +30,9 @@
   "typedSql": {
     "releaseTrack": "stable",
     "developmentEntrypoints": [
-      "./analysis"
+      "./analysis",
+      "./mysql2-contracts",
+      "./reconciliation"
     ]
   },
   "sideEffects": false,
@@ -46,12 +48,16 @@
     "./mysql2": "./dist/packages/mysql/src/mysql2.js",
     "./query": "./dist/packages/mysql/src/query.js",
     "./profile": "./dist/packages/mysql/src/profile.js",
-    "./analysis": "./dist/packages/mysql/src/analysis.js"
+    "./analysis": "./dist/packages/mysql/src/analysis.js",
+    "./mysql2-contracts": "./dist/packages/mysql/src/mysql2-contracts.js",
+    "./contract-profile": "./dist/packages/mysql/src/contract-profile.js",
+    "./reconciliation": "./dist/packages/mysql/src/reconciliation.js"
   },
   "dependencies": {
     "@typed-sql/ast": "workspace:*",
     "@typed-sql/core": "workspace:*",
-    "@typed-sql/schema": "workspace:*"
+    "@typed-sql/schema": "workspace:*",
+    "@typed-sql/analysis": "workspace:*"
   },
   "devDependencies": {
     "@typed-sql/conformance": "workspace:*"

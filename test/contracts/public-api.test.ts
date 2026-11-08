@@ -251,8 +251,11 @@ import type {
   MySqlRoutedDatabaseOptions,
 } from "../../packages/mysql/src/analysis.js";
 import * as mysqlApi from "../../packages/mysql/src/analysis.js";
+import * as mysqlContractProfileApi from "../../packages/mysql/src/contract-profile.js";
 import * as mysqlRootApi from "../../packages/mysql/src/index.js";
 import * as mysql2Api from "../../packages/mysql/src/mysql2.js";
+import * as mysqlContractsApi from "../../packages/mysql/src/mysql2-contracts.js";
+import * as mysqlReconciliationApi from "../../packages/mysql/src/reconciliation.js";
 import type { MySqlDatabase, MySqlPreparedQueryFactory, MySqlTransaction } from "../../packages/mysql/src/runtime.js";
 import * as mysqlRuntimeApi from "../../packages/mysql/src/runtime.js";
 import type { OpenTelemetryObserverOptions } from "../../packages/opentelemetry/src/index.js";
@@ -1310,6 +1313,14 @@ const expectedRuntimeExports = {
     "loadMySql2Driver",
     "mysql2",
   ],
+  mysqlContracts: ["MySqlContractAcquisitionError", "createMySql2NativeContractAdapter"],
+  mysqlContractProfile: [
+    "mySqlContractAdapterVersion",
+    "mySqlContractIdentity",
+    "mySqlContractReconciliationOwner",
+    "validateMySqlContractPolicy",
+  ],
+  mysqlReconciliation: ["createMySqlContractReconciler"],
   mysqlRuntime: [
     "createMySqlDatabase",
     "mysqlRenderer",
@@ -1503,6 +1514,9 @@ await describe("stable public API", async () => {
       mysqlAnalysis: Object.keys(mysqlApi).sort(),
       mysql: Object.keys(mysqlRootApi).sort(),
       mysql2: Object.keys(mysql2Api).sort(),
+      mysqlContracts: Object.keys(mysqlContractsApi).sort(),
+      mysqlContractProfile: Object.keys(mysqlContractProfileApi).sort(),
+      mysqlReconciliation: Object.keys(mysqlReconciliationApi).sort(),
       mysqlRuntime: Object.keys(mysqlRuntimeApi).sort(),
       opentelemetry: Object.keys(openTelemetryApi).sort(),
       postgresAnalysis: Object.keys(postgresApi).sort(),

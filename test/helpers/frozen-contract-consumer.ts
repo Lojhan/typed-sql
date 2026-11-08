@@ -72,6 +72,13 @@ async function assertRuntimeWithoutSemanticCatalogs(consumer: string, env: NodeJ
       throw new Error(`Invalid development entrypoint policy for ${name}`);
     for (const entry of exports)
       if (!development.includes(entry)) runtimeEntries.push(`@typed-sql/${name}${entry === "." ? "" : entry.slice(1)}`);
+    for (const entry of development) {
+      const target = manifest.exports[entry];
+      if (typeof target !== "string" || !target.endsWith(".js"))
+        throw new Error(`Invalid development export for ${name}`);
+      const stem = join(consumer, "node_modules", "@typed-sql", name, target.slice(0, -3));
+      for (const suffix of [".js", ".d.ts", ".js.map", ".d.ts.map"]) await rm(`${stem}${suffix}`, { force: true });
+    }
     await strip(join(grammar, "catalog"));
     if (name === "postgres") await rm(join(grammar, "analysis"), { recursive: true, force: true });
     for (const module of [

@@ -18,6 +18,36 @@ description: MySQL grammar coverage, catalog introspection, application-owned my
 - `@typed-sql/mysql/analysis` — explicit eager analyzer and compatibility exports, including schema introspection and semantic routing.
 - `@typed-sql/mysql/runtime` — driver-neutral rendering and codec utilities.
 - `@typed-sql/mysql/mysql2` — schema provider, executable database adapter, lazy live verifier, and structured-plan inspector for application-owned `mysql2`.
+- `@typed-sql/mysql/mysql2-contracts` — explicit native query-contract acquisition through an owned `mysql2` connection.
+- `@typed-sql/mysql/contract-profile` — driver-free query-contract identity and reconciliation-owner declarations.
+- `@typed-sql/mysql/reconciliation` — independent comparison of offline claims and native descriptions.
+
+## Native query contracts
+
+`createMySql2NativeContractAdapter({ connectionUri, schema, typePolicy })` describes builtin
+expression projections using binary preparation. Use the generated versioned schema with its
+recorded SQL mode, `mySqlContractIdentity()` and `createMySqlContractReconciler()` with the
+[query contract configuration](../guides/query-manifests.md). Importing the adapter does not open
+a connection or load the optional driver; acquisition is explicit.
+
+The qualified native targets are MySQL 8.4.11 and 9.7.2. Each acquisition owns a fresh connection,
+holds `LOCK INSTANCE FOR BACKUP`, and prepares within a read-only transaction. The qualification
+account needs `BACKUP_ADMIN`, access to the selected schema and read access to the relevant
+`performance_schema` metadata. The backup lock holds conflicting DDL until the short acquisition
+lease closes; ordinary row writes can proceed. Deadlines and cancellation close the owned
+connection and release its lock. Candidate SQL is never bound, executed or supplied sample values.
+
+The adapter accepts ordinary `?` parameters in occurrence order and builtin expression
+projections. Relations, subqueries, stored/loadable routines, window clauses, executable comments
+and structural session operations are outside this profile. Unsupported shapes and unavailable
+metadata fail closed. Native rejection reflects the actual target engine's available functions.
+
+Decimal dimensions, unsigned integer identity and text/binary distinctions are preserved.
+Absence of a native non-null flag supplies a conservative nullable bound.
+String and temporal wire families retain partial native identities where dimensions or collations
+are not established. The configured required qualification facets determine whether that evidence
+is sufficient. Parameter metadata remains independent of result casts, and missing input facts
+cannot become usable parameter types. Matching exported contracts support disconnected checking.
 
 ## Supported SQL
 

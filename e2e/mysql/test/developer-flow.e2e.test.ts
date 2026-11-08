@@ -43,6 +43,7 @@ import {
   assertMySqlContractProtocol,
   assertMySqlVerificationMetadata,
 } from "../../../test/helpers/mysql-contract-protocol.js";
+import { assertMySqlNativeContracts } from "../../../test/helpers/mysql-native-contracts.js";
 import { assertMySqlNumericConformance } from "../../../test/helpers/mysql-numeric-conformance.js";
 import { mysqlCodecFidelity } from "../src/codec-query.js";
 import { mysqlJsonEmptyAggregate, mysqlJsonMutations, mysqlJsonProjection } from "../src/json-query.js";
@@ -288,6 +289,10 @@ try {
       } finally {
         await pool.end();
       }
+    });
+
+    await it("acquires guarded native query contracts, reuses them offline and rejects conflicts", async () => {
+      await assertMySqlNativeContracts(`mysql://root:typed_sql_root@127.0.0.1:${port}/typed_sql_e2e`);
     });
 
     await it("matches native numeric descriptors and compiled runtime values", async () => {

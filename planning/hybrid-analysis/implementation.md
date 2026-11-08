@@ -13,6 +13,7 @@ native transport currently qualified by this PR.
 - Isolate lightweight runtime/profile entrypoints from eager analysis and optional drivers.
 - Qualify PostgreSQL expression-query acquisition with independent static reconciliation.
 - Add DuckDB builtin expression-query acquisition and reconciliation on both qualified Node SDK engines.
+- Add MySQL builtin expression-query acquisition with an owned backup-locked session and independent reconciliation.
 
 The exhaustive upstream inventory, vendor fact extraction, global catalog model, generated
 completeness reports and selected-version/core/compatibility-pack APIs are excluded. Normal
@@ -26,8 +27,10 @@ PostgreSQL native acquisition is restricted to the documented expression-query p
 DuckDB native acquisition supports builtin scalar expression projections on 1.5.6 and 2.0.0;
 its real-engine tests exercise the shared live runner, persistent cache, offline reuse and conflicts.
 DuckDB packed CLI generation, changed-query regeneration and frozen checking pass on both SDKs;
-its packaged editor path is also qualified for SQL documents and TypeScript templates. MySQL, SQLite and SQL Server retain
-their existing offline support and contract-profile interfaces without native acquisition qualification.
+its packaged editor path is also qualified for SQL documents and TypeScript templates.
+MySQL library acquisition is qualified on 8.4.11 and 9.7.2 for builtin expression projections;
+packaged CLI/editor acquisition is not yet qualified. SQLite and SQL Server retain their existing
+offline support and contract-profile interfaces without native acquisition qualification.
 Build transforms and `typed-sql-build types` consume durable query contracts. Frozen builds avoid
 analyzer/native initialization; offline and live-configured builds use offline rules for unrecorded
 queries without opening a database. Build inputs exclude the disposable development cache.
@@ -184,10 +187,45 @@ the resolver's duplicate bounds are removed. Invalid catalog invocations return 
 a diagnostic. Real preparation confirms both one- and two-argument ATAN/ATAN2 forms on the two
 qualified LTS patches, including the single-argument ATAN2 form not listed in the manual.
 
-These changes qualify metadata capture and verification, not MySQL contract acquisition.
-That adapter still needs a qualified consistency guard, binding scope and reconciliation owner.
+The verifier and audit remain preparation-only metadata checks. Native acquisition uses the
+separate consistency guard, binding scope and reconciliation owner described below.
 
 Validation: the full developer E2E flow passes on MySQL 8.4.11 and 9.7.2 under all three maintained
 SQL-mode profiles (default, lexical and numeric). Each flow includes native protocol checks,
 compiler verification, runtime decoding and reviewed independent language recognition. No live
 baseline or native finding is changed to accept the corrected argument bounds.
+
+## MySQL native contract acquisition
+
+The explicit `/mysql2-contracts` adapter owns a fresh connection, holds `LOCK INSTANCE FOR BACKUP`
+and starts a read-only transaction before describing builtin expression projections. It never
+executes the candidate. Stored functions, loadable functions, table/view references, structural
+statements, executable comments and unsupported SQL modes are rejected. Native parameter slots
+are checked against the independent tokenizer and retained separately from result metadata.
+
+The adapter checks forbidden routine aliases with the server's system collation, including
+accent-equivalent names. Session/engine/catalog evidence binds the contract context; changing
+row data or GTID history does not falsely invalidate dictionary identity. Cancellation, initialization,
+preparation and cleanup share a bounded lease; late connections are destroyed after cancellation.
+The backup lock requires explicit development-database privileges and is never acquired by ordinary
+query imports, frozen consumption or the existing verification adapter.
+
+The reconciliation owner rejects contradictory successful offline claims and preserves unknown
+or partial identities, nullability bounds and unavailable codec facets. Protocol BIGINT remains
+subject to the selected policy; only independently qualified small integer literal projections
+receive the core's number rule. VECTOR is qualified on 9.7.2. Geometry execution preserves opaque
+bytes in owned mysql2 pools, matching the existing grammar policy.
+
+Direct real-engine proofs pass on both pinned engines: fresh-context identity, decimal parameter
+versus result facets, stored routine alias rejection without side effects, DDL exclusion with
+ordinary writes allowed, cancellation/deadline lock release, changed-query generation, persistent
+offline reuse, static conflicts, geometry contract execution and durable frozen consumption.
+The six engine/SQL-mode developer flows pass for this acquisition batch: 8.4.11 and 9.7.2,
+each under default, lexical and numeric modes. Each flow includes the acquisition proofs above
+alongside compiler verification, runtime decoding and independent language recognition.
+
+Package validation for this adapter passes the clean workspace build, public API/package graph
+contracts, quality gate and documentation checks/build. All 28 MySQL test files pass with
+96.05% statement, 91.02% branch and 99.09% function coverage. Packed frozen consumers continue
+to import runtime/profile modules after every manifest-declared development entrypoint is
+physically removed.
