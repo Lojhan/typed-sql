@@ -73,22 +73,8 @@
       "minified": 1689824,
       "gzip": 179686,
       "brotli": 103686,
-      "nativeProfiles": [
-        14,
-        15,
-        16,
-        17,
-        18,
-        19
-      ],
-      "typeProfiles": [
-        14,
-        15,
-        16,
-        17,
-        18,
-        19
-      ],
+      "nativeProfiles": [14, 15, 16, 17, 18, 19],
+      "typeProfiles": [14, 15, 16, 17, 18, 19],
       "catalogInputs": [
         {
           "path": "packages/core/src/catalog/arguments.ts",
@@ -249,17 +235,8 @@
       "minified": 1422853,
       "gzip": 126378,
       "brotli": 96378,
-      "nativeProfiles": [
-        14
-      ],
-      "typeProfiles": [
-        14,
-        15,
-        16,
-        17,
-        18,
-        19
-      ],
+      "nativeProfiles": [14],
+      "typeProfiles": [14, 15, 16, 17, 18, 19],
       "catalogInputs": [
         {
           "path": "packages/core/src/catalog/arguments.ts",
@@ -340,17 +317,8 @@
       "minified": 1439718,
       "gzip": 127574,
       "brotli": 97129,
-      "nativeProfiles": [
-        15
-      ],
-      "typeProfiles": [
-        14,
-        15,
-        16,
-        17,
-        18,
-        19
-      ],
+      "nativeProfiles": [15],
+      "typeProfiles": [14, 15, 16, 17, 18, 19],
       "catalogInputs": [
         {
           "path": "packages/core/src/catalog/arguments.ts",
@@ -443,17 +411,8 @@
       "minified": 1459148,
       "gzip": 128885,
       "brotli": 98206,
-      "nativeProfiles": [
-        16
-      ],
-      "typeProfiles": [
-        14,
-        15,
-        16,
-        17,
-        18,
-        19
-      ],
+      "nativeProfiles": [16],
+      "typeProfiles": [14, 15, 16, 17, 18, 19],
       "catalogInputs": [
         {
           "path": "packages/core/src/catalog/arguments.ts",
@@ -554,17 +513,8 @@
       "minified": 1469910,
       "gzip": 129788,
       "brotli": 98671,
-      "nativeProfiles": [
-        17
-      ],
-      "typeProfiles": [
-        14,
-        15,
-        16,
-        17,
-        18,
-        19
-      ],
+      "nativeProfiles": [17],
+      "typeProfiles": [14, 15, 16, 17, 18, 19],
       "catalogInputs": [
         {
           "path": "packages/core/src/catalog/arguments.ts",
@@ -669,17 +619,8 @@
       "minified": 1497178,
       "gzip": 131763,
       "brotli": 100200,
-      "nativeProfiles": [
-        18
-      ],
-      "typeProfiles": [
-        14,
-        15,
-        16,
-        17,
-        18,
-        19
-      ],
+      "nativeProfiles": [18],
+      "typeProfiles": [14, 15, 16, 17, 18, 19],
       "catalogInputs": [
         {
           "path": "packages/core/src/catalog/arguments.ts",
@@ -776,17 +717,8 @@
       "minified": 1498756,
       "gzip": 132803,
       "brotli": 101142,
-      "nativeProfiles": [
-        19
-      ],
-      "typeProfiles": [
-        14,
-        15,
-        16,
-        17,
-        18,
-        19
-      ],
+      "nativeProfiles": [19],
+      "typeProfiles": [14, 15, 16, 17, 18, 19],
       "catalogInputs": [
         {
           "path": "packages/core/src/catalog/arguments.ts",

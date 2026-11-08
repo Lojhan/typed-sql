@@ -46,7 +46,7 @@ try {
   });
   await writeFile(
     join(root, "typed-sql.config.mjs"),
-    `import{readFileSync}from'node:fs';import{postgres}from'@typed-sql/postgres';import{pg}from'@typed-sql/postgres/pg';import{createPgPlaygroundTarget}from'@typed-sql/playground/pg';const t=JSON.parse(readFileSync(new URL('./target.json',import.meta.url)));export default{dialect:postgres(),schema:{file:'schema.json',provider:pg({connectionString:()=>t.connectionString})},outDir:'generated',projects:['tsconfig.json'],playground:{readRoots:['playground'],writeRoots:['playground'],targets:{local:{classification:'test',expected:{database:t.database},connect:()=>createPgPlaygroundTarget({connectionString:()=>t.connectionString})}}}};`,
+    `import{readFileSync}from'node:fs';import{postgres}from'@typed-sql/postgres/analysis';import{pg}from'@typed-sql/postgres/pg';import{createPgPlaygroundTarget}from'@typed-sql/playground/pg';const t=JSON.parse(readFileSync(new URL('./target.json',import.meta.url)));export default{dialect:postgres(),schema:{file:'schema.json',provider:pg({connectionString:()=>t.connectionString})},outDir:'generated',projects:['tsconfig.json'],playground:{readRoots:['playground'],writeRoots:['playground'],targets:{local:{classification:'test',expected:{database:t.database},connect:()=>createPgPlaygroundTarget({connectionString:()=>t.connectionString})}}}};`,
   );
   const internal = join(fixture.directory, "node_modules/@typed-sql");
   const { createPgPlaygroundTarget } = await import(join(internal, "playground/dist/packages/playground/src/pg.js"));

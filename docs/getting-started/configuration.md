@@ -265,6 +265,12 @@ observations are request-driven and coalesced; optional `live.contextIntervalMs`
 five-second default interval. Other build hosts must implement analysis-mode handling explicitly
 and do not inherit database access from this setting. See [recorded contracts in editors](../guides/editors.md#recorded-query-contracts).
 
+Finite live checking and query generation can restart up to twice after confirmed context drift
+when context selection is automatic. Attempts share the configured batch deadline, and each closes
+its services before the next begins. Explicit context pins still require a deliberate refresh.
+Cleanup failures and cancellation are not retried, and consistency checks remain active on every
+attempt.
+
 ## Watching query checks
 
 Use `--watch` with `check` to recheck after source, schema, configuration or durable contract

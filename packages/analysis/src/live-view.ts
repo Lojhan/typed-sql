@@ -54,10 +54,53 @@ export interface LiveContractPreparation<Snapshot extends SchemaSnapshot, Policy
   readonly signal?: AbortSignal;
   readonly recordedContext?: QueryContractContext;
 }
+class ObservedContextChangedError extends Error {}
+function snapshotCandidates(candidates: readonly NativeContractCandidate[]): readonly NativeContractCandidate[] {
+  if (candidates.length > 4096) throw new RangeError("Live analysis candidate limit exceeded");
+  const owned = candidates.map(parseNativeContractCandidate);
+  if (owned.reduce((bytes, candidate) => bytes + Buffer.byteLength(candidate.sql), 0) > 16 * 1024 * 1024)
+    throw new RangeError("Live analysis candidate byte limit exceeded");
+  return Object.freeze(owned);
+}
 export async function prepareLiveContractView<Snapshot extends SchemaSnapshot, Policy>(
   input: LiveContractPreparation<Snapshot, Policy>,
 ): Promise<LiveContractView<Snapshot, Policy>> {
-  return prepareLiveContractViewWithScheduler(input);
+  const configuration = defineAnalysisConfiguration(input.configuration);
+  if (configuration.context !== undefined) return prepareLiveContractViewWithScheduler(input);
+  const live = defineAnalysisRegistration({ ...configuration, live: input.live }).live;
+  if (!live) throw new TypeError("Live preparation requires a native registration");
+  const candidates = snapshotCandidates(input.candidates);
+  const controller = new AbortController();
+  input.signal?.throwIfAborted();
+  const abort = () => controller.abort(input.signal!.reason);
+  input.signal?.addEventListener("abort", abort, { once: true });
+  // Fresh attempts share one batch deadline. Cleanup must settle before another lease is created.
+  const timer = setTimeout(
+    () => controller.abort(new Error("Live analysis batch deadline exceeded")),
+    live.batchDeadlineMs ?? 60_000,
+  );
+  try {
+    for (let attempt = 0; ; attempt++) {
+      controller.signal.throwIfAborted();
+      try {
+        const view = await prepareLiveContractViewWithScheduler({
+          ...input,
+          configuration,
+          live,
+          candidates,
+          signal: controller.signal,
+        });
+        controller.signal.throwIfAborted();
+        return view;
+      } catch (error) {
+        controller.signal.throwIfAborted();
+        if (!(error instanceof ObservedContextChangedError) || attempt >= 2) throw error;
+      }
+    }
+  } finally {
+    clearTimeout(timer);
+    input.signal?.removeEventListener("abort", abort);
+  }
 }
 /** Internal borrowing boundary: the session owns the scheduler and transport cleanup. */
 export async function prepareLiveContractViewWithScheduler<Snapshot extends SchemaSnapshot, Policy>(
@@ -81,10 +124,7 @@ export async function prepareLiveContractViewWithScheduler<Snapshot extends Sche
     if (!context) throw new TypeError("Live context observation has not completed");
     return context;
   };
-  if (input.candidates.length > 4096) throw new RangeError("Live analysis candidate limit exceeded");
-  const candidates = input.candidates.map(parseNativeContractCandidate);
-  if (candidates.reduce((bytes, candidate) => bytes + Buffer.byteLength(candidate.sql), 0) > 16 * 1024 * 1024)
-    throw new RangeError("Live analysis candidate byte limit exceeded");
+  const candidates = snapshotCandidates(input.candidates);
   const unique = [...new Map(candidates.map((candidate) => [queryContractDigest(candidate), candidate])).values()];
   const controller = new AbortController(),
     signal = controller.signal;
@@ -172,7 +212,9 @@ export async function prepareLiveContractViewWithScheduler<Snapshot extends Sche
           if (outcome.kind === "stale-context") {
             await input.cache.retireContext(selectedContext());
             controller.abort(
-              new Error("Live database context changed during acquisition; refresh the recorded context."),
+              new ObservedContextChangedError(
+                "Live database context changed during acquisition; refresh the recorded context.",
+              ),
             );
           }
         }
@@ -216,7 +258,7 @@ export async function prepareLiveContractViewWithScheduler<Snapshot extends Sche
       }
       if (canonicalContractData(current) !== canonicalContractData(selectedContext())) {
         await input.cache.retireContext(selectedContext());
-        throw new Error(
+        throw new ObservedContextChangedError(
           "Live database context differs from the selected recorded context; refresh its schema/context inputs.",
         );
       }
@@ -324,5 +366,6 @@ export async function prepareLiveContractViewWithScheduler<Snapshot extends Sche
     throw result.reason;
   }
   if (failures.length) throw new AggregateError(failures, "Live analysis cleanup failed");
+  input.signal?.throwIfAborted();
   return result.value;
 }

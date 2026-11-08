@@ -198,7 +198,10 @@ export async function watchChecks(input: {
         child.once("error", reject);
         child.once("close", resolve);
       });
-      if (!stopped) process.stdout.write(`Watch: check finished (${result ?? "signal"}); waiting for changes.\n`);
+      if (!stopped)
+        process.stdout.write(
+          `Watch: check finished (${result ?? "signal"}); ${dirty ? "changes queued" : "waiting for changes"}.\n`,
+        );
     } catch (error) {
       report(error instanceof Error ? error.message : String(error));
     } finally {

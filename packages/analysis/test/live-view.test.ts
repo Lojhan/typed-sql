@@ -284,6 +284,166 @@ await describe("finite explicit live qualification", async () => {
       }
     });
   });
+  await it("refreshes an automatically observed context after drift only after owned cleanup", async () => {
+    await temporary(async (cache) => {
+      const { context: _pin, ...automatic } = settings;
+      const changed = { ...context, databaseContextHash: queryContractDigest("stable replacement epoch") };
+      const candidate = { ...request.candidate };
+      let closedSessions = 0;
+      let constructed = 0,
+        closed = 0,
+        described = 0;
+      const view = await prepareLiveContractView({
+        ...base,
+        configuration: automatic,
+        cache,
+        candidates: [candidate],
+        live: {
+          adapter: () => {
+            strict.equal(constructed, closed, "A new attempt must wait for the previous services to close");
+            strict.equal(constructed, closedSessions);
+            const attempt = ++constructed;
+            let reads = 0;
+            return services({
+              inspectContext: async () => (attempt === 1 ? context : changed),
+              adapter: adapter({
+                open: async () => ({
+                  context: async () => (attempt === 1 && reads++ === 0 ? context : changed),
+                  describe: async (captured) => {
+                    strict.equal(captured.sql, request.candidate.sql);
+                    described++;
+                    return evidence;
+                  },
+                  close: async () => {
+                    closedSessions++;
+                  },
+                }),
+              }),
+              close: async () => {
+                candidate.sql = "SELECT changed_after_capture()";
+                await Promise.resolve();
+                closed++;
+              },
+            });
+          },
+        },
+      });
+      strict.equal(constructed, 2);
+      strict.equal(closed, 2);
+      strict.equal(described, 2);
+      strict.deepEqual(view.context, changed);
+      strict.equal(view.contracts.length, 1);
+      await view.assertCurrent();
+      strict.equal((await cache.lookup(request)).cached?.outcome.kind, "stale-context");
+    });
+  });
+  await it("bounds repeated automatic drift and never retries a cleanup failure", async () => {
+    await temporary(async (cache) => {
+      const { context: _pin, ...automatic } = settings;
+      const changed = { ...context, databaseContextHash: queryContractDigest("unstable epoch") };
+      for (const cleanupFails of [false, true]) {
+        let constructed = 0,
+          closed = 0;
+        await strict.rejects(
+          prepareLiveContractView({
+            ...base,
+            configuration: automatic,
+            cache,
+            live: {
+              adapter: () => {
+                constructed++;
+                return services({
+                  adapter: adapter({
+                    open: async () => ({
+                      context: async () => changed,
+                      describe: async () => evidence,
+                      close: async () => {},
+                    }),
+                  }),
+                  close: async () => {
+                    closed++;
+                    if (cleanupFails) throw Error("cleanup failed");
+                  },
+                });
+              },
+            },
+          }),
+          cleanupFails ? AggregateError : /context changed/u,
+        );
+        strict.equal(constructed, cleanupFails ? 1 : 3);
+        strict.equal(closed, constructed);
+        strict.equal((await cache.lookup(request)).cached?.outcome.kind, "stale-context");
+      }
+    });
+  });
+  await it("does not retry caller cancellation during an automatic refresh", async () => {
+    await temporary(async (cache) => {
+      const { context: _pin, ...automatic } = settings;
+      const controller = new AbortController();
+      let constructed = 0,
+        closed = 0;
+      await strict.rejects(
+        prepareLiveContractView({
+          ...base,
+          configuration: automatic,
+          cache,
+          signal: controller.signal,
+          live: {
+            adapter: () => {
+              const attempt = ++constructed;
+              if (attempt === 2) controller.abort(new Error("cancel automatic refresh"));
+              return services({
+                adapter: adapter({
+                  open: async () => ({
+                    context: async () => ({
+                      ...context,
+                      databaseContextHash: queryContractDigest("drift before refresh"),
+                    }),
+                    describe: async () => evidence,
+                    close: async () => {},
+                  }),
+                }),
+                close: async () => {
+                  closed++;
+                },
+              });
+            },
+          },
+        }),
+        /cancel automatic refresh/u,
+      );
+      strict.equal(constructed, 2);
+      strict.equal(closed, 2);
+    });
+  });
+  await it("does not publish a returned view after cancellation during cleanup", async () => {
+    await temporary(async (cache) => {
+      const { context: _pin, ...automatic } = settings;
+      for (const configuration of [settings, automatic]) {
+        const controller = new AbortController();
+        let closed = 0;
+        await strict.rejects(
+          prepareLiveContractView({
+            ...base,
+            configuration,
+            cache,
+            signal: controller.signal,
+            live: {
+              adapter: () =>
+                services({
+                  close: async () => {
+                    closed++;
+                    controller.abort(new Error("cancel during cleanup"));
+                  },
+                }),
+            },
+          }),
+          /cancel during cleanup/u,
+        );
+        strict.equal(closed, 1);
+      }
+    });
+  });
   await it("handles context drift reported by a query and returns no stale batch view", async () => {
     await temporary(async (cache) => {
       await strict.rejects(

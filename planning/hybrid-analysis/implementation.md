@@ -694,12 +694,34 @@ Unrelated planning work is left unchanged.
   validation stays in the tests rather than making the generator read host implementation metadata.
 - The reproducible measurement script compares ordered records against commit `417c1d30` and
   reports minified/gzip/Brotli factory footprints, native profiles, remaining eager type profiles
-  and input digests. Provisional PostgreSQL 18 factory gzip is 131,763 bytes versus 179,686 for the
-  compatibility factory (26.7% smaller). This is not application runtime or installed-package savings;
-  committed-input measurements are recorded separately after implementation is committed.
+  and input digests. [Committed-input measurements](./postgres-selected-measurements.json) at
+  `ae5ea0af` record PostgreSQL 18 factory gzip at 131,763 bytes versus 179,686 for the compatibility
+  factory (26.7% smaller). This is not application runtime or installed-package savings.
 - Newer merge-ref CI still reports a conservative stale-context rejection during PostgreSQL watch
   recovery and an eager-root import in a browser fixture introduced on the advancing base branch.
   Those are separate follow-ups; the local results do not certify the full merged PR matrix.
+
+## Base integration and bounded automatic context refresh
+
+- Merged current `main` through `37535711` after verifying its incoming paths did not overlap
+  pending local work. All 31 pending files remain byte-for-byte unchanged. The newly introduced
+  browser analysis fixture now imports the explicit PostgreSQL analysis entrypoint.
+- Finite live preparation retries confirmed context drift only when context selection is automatic.
+  At most three attempts share the existing batch deadline. Each attempt drains scheduler and
+  service cleanup before acquiring again. Explicit pins, incompatible scopes, ordinary failures,
+  failed cleanup and cancellation do not trigger this retry. PostgreSQL's WAL guard is unchanged.
+- Candidate SQL/layout remains snapshotted across attempts. Cancellation during cleanup prevents
+  returning a view, including for pinned contexts. Tests cover drift/recovery, captured SQL,
+  non-overlapping ownership, persistent drift, cleanup failure and cancellation. Watch completion
+  now distinguishes queued changes from waiting for another edit.
+- All 15 analysis and 11 CLI files pass, including coverage thresholds. Root clean build, all
+  68 contracts, quality, documentation build and isolated performance gate pass. The language
+  server's 16 files, bridge's six files and playground's 32 files pass against the merged base.
+  The real PostgreSQL native/editor/watch/offline/packed frozen proof and the previously failing
+  packed browser analysis suite pass locally. Full new-head remote CI remains separate evidence.
+- The selected-analyzer measurements are formatted for the repository's JSON rules without
+  changing any measured values. Bulk generated-catalog deletion, compact cores, other selected
+  grammars and the remaining complete acceptance matrix are still required.
 
 ## Required work still open
 
