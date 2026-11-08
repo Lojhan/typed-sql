@@ -464,3 +464,25 @@ Validation: all 23 SQL Server test files pass (96.33% statements, 91.4% branches
 95.73% functions). The descriptor module has full statement/function coverage. Final workspace
 type checks, public API/package graph checks, the installed packed-consumer suite and quality
 checks pass. Public exports and application behavior are unchanged by this preparatory module.
+
+## SQL Server guarded acquisition qualification
+
+The private native adapter now owns an exclusive service lease and shares session ownership and
+quarantine with the existing verifier. Database/recovery-fork identity, physical connection,
+transaction state, session options and transaction-log end position guard context collection and
+both description operations. Context identity retains server, principal and bounded catalog
+metadata; transient connection and log positions are lease guards rather than cache identities.
+Candidate text is bound as data to the native description APIs. Admission currently covers plain
+builtin expression projections and canonical parameter slots, without relations, qualified
+routines, custom casts, windows or nested statements. The independent reconciler preserves
+blocking static errors, compares successful claims, and retains incomplete native facets.
+
+Local tests cover context/settings drift, raw-error redaction, bounded startup and operations,
+late acquisition disposal, cancellation, closing active operations, shared service exclusion,
+cleanup failures and contradictory static claims. All 24 SQL Server test files and their existing
+coverage gate pass; workspace type checks, quality and public API/package graph checks pass.
+The real-engine probe is wired into the existing Linux x64 qualification matrix for SQL Server
+14–17 and each supported compatibility level. It reads actual connection version/settings and
+requires exact fixture builds. This probe has not yet passed on real engines. The adapter,
+identity and reconciliation modules remain private; public CLI/editor integration and installed
+consumer qualification are still outstanding. Local fixture tests do not establish native support.

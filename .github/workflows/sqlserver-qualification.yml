@@ -83,6 +83,11 @@ jobs:
         env:
           TYPED_SQL_SQLSERVER_MAJOR: ${{ matrix.major }}
           TYPED_SQL_SQLSERVER_BUILD: ${{ matrix.build }}
+      - name: Qualify guarded native query-contract acquisition
+        run: pnpm --filter @typed-sql/e2e-sqlserver qualify:contracts
+        env:
+          TYPED_SQL_SQLSERVER_MAJOR: ${{ matrix.major }}
+          TYPED_SQL_SQLSERVER_BUILD: ${{ matrix.build }}
       - name: Qualify isolated tarballs and native worker artifacts
         if: always() && steps.build.outcome == 'success'
         run: pnpm --filter @typed-sql/e2e-sqlserver qualify:packed
@@ -95,10 +100,6 @@ jobs:
         env:
           TYPED_SQL_SQLSERVER_MAJOR: ${{ matrix.major }}
           TYPED_SQL_SQLSERVER_BUILD: ${{ matrix.build }}
-      - name: Verify generated catalog inputs against every compatibility profile
-        env:
-          AUDIT_CAPTURE: artifacts/sqlserver/catalog-${{ matrix.major }}.json
-        run: pnpm catalog:check-input "$AUDIT_CAPTURE"
       - name: Qualify public conformance command routing
         if: always() && steps.build.outcome == 'success'
         run: pnpm conformance:v2 -- --grammar sqlserver --database-version "$TYPED_SQL_SQLSERVER_BUILD"

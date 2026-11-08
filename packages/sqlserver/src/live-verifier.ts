@@ -10,6 +10,7 @@ import { parseSqlServerNativeType, requireSqlServerNativeType } from "./native-t
 import { parseStatement, tokenize } from "./parser/index.js";
 import type { SqlServerQueryable } from "./provider-contracts.js";
 import { readSqlServerServerEvidence } from "./server-evidence.js";
+import { activeSqlServerServices as active, poisonedSqlServerServices as poisoned } from "./service-registry.js";
 import { defaultSqlServerTypePolicy, type SqlServerTypePolicy, validateSqlServerTypePolicy } from "./type-policy.js";
 
 /** Each acquisition must exclusively own one physical session until release/discard. */
@@ -33,8 +34,6 @@ export const sqlServerVerificationQueries = Object.freeze({
   columns:
     "SELECT is_hidden,column_ordinal,name,system_type_name,is_nullable,collation_name,error_number,error_type FROM sys.dm_exec_describe_first_result_set(?, ?, 0) ORDER BY column_ordinal",
 });
-const active = new WeakSet<object>(),
-  poisoned = new WeakSet<object>();
 /** @internal Shared lifecycle for native describe and session-scoped SHOWPLAN. */
 export class SqlServerServiceScope {
   private closed = false;
