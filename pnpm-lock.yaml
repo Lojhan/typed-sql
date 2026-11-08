@@ -400,6 +400,15 @@ importers:
         specifier: 8.21.0
         version: 8.21.0
 
+  packages/analysis:
+    dependencies:
+      '@typed-sql/core':
+        specifier: workspace:*
+        version: link:../core
+      '@typed-sql/schema':
+        specifier: workspace:*
+        version: link:../schema
+
   packages/ast: {}
 
   packages/build:

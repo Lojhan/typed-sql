@@ -147,3 +147,32 @@ The production performance gate measures both a full 250-query build and an unch
 - `QUERY_MANIFEST_FORMAT_VERSION`, `QUERY_FINGERPRINT_ALGORITHM`, and `QUERY_MANIFEST_JSON_SCHEMA` for consumers.
 
 Format readers accept additive object properties within format version 1. An incompatible required-field or meaning change increments `formatVersion`. A documented fingerprint normalization change uses a new `fingerprintAlgorithm`. Consumers must reject unsupported format or fingerprint versions instead of interpreting them optimistically.
+
+
+## Consume durable query contracts in a compiler host
+
+`@typed-sql/analysis` provides a programmatic contract format for compiler integrations.
+A query contract binds exact rendered SQL to a grammar/profile, schema, database context,
+decoding policy, codec revision and interpreter revision. Its application types derive from
+validated runtime value descriptors. It does not contain executable TypeScript or application
+parameter values.
+
+Compiler hosts can persist an explicit input set with `exportQueryContracts(directory, contracts)`
+and reload it with `loadQueryContracts(directory)`. The directory contains a content-addressed
+`contexts/` and `queries/` tree and an atomic `manifest.json`. Only objects listed in that manifest
+are inputs. Missing, corrupt or conflicting objects fail loading; old unreferenced objects do
+not supply missing support. Exporting a replacement set publishes a new manifest and retains
+old objects. This API does not prune them.
+
+Pass the loaded contracts, their expected `QueryContractContext`, and a lightweight grammar
+profile to `createContractDialect`. The profile supplies rendering, snapshot validation and
+policy information without an `analyze` implementation. The returned dialect can be passed to
+existing compiler APIs. A matching contract supplies ordered parameter descriptors, result
+columns and the runtime value plan. A SQL, schema or policy mismatch produces `TSQ406`.
+Repeated fragments require additional invariance evidence and are conservatively rejected.
+Execution effects and cardinality remain unknown.
+
+These APIs consume previously established evidence. Setting a contract's `origin` does not
+perform native qualification or prove that an engine supplied it. Contract digests detect
+inconsistent contents; they do not authenticate the producer. Use reviewed compiler inputs
+from a trusted generator. Application code continues using its grammar's `sql` tag.

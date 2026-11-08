@@ -15,15 +15,7 @@
     "brotliQuality": 11,
     "sourceResolution": "Public package export targets mapped from dist/src JavaScript to corresponding committed src TypeScript. No stubs. Workspace source loaded from the named Git revision.",
     "generatedClassification": "Exact TypeScript output paths from committed grammar/catalog/generation.json",
-    "externals": [
-      "pg",
-      "mysql2",
-      "mysql2/*",
-      "odbc",
-      "msnodesqlv8",
-      "@duckdb/node-api",
-      "@duckdb/node-api/*"
-    ],
+    "externals": ["pg", "mysql2", "mysql2/*", "odbc", "msnodesqlv8", "@duckdb/node-api", "@duckdb/node-api/*"],
     "attribution": "esbuild bytesInOutput is an uncompressed minified input contribution. Compressed sizes are whole-bundle measurements; generated gzip contribution cannot be inferred from those proportions.",
     "limitations": [
       "Synthetic isolated entrypoints, not a complete application workload, packed-consumer or npm tarball measurement.",

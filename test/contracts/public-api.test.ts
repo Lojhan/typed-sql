@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { describe, it, strict } from "poku";
+import * as analysisApi from "../../packages/analysis/src/index.js";
 import type { SelectLockingClause, SqlAstContext, SqlAstVisitor } from "../../packages/ast/src/index.js";
 import * as astApi from "../../packages/ast/src/index.js";
 import type {
@@ -1436,5 +1437,26 @@ await describe("stable public API", async () => {
     strict.ok(Object.isFrozen(base.segments));
     strict.ok(Object.isFrozen(predicate));
     strict.ok(Object.isFrozen(composed));
+  });
+});
+
+await describe("query contract public API", async () => {
+  await it("exports validated contract, persistence and synchronous consumer operations", () => {
+    strict.deepEqual(
+      Object.keys(analysisApi).sort(),
+      [
+        "canonicalContractData",
+        "createContractDialect",
+        "createQueryContract",
+        "createQueryContractIndex",
+        "exactSqlDigest",
+        "exportQueryContracts",
+        "loadQueryContracts",
+        "parseQueryContract",
+        "parseQueryContractContext",
+        "queryContractDigest",
+        "serializeQueryContract",
+      ].sort(),
+    );
   });
 });

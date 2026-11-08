@@ -1,6 +1,6 @@
 # Query contracts, hybrid analysis and live regeneration
 
-Status: final direction-change specification; implementation remains paused. This defines the
+Status: final direction-change specification; implementation is in progress. This defines the
 target architecture and acceptance requirements, not an assertion that they are implemented.
 
 This document supersedes the requirement to reproduce every engine's complete semantics offline

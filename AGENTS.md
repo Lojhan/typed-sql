@@ -26,6 +26,7 @@ This file records maintainer and automation knowledge. Public documentation belo
 - `packages/schema`: snapshot envelope, validation, codecs, and canonical serialization.
 - `packages/config`: config discovery and validation.
 - `packages/compiler`: TypeScript project integration and generated declarations.
+- `packages/analysis`: grammar-neutral query contracts and analysis orchestration.
 - `packages/conformance`: public, grammar-neutral compatibility assertions and performance evidence.
 - `packages/postgres`, `packages/mysql`: grammar semantics and optional driver adapters.
 - `packages/cli`: introspection and generation commands.

@@ -98,6 +98,9 @@
     },
     {
       "path": "../packages/migrations"
+    },
+    {
+      "path": "../packages/analysis"
     }
   ]
 }

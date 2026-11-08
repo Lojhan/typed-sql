@@ -54,6 +54,7 @@ const publicPackages = [
   "core",
   "opentelemetry",
   "config",
+  "analysis",
   "schema",
   "postgres",
   "mysql",
@@ -72,6 +73,7 @@ const stablePackages = [
   "ast",
   "schema",
   "config",
+  "analysis",
   "compiler",
   "conformance",
   "postgres",
@@ -111,6 +113,7 @@ const expectedEntrypoints: Readonly<Record<(typeof publicPackages)[number], read
   migrations: ["."],
   opentelemetry: ["."],
   config: ["."],
+  analysis: ["."],
   schema: [".", "./snapshot"],
   postgres: [".", "./runtime", "./pg", "./query", "./migrations"],
   mysql: [".", "./runtime", "./mysql2", "./query"],
@@ -153,6 +156,7 @@ await describe("public package graph", async () => {
       "core",
       "opentelemetry",
       "config",
+      "analysis",
       "compiler",
       "conformance",
       "cli",
@@ -276,7 +280,7 @@ await describe("public package graph", async () => {
   });
 
   await it("keeps every neutral package free of dialect, driver, and SQL-feature decisions", async () => {
-    const neutralPackages = ["build", "core", "compiler", "conformance", "config", "schema"] as const;
+    const neutralPackages = ["analysis", "build", "core", "compiler", "conformance", "config", "schema"] as const;
     const forbiddenSource = [
       {
         label: "first-party dialect name",

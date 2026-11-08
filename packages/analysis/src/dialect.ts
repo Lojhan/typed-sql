@@ -1,0 +1,79 @@
+import { type DialectAnalysis, type DialectPlugin, type SchemaSnapshot, unknownQuerySemantics } from "@typed-sql/core";
+import { calculateSchemaHash, calculateTypePolicyHash } from "@typed-sql/schema";
+import {
+  createQueryContractIndex,
+  parseQueryContractContext,
+  type QueryContract,
+  type QueryContractContext,
+} from "./contracts.js";
+import { contractTypeScriptType } from "./runtime-type.js";
+
+export type ContractGrammarProfile<Snapshot extends SchemaSnapshot, Policy> = Omit<
+  DialectPlugin<Snapshot, Policy>,
+  "analyze"
+>;
+
+/** A synchronous frozen consumer. No native client or full analyzer is imported or invoked. */
+export function createContractDialect<Snapshot extends SchemaSnapshot, Policy>(input: {
+  readonly profile: ContractGrammarProfile<Snapshot, Policy>;
+  readonly context: QueryContractContext;
+  readonly contracts: readonly QueryContract[];
+}): DialectPlugin<Snapshot, Policy> {
+  const { profile } = input,
+    context = parseQueryContractContext(input.context),
+    index = createQueryContractIndex(input.contracts);
+  if (Object.hasOwn(profile, "analyze")) throw new TypeError("Contract profiles must not contain an eager analyzer");
+  if (profile.id !== context.grammar.id || profile.grammarVersion !== context.grammar.version)
+    throw new TypeError("Contract profile identity mismatch");
+  return Object.freeze({
+    ...profile,
+    analyze(sql, schema, policy = profile.defaultTypePolicy, analysisContext): DialectAnalysis {
+      const range = { start: 0, end: sql.length, line: 1, column: 1 };
+      const unavailable = (message: string): DialectAnalysis => ({
+        columns: [],
+        parameters: [],
+        diagnostics: [
+          {
+            code: "TSQ406",
+            severity: "error",
+            message,
+            range,
+            suggestion: "Generate a matching query contract for the selected schema, context and decoding policy.",
+          },
+        ],
+        semantics: unknownQuerySemantics(range, message),
+      });
+      if (
+        schema.dialect !== profile.id ||
+        calculateSchemaHash(schema) !== context.schemaHash ||
+        calculateTypePolicyHash(policy ?? {}) !== context.typePolicyHash
+      )
+        return unavailable("Query contract schema or decoding policy does not match");
+      if (analysisContext?.repeatedFragmentRanges?.length)
+        return unavailable("Query contract does not establish repeated-result invariance");
+      const contract = index.resolve(context, sql);
+      if (!contract) return unavailable("No matching query contract");
+      const sourceRange = (span: { readonly start: number; readonly end: number }) => {
+        const prefix = sql.slice(0, span.start),
+          line = prefix.split("\n").length,
+          last = prefix.lastIndexOf("\n");
+        return { ...span, line, column: span.start - last };
+      };
+      return {
+        columns: contract.valuePlan.columns.map((column, position) => ({
+          ...column,
+          tsType: contractTypeScriptType(column),
+          runtimeType: column.type,
+          range: sourceRange(contract.columnSpans[position]!),
+        })),
+        parameters: contract.valuePlan.parameters.map((parameter) => ({
+          ...parameter,
+          tsType: contractTypeScriptType(parameter),
+          runtimeType: parameter.type,
+        })),
+        diagnostics: [],
+        semantics: unknownQuerySemantics(range, "Query contract does not establish execution effects or cardinality"),
+      };
+    },
+  });
+}

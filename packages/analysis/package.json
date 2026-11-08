@@ -1,0 +1,46 @@
+{
+  "name": "@typed-sql/analysis",
+  "version": "2.5.0",
+  "description": "Query contracts and grammar-neutral offline/native analysis orchestration.",
+  "license": "MIT",
+  "author": "Lojhan",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lojhan/typed-sql.git",
+    "directory": "packages/analysis"
+  },
+  "homepage": "https://github.com/Lojhan/typed-sql#readme",
+  "bugs": {
+    "url": "https://github.com/Lojhan/typed-sql/issues"
+  },
+  "engines": {
+    "node": ">=22.11"
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "dist/**/*.map",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "typedSql": {
+    "releaseTrack": "stable"
+  },
+  "sideEffects": false,
+  "type": "module",
+  "scripts": {
+    "test": "poku test --coverage=@pokujs/c8 --coverageConfig=.c8rc.json --reporter=compact --enforce",
+    "coverage": "pnpm test"
+  },
+  "exports": {
+    ".": "./dist/packages/analysis/src/index.js"
+  },
+  "dependencies": {
+    "@typed-sql/core": "workspace:*",
+    "@typed-sql/schema": "workspace:*"
+  }
+}
