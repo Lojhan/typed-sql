@@ -120,3 +120,9 @@ with both analyzer loading and native registration configured to throw if initia
 matrix retains the existing runtime, offline build under a writer lock, no-SDK consumption,
 provider generation and bundled execution checks. These existing build tests use ordinary offline
 configuration; they do not establish analysis-configuration support in the build host.
+
+The Linux x64 CI and local Darwin arm64 live inventories retain their previous inventory hashes
+and recognition counts. Reversing only TSQ408's code/message to the previous TSQ201 fallback
+reproduces every previous complete recognition fingerprint for both engines on both platforms.
+The reviewed live baselines and shared native findings record this diagnostic-only transition;
+no additional invocation is counted as recognized or semantically supported.

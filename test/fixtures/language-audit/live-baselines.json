@@ -905,7 +905,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:e7adc3b419f26d9ab04c2179f136bf041979a1ad4e6fa6c5279b21c2101fbb26",
+        "fingerprint": "sha256:d1eb1d4be7426f306c745c7d415c3a73d9045e560e063dfc4089e0c6ebe95661",
         "counts": {
           "native-invocation-unverified": 342,
           "native-rejected-generated-invocation": 486,
@@ -990,7 +990,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:41dd7fc6a3d7128dda50e1a2d6f373f409eabb9299f0b744fcfe14a18cbab532",
+        "fingerprint": "sha256:ae6b705c302bbfa2debb434c6777ea09bbc015f2c0c450e22fa741f45e24b0fa",
         "counts": {
           "native-invocation-unverified": 357,
           "native-rejected-generated-invocation": 493,
@@ -1912,7 +1912,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:e7adc3b419f26d9ab04c2179f136bf041979a1ad4e6fa6c5279b21c2101fbb26",
+        "fingerprint": "sha256:d1eb1d4be7426f306c745c7d415c3a73d9045e560e063dfc4089e0c6ebe95661",
         "counts": {
           "native-invocation-unverified": 342,
           "native-rejected-generated-invocation": 486,
@@ -2804,7 +2804,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:41dd7fc6a3d7128dda50e1a2d6f373f409eabb9299f0b744fcfe14a18cbab532",
+        "fingerprint": "sha256:ae6b705c302bbfa2debb434c6777ea09bbc015f2c0c450e22fa741f45e24b0fa",
         "counts": {
           "native-invocation-unverified": 357,
           "native-rejected-generated-invocation": 493,
