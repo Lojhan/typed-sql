@@ -12,6 +12,7 @@ import {
   openAnalysisCache,
   type ProjectCatalogContribution,
   prepareLiveContractView,
+  prepareOfflineContractView,
   queryContractDigest,
 } from "../src/index.js";
 import { configuration, context, profile, request, schema } from "./helpers/host-fixture.js";
@@ -257,7 +258,6 @@ await describe("selected live catalog capture", async () => {
   await it("keeps unsupported capture, mismatched services and pinned drift blocking", async () =>
     temporary(async (cache) => {
       const f = fixture();
-      strict.throws(() => createLiveContractSession({ ...f.base, cache }), /persisted catalog cache/u);
       await strict.rejects(
         prepareLiveContractView({
           ...f.base,
@@ -282,6 +282,141 @@ await describe("selected live catalog capture", async () => {
         /Pinned catalog context/u,
       );
       strict.equal(f.counts.factories, f.counts.closes);
+    }));
+  await it("persists session captures, reuses unchanged document views, and refreshes on interval or drift", async () =>
+    temporary(async (cache) => {
+      const f = fixture();
+      let now = 100;
+      const session = createLiveContractSession({ ...f.base, cache, now: () => now, contextIntervalMs: 100 });
+      const document = { document: "file:///query.ts", version: 1, candidates: f.base.candidates };
+      try {
+        const first = await session.prepare(document);
+        strict.equal(first.contracts.length, 1);
+        const scope = createAnalysisContextScope(f.base);
+        strict.deepEqual(
+          (await cache.lookupProjectCatalog({ scope, sql: f.base.candidates.map(({ sql }) => sql) })).cached?.closure,
+          first.projectCatalogs,
+        );
+        await (await session.prepare(document)).assertCurrent();
+        strict.equal(f.counts.catalogs, 1);
+        strict.equal(f.counts.factories, 1);
+        strict.equal(f.counts.closes, 0);
+        now += 101;
+        const refreshed = await session.prepare(document);
+        strict.equal(f.counts.catalogs, 2);
+        await strict.rejects(first.assertCurrent());
+        f.context = { ...context, databaseContextHash: queryContractDigest("session drift") };
+        now += 101;
+        const changed = await session.prepare(document);
+        strict.equal(changed.projectCatalogs?.baseContext.databaseContextHash, f.context.databaseContextHash);
+        await strict.rejects(refreshed.assertCurrent());
+        session.closeDocument(document.document);
+        await strict.rejects(changed.assertCurrent(), /stale/u);
+      } finally {
+        await session.close();
+      }
+      strict.equal(f.counts.closes, 1);
+      strict.equal(f.counts.sessions, f.counts.sessionCloses);
+    }));
+  await it("restores captured schema and query evidence offline with independently installed owners", async () =>
+    temporary(async (cache) => {
+      const f = fixture();
+      const live = await prepareLiveContractView({ ...f.base, cache });
+      const counts = { ...f.counts };
+      const offline = {
+        profile,
+        schema,
+        cache,
+        candidates: f.base.candidates,
+        contracts: [],
+        configuration: {
+          ...f.base.configuration,
+          mode: "offline" as const,
+          context: live.projectCatalogs!.baseContext,
+        },
+        loadProjectCatalogContributions: () => [contribution],
+        loadAnalyzer: () => {
+          throw Error("A matching native contract keeps the analyzer cold");
+        },
+      };
+      const restored = await prepareOfflineContractView(offline);
+      strict.deepEqual(restored.schema, live.schema);
+      strict.deepEqual(restored.context, live.context);
+      strict.deepEqual(restored.contracts, live.contracts);
+      strict.deepEqual(f.counts, counts);
+      await restored.assertCurrent();
+      await strict.rejects(
+        prepareOfflineContractView({ ...offline, loadProjectCatalogContributions: () => [] }),
+        /owner|interpreter/u,
+      );
+      await strict.rejects(
+        prepareOfflineContractView({
+          ...offline,
+          configuration: {
+            ...offline.configuration,
+            context: { ...context, databaseContextHash: queryContractDigest("wrong pin") },
+          },
+        }),
+        /Pinned/u,
+      );
+      await cache.retireContext(context);
+      await strict.rejects(restored.assertCurrent(), /changed/u);
+    }));
+  await it("debounces cancelled source edits before catalog acquisition", async () =>
+    temporary(async (cache) => {
+      const f = fixture();
+      const session = createLiveContractSession({ ...f.base, cache });
+      const controller = new AbortController();
+      const request = session.prepare({
+        document: "file:///editing.ts",
+        version: 1,
+        candidates: f.base.candidates,
+        signal: controller.signal,
+      });
+      const rejected = strict.rejects(request);
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      controller.abort(Error("source edited again"));
+      await rejected;
+      await session.close();
+      strict.equal(f.counts.catalogs, 0);
+    }));
+  await it("bounds queued session capture and closes its shared owner once", async () =>
+    temporary(async (cache) => {
+      const f = fixture();
+      let loading!: () => void;
+      const started = new Promise<void>((resolve) => {
+        loading = resolve;
+      });
+      const session = createLiveContractSession({
+        ...f.base,
+        cache,
+        live: { ...f.base.live, batchDeadlineMs: 1000 },
+        projectCatalogs: {
+          capture: true,
+          loadContributions() {
+            loading();
+            return new Promise<never>(() => {});
+          },
+        },
+      });
+      const first = session.prepare({ document: "file:///first.ts", version: 1, candidates: f.base.candidates });
+      const firstResult = strict.rejects(first);
+      await started;
+      const controller = new AbortController();
+      const second = session.prepare({
+        document: "file:///second.ts",
+        version: 1,
+        candidates: f.base.candidates,
+        signal: controller.signal,
+      });
+      const secondResult = strict.rejects(second, /cancelled/u);
+      controller.abort(Error("cancelled"));
+      await secondResult;
+      await firstResult;
+      await session.close();
+      strict.equal(f.counts.factories, 1);
+      strict.equal(f.counts.closes, 1);
+      strict.equal(session.status().activePreparations, 0);
     }));
   await it("retires a disproved pinned base even before any context head was published", async () =>
     temporary(async (cache) => {

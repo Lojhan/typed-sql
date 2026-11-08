@@ -1,3 +1,4 @@
+import { setTimeout as delay } from "node:timers/promises";
 import type { SchemaSnapshot } from "@typed-sql/core";
 import type { AnalysisCacheToken } from "./cache.js";
 import { type NativeContractCandidate, parseNativeContractCandidate } from "./candidate.js";
@@ -16,13 +17,17 @@ import {
 import {
   type LiveContractPreparation,
   type LiveContractView,
+  prepareLiveContractView,
   prepareLiveContractViewWithScheduler,
 } from "./live-view.js";
 import { createPersistentLiveAnalysisRunner } from "./persistent-live.js";
 import { defineAnalysisRegistration, type LiveAnalysisServices } from "./registration.js";
 
 function untilAbort<Value>(work: Promise<Value>, signal: AbortSignal): Promise<Value> {
-  if (signal.aborted) return Promise.reject(signal.reason);
+  if (signal.aborted) {
+    void work.catch(() => {});
+    return Promise.reject(signal.reason);
+  }
   return new Promise((resolve, reject) => {
     const aborted = () => reject(signal.reason);
     signal.addEventListener("abort", aborted, { once: true });
@@ -65,11 +70,11 @@ export interface LiveContractSession<Snapshot extends SchemaSnapshot, Policy> {
 export function createLiveContractSession<Snapshot extends SchemaSnapshot, Policy>(
   input: SessionInput<Snapshot, Policy>,
 ): LiveContractSession<Snapshot, Policy> {
-  if (input.projectCatalogs?.capture)
-    throw new TypeError(
-      "Session catalog capture requires a persisted catalog cache; use explicit live generation for selected catalogs",
-    );
-  const registration = defineAnalysisRegistration({ ...input.configuration, live: input.live });
+  const registration = defineAnalysisRegistration({
+    ...input.configuration,
+    live: input.live,
+    ...(input.projectCatalogs ? { projectCatalogs: input.projectCatalogs } : {}),
+  });
   if (registration.mode !== "live" || !registration.cache)
     throw new TypeError("Live sessions require a live target registration");
   if ("analyze" in input.profile) throw new TypeError("Live sessions require a lightweight profile");
@@ -104,6 +109,8 @@ export function createLiveContractSession<Snapshot extends SchemaSnapshot, Polic
     }
   };
   const retry = new Map<string, { at: number; attempts: number }>();
+  let captureTail = Promise.resolve();
+  const capturedViews = new Map<string, { key: string; at: number; view: LiveContractView<Snapshot, Policy> }>();
   const alive = () => {
     if (closed) throw new Error("Live contract session is closed");
   };
@@ -306,6 +313,7 @@ export function createLiveContractSession<Snapshot extends SchemaSnapshot, Polic
   }
   const closeDocument = (document: string) => {
     documents.delete(document);
+    capturedViews.delete(document);
     for (const [id, batch] of pending)
       if (batch.document === document) {
         batch.controller.abort(new Error("Live document changed or closed"));
@@ -343,7 +351,7 @@ export function createLiveContractSession<Snapshot extends SchemaSnapshot, Polic
         const active = new Set([...pending.values()].map((batch) => batch.document));
         const oldest = [...documents.keys()].find((document) => !active.has(document));
         if (oldest === undefined) throw new RangeError("Live document capacity exceeded");
-        documents.delete(oldest);
+        closeDocument(oldest);
       }
       documents.delete(request.document);
       documents.set(request.document, { version: request.version, key });
@@ -351,10 +359,86 @@ export function createLiveContractSession<Snapshot extends SchemaSnapshot, Polic
         controller = new AbortController();
       pending.set(id, { document: request.document, controller });
       const signal = AbortSignal.any([lifetime.signal, controller.signal, ...(request.signal ? [request.signal] : [])]);
+      const deadline = input.projectCatalogs?.capture
+        ? setTimeout(
+            () => controller.abort(new Error("Live catalog session batch deadline exceeded")),
+            input.live.batchDeadlineMs ?? 60_000,
+          )
+        : undefined;
       try {
         signal.throwIfAborted();
         const owned = await services();
         signal.throwIfAborted();
+        if (input.projectCatalogs?.capture) {
+          const before = captureTail;
+          let release!: () => void;
+          const done = new Promise<void>((resolve) => {
+            release = resolve;
+          });
+          captureTail = before.then(() => done);
+          try {
+            await untilAbort(before, signal);
+            await untilAbort(inspect(), signal);
+            signal.throwIfAborted();
+            const cached = capturedViews.get(request.document);
+            if (cached?.key === key && now() - cached.at < interval) {
+              try {
+                await cached.view.assertCurrent();
+                return Object.freeze({
+                  ...cached.view,
+                  async assertCurrent() {
+                    signal.throwIfAborted();
+                    await cached.view.assertCurrent();
+                  },
+                });
+              } catch {
+                signal.throwIfAborted();
+                capturedViews.delete(request.document);
+              }
+            }
+            await delay(300, undefined, { signal });
+            const view = await prepareLiveContractView({
+              ...input,
+              candidates,
+              signal,
+              live: {
+                ...input.live,
+                adapter: () => ({
+                  connectionContext: owned.connectionContext,
+                  adapter: owned.adapter,
+                  contribution: owned.contribution,
+                  inspectContext: owned.inspectContext.bind(owned),
+                  ...(owned.classifyError ? { classifyError: owned.classifyError.bind(owned) } : {}),
+                  close: async () => {},
+                }),
+              },
+            });
+            const base = view.projectCatalogs!.baseContext;
+            if (selected && canonicalContractData(selected) !== canonicalContractData(base)) {
+              capturedViews.clear();
+              try {
+                input.onContextChange?.();
+              } catch {
+                /* Observer errors do not invalidate evidence. */
+              }
+            }
+            selected = base;
+            checkedAt = now();
+            contextToken = (await input.cache.lookupContext(scope)).token;
+            const assertCurrent = async () => {
+              signal.throwIfAborted();
+              if (closed || documents.get(request.document)?.key !== key)
+                throw new Error("Live document view is stale");
+              await view.assertCurrent();
+            };
+            await assertCurrent();
+            const result = Object.freeze({ ...view, assertCurrent });
+            capturedViews.set(request.document, { key, at: now(), view: result });
+            return result;
+          } finally {
+            release();
+          }
+        }
         const queue = await sharedScheduler({
           run: async () => {
             throw new Error("Uninitialized native runner");
@@ -431,6 +515,7 @@ export function createLiveContractSession<Snapshot extends SchemaSnapshot, Polic
         await assertCurrent();
         return Object.freeze({ ...view, assertCurrent });
       } finally {
+        clearTimeout(deadline);
         scheduler?.closeDocument(`typed-sql:session:${id}`);
         pending.delete(id);
       }
@@ -439,6 +524,7 @@ export function createLiveContractSession<Snapshot extends SchemaSnapshot, Polic
       closePromise ??= (async () => {
         closed = true;
         lifetime.abort(new Error("Live session closed"));
+        await captureTail;
         const [owned] = await Promise.allSettled([servicesPromise]);
         const cleanup = await Promise.allSettled([
           scheduler?.close(),

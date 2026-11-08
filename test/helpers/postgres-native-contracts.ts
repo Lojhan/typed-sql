@@ -357,6 +357,57 @@ export default {dialect:{...postgresProfile(),async loadAnalyzer(){return (await
       );
       strict.match((await command(["check", "--offline", "--show-types"])).stdout, /bigint/u);
       strict.match((await command(["check", "--frozen", "--show-types"])).stdout, /bigint/u);
+      // No durable catalog/query inputs: the editor must capture and persist its own selection.
+      await rm(join(catalogDirectory, "manifest.json"));
+      for (const part of ["queries", "contexts", "catalogs", ".typed-sql"])
+        await rm(join(catalogDirectory, part), { recursive: true, force: true });
+      const liveSource = automaticSource.replace("+ 7::bigint", "+ 13::bigint");
+      const inspectEditor = async (environment: NodeJS.ProcessEnv) => {
+        const current = new ProtocolClient(
+          process.execPath,
+          [join(directory, "packages/language-server/dist/packages/language-server/src/server.js"), "--stdio"],
+          catalogDirectory,
+          environment,
+        );
+        try {
+          const uri = pathToFileURL(join(catalogDirectory, "application.ts")).href;
+          await current.request("initialize", {
+            processId: null,
+            rootUri: pathToFileURL(catalogDirectory).href,
+            capabilities: { textDocument: { diagnostic: {} } },
+            initializationOptions: { nativePreview: false },
+          });
+          current.notify("initialized", {});
+          current.notify("textDocument/didOpen", {
+            textDocument: { uri, languageId: "typescript", version: 1, text: liveSource },
+          });
+          const diagnostics = (await current.request("textDocument/diagnostic", { textDocument: { uri } })) as {
+            items: { severity?: number }[];
+          };
+          strict.ok(!diagnostics.items.some((item) => item.severity === 1), JSON.stringify(diagnostics));
+          const prefix = liveSource.slice(0, liveSource.indexOf("SELECT")).split("\n");
+          strict.match(
+            JSON.stringify(
+              await current.request("textDocument/hover", {
+                textDocument: { uri },
+                position: { line: prefix.length - 1, character: prefix.at(-1)!.length },
+              }),
+            ),
+            /bigint/u,
+          );
+        } finally {
+          await current.close();
+        }
+      };
+      await inspectEditor({ ...process.env, TYPED_SQL_CATALOG_TEST_URI: connectionString });
+      const configFile = join(catalogDirectory, "typed-sql.config.mjs");
+      await writeFile(configFile, (await readFile(configFile, "utf8")).replace('mode:"live"', 'mode:"offline"'));
+      await inspectEditor({
+        ...process.env,
+        TYPED_SQL_CATALOG_TEST_URI: "postgres://unreachable.invalid/never-connect",
+      });
+      await writeFile(join(catalogDirectory, "application.ts"), liveSource);
+      strict.match((await command(["check", "--offline", "--show-types"])).stdout, /bigint/u);
     } finally {
       await rm(catalogDirectory, { recursive: true, force: true });
     }

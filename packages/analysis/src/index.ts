@@ -90,6 +90,7 @@ export {
 } from "./project-catalog.js";
 export type { NativeProjectCatalogAcquisition } from "./project-catalog-acquisition.js";
 export { acquireNativeProjectCatalog } from "./project-catalog-acquisition.js";
+export type { ProjectCatalogCacheLookup, ProjectCatalogCacheQuery } from "./project-catalog-cache.js";
 export type {
   ContractFacetComparison,
   ContractQualificationPolicy,

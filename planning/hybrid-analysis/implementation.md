@@ -343,3 +343,44 @@ packed consumers, API/package graph checks, build/type checks, documentation che
 quality and isolated performance gates. The isolated PostgreSQL helper passes the complete
 automatic-capture and existing native/cache/editor/frozen flow. An earlier parallel run returned
 stale-context in a later guarded acquisition; the guard and assertion were retained.
+
+## Persisted catalog selections and live sessions
+
+The owned private cache now stores immutable selected catalog closures. Its selection key hashes
+the exact SQL set and independently configured base scope; SQL source is not stored in the index.
+Publication requires both the selection revision and a usable base-context observation token.
+Changed epochs, competing writers and invalidation fence stale producers. Reobserving identical
+metadata retains its selection revision. Cache quotas, descriptor-safe object access, immutable
+writes and pruning across namespaces apply to these objects as well as query evidence.
+
+Configured live sessions support catalog capture through one shared native owner. A serialized
+capture queue bounds aggregate native work; pending requests retain the existing session limits.
+Capture uses a 300 ms source-edit debounce and a batch deadline that includes queue wait.
+Repeated requests reuse a valid document view within the observation interval. Context changes,
+document versions, closure revisions and query evidence fence prior views; close/cancel aborts
+obsolete work and closes the shared owner once. Remote observations remain request-driven.
+
+Offline preparation can recover a matching cached closure, rematerialize its schema with
+independently installed contributions, then consume derived query evidence without native
+factories. It checks the base head and selection tokens throughout interpretation. CLI and editor
+hosts carry the resulting schema and lazily track interpreter dependencies. Explicit live CLI
+checks can also capture without exporting durable artifacts. Frozen builds remain cache-free.
+
+The PostgreSQL helper additionally removes durable inputs and the private cache, opens the built
+language server on an unsaved query, and captures its selected routines. A second editor process
+in offline mode recovers that selection with an unreachable database address. Offline CLI checking
+then consumes the same selection. Candidate-routine side-effect counters remain unchanged.
+Analysis tests cover restart storage, independent target/policy/schema identities, corruption,
+symlinks, namespace-aware pruning, quotas, concurrent publication, session refresh, debounce,
+cancellation, stalled loaders and offline rematerialization.
+
+Remaining architecture work includes SQLite/SQL Server native acquisition, broader statement and
+type/rule qualification, workload-selected offline core/optional packs, and the full acceptance
+audit. Cache selections currently match an exact SQL set; combining independently captured sets
+for unrelated new SQL requires a separately qualified merge rather than implicit unioning.
+
+Validation: all 20 analysis files pass (98.56% statements, 92.99% branches, 99.45% functions),
+as do all 11 CLI and 16 language-server files. Clean workspace build, incremental final type
+checks, public API/package graph checks, all three packed-consumer suites, documentation
+checks/build, quality and the isolated performance gate pass. The PostgreSQL 18 helper passes
+the complete capture, process-restart/offline, existing drift/conflict and frozen-consumer flow.

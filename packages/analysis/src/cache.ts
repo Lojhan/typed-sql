@@ -25,6 +25,12 @@ import {
   parseLiveAnalysisOutcome,
   parseLiveAnalysisRequest,
 } from "./live.js";
+import { type ProjectCatalogClosure, parseProjectCatalogClosure } from "./project-catalog.js";
+import {
+  type ProjectCatalogCacheLookup,
+  type ProjectCatalogCacheQuery,
+  projectCatalogCacheSelection,
+} from "./project-catalog-cache.js";
 import {
   parseRecordedAnalysisQuery,
   parseRecordedQueryContract,
@@ -61,6 +67,16 @@ export interface AnalysisCacheLookup {
   };
 }
 export interface AnalysisCache {
+  lookupProjectCatalog(query: ProjectCatalogCacheQuery): Promise<ProjectCatalogCacheLookup>;
+  publishProjectCatalog(input: {
+    readonly token: AnalysisCacheToken;
+    readonly baseToken: AnalysisCacheToken;
+    readonly query: ProjectCatalogCacheQuery;
+    readonly closure: ProjectCatalogClosure;
+  }): Promise<
+    | { readonly status: "published"; readonly token: AnalysisCacheToken }
+    | { readonly status: "superseded" | "capacity" }
+  >;
   areTokensCurrent(tokens: readonly AnalysisCacheToken[]): Promise<boolean>;
   lookupContext(
     scope: AnalysisContextScope,
@@ -110,7 +126,10 @@ interface ContextHead {
   readonly observedAt: number;
   readonly status: "usable" | "stale";
 }
-type CacheResult = LiveAnalysisFailure | { readonly kind: "usable-recorded-context"; readonly contractDigest: string };
+type CacheResult =
+  | LiveAnalysisFailure
+  | { readonly kind: "usable-recorded-context"; readonly contractDigest: string }
+  | { readonly kind: "project-catalog"; readonly catalogDigest: string; readonly scopeHash: string };
 interface Entry {
   readonly requestKey: string;
   readonly revision: string;
@@ -195,6 +214,10 @@ function index(input: unknown, expectedWorkspace: string, maxEntries: number): I
     if (result && typeof result === "object" && "kind" in result && result.kind === "usable-recorded-context") {
       const reference = shape(result, "contractDigest,kind");
       hash(reference.contractDigest);
+    } else if (result && typeof result === "object" && "kind" in result && result.kind === "project-catalog") {
+      const reference = shape(result, "catalogDigest,kind,scopeHash");
+      hash(reference.catalogDigest);
+      hash(reference.scopeHash);
     } else {
       const failure = parseLiveAnalysisFailure(entry.result);
       if (failure.kind === "unavailable" && failure.retry === "transport")
@@ -270,6 +293,7 @@ export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<
     index: join(root, "indexes", `${workspaceContext}.json`),
     contexts: join(root, "contexts"),
     queries: join(root, "queries/objects"),
+    catalogs: join(root, "catalogs/objects"),
   };
   await cacheDirectory(root);
   // Do not claim an existing unrelated directory. A crashed first initializer may leave locks/ only.
@@ -334,7 +358,15 @@ export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<
     await cacheDirectory(root);
     const current = owner(JSON.parse(await readCacheFile(path.ownership, maxObjectBytes)));
     if (current.instance !== instance) throw new TypeError("Analysis cache owner instance changed");
-    for (const directory of [path.staging, path.indexes, path.contexts, join(root, "queries"), path.queries])
+    for (const directory of [
+      path.staging,
+      path.indexes,
+      path.contexts,
+      join(root, "queries"),
+      path.queries,
+      join(root, "catalogs"),
+      path.catalogs,
+    ])
       await cacheDirectory(directory);
   };
   const write = (file: string, text: string, immutable: boolean, assertLock: () => Promise<void>) =>
@@ -438,10 +470,11 @@ export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<
       bytes: number;
       modified: number;
       digest: string;
-      kind: "query" | "context" | "index" | "staging";
+      kind: "query" | "context" | "index" | "staging" | "catalog";
     }[] = [];
     for (const [directory, kind] of [
       [path.queries, "query"],
+      [path.catalogs, "catalog"],
       [path.contexts, "context"],
       [path.indexes, "index"],
       [path.staging, "staging"],
@@ -517,6 +550,120 @@ export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<
     });
   }
   return Object.freeze({
+    async lookupProjectCatalog(input) {
+      const { scope, scopeHash, requestKey } = projectCatalogCacheSelection(input);
+      return withLock(async () => {
+        await layout();
+        await readUsage();
+        const current = await readIndex();
+        const entry = current.entries.find((item) => item.requestKey === requestKey);
+        const captured = token({
+          formatVersion: 1,
+          ownerInstance: instance!,
+          workspaceContext,
+          epoch: current.epoch,
+          requestKey,
+          entryRevision: entry?.revision ?? null,
+        });
+        if (!entry) return Object.freeze({ token: captured });
+        if (entry.result.kind !== "project-catalog" || entry.result.scopeHash !== scopeHash)
+          throw new TypeError("Analysis cache catalog selection differs");
+        const closure = parseProjectCatalogClosure(
+          JSON.parse(await readCacheFile(join(path.catalogs, `${entry.result.catalogDigest}.json`), maxObjectBytes)),
+        );
+        if (
+          closure.digest !== entry.result.catalogDigest ||
+          queryContractDigest(closure.baseContext) !== entry.contextHash
+        )
+          throw new TypeError("Analysis cache catalog identity differs");
+        assertContextScope(closure.baseContext, scope);
+        const head = current.heads?.find((item) => item.scopeHash === scopeHash);
+        if (
+          !head ||
+          head.status === "stale" ||
+          head.contextHash !== entry.contextHash ||
+          current.entries.some((item) => item.contextHash === entry.contextHash && item.result.kind === "stale-context")
+        )
+          return Object.freeze({ token: captured, blocked: "stale-context" as const });
+        return Object.freeze({
+          token: captured,
+          cached: Object.freeze({ closure, recordedAt: entry.recordedAt, freshness: "unverified" as const }),
+        });
+      });
+    },
+    async publishProjectCatalog(input) {
+      const { scope, scopeHash, requestKey } = projectCatalogCacheSelection(input.query);
+      const closure = parseProjectCatalogClosure(input.closure);
+      const expected = token(input.token),
+        base = token(input.baseToken);
+      assertContextScope(closure.baseContext, scope);
+      for (const [captured, key] of [
+        [expected, requestKey],
+        [base, scopeHash],
+      ] as const)
+        if (
+          captured.ownerInstance !== instance ||
+          captured.workspaceContext !== workspaceContext ||
+          captured.requestKey !== key
+        )
+          throw new TypeError("Analysis cache catalog publication token differs");
+      return withLock(async (assertLock) => {
+        await layout();
+        const current = await readIndex();
+        const previous = current.entries.find((item) => item.requestKey === requestKey);
+        const head = current.heads?.find((item) => item.scopeHash === scopeHash);
+        const contextHash = queryContractDigest(closure.baseContext);
+        if (
+          current.epoch !== expected.epoch ||
+          current.epoch !== base.epoch ||
+          (previous?.revision ?? null) !== expected.entryRevision ||
+          !head ||
+          head.revision !== base.entryRevision ||
+          head.status !== "usable" ||
+          head.contextHash !== contextHash ||
+          current.entries.some((item) => item.contextHash === contextHash && item.result.kind === "stale-context")
+        )
+          return { status: "superseded" as const };
+        if (!previous && current.entries.length >= maxEntries) return { status: "capacity" as const };
+        const unchanged =
+          previous?.result.kind === "project-catalog" &&
+          previous.result.catalogDigest === closure.digest &&
+          previous.result.scopeHash === scopeHash &&
+          previous.contextHash === contextHash;
+        const revision = unchanged ? previous.revision : nonce();
+        const entry: Entry = {
+          requestKey,
+          contextHash,
+          revision,
+          recordedAt: now(),
+          result: { kind: "project-catalog", catalogDigest: closure.digest, scopeHash },
+        };
+        const text = indexText(
+          current.epoch,
+          [...current.entries.filter((item) => item.requestKey !== requestKey), entry],
+          current.heads,
+        );
+        const objectText = `${canonicalContractData(closure)}\n`;
+        const file = join(path.catalogs, `${closure.digest}.json`);
+        const before = await readUsage(),
+          previousBytes = await fileSize(path.index);
+        const added =
+          Math.max(0, Buffer.byteLength(text) - previousBytes) +
+          (!(await fileSize(file)) ? Buffer.byteLength(objectText) : 0);
+        if (
+          Buffer.byteLength(text) > maxObjectBytes ||
+          Buffer.byteLength(objectText) > maxObjectBytes ||
+          before + added > maxBytes
+        )
+          return { status: "capacity" as const };
+        if (added) await writeUsage(before + added, assertLock);
+        await write(file, objectText, true, assertLock);
+        await write(path.index, text, false, assertLock);
+        const released = Math.max(0, previousBytes - Buffer.byteLength(text));
+        if (released) await writeUsage(Math.max(0, before + added - released), assertLock);
+        return { status: "published" as const, token: token({ ...expected, entryRevision: revision }) };
+      });
+    },
     async areTokensCurrent(inputs) {
       if (inputs.length > 65_535) throw new RangeError("Analysis cache snapshot token limit exceeded");
       const expected = inputs.map(token);
@@ -811,6 +958,7 @@ export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<
       return withLock(async (assertLock) => {
         await layout();
         const protectedQueries = new Set<string>(),
+          protectedCatalogs = new Set<string>(),
           protectedContexts = new Set<string>();
         for (const name of await names(path.indexes)) {
           if (!/^[a-f0-9]{64}\.json$/u.test(name)) continue;
@@ -823,7 +971,7 @@ export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<
             if (entry.result.kind === "usable-recorded-context") {
               protectedQueries.add(entry.result.contractDigest);
               protectedContexts.add(entry.contextHash);
-            }
+            } else if (entry.result.kind === "project-catalog") protectedCatalogs.add(entry.result.catalogDigest);
           for (const head of current.heads ?? []) protectedContexts.add(head.contextHash);
         }
         const files = await objects();
@@ -836,6 +984,7 @@ export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<
           if (
             file.kind === "index" ||
             (file.kind === "query" && protectedQueries.has(file.digest)) ||
+            (file.kind === "catalog" && protectedCatalogs.has(file.digest)) ||
             (file.kind === "context" && protectedContexts.has(file.digest)) ||
             (file.modified > cutoff && retainedBytes <= maxBytes)
           )

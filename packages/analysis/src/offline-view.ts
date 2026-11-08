@@ -9,10 +9,15 @@ import { calculateSchemaHash, calculateTypePolicyHash } from "@typed-sql/schema"
 import type { AnalysisCache, AnalysisCacheToken } from "./cache.js";
 import { type NativeContractCandidate, parseNativeContractCandidate } from "./candidate.js";
 import { exactSqlDigest, queryContractDigest } from "./canonical.js";
-import { type AnalysisConfiguration, defineAnalysisConfiguration } from "./configuration.js";
+import {
+  type AnalysisConfiguration,
+  createAnalysisContextScope,
+  defineAnalysisConfiguration,
+} from "./configuration.js";
 import { createQueryContractIndex, type QueryContract } from "./contracts.js";
 import { createContractDialect } from "./dialect.js";
 import type { LiveAnalysisFailure } from "./live.js";
+import { materializeProjectCatalogClosure, type ProjectCatalogContribution } from "./project-catalog.js";
 
 /** Explicit async preparation; the returned compiler surface remains synchronous and offline. */
 export async function prepareOfflineContractView<Snapshot extends SchemaSnapshot, Policy>(input: {
@@ -23,11 +28,17 @@ export async function prepareOfflineContractView<Snapshot extends SchemaSnapshot
   readonly candidates: readonly NativeContractCandidate[];
   readonly contracts: readonly QueryContract[];
   readonly cache?: AnalysisCache;
+  /** Independently installed interpreters; called only for a matching cached selection. */
+  readonly loadProjectCatalogContributions?: () =>
+    | readonly ProjectCatalogContribution<Snapshot, Policy>[]
+    | Promise<readonly ProjectCatalogContribution<Snapshot, Policy>[]>;
   readonly loadAnalyzer?: () => Promise<DialectPlugin<Snapshot, Policy>> | DialectPlugin<Snapshot, Policy>;
 }): Promise<{
   readonly dialect: DialectPlugin<Snapshot, Policy>;
   readonly contracts: readonly QueryContract[];
   readonly context: import("./contracts.js").QueryContractContext;
+  readonly schema: Snapshot;
+  readonly projectCatalogs?: import("./project-catalog.js").ProjectCatalogClosure;
   assertCurrent(): Promise<void>;
 }> {
   const configuration = defineAnalysisConfiguration(input.configuration),
@@ -35,6 +46,57 @@ export async function prepareOfflineContractView<Snapshot extends SchemaSnapshot
   assertDialectProfile(profile);
   if ("analyze" in profile || configuration.mode !== "offline")
     throw new TypeError("Offline preparation requires a lightweight profile and offline mode");
+  if (input.candidates.length > 4096) throw new RangeError("Offline analysis candidate limit exceeded");
+  const candidates = input.candidates.map(parseNativeContractCandidate);
+  if (candidates.reduce((bytes, candidate) => bytes + Buffer.byteLength(candidate.sql), 0) > 16 * 1024 * 1024)
+    throw new RangeError("Offline analysis candidate byte limit exceeded");
+  if (input.loadProjectCatalogContributions && input.cache && configuration.cache) {
+    const scope = createAnalysisContextScope(input);
+    const selection = await input.cache.lookupProjectCatalog({ scope, sql: candidates.map(({ sql }) => sql) });
+    if (selection.blocked)
+      throw new Error("Recorded catalog context is stale; refresh live evidence before offline reuse");
+    if (selection.cached) {
+      const closure = selection.cached.closure;
+      if (
+        configuration.context &&
+        queryContractDigest(configuration.context) !== queryContractDigest(closure.baseContext)
+      )
+        throw new TypeError("Pinned context differs from the cached catalog selection");
+      const head = await input.cache.lookupContext(scope, closure.baseContext);
+      if (
+        head.recorded?.status !== "usable" ||
+        queryContractDigest(head.recorded.context) !== queryContractDigest(closure.baseContext)
+      )
+        throw new Error("Recorded catalog base context changed before offline interpretation");
+      const projected = materializeProjectCatalogClosure({
+        closure,
+        schema: input.schema,
+        typePolicy: input.typePolicy ?? profile.defaultTypePolicy,
+        contributions: await input.loadProjectCatalogContributions(),
+      });
+      const { loadProjectCatalogContributions: _loader, ...rest } = input;
+      const view = await prepareOfflineContractView({
+        ...rest,
+        schema: projected.schema,
+        configuration: {
+          ...configuration,
+          context: projected.context,
+          identity: {
+            profileHash: projected.context.profileHash,
+            codecHash: projected.context.codecHash,
+            interpreterHash: projected.context.interpreterHash,
+          },
+        },
+      });
+      const assertCurrent = async () => {
+        await view.assertCurrent();
+        if (!(await input.cache!.areTokensCurrent([selection.token, head.token])))
+          throw new Error("Recorded catalog selection changed during offline analysis");
+      };
+      await assertCurrent();
+      return Object.freeze({ ...view, projectCatalogs: closure, assertCurrent });
+    }
+  }
   const context = configuration.context,
     policy = input.typePolicy ?? profile.defaultTypePolicy;
   if (!context) throw new TypeError("Offline preparation requires a selected recorded or offline-rule context");
@@ -45,10 +107,6 @@ export async function prepareOfflineContractView<Snapshot extends SchemaSnapshot
     context.typePolicyHash !== calculateTypePolicyHash(policy ?? {})
   )
     throw new TypeError("Offline analysis profile, schema or decoding policy differs");
-  if (input.candidates.length > 4096) throw new RangeError("Offline analysis candidate limit exceeded");
-  const candidates = input.candidates.map(parseNativeContractCandidate);
-  if (candidates.reduce((bytes, candidate) => bytes + Buffer.byteLength(candidate.sql), 0) > 16 * 1024 * 1024)
-    throw new RangeError("Offline analysis candidate byte limit exceeded");
   const durable = createQueryContractIndex(input.contracts),
     contracts: QueryContract[] = [];
   const blocked = new Map<string, LiveAnalysisFailure>(),
@@ -149,6 +207,7 @@ export async function prepareOfflineContractView<Snapshot extends SchemaSnapshot
   });
   return Object.freeze({
     dialect,
+    schema: input.schema,
     context,
     async assertCurrent() {
       if (input.cache && !(await input.cache.areTokensCurrent(cacheTokens)))

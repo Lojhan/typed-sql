@@ -8,7 +8,6 @@ import {
   LiveContextUnavailableError,
   type LiveContractView,
   loadFrozenContractView,
-  loadQueryContractContext,
   loadQueryContractInputs,
   loadQueryContracts,
   type NativeContractCandidate,
@@ -130,13 +129,14 @@ export async function prepareRecordedDocument(input: {
         directory: fromConfig(loaded.directory, configuration.cache.directory ?? ".typed-sql/cache/analysis/v1"),
         workspaceContext: queryContractDigest({ workspace: loaded.directory, config: loaded.file }),
       });
-      const recordedContext =
+      const recordedInputs =
         before !== null
-          ? await loadQueryContractContext(
+          ? await loadQueryContractInputs(
               paths.directory,
               createAnalysisContextScope({ profile, schema, typePolicy, configuration }),
             )
           : undefined;
+      const recordedContext = recordedInputs?.projectCatalogs?.baseContext ?? recordedInputs?.context;
       try {
         const prepared = await input.live(
           {
@@ -147,6 +147,15 @@ export async function prepareRecordedDocument(input: {
             cache,
             loadAnalyzer: async () => (await resolveConfigDialect(loaded)).config.dialect,
             ...(recordedContext ? { recordedContext } : {}),
+            ...(recordedInputs?.projectCatalogs ? { recordedProjectCatalogs: recordedInputs.projectCatalogs } : {}),
+            ...(projectCatalogs
+              ? {
+                  projectCatalogs: {
+                    ...projectCatalogs,
+                    loadContributions: () => runConfigFactory(loaded, () => projectCatalogs.loadContributions()),
+                  },
+                }
+              : {}),
             live: {
               ...live,
               adapter: (parameters) =>
@@ -263,11 +272,16 @@ export async function prepareRecordedDocument(input: {
       contracts,
       candidates: collection.candidates.map(({ sql, parameterOccurrences }) => ({ sql, parameterOccurrences })),
       ...(cache ? { cache } : {}),
+      ...(!durable?.projectCatalogs && projectCatalogs
+        ? {
+            loadProjectCatalogContributions: () => runConfigFactory(loaded, () => projectCatalogs.loadContributions()),
+          }
+        : {}),
       loadAnalyzer: async () => (await resolveConfigDialect(loaded)).config.dialect,
     });
     view = {
       ...prepared,
-      schema: effectiveSchema,
+      schema: prepared.schema,
       ...(durable ? { files: durable.files } : {}),
       async assertCurrent() {
         await prepared.assertCurrent();

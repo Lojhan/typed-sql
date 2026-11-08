@@ -108,6 +108,8 @@ export async function prepareCapturedCatalogView<Snapshot extends SchemaSnapshot
           });
           if (observed.status !== "published") throw new Error(`Base catalog context selection ${observed.status}`);
           const baseToken: AnalysisCacheToken = observed.token;
+          const catalogQuery = { scope, sql: input.candidates.map((candidate) => candidate.sql) };
+          const catalogSelection = await input.cache.lookupProjectCatalog(catalogQuery);
           const acquired = await abortable(
             acquireNativeProjectCatalog({
               adapter: owned.adapter,
@@ -234,14 +236,23 @@ export async function prepareCapturedCatalogView<Snapshot extends SchemaSnapshot
           signal.throwIfAborted();
           if (!(await input.cache.areTokensCurrent([baseToken])))
             throw new Error("Base catalog context changed before publication");
+          const published = await input.cache.publishProjectCatalog({
+            query: catalogQuery,
+            token: catalogSelection.token,
+            baseToken,
+            closure,
+          });
+          if (published.status === "superseded")
+            throw new Error("Selected catalog capture was superseded before publication");
+          const tokens = [baseToken, ...(published.status === "published" ? [published.token] : [])];
           return Object.freeze({
             ...view,
             schema: projected.schema,
             projectCatalogs: closure,
             async assertCurrent() {
               await view.assertCurrent();
-              if (!(await input.cache.areTokensCurrent([baseToken])))
-                throw new Error("Base catalog context changed before publication");
+              if (!(await input.cache.areTokensCurrent(tokens)))
+                throw new Error("Base catalog context or selected catalog changed before publication");
             },
           });
         })(),

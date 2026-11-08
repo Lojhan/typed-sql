@@ -236,7 +236,8 @@ catalog, even if a target head was never published; frozen builds remain indepen
 disposable cache.
 
 Set `analysis.projectCatalogs.capture: true` to capture selected declarations during
-`typed-sql generate --queries --live`. The registered native adapter must provide a qualified
+`typed-sql generate --queries --live`, `typed-sql check --live`, or explicitly enabled live
+editor sessions. The registered native adapter must provide a qualified
 catalog capability. Native capture and description use an adapter constructed from the original
 base schema. Static qualification uses the enriched schema; each native context must match the
 base context before evidence is rebound to the derived schema/profile identities.
@@ -249,9 +250,14 @@ Hybrid mode retains independent offline rules when the native adapter declines a
 class. The resulting export records an offline-rule contract. Native-required mode requires
 native qualification; conflicts, native rejections and incomplete qualification remain blocking.
 
-Catalog capture is an explicit generation/preparation operation. Use offline or frozen editor
-checking to consume its exports. Session APIs require persisted catalog inputs and do not capture
-selected catalogs themselves.
+Live sessions serialize catalog capture through a shared native owner and reuse a valid document
+view within the context observation interval. Changed queries or contexts request fresh evidence;
+closed documents, cancellation and deadlines fence obsolete work. Observations are request-driven.
+The private analysis cache retains selected catalog closures alongside query evidence, so matching
+SQL can recover its enriched schema after restarting in offline mode. Cached selections bind to
+the exact SQL set, target, base schema and installed semantic identities. Their remote freshness
+remains unverified. Offline reuse requires the independently installed catalog interpreters and
+never opens native services. Durable exports remain the inputs for frozen builds.
 
 
 ### Acquire evidence through an explicit adapter

@@ -14,7 +14,7 @@ import { loadConfigSource } from "../../config/src/index.js";
 import { context, execute, fixture } from "./helpers/contract-fixture.js";
 
 await describe("frozen CLI project checking", async () => {
-  await it("keeps capture factories cold outside explicit query generation", async () => {
+  await it("keeps capture factories cold in offline and frozen checks and invokes them for explicit live checks", async () => {
     await fixture(async (directory) => {
       const path = join(directory, "typed-sql.config.mjs");
       await writeFile(
@@ -24,7 +24,9 @@ await describe("frozen CLI project checking", async () => {
           `analysis:{mode:"live",projectCatalogs:{capture:true,loadContributions(){throw Error("Capture loader must stay cold");}},live:{adapter(){throw Error("Capture adapter must stay cold");}},cache:${JSON.stringify({ connectionContext: context.databaseContextHash, adapter: { id: "vendor/native", version: "1" } })},`,
         ),
       );
-      await strict.rejects(execute(directory, ["--live"]), /Selected catalog capture requires generate/u);
+      await execute(directory, ["--frozen"]);
+      await execute(directory, ["--offline"]);
+      await strict.rejects(execute(directory, ["--live"]), /Capture adapter must stay cold/u);
     });
   });
   await it("loads selected catalog interpreters and checks against the enriched schema", async () => {
