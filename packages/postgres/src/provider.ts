@@ -15,44 +15,29 @@ import { defineSchemaSnapshotV2, fingerprintSchemaExpression, jsonShapeFromSchem
 import { postgresServerEvidence } from "./capabilities.js";
 import { postgresCoreCatalog } from "./catalog/index.js";
 import { fingerprintPostgresExpressionSql } from "./expression-evidence.js";
-import { introspectPostgresExtensionManifests, type PostgresExtensionManifest } from "./extensions.js";
+import { introspectPostgresExtensionManifests } from "./extensions.js";
 import { parseSelect } from "./parser/index.js";
-import { defaultPostgresTypePolicy, mapPostgresType, type PostgresTypePolicy } from "./type-policy.js";
+import type {
+  PostgresDriverImporter,
+  PostgresDriverModule,
+  PostgresIntrospectionPool,
+  PostgresQueryable,
+  PostgresQueryResult,
+  PostgresSchemaProviderOptions,
+} from "./provider-contracts.js";
+import { postgresVersionQuery } from "./server-evidence.js";
+import { defaultPostgresTypePolicy, mapPostgresType } from "./type-policy.js";
 import { POSTGRES_DIALECT_VERSION } from "./version.js";
 
-export interface PostgresQueryResult<Row> {
-  readonly rows: readonly Row[];
-}
-
-export interface PostgresQueryable {
-  query<Row extends Record<string, unknown>>(
-    text: string,
-    values?: readonly unknown[],
-  ): Promise<PostgresQueryResult<Row>>;
-}
-
-export interface PostgresIntrospectionClient extends PostgresQueryable {
-  release(): void;
-}
-
-export interface PostgresIntrospectionPool {
-  connect(): Promise<PostgresIntrospectionClient>;
-  end(): Promise<void>;
-}
-
-export interface PostgresDriverModule {
-  readonly Pool: new (config: { readonly connectionString: string }) => PostgresIntrospectionPool;
-}
-
-export type PostgresDriverImporter = () => Promise<PostgresDriverModule>;
-
-export interface PostgresSchemaProviderOptions {
-  readonly client?: PostgresQueryable;
-  readonly pool?: PostgresIntrospectionPool;
-  readonly includeSchemas?: readonly string[];
-  readonly typePolicy?: PostgresTypePolicy;
-  readonly extensionManifests?: readonly PostgresExtensionManifest[];
-}
+export type {
+  PostgresDriverImporter,
+  PostgresDriverModule,
+  PostgresIntrospectionClient,
+  PostgresIntrospectionPool,
+  PostgresQueryable,
+  PostgresQueryResult,
+  PostgresSchemaProviderOptions,
+} from "./provider-contracts.js";
 
 interface ColumnCatalogRow extends Record<string, unknown> {
   readonly schema_name: string;
@@ -182,12 +167,7 @@ interface VersionRow extends Record<string, unknown> {
 }
 
 export const postgresCatalogQueries = {
-  version: `
-    SELECT current_setting('server_version') AS server_version,
-           current_setting('standard_conforming_strings') AS standard_conforming_strings,
-           current_setting('search_path') AS search_path,
-           ARRAY(SELECT extname || ':' || extversion FROM pg_catalog.pg_extension ORDER BY extname) AS extensions
-  `,
+  version: postgresVersionQuery,
   relations: `
     SELECT
       n.nspname AS schema_name,

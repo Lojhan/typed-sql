@@ -8,7 +8,8 @@ import {
 } from "@typed-sql/core";
 import { calculateTypePolicyHash } from "@typed-sql/schema";
 import { type DuckDBType, formatDuckDBType } from "./native-types.js";
-import { DuckDBSchemaProvider, type DuckDBSchemaProviderOptions } from "./provider.js";
+import type { DuckDBSchemaProviderOptions } from "./provider-contracts.js";
+
 import {
   createDuckDBDatabase,
   type DuckDBBinding,
@@ -618,6 +619,7 @@ export function nodeDuckDB(
 ) {
   return {
     async introspect() {
+      const { DuckDBSchemaProvider } = await import("./provider.js");
       const database = await createNodeDuckDBDatabase(options);
       try {
         return await new DuckDBSchemaProvider({

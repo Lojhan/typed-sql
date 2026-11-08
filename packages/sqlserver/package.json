@@ -28,7 +28,11 @@
     "access": "public"
   },
   "typedSql": {
-    "releaseTrack": "stable"
+    "releaseTrack": "stable",
+    "developmentEntrypoints": [
+      "./analysis",
+      "./browser"
+    ]
   },
   "sideEffects": false,
   "type": "module",

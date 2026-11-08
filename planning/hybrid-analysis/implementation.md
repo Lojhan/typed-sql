@@ -602,6 +602,26 @@ Unrelated planning work is left unchanged.
   full semantic catalogs still ship through the compatibility distribution. No installed-size or
   application bundle savings percentage is claimed by these module-boundary proofs.
 
+## Lazy driver introspection and discovered runtime export audit
+
+- All five grammar adapters share provider DTOs through cold contract modules and load schema
+  discovery implementations inside `introspect()`. PostgreSQL and SQL Server execution retain
+  their exact server/session evidence queries and validation through dedicated modules. Existing
+  provider exports and PostgreSQL extension error identity are preserved.
+- PostgreSQL extension manifests still explicitly opt into semantic resolution during database
+  construction. That path is intentionally not certified as independent of semantic catalogs.
+- Grammar manifests classify development-only entrypoints. The packed audit discovers every
+  other public export automatically and imports it after semantic inventories, provider modules,
+  declarations and maps are removed. Future exports enter the runtime audit by default; root and
+  runtime exports cannot be excluded. Existing profile and parser-free root proofs remain active.
+- All 144 grammar test files, three packed-consumer suites, public API/package graph/diagnostic
+  contracts, incremental TypeScript build and quality pass. Quality retains the existing 121
+  warnings and two informational diagnostics. The complete restricted real PostgreSQL native,
+  cache, editor and packed frozen CLI proof passes after the split. These results do not qualify
+  native contracts on other engines or establish package-size savings.
+- Full semantic compatibility catalogs still ship. Selected compact cores, optional packs,
+  reusable project catalogs and bulk generated semantic TypeScript removal remain required.
+
 ## Required work still open
 
 1. Complete the contract/evidence model: native descriptors and provenance, reusable/facet-specific
@@ -621,8 +641,8 @@ Unrelated planning work is left unchanged.
    freshness, persistent restart reuse and finite batch generation.
 8. Finite/repeated structural variant coverage, ambiguous/repeated parameters, unsupported syntax
    fallback and conservative runtime effect/routing behavior.
-9. Complete explicit driver-adapter runtime boundaries and selected core/profile/pack loading.
-   Root/profile separation and the major `/analysis` API migration are implemented above. Preserve
+9. Complete selected core/profile/pack loading and explicit extension runtime boundaries.
+   Root/profile separation, ordinary driver boundaries and the major `/analysis` API migration are implemented above. Preserve
    existing supported semantics through explicit compatibility packs before removing bulk catalogs.
 10. Optional project catalogs and contributed extension reuse behind qualified inference permission.
 11. Public documentation, diagnostics, release/distribution contracts and after-implementation

@@ -36,6 +36,11 @@ Grammar packages may refer to driver types, expose driver-specific adapters, and
 
 Driver adapters load the application dependency only when their explicit subpath is used. Missing drivers fail with an actionable install message. This avoids hidden clients, duplicate pools, unexpected install size, and driver lifecycle decisions made by typed-sql.
 
+Execution adapters load schema discovery when `introspect()` is called. Importing an adapter or
+running ordinary queries does not load schema providers or built-in semantic inventories.
+Server and session compatibility checks remain active during execution. PostgreSQL extension
+manifests explicitly opt into additional semantic validation when configured.
+
 Observability follows the same direction of dependency. Core defines redacted lifecycle events, runtime adapters emit them, and `@typed-sql/opentelemetry` translates them into spans through an application-owned OpenTelemetry API and provider. Core and dialect packages do not depend on OpenTelemetry.
 
 ## Dialect contract

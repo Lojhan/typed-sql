@@ -30,7 +30,11 @@
     "access": "public"
   },
   "typedSql": {
-    "releaseTrack": "stable"
+    "releaseTrack": "stable",
+    "developmentEntrypoints": [
+      "./analysis",
+      "./browser"
+    ]
   },
   "exports": {
     ".": "./dist/packages/duckdb/src/index.js",

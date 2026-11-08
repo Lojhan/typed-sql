@@ -10,6 +10,7 @@ import {
 } from "@typed-sql/schema";
 import { sqliteServerEvidence } from "./capabilities.js";
 import { sqliteAsciiUpper } from "./identifier-case.js";
+import type { SqliteQueryable, SqliteRoutineDeclaration, SqliteSchemaProviderOptions } from "./provider-contracts.js";
 import {
   sqliteCheckExpressions,
   sqliteColumnCollation,
@@ -27,43 +28,13 @@ import type {
 import { defaultSqliteTypePolicy, mapSqliteCastType, mapSqliteType, type SqliteTypePolicy } from "./type-policy.js";
 import { SQLITE_DIALECT_VERSION } from "./version.js";
 
-type MaybePromise<Value> = Value | Promise<Value>;
-
-export interface SqliteQueryable {
-  all<Row extends Record<string, unknown>>(sql: string, values?: readonly unknown[]): MaybePromise<readonly Row[]>;
-}
-
-export interface SqliteSchemaProviderOptions {
-  readonly client: SqliteQueryable;
-  readonly schemas?: readonly string[];
-  /** @deprecated Use routines to preserve scalar, aggregate, and window kind evidence. */
-  readonly functions?: Readonly<Record<string, FunctionSnapshot>>;
-  readonly routines?: Readonly<Record<string, SqliteRoutineDeclaration>>;
-  readonly typePolicy?: SqliteTypePolicy;
-}
-
-export interface SqliteRoutineArgumentDeclaration {
-  readonly databaseType: string;
-  readonly tsType?: string;
-}
-
-export interface SqliteRoutineResultDeclaration {
-  readonly databaseType: string;
-  readonly tsType?: string;
-  readonly nullable: boolean;
-}
-
-/** Explicit application registry for routines installed on an SQLite connection. */
-export interface SqliteRoutineDeclaration {
-  readonly name: string;
-  readonly schema?: string;
-  readonly kind: "aggregate" | "scalar" | "window";
-  readonly arguments: readonly SqliteRoutineArgumentDeclaration[];
-  readonly result: SqliteRoutineResultDeclaration;
-  readonly deterministic?: boolean;
-  readonly volatility?: "immutable" | "stable" | "volatile";
-  readonly nullInput?: "called" | "strict";
-}
+export type {
+  SqliteQueryable,
+  SqliteRoutineArgumentDeclaration,
+  SqliteRoutineDeclaration,
+  SqliteRoutineResultDeclaration,
+  SqliteSchemaProviderOptions,
+} from "./provider-contracts.js";
 
 interface TableListRow extends Record<string, unknown> {
   readonly schema: string;

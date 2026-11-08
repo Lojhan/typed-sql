@@ -34,6 +34,7 @@ async function assertRuntimeWithoutSemanticCatalogs(consumer: string, env: NodeJ
   const ledger = JSON.parse(await readFile(join(workspace, "grammar/features/ledger.json"), "utf8"));
   const grammars = Object.keys(ledger.dialects).sort();
   if (!grammars.length) throw new Error("No declared grammars in the runtime boundary audit");
+  const runtimeEntries: string[] = [];
   const essential = new Set(["coercions.js", "generated/types.js", "generated/aliases.js"]);
   const strip = async (directory: string, prefix = ""): Promise<void> => {
     for (const entry of await readdir(directory, { withFileTypes: true })) {
@@ -46,23 +47,45 @@ async function assertRuntimeWithoutSemanticCatalogs(consumer: string, env: NodeJ
   };
   for (const name of grammars) {
     const grammar = join(consumer, "node_modules", "@typed-sql", name, "dist", "packages", name, "src");
+    const manifest = JSON.parse(
+      await readFile(join(consumer, "node_modules", "@typed-sql", name, "package.json"), "utf8"),
+    );
+    const exports = Object.keys(manifest.exports);
+    const development = manifest.typedSql.developmentEntrypoints;
+    if (
+      !Array.isArray(development) ||
+      development.some((entry: string) => !exports.includes(entry)) ||
+      development.includes(".") ||
+      development.includes("./runtime")
+    )
+      throw new Error(`Invalid development entrypoint policy for ${name}`);
+    for (const entry of exports)
+      if (!development.includes(entry)) runtimeEntries.push(`@typed-sql/${name}${entry === "." ? "" : entry.slice(1)}`);
     await strip(join(grammar, "catalog"));
-    for (const module of ["analysis", "browser", "resolver", "semantics"])
+    for (const module of [
+      "analysis",
+      "browser",
+      "resolver",
+      "semantics",
+      "provider",
+      ...(name === "postgres" ? ["extensions"] : []),
+    ])
       for (const suffix of [".js", ".d.ts", ".js.map", ".d.ts.map"])
         await rm(join(grammar, `${module}${suffix}`), { force: true });
   }
   await writeFile(join(consumer, "runtime-grammars.json"), JSON.stringify(grammars));
+  await writeFile(join(consumer, "runtime-entrypoints.json"), JSON.stringify(runtimeEntries));
   const file = join(consumer, "runtime-without-catalogs.mjs");
   await writeFile(
     file,
     `
 import assert from "node:assert/strict";
 import {readFile} from "node:fs/promises";
-for (const grammar of JSON.parse(await readFile("./runtime-grammars.json","utf8"))) {
-  const runtime=await import("@typed-sql/"+grammar+"/runtime");
-  assert.ok(Object.keys(runtime).length,grammar+" runtime has no exports");
-
+for (const entry of JSON.parse(await readFile("./runtime-entrypoints.json","utf8"))) {
+  const runtime=await import(entry);
+  assert.ok(Object.keys(runtime).length,entry+" has no exports");
 }
+
 import {sql,defineQueryValuePlan,withQueryValuePlan} from "@typed-sql/postgres/tag";
 import {createPostgresDatabase} from "@typed-sql/postgres/runtime";
 import {calculateTypePolicyHash} from "@typed-sql/schema";

@@ -1,85 +1,30 @@
-import type {
-  DialectExtensionValue,
-  RoutineSnapshot,
-  SchemaSnapshot,
-  SchemaSnapshotV2,
-  TypeSnapshot,
-} from "@typed-sql/schema";
+import type { DialectExtensionValue, RoutineSnapshot, SchemaSnapshot, TypeSnapshot } from "@typed-sql/schema";
 import { defineSchemaSnapshotV2, upgradeSchemaSnapshotV1 } from "@typed-sql/schema";
 import { postgresCatalogCast } from "./catalog/index.js";
 
-export const POSTGRES_EXTENSION_MANIFEST_FORMAT_VERSION = 1 as const;
+import {
+  POSTGRES_EXTENSION_MANIFEST_FORMAT_VERSION,
+  type PostgresExtensionCast,
+  type PostgresExtensionCodec,
+  type PostgresExtensionIssue,
+  type PostgresExtensionManifest,
+  type PostgresExtensionOperator,
+  type PostgresExtensionQueryable,
+  PostgresExtensionResolutionError,
+  type ResolvedPostgresExtensions,
+} from "./extension-contracts.js";
 
-export interface PostgresExtensionOperator {
-  readonly name: string;
-  readonly argumentTypes: readonly [string] | readonly [string, string];
-  readonly resultType: string;
-}
-
-export interface PostgresExtensionCast {
-  readonly sourceType: string;
-  readonly targetType: string;
-  readonly context: "explicit" | "assignment" | "implicit";
-}
-
-export interface PostgresExtensionCodec<Value = unknown, Encoded = unknown> {
-  readonly databaseType: string;
-  readonly decode: (value: unknown) => Value;
-  readonly encode?: (value: Value) => Encoded;
-}
-
-export interface PostgresExtensionQueryable {
-  query<Row extends Record<string, unknown>>(
-    text: string,
-    values?: readonly unknown[],
-  ): Promise<{ readonly rows: readonly Row[] }>;
-}
-
-export interface PostgresExtensionContribution {
-  readonly types?: readonly TypeSnapshot[];
-  readonly routines?: readonly RoutineSnapshot[];
-}
-
-export interface PostgresExtensionManifest {
-  readonly formatVersion: typeof POSTGRES_EXTENSION_MANIFEST_FORMAT_VERSION;
-  readonly name: string;
-  readonly supportedVersions: readonly string[];
-  readonly revision: string;
-  readonly types?: readonly TypeSnapshot[];
-  readonly routines?: readonly RoutineSnapshot[];
-  readonly operators?: readonly PostgresExtensionOperator[];
-  readonly casts?: readonly PostgresExtensionCast[];
-  readonly codecs?: readonly PostgresExtensionCodec[];
-  readonly introspect?: (
-    client: PostgresExtensionQueryable,
-    installedVersion: string,
-  ) => Promise<PostgresExtensionContribution>;
-}
-
-export interface PostgresExtensionIssue {
-  readonly code: "TSQ403" | "TSQ407";
-  readonly message: string;
-}
-
-export interface ResolvedPostgresExtensions {
-  readonly snapshot: SchemaSnapshotV2;
-  readonly active: readonly {
-    readonly manifest: PostgresExtensionManifest;
-    readonly installedVersion: string;
-  }[];
-  readonly codecs: ReadonlyMap<string, PostgresExtensionCodec>;
-  readonly issues: readonly PostgresExtensionIssue[];
-}
-
-export class PostgresExtensionResolutionError extends Error {
-  readonly issues: readonly PostgresExtensionIssue[];
-
-  constructor(issues: readonly PostgresExtensionIssue[]) {
-    super(issues.map(({ code, message }) => `${code}: ${message}`).join("; "));
-    this.name = "PostgresExtensionResolutionError";
-    this.issues = issues;
-  }
-}
+export type {
+  PostgresExtensionCast,
+  PostgresExtensionCodec,
+  PostgresExtensionContribution,
+  PostgresExtensionIssue,
+  PostgresExtensionManifest,
+  PostgresExtensionOperator,
+  PostgresExtensionQueryable,
+  ResolvedPostgresExtensions,
+} from "./extension-contracts.js";
+export { POSTGRES_EXTENSION_MANIFEST_FORMAT_VERSION, PostgresExtensionResolutionError } from "./extension-contracts.js";
 
 interface SerializedOperator {
   readonly name: string;

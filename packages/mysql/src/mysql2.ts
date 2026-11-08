@@ -11,7 +11,8 @@ import type { Connection as CallbackConnection, Query as CallbackQuery } from "m
 import type { FieldPacket, Pool, PoolConnection, PoolOptions } from "mysql2/promise";
 import { mySqlServerEvidence } from "./capabilities.js";
 import type { MySqlSchemaSnapshot } from "./index.js";
-import { type MySqlQueryable, MySqlSchemaProvider } from "./provider.js";
+import type { MySqlQueryable } from "./provider-contracts.js";
+
 import {
   createMySqlDatabase,
   type MySqlConnectionLike,
@@ -812,6 +813,7 @@ export async function createMySql2Database(options: MySql2Options): Promise<MySq
 export function mysql2(options: MySql2SchemaProviderOptions): { introspect(): Promise<MySqlSchemaSnapshot> } {
   return {
     async introspect(): Promise<MySqlSchemaSnapshot> {
+      const { MySqlSchemaProvider } = await import("./provider.js");
       if (options.client !== undefined) {
         return (await new MySqlSchemaProvider({
           client: options.client,

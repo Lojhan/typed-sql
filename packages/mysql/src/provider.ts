@@ -14,6 +14,13 @@ import {
 import { mySqlServerEvidence } from "./capabilities.js";
 import { mySqlCoreCatalogForSchema } from "./catalog/index.js";
 import { parseSelect } from "./parser/index.js";
+import type {
+  MySqlIntrospectionCatalog,
+  MySqlIntrospectionDiagnostic,
+  MySqlIntrospectionResult,
+  MySqlQueryable,
+  MySqlSchemaProviderOptions,
+} from "./provider-contracts.js";
 import {
   defaultMySqlTypePolicy,
   type MySqlTypePolicy,
@@ -23,33 +30,14 @@ import {
 } from "./type-policy.js";
 import { MYSQL_DIALECT_VERSION } from "./version.js";
 
-export interface MySqlQueryResult<Row extends Record<string, unknown> = Record<string, unknown>> {
-  readonly rows: readonly Row[];
-}
-
-export interface MySqlQueryable {
-  query<Row extends Record<string, unknown>>(sql: string, values?: readonly unknown[]): Promise<MySqlQueryResult<Row>>;
-}
-
-export interface MySqlSchemaProviderOptions {
-  readonly client?: MySqlQueryable;
-  readonly includeSchemas?: readonly string[];
-  readonly typePolicy?: MySqlTypePolicy;
-}
-
-export type MySqlIntrospectionCatalog = "schemas" | "columns" | "routines" | "parameters" | "constraints" | "indexes";
-
-export interface MySqlIntrospectionDiagnostic {
-  readonly code: "TSQ406";
-  readonly severity: "warning";
-  readonly catalog: MySqlIntrospectionCatalog;
-  readonly message: string;
-}
-
-export interface MySqlIntrospectionResult {
-  readonly snapshot: SchemaSnapshotV2;
-  readonly diagnostics: readonly MySqlIntrospectionDiagnostic[];
-}
+export type {
+  MySqlIntrospectionCatalog,
+  MySqlIntrospectionDiagnostic,
+  MySqlIntrospectionResult,
+  MySqlQueryable,
+  MySqlQueryResult,
+  MySqlSchemaProviderOptions,
+} from "./provider-contracts.js";
 
 interface VersionRow extends Record<string, unknown> {
   readonly server_version: string;

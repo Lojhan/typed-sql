@@ -28,7 +28,10 @@
     "access": "public"
   },
   "typedSql": {
-    "releaseTrack": "stable"
+    "releaseTrack": "stable",
+    "developmentEntrypoints": [
+      "./analysis"
+    ]
   },
   "sideEffects": false,
   "type": "module",

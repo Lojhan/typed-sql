@@ -8,7 +8,8 @@ import { calculateTypePolicyHash } from "@typed-sql/schema";
 import { assertSqlServerRuntimeEvidence } from "./capabilities.js";
 import { parseSqlServerNativeType, requireSqlServerNativeType } from "./native-types.js";
 import { parseStatement, tokenize } from "./parser/index.js";
-import { readSqlServerServerEvidence, type SqlServerQueryable } from "./provider.js";
+import type { SqlServerQueryable } from "./provider-contracts.js";
+import { readSqlServerServerEvidence } from "./server-evidence.js";
 import { defaultSqlServerTypePolicy, type SqlServerTypePolicy, validateSqlServerTypePolicy } from "./type-policy.js";
 
 /** Each acquisition must exclusively own one physical session until release/discard. */

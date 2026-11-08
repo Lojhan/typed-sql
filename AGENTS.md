@@ -76,7 +76,9 @@ TYPED_SQL_CONTAINER_ENGINE=podman pnpm e2e:packed
 - Assert inferred row types, ordered parameter tuples, diagnostics, and source spans together.
 - Compiler-critical packages enforce their coverage thresholds through the Poku c8 integration.
 - Package-boundary changes must keep packed-consumer, forbidden-driver, and public-API contracts
-  green.
+  green. Grammar manifests classify explicit development-only exports under
+  `typedSql.developmentEntrypoints`; other public exports participate in the packed runtime audit
+  with semantic catalogs and introspection implementations absent.
 - Performance-sensitive scanner, resolver, compiler, and query-rendering changes must satisfy
   `performance-budgets.json`. Budget overrides describe known CI classes; they do not excuse a
   regression.

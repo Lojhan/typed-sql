@@ -28,7 +28,12 @@
     "access": "public"
   },
   "typedSql": {
-    "releaseTrack": "stable"
+    "releaseTrack": "stable",
+    "developmentEntrypoints": [
+      "./analysis",
+      "./reconciliation",
+      "./migrations"
+    ]
   },
   "sideEffects": false,
   "type": "module",

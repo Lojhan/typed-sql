@@ -1,3 +1,7 @@
+import { flag, integer, readSqlServerServerEvidence, sqlServerServerQueries, text } from "./server-evidence.js";
+
+export { readSqlServerServerEvidence } from "./server-evidence.js";
+
 import {
   type ColumnSnapshotV2,
   type ConstraintSnapshot,
@@ -12,27 +16,16 @@ import {
   type SchemaSnapshotV2,
   type TypeSnapshot,
 } from "@typed-sql/schema";
-import { sqlServerServerEvidence } from "./capabilities.js";
 import { parseSqlServerNativeType } from "./native-types.js";
-import {
-  defaultSqlServerTypePolicy,
-  mapSqlServerType,
-  type SqlServerTypePolicy,
-  validateSqlServerTypePolicy,
-} from "./type-policy.js";
+import type { SqlServerSchemaProviderOptions } from "./provider-contracts.js";
+import { defaultSqlServerTypePolicy, mapSqlServerType, validateSqlServerTypePolicy } from "./type-policy.js";
 import { SQLSERVER_DIALECT_VERSION } from "./version.js";
-export interface SqlServerQueryable {
-  all<Row extends Record<string, unknown>>(sql: string, values?: readonly unknown[]): Promise<readonly Row[]>;
-}
-export interface SqlServerSchemaProviderOptions {
-  readonly client?: SqlServerQueryable;
-  readonly includeSchemas?: readonly string[];
-  readonly typePolicy?: SqlServerTypePolicy;
-}
+
+export type { SqlServerQueryable, SqlServerSchemaProviderOptions } from "./provider-contracts.js";
+
 /** Queries use only catalog columns present at the SQL Server 2017 floor. Definitions are hashed locally. */
 export const sqlServerCatalogQueries = Object.freeze({
-  server: `SELECT CONVERT(nvarchar(128),SERVERPROPERTY('ProductVersion')) AS version,CONVERT(nvarchar(128),SERVERPROPERTY('Edition')) AS edition,CONVERT(int,SERVERPROPERTY('EngineEdition')) AS engine_edition,DB_NAME() AS database_name,SCHEMA_NAME() AS default_schema,d.compatibility_level,d.collation_name,CONVERT(int,SESSIONPROPERTY('QUOTED_IDENTIFIER')) AS quoted_identifier,CONVERT(int,SESSIONPROPERTY('ANSI_WARNINGS')) AS ansi_warnings,CONVERT(int,SESSIONPROPERTY('ARITHABORT')) AS arith_abort,CONVERT(int,SESSIONPROPERTY('CONCAT_NULL_YIELDS_NULL')) AS concat_null_on,@@DATEFIRST AS date_first,@@LANGUAGE AS language,CONVERT(int,HAS_PERMS_BY_NAME(DB_NAME(),'DATABASE','VIEW DEFINITION')) AS can_view_definition FROM sys.databases d WHERE d.database_id=DB_ID()`,
-  options: "DBCC USEROPTIONS WITH NO_INFOMSGS",
+  ...sqlServerServerQueries,
   schemas:
     "SELECT name FROM sys.schemas WHERE schema_id<16384 AND name NOT IN ('sys','INFORMATION_SCHEMA') ORDER BY name",
   types: `SELECT s.name AS schema_name,t.name AS type_name,t.user_type_id,t.system_type_id,t.is_user_defined,t.is_assembly_type,t.is_table_type,b.name AS base_name,t.max_length,t.precision,t.scale,t.is_nullable,t.default_object_id,t.rule_object_id,OBJECT_DEFINITION(NULLIF(t.default_object_id,0)) AS bound_default_expression,OBJECT_DEFINITION(NULLIF(t.rule_object_id,0)) AS bound_rule_expression FROM sys.types t JOIN sys.schemas s ON s.schema_id=t.schema_id LEFT JOIN sys.types b ON b.user_type_id=t.system_type_id AND b.user_type_id=b.system_type_id ORDER BY s.name,t.name`,
@@ -44,25 +37,6 @@ export const sqlServerCatalogQueries = Object.freeze({
   parameters: `SELECT p.object_id,p.parameter_id,p.name AS parameter_name,p.user_type_id,p.system_type_id,p.max_length,p.precision,p.scale,p.is_output,p.is_readonly,p.has_default_value FROM sys.parameters p JOIN sys.objects o ON o.object_id=p.object_id WHERE o.is_ms_shipped=0 ORDER BY p.object_id,p.parameter_id`,
 });
 type Row = Record<string, unknown>;
-const text = (row: Row, key: string): string => {
-  const value = row[key];
-  if (typeof value !== "string" || value.length > 1024 * 1024)
-    throw new TypeError(`SQL Server catalog ${key} must be bounded text`);
-  return value;
-};
-const integer = (row: Row, key: string): number => {
-  const value = row[key];
-  const number =
-    typeof value === "number" ? value : typeof value === "string" && /^-?\d+$/u.test(value) ? Number(value) : NaN;
-  if (!Number.isSafeInteger(number)) throw new TypeError(`SQL Server catalog ${key} must be a safe integer`);
-  return number;
-};
-const flag = (row: Row, key: string): boolean => {
-  const value = row[key];
-  if (value === true || value === 1 || value === "1") return true;
-  if (value === false || value === 0 || value === "0") return false;
-  throw new TypeError(`SQL Server catalog ${key} must be Boolean`);
-};
 const optionalText = (row: Row, key: string): string | undefined =>
   row[key] === null || row[key] === undefined ? undefined : text(row, key);
 const identity = (schema: string, name: string) => `${schema}.${name}`;
@@ -91,34 +65,6 @@ const action = (value: unknown): ForeignKeyAction =>
   (({ NO_ACTION: "no-action", CASCADE: "cascade", SET_NULL: "set-null", SET_DEFAULT: "set-default" }) as const)[
     String(value) as "NO_ACTION"
   ] ?? "unknown";
-export async function readSqlServerServerEvidence(client: SqlServerQueryable) {
-  const version = (await client.all(sqlServerCatalogQueries.server))[0];
-  if (!version) throw new TypeError("SQL Server introspection returned no server evidence");
-  const userOptions = await client.all(sqlServerCatalogQueries.options);
-  const option = (name: string) => {
-    const row = userOptions.find(
-      (row) => String(row.SetOption ?? row.set_option ?? row["Set Option"]).toLowerCase() === name,
-    );
-    if (!row) throw new TypeError(`SQL Server session option ${name} is unavailable`);
-    return String(row.Value ?? row.value);
-  };
-  const server = sqlServerServerEvidence(text(version, "version"), {
-    compatibilityLevel: integer(version, "compatibility_level"),
-    collation: text(version, "collation_name"),
-    defaultSchema: text(version, "default_schema"),
-    quotedIdentifier: flag(version, "quoted_identifier"),
-    ansiWarnings: flag(version, "ansi_warnings"),
-    arithAbort: flag(version, "arith_abort"),
-    concatNullYieldsNull: flag(version, "concat_null_on"),
-    dateFirst: integer(version, "date_first"),
-    dateFormat: option("dateformat"),
-    language: text(version, "language"),
-    databaseName: text(version, "database_name"),
-    edition: text(version, "edition"),
-    engineEdition: integer(version, "engine_edition"),
-  });
-  return { server, canViewDefinition: flag(version, "can_view_definition") };
-}
 export class SqlServerSchemaProvider implements SchemaProvider<SchemaSnapshotV2 & { readonly dialect: "sqlserver" }> {
   readonly #options: SqlServerSchemaProviderOptions;
   constructor(options: SqlServerSchemaProviderOptions = {}) {
