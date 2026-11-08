@@ -1,19 +1,9 @@
 {
   "status": "committed-inputs",
-  "baseRevision": "8e2947fb3d972381e902dab5d44effbb28beefeb",
+  "baseRevision": "267085ca6ae0f47c9a4904e5a218a7f151bc08df",
   "baselineRevision": "417c1d3020b2655dc798ac220bc8de31fa3a7e08",
   "baselineSourceDigest": "caa505d567d23a1dd4ea1b809a998cafc79ac5b182be95b2392259f3e4b9a359",
-  "tool": {
-    "name": "esbuild",
-    "version": "0.28.2",
-    "digest": "660b9dbb5388ef3434972ebcc8e4164ec0dab332fb158435ccf73c061abf88a7"
-  },
-  "nodeVersion": "v24.22.2",
   "scope": "Exported analyzer factory footprint; selected factories retain only their native and core version profiles. Not an application workload, installation-size reduction, compact-core claim or complete engine inventory.",
-  "platform": "node",
-  "target": "es2022",
-  "gzipLevel": 9,
-  "brotliQuality": 11,
   "parity": [
     {
       "major": 14,
@@ -58,23 +48,31 @@
       "currentDigest": "28186356932da12a740823baa19ac106458417f71f4c8b20806c5dda84beecf4"
     }
   ],
+  "tool": {
+    "name": "esbuild",
+    "version": "0.28.2",
+    "digest": "c0cafa331a35668ab7a3d2207fb6b58f17585ac534750d184357b05266a9e7ef"
+  },
+  "nodeVersion": "v24.22.2",
+  "platform": "node",
+  "target": "es2022",
+  "gzipLevel": 9,
+  "brotliQuality": 11,
   "rows": [
     {
       "scenario": "runtimeRoot",
       "minified": 17767,
       "gzip": 5645,
       "brotli": 5102,
+      "catalogInputs": [],
       "nativeProfiles": [],
-      "typeProfiles": [],
-      "catalogInputs": []
+      "typeProfiles": []
     },
     {
       "scenario": "compatibility",
       "minified": 1690274,
       "gzip": 179392,
       "brotli": 103302,
-      "nativeProfiles": [14, 15, 16, 17, 18, 19],
-      "typeProfiles": [14, 15, 16, 17, 18, 19],
       "catalogInputs": [
         {
           "path": "packages/core/src/catalog/arguments.ts",
@@ -232,15 +230,15 @@
           "path": "packages/postgres/src/catalog/index.ts",
           "bytes": 187
         }
-      ]
+      ],
+      "nativeProfiles": [14, 15, 16, 17, 18, 19],
+      "typeProfiles": [14, 15, 16, 17, 18, 19]
     },
     {
       "scenario": "selected14",
       "minified": 1303808,
       "gzip": 124304,
       "brotli": 95966,
-      "nativeProfiles": [14],
-      "typeProfiles": [14],
       "catalogInputs": [
         {
           "path": "packages/core/src/catalog/arguments.ts",
@@ -290,15 +288,15 @@
           "path": "packages/postgres/src/catalog/generated/14.ts",
           "bytes": 23727
         }
-      ]
+      ],
+      "nativeProfiles": [14],
+      "typeProfiles": [14]
     },
     {
       "scenario": "selected15",
       "minified": 1320605,
       "gzip": 125506,
       "brotli": 96758,
-      "nativeProfiles": [15],
-      "typeProfiles": [15],
       "catalogInputs": [
         {
           "path": "packages/core/src/catalog/arguments.ts",
@@ -360,15 +358,15 @@
           "path": "packages/postgres/src/catalog/generated/15.ts",
           "bytes": 23659
         }
-      ]
+      ],
+      "nativeProfiles": [15],
+      "typeProfiles": [15]
     },
     {
       "scenario": "selected16",
       "minified": 1340035,
       "gzip": 126822,
       "brotli": 97650,
-      "nativeProfiles": [16],
-      "typeProfiles": [16],
       "catalogInputs": [
         {
           "path": "packages/core/src/catalog/arguments.ts",
@@ -438,15 +436,15 @@
           "path": "packages/postgres/src/catalog/generated/16.ts",
           "bytes": 23659
         }
-      ]
+      ],
+      "nativeProfiles": [16],
+      "typeProfiles": [16]
     },
     {
       "scenario": "selected17",
       "minified": 1350797,
       "gzip": 127722,
       "brotli": 98145,
-      "nativeProfiles": [17],
-      "typeProfiles": [17],
       "catalogInputs": [
         {
           "path": "packages/core/src/catalog/arguments.ts",
@@ -520,15 +518,15 @@
           "path": "packages/postgres/src/catalog/generated/17.ts",
           "bytes": 23659
         }
-      ]
+      ],
+      "nativeProfiles": [17],
+      "typeProfiles": [17]
     },
     {
       "scenario": "selected18",
       "minified": 1378491,
       "gzip": 129723,
       "brotli": 99724,
-      "nativeProfiles": [18],
-      "typeProfiles": [18],
       "catalogInputs": [
         {
           "path": "packages/core/src/catalog/arguments.ts",
@@ -594,15 +592,15 @@
           "path": "packages/postgres/src/catalog/generated/18.ts",
           "bytes": 24085
         }
-      ]
+      ],
+      "nativeProfiles": [18],
+      "typeProfiles": [18]
     },
     {
       "scenario": "selected19",
       "minified": 1380205,
       "gzip": 130768,
       "brotli": 100708,
-      "nativeProfiles": [19],
-      "typeProfiles": [19],
       "catalogInputs": [
         {
           "path": "packages/core/src/catalog/arguments.ts",
@@ -652,7 +650,9 @@
           "path": "packages/postgres/src/catalog/generated/19.ts",
           "bytes": 24221
         }
-      ]
+      ],
+      "nativeProfiles": [19],
+      "typeProfiles": [19]
     }
   ],
   "inputDigests": {
@@ -782,6 +782,7 @@
     "packages/schema/src/v1/upgrade.ts": "735c07034064519bc0a5bff8d1b1143538790c7ae20897f4067bc773c217b346",
     "packages/schema/src/v2/codec.ts": "72a315a3bb28f25b70b0f3bdead5605b3635f272d0ffa041620a7f1b3d9c7bda",
     "packages/schema/src/v2/model.ts": "4377b06fb950972480c44f3be19731c297028ba8295c5f37ab9f3d8ff99e388f",
-    "planning/hybrid-analysis/measure-selected-postgres.mjs": "660b9dbb5388ef3434972ebcc8e4164ec0dab332fb158435ccf73c061abf88a7"
+    "planning/hybrid-analysis/measure-selected-postgres.mjs": "c0cafa331a35668ab7a3d2207fb6b58f17585ac534750d184357b05266a9e7ef",
+    "planning/hybrid-analysis/selected-measurement.mjs": "ef6c16e9838aed7782a6461d8f61d160b6eaf2ea951e322afb979806ffb4fc3b"
   }
 }

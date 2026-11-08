@@ -771,6 +771,12 @@ Unrelated planning work is left unchanged.
 - Shared measurement tooling records source digests, pinned data parity and consistent minified,
   gzip and Brotli settings for PostgreSQL and DuckDB. These measurements do not claim application
   workload savings or an npm installation-size reduction.
+- Committed-input measurements at `267085ca` preserve both original generated DuckDB profiles
+  byte-for-byte at the semantic export level. The compatibility factory is 1,374,100 minified /
+  103,822 gzip / 61,356 Brotli bytes. Selected 1.5.6 is 734,277 / 68,516 / 54,494 (34.0% less gzip);
+  selected 2.0.0 is 764,695 / 71,746 / 56,926 (30.9% less gzip). The runtime-root sample remains
+  17,864 / 5,660 / 5,113. PostgreSQL measurements retain their previous values after sharing the
+  measurement harness. See `duckdb-selected-measurements.json` and `postgres-selected-measurements.json`.
 - Full semantic catalogs still ship. Compact cores, optional packs, other selected grammars and
   all-engine query-contract qualification remain required.
 
