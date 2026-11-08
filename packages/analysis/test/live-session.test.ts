@@ -314,7 +314,7 @@ await describe("project live session", async () => {
         () => false,
         (error) => error instanceof LiveContextUnavailableError,
       );
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    // No unrelated timer keeps the process alive: the owned context deadline must settle this request.
     strict.equal(await pending, true);
     strict.equal(calls, 1);
     strict.equal(session.status().activePreparations, 0);

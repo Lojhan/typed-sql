@@ -201,7 +201,10 @@ try {
 
   await describe("developer PostgreSQL flow", async () => {
     await it("qualifies native query contracts within the adapter's declared version scope", async () => {
-      await assertPostgresNativeContracts(connectionString, process.cwd());
+      await assertPostgresNativeContracts(
+        connectionString,
+        resolve(dirname(fileURLToPath(import.meta.url)), "../../.."),
+      );
     });
     await it("enforces attached value plans through actual pg buffered, prepared, pipeline and cursor paths", async () => {
       const database = await createPgDatabase({

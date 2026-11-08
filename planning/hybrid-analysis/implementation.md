@@ -524,6 +524,28 @@ Unrelated planning work is left unchanged.
   contextual extraction requirement. This is an incremental profile boundary, not lightweight-root
   migration, native transport qualification or removal of bulk generated semantic catalogs.
 
+## CI fixture and live deadline follow-up
+
+- CI at `1e342f1f` reports a successful CodeQL check but is not green overall. Source verification
+  exposed a noncooperative context-read request whose `AbortSignal.timeout` timer did not keep Node
+  alive; an unrelated test timer could hide it locally. Context requests now own referenced deadline
+  timers and clear them after settlement. The regression awaits the request without an unrelated
+  timer. All 15 analysis test files pass (98.45% lines, 99.34% functions, 93.14% branches).
+- The editor host's independent packed installer and real-database packed fixture omitted the new
+  analysis dependency. Both now discover workspace production dependency closures instead of requiring
+  every transitive package to be declared manually. Editor grammar roots come from the feature ledger.
+  The actual editor installer smoke packs/installs 16 local archives including analysis; editor/package
+  boundary contracts pass. Full Electron and real-database matrix reruns remain separate evidence.
+- PostgreSQL's native-contract E2E caller now derives the repository path from its file URL rather
+  than the package working directory. The complete restricted PostgreSQL native/cache/editor/CLI
+  proof passes when invoked from the E2E package directory. This does not qualify other engines.
+- Added an unknown-preserving declaration for the shared metadata canonicalizer so the complete
+  packed E2E TypeScript input closure can be checked; that check now passes. Root incremental
+  TypeScript build and quality also pass.
+- Remote build integrations still report SQL-asset declaration conflicts; native SQL Server and
+  other failing CI lanes need independent investigation. These local fixes do not certify remote
+  matrix success, full architecture acceptance or bulk catalog removal.
+
 ## Required work still open
 
 1. Complete the contract/evidence model: native descriptors and provenance, reusable/facet-specific

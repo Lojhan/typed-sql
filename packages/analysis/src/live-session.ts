@@ -155,9 +155,21 @@ export function createLiveContractSession<Snapshot extends SchemaSnapshot, Polic
     )
       checkedAt = undefined;
     if (contextFailure && (observation || now() < contextFailure.retryAt)) throw contextFailure.error;
-    const deadline = AbortSignal.any([lifetime.signal, AbortSignal.timeout(input.live.deadlineMs ?? 5000)]);
-    if (observation) return untilAbort(observation, deadline);
-    if (selected && checkedAt !== undefined && now() - checkedAt < interval) return selected;
+    if (!observation && selected && checkedAt !== undefined && now() - checkedAt < interval) return selected;
+    const timeout = new AbortController();
+    // A pending request owns this deadline; it must settle even when no socket or other work keeps Node alive.
+    const timer = setTimeout(
+      () => timeout.abort(new Error("Live context deadline exceeded")),
+      input.live.deadlineMs ?? 5000,
+    );
+    const deadline = AbortSignal.any([lifetime.signal, timeout.signal]);
+    if (observation) {
+      try {
+        return await untilAbort(observation, deadline);
+      } finally {
+        clearTimeout(timer);
+      }
+    }
     observation = (async () => {
       const owned = await services();
       async function remote() {
@@ -251,6 +263,8 @@ export function createLiveContractSession<Snapshot extends SchemaSnapshot, Polic
         throw failure;
       }
       throw error;
+    } finally {
+      clearTimeout(timer);
     }
   }
   async function sharedScheduler(options: LiveAnalysisSchedulerOptions): Promise<LiveAnalysisScheduler> {
