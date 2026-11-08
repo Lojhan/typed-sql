@@ -740,6 +740,11 @@ Unrelated planning work is left unchanged.
   90.52% branch and 97.68% function coverage; all 68 repository contracts including physically
   stripped selected consumers; quality; production documentation; the complete restricted real
   PostgreSQL native/editor/watch/offline/packed frozen proof; and the isolated performance gate.
+- Committed-input measurements at `8e2947fb` retain exactly one native and one core profile
+  per selected graph. PostgreSQL 18 is 1,378,491 minified bytes / 129,723 gzip / 99,724 Brotli;
+  compatibility is 1,690,274 / 179,392 / 103,302 respectively. The selected factory is 27.7%
+  smaller gzipped than compatibility. The runtime-root sample remains 17,767 / 5,645 / 5,102.
+  These are factory footprints, not application workload or installed-size savings.
 - This removes unselected core data from selected analyzer graphs. Full compatibility data still
   ships in npm; compact common-function cores, optional packs and bulk deletion remain required.
 
