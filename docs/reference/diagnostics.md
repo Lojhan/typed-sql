@@ -58,7 +58,7 @@ Automation should depend on diagnostic codes and source ranges, not English mess
 | `TSQ403` | The recorded server version is outside the supported range. |
 | `TSQ404` | The SQL feature is newer than the recorded server version. |
 | `TSQ405` | The SQL feature was removed before the recorded server version. |
-| `TSQ406` | A required server feature, setting, or capability declaration is absent. |
+| `TSQ406` | Required server evidence, capability declarations or matching qualified query contracts are unavailable. |
 | `TSQ407` | Recorded server settings make SQL behavior ambiguous. |
 | `TSQ500` | Live database metadata differs from compiler evidence. |
 | `TSQ501` | A query could not be verified safely or completely. |

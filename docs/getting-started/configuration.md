@@ -119,6 +119,32 @@ Setting `analysis.mode` to `"frozen"` also selects this path without the flag. T
 `loadAnalyzer` callback remains unloaded during frozen checking. SQL-file imports receive
 in-memory factory declarations, so checking does not write adjacent declaration files.
 
+## Offline checks and recorded cache reuse
+
+`typed-sql check --offline` overrides a configured live or frozen preference and never initiates
+native acquisition. With an `analysis` configuration, omitted `mode` defaults to `"offline"`.
+Matching durable contracts supply the query types before the analyzer loads. In hybrid qualification
+mode, an uncovered query loads the registered analyzer and uses its ordinary conservative analysis.
+A native-required miss reports missing evidence instead of substituting an unqualified static type.
+
+An optional `analysis.cache` enables reuse of disposable qualified query evidence:
+
+| Field | Responsibility |
+| --- | --- |
+| `connectionContext` | A SHA-256 identity for the explicitly selected database target and authorization scope |
+| `adapter.id`, `adapter.version` | The installed native adapter's compatibility identity |
+| `directory` | Optional cache root, relative to the config; defaults to `.typed-sql/cache/analysis/v1` |
+
+Keep target identities distinct across endpoints and authorization scopes. Supply adapter revisions
+from the installed adapter owner; PostgreSQL exports `postgresContractAdapterVersion` through
+`@typed-sql/postgres/contract-profile`. These keys supplement the recorded context, schema, decoding,
+interpreter and qualification identities; they do not replace them.
+
+Cache lookup needs the rendered SQL and configured identities, without an analyzer claim or a
+database roundtrip. A hit establishes compatibility with the recorded context and leaves current
+remote freshness unverified. Known rejection, conflict or stale-context evidence blocks reuse;
+a transport outage does not overwrite a valid recorded result. Frozen checks ignore this cache.
+
 ## Production profile
 
 The following complete PostgreSQL profile starts from the same minimum and enables each artifact

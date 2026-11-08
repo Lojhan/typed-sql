@@ -91,3 +91,21 @@ metadata. A custom type's mapping in the supplied schema does not establish inde
 representation evidence. Custom/opaque runtime types remain unavailable in this adapter.
 The bundle table above records the earlier source checkpoint; it is not a new size measurement
 of this additional qualification machinery.
+
+## Offline CLI and persistent producer update
+
+The real acquisition also runs through the bounded live scheduler with a persistent producer.
+The producer validates independently acquired evidence before fenced publication, and the cache
+reopens it using exact recorded query/context identities without recreating an analyzer claim.
+
+The helper hides the durable contract directory and runs the actual compiled CLI with `--offline`.
+It obtains the otherwise unknown function's bigint result/parameter types from the cache while
+analyzer and schema-provider factories throw if invoked. This proves cache-only compiler input;
+it does not assert current remote freshness or that the database is unreachable at that point.
+Known context change then retires disposable evidence and rejects the earlier producer token.
+
+After native clients close, the actual `--frozen` CLI checks the separately exported qualified
+closure. A fresh distribution-only process also uses the high-level frozen loader with analyzer,
+catalog and driver files removed and JavaScript network traps installed. The CLI itself has not
+yet been qualified inside that physically stripped installation. These remain expression-query
+proofs for the declared PostgreSQL transport scope, not all-engine or whole-grammar qualification.

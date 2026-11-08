@@ -9,13 +9,22 @@ import {
   type AnalysisCacheToken,
   type LiveAnalysisOutcome,
   openAnalysisCache,
+  parseStaticQueryClaim,
   queryContractDigest,
+  type RecordedAnalysisQuery,
 } from "../src/index.js";
 import { fixture, hash, runner } from "./helpers/live-fixture.js";
 
 const run = promisify(execFile);
 const signal = () => new AbortController().signal;
 const negative: LiveAnalysisOutcome = { kind: "rejected", code: "invalid-query" };
+const recorded = (request = fixture()): RecordedAnalysisQuery => ({
+  candidate: request.candidate,
+  context: request.staticClaim.context,
+  adapter: request.adapter,
+  connectionContext: request.connectionContext,
+  policy: request.policy,
+});
 async function temporary(test: (directory: string) => Promise<void>) {
   const directory = await mkdtemp(join(tmpdir(), "typed-sql-analysis-cache-"));
   try {
@@ -64,6 +73,55 @@ const child = async (
 };
 
 await describe("owned disposable analysis cache", async () => {
+  await it("looks up exact recorded contracts before loading an analyzer and fences changed static claims", async () => {
+    await temporary(async (directory) => {
+      const cache = await openAnalysisCache({ directory, workspaceContext: hash });
+      const request = fixture();
+      const cold = await cache.lookupRecorded(recorded(request));
+      strict.equal(cold.cached, undefined);
+      const outcome = await runner(request, signal());
+      strict.equal((await cache.publish({ token: cold.token, request, outcome })).status, "published");
+      const hit = await cache.lookupRecorded(recorded(request));
+      strict.equal(hit.cached?.outcome.kind, "usable-recorded-context");
+      strict.equal(hit.cached?.freshness, "unverified");
+      const { digest: _, ...claim } = request.staticClaim;
+      const body = { ...claim, diagnostics: [{ code: "TSQ999", severity: "warning" as const }] };
+      const changed = {
+        ...request,
+        staticClaim: parseStaticQueryClaim({ ...body, digest: queryContractDigest(body) }),
+      };
+      const fresh = await cache.lookup(changed);
+      strict.equal(fresh.cached?.outcome.kind, "partial", "A known changed static claim requires requalification");
+      strict.equal(
+        fresh.token.requestKey,
+        hit.token.requestKey,
+        "Same candidate shares one publication fence across claims",
+      );
+      strict.notEqual(fresh.token.epoch, hit.token.epoch);
+      strict.equal((await cache.lookupRecorded(recorded(request))).cached?.outcome.kind, "partial");
+      strict.equal(
+        (await cache.publish({ token: fresh.token, request: changed, outcome: negative })).status,
+        "published",
+      );
+      strict.equal((await cache.publish({ token: hit.token, request, outcome })).status, "superseded");
+      strict.deepEqual((await cache.lookupRecorded(recorded(request))).cached?.outcome, negative);
+      for (const query of [
+        { ...recorded(request), connectionContext: queryContractDigest("other endpoint") },
+        { ...recorded(request), adapter: { ...request.adapter, version: "2" } },
+        {
+          ...recorded(request),
+          context: { ...request.staticClaim.context, codecHash: queryContractDigest("other codec") },
+        },
+        { ...recorded(request), policy: { ...request.policy, requiredNativeFacets: [] } },
+        { ...recorded(request), candidate: { ...request.candidate, columnSpans: [] } },
+        recorded(fixture("SELECT 2 AS value")),
+      ])
+        strict.equal((await cache.lookupRecorded(query)).cached, undefined);
+      await cache.invalidate();
+      strict.equal((await cache.lookupRecorded(recorded(request))).cached, undefined);
+    });
+  });
+
   await it("reopens qualified evidence without a database and never persists source SQL or a fresh-remote claim", async () => {
     await temporary(async (directory) => {
       const cache = await openAnalysisCache({ directory, workspaceContext: hash, now: () => 1234 });
@@ -115,8 +173,15 @@ await describe("owned disposable analysis cache", async () => {
       const stale = { kind: "stale-context", code: "context-changed" } as const;
       await cache.publish({ token: (await cache.lookup(first)).token, request: first, outcome: stale });
       strict.deepEqual((await cache.lookup(first)).cached?.outcome, stale);
-      strict.equal((await cache.lookup(other)).cached, undefined);
+      strict.deepEqual((await cache.lookup(other)).cached?.outcome, stale);
       strict.equal((await cache.publish({ token: old.token, request: other, outcome: negative })).status, "superseded");
+      const fresh = await cache.lookup(other);
+      strict.equal(
+        (await cache.publish({ token: fresh.token, request: other, outcome: await runner(other, signal()) })).status,
+        "published",
+      );
+      strict.equal((await cache.lookup(other)).cached?.outcome.kind, "usable-recorded-context");
+      strict.equal((await cache.lookup(first)).cached, undefined);
     });
   });
   await it("stages immutable objects before publication and rejects interrupted or conflicting writes", async () => {

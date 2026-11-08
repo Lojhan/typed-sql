@@ -50,6 +50,33 @@ const contract = createQueryContract({
   },
 });
 await describe("explicit analysis configuration", async () => {
+  await it("validates sanitized cache target and adapter identities", () => {
+    const cache = { connectionContext: hash, adapter: { id: "vendor/native", version: "1" } };
+    strict.ok(Object.isFrozen(defineAnalysisConfiguration({ ...selected, cache }).cache));
+    strict.equal(
+      defineAnalysisConfiguration({ ...selected, cache: { ...cache, directory: ".typed-sql/cache/analysis/v1" } }).cache
+        ?.directory,
+      ".typed-sql/cache/analysis/v1",
+    );
+    for (const invalid of [
+      null,
+      [],
+      {},
+      { ...cache, extra: true },
+      { ...cache, connectionContext: 1 },
+      { ...cache, connectionContext: "invalid" },
+      { ...cache, directory: 1 },
+      { ...cache, directory: "" },
+      { ...cache, directory: "\0" },
+      { ...cache, adapter: null },
+      { ...cache, adapter: [] },
+      { ...cache, adapter: {} },
+      { ...cache, adapter: { id: "", version: "1" } },
+      { ...cache, adapter: { id: "x", version: 1 } },
+      { ...cache, adapter: { id: "x", version: "x".repeat(4097) } },
+    ])
+      strict.throws(() => defineAnalysisConfiguration({ ...selected, cache: invalid }), /cache configuration/u);
+  });
   await it("normalizes frozen data without evaluating executable declarations", () => {
     const result = defineAnalysisConfiguration(selected);
     strict.equal(result.mode, "offline");

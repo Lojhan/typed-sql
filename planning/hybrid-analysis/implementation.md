@@ -230,6 +230,42 @@ Unrelated planning work is left unchanged.
   generation/watch/editor integration, project-wide resource admission, all-engine qualification,
   and final physically stripped native CLI proofs remain required. Bulk catalogs still ship.
 
+## Offline host and persistent producer checkpoint
+
+- Added exact recorded-context cache lookup without an analyzer claim. Target/adapter, SQL,
+  parameter occurrences, context, codec/interpreter and qualification identities remain mandatory.
+  Live qualification and recorded lookup share contract compatibility validation.
+- Cache publication now fences the exact recorded candidate across competing static claims.
+  Discovering a changed static claim retires the old proof to a partial result and rotates the
+  epoch before returning a producer token. An outage cannot restore that superseded proof.
+  A stale-context tombstone blocks every query in that recorded context, including durable hits
+  in an offline host; fresh qualified acquisition can restore the context without resurrecting
+  its old entries. Known negatives remain conservative under storage admission pressure.
+- Added an explicitly persistent live producer. It always acquires fresh independent evidence
+  for explicit live work, publishes through fenced cache tokens, preserves matching recorded
+  evidence on transport outages, and refuses superseded publication or cancelled results.
+  The scheduler uses this producer in the real PostgreSQL proof; product live hosts remain open.
+- Added bounded offline contract-view preparation and actual `check --offline` selection.
+  Durable/cache hits keep the analyzer unloaded. Hybrid misses lazily resolve the configured
+  owner, retaining its runtime-type hook and analysis context; native-required misses cannot
+  acquire authority from an ordinary offline result. Known cached rejection/conflict/staleness
+  blocks optimistic fallback and reports a sanitized reason. Unexpected SQL outside the prepared
+  set and changed schema/policy inputs remain unavailable.
+- The CLI defaults analysis-aware configurations to offline mode and accepts explicit offline
+  overrides of live/frozen preferences. Frozen checking still ignores disposable storage. Local
+  cached contract lookup and TypeScript checking initiate no native connection or schema provider.
+- The real PostgreSQL proof now acquires through the persistent scheduler, reopens recorded
+  evidence without an analyzer claim, temporarily hides durable contracts and passes the actual
+  offline CLI using only its persisted native contract. Throwing analyzer/provider factories
+  guard this path. It then tests context invalidation and retains the disconnected durable and
+  physically stripped programmatic proofs independently.
+- Analysis and CLI tests, full typechecking/build, quality, documentation/API/package boundaries,
+  packed consumers, the native proof and the performance gate pass locally. Exact-head CI
+  remains separate evidence. Analysis coverage is 99.93% lines, 99.11% functions and 94.74% branches.
+- Live CLI/config/editor activation, batch query generation/export, freshness coordination,
+  project catalog storage, all-engine qualification, compact packs/root migration and generated
+  semantic catalog deletion remain required. This checkpoint does not complete that scope.
+
 ## Required work still open
 
 1. Complete the contract/evidence model: native descriptors and provenance, reusable/facet-specific

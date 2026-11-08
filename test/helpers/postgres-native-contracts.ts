@@ -1,5 +1,5 @@
 import { execFile as callback } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
@@ -11,6 +11,7 @@ import {
   createContractDialect,
   createLiveAnalysisScheduler,
   createNativeLiveAnalysisRunner,
+  createPersistentLiveAnalysisRunner,
   createStaticQueryClaim,
   exportQueryContracts,
   type LiveAnalysisState,
@@ -125,7 +126,7 @@ export async function assertPostgresNativeContracts(connectionString: string, di
     if (reconciled.status !== "qualified") throw Error("Native/static qualification was incomplete");
     const cacheOptions = {
       directory: join(temporary, ".typed-sql/cache/analysis/v1"),
-      workspaceContext: queryContractDigest("native-contract-proof-workspace"),
+      workspaceContext: queryContractDigest({ workspace: temporary, config: join(temporary, "typed-sql.config.mjs") }),
     };
     const cache = await openAnalysisCache(cacheOptions);
     const cacheRequest = {
@@ -138,7 +139,10 @@ export async function assertPostgresNativeContracts(connectionString: string, di
     const cacheToken = (await cache.lookup(cacheRequest)).token;
     const live = createLiveAnalysisScheduler({
       debounceMs: 0,
-      run: createNativeLiveAnalysisRunner({ adapter: native, contribution }),
+      run: createPersistentLiveAnalysisRunner({
+        cache,
+        run: createNativeLiveAnalysisRunner({ adapter: native, contribution }),
+      }),
     });
     try {
       const state = await new Promise<LiveAnalysisState>((resolve) => {
@@ -164,10 +168,16 @@ export async function assertPostgresNativeContracts(connectionString: string, di
       strict.equal(live.view.contracts.length, 1);
       strict.equal(
         (await cache.publish({ token: cacheToken, request: cacheRequest, outcome: state })).status,
-        "published",
+        "superseded",
       );
       const reopened = await openAnalysisCache(cacheOptions);
-      const cached = await reopened.lookup(cacheRequest);
+      const cached = await reopened.lookupRecorded({
+        candidate: cacheRequest.candidate,
+        context,
+        connectionContext: cacheRequest.connectionContext,
+        adapter: cacheRequest.adapter,
+        policy: qualification,
+      });
       strict.equal(cached.cached?.freshness, "unverified");
       strict.equal(cached.cached?.outcome.kind, "usable-recorded-context");
       if (cached.cached?.outcome.kind !== "usable-recorded-context") throw Error("Missing cached native contract");
@@ -218,6 +228,53 @@ export async function assertPostgresNativeContracts(connectionString: string, di
     const database = createPostgresDatabase({ pool: adaptPgPool(pool) });
     strict.deepEqual(await database.all(module.query(41n)), [{ result: 42n }]);
     strict.equal((await pool.query<{ count: number }>(`SELECT count FROM ${namespace}.calls`)).rows[0]!.count, 1);
+    // Exercise the product host with the real durable native closure, without allowing analyzer or database provider initialization.
+    await writeFile(join(temporary, "schema.json"), JSON.stringify(schema));
+    await writeFile(
+      join(temporary, "application.ts"),
+      application.replace('"@typed-sql/postgres"', '"@typed-sql/postgres/tag"'),
+    );
+    await writeFile(
+      join(temporary, "tsconfig.json"),
+      JSON.stringify({
+        compilerOptions: {
+          strict: true,
+          target: "ESNext",
+          module: "NodeNext",
+          moduleResolution: "NodeNext",
+          noEmit: true,
+        },
+        files: ["application.ts"],
+      }),
+    );
+    await writeFile(
+      join(temporary, "typed-sql.config.mjs"),
+      `
+import {defineConfig} from "@typed-sql/core";
+import {postgresProfile} from "@typed-sql/postgres/profile";
+import {postgresContractIdentity} from "@typed-sql/postgres/contract-profile";
+export default defineConfig({
+  dialect: {...postgresProfile(), loadAnalyzer(){throw Error("Frozen native proof initialized an analyzer");}},
+  schema: {file: "schema.json", provider: {introspect(){throw Error("Frozen native proof opened a provider");}}},
+  outDir: "generated", projects: ["tsconfig.json"],
+  analysis: {mode: "frozen", context: ${JSON.stringify(context)}, identity: postgresContractIdentity(),
+    cache: ${JSON.stringify({ connectionContext: cacheRequest.connectionContext, adapter: cacheRequest.adapter })},
+    contractsDir: "contracts", qualification: ${JSON.stringify(qualification)}}
+});`,
+    );
+    // Consume only persisted native evidence: hide durable inputs while checking offline.
+    await rename(durable, `${durable}-held`);
+    try {
+      const cachedCheck = await promisify(callback)(
+        process.execPath,
+        [join(directory, "packages/cli/dist/packages/cli/src/cli.js"), "check", "--offline", "--show-types"],
+        { cwd: temporary, maxBuffer: 8 * 1024 * 1024 },
+      );
+      strict.match(cachedCheck.stdout, /Offline checked 1 project\(s\), 1 query\(s\)/u);
+      strict.match(cachedCheck.stdout, /bigint/u);
+    } finally {
+      await rename(`${durable}-held`, durable);
+    }
     // Inject real DDL between description and final context inspection. No contract may escape.
     const current = await native.inspectContext();
     const drifting = {
@@ -277,39 +334,6 @@ export async function assertPostgresNativeContracts(connectionString: string, di
     });
     strict.deepEqual(offline.diagnostics, []);
     strict.equal(offline.transformedSource, compiled.transformedSource);
-    // Exercise the product host with the real durable native closure, after native clients close.
-    await writeFile(join(temporary, "schema.json"), JSON.stringify(schema));
-    await writeFile(
-      join(temporary, "application.ts"),
-      application.replace('"@typed-sql/postgres"', '"@typed-sql/postgres/tag"'),
-    );
-    await writeFile(
-      join(temporary, "tsconfig.json"),
-      JSON.stringify({
-        compilerOptions: {
-          strict: true,
-          target: "ESNext",
-          module: "NodeNext",
-          moduleResolution: "NodeNext",
-          noEmit: true,
-        },
-        files: ["application.ts"],
-      }),
-    );
-    await writeFile(
-      join(temporary, "typed-sql.config.mjs"),
-      `
-import {defineConfig} from "@typed-sql/core";
-import {postgresProfile} from "@typed-sql/postgres/profile";
-import {postgresContractIdentity} from "@typed-sql/postgres/contract-profile";
-export default defineConfig({
-  dialect: {...postgresProfile(), loadAnalyzer(){throw Error("Frozen native proof initialized an analyzer");}},
-  schema: {file: "schema.json", provider: {introspect(){throw Error("Frozen native proof opened a provider");}}},
-  outDir: "generated", projects: ["tsconfig.json"],
-  analysis: {mode: "frozen", context: ${JSON.stringify(context)}, identity: postgresContractIdentity(),
-    contractsDir: "contracts", qualification: ${JSON.stringify(qualification)}}
-});`,
-    );
     const checked = await promisify(callback)(
       process.execPath,
       [join(directory, "packages/cli/dist/packages/cli/src/cli.js"), "check", "--frozen", "--show-types"],

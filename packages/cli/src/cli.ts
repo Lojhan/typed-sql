@@ -45,7 +45,7 @@ import {
   writeArtifactFiles,
 } from "@typed-sql/schema";
 import { reportCheckedFiles } from "./check-report.js";
-import { runFrozenCheck } from "./frozen-check.js";
+import { runContractCheck } from "./contract-check.js";
 import { runInit } from "./init.js";
 import { runMigrationCli } from "./migrate.js";
 import { runPlayground } from "./playground.js";
@@ -114,6 +114,7 @@ Global options:
 Examples:
   typed-sql capabilities --config typed-sql.config.ts
   typed-sql check --frozen --project tsconfig.json
+  typed-sql check --offline --project tsconfig.json
   typed-sql check --project tsconfig.json
   typed-sql check --file src/query.ts --project tsconfig.json --show-types
   typed-sql compat --before schema.before.json --after schema.after.json --before-manifest old.json --after-manifest new.json
@@ -140,6 +141,7 @@ function parseArguments(args: readonly string[]): ParsedArguments {
       argument === "--show-types" ||
       argument === "--live" ||
       argument === "--frozen" ||
+      argument === "--offline" ||
       argument === "--json" ||
       argument === "--dry-run" ||
       argument === "--apply" ||
@@ -397,18 +399,16 @@ async function main(): Promise<void> {
   if (parsed.options["dry-run"] !== undefined) throw new Error("--dry-run is only supported by init");
   for (const flag of ["apply", "install", "verify", "recover", "allow-scripts"])
     if (parsed.options[flag] !== undefined) throw new Error(`--${flag} is only supported by init`);
-  if (parsed.options.frozen !== undefined && (parsed.options.frozen !== "true" || parsed.command !== "check"))
-    throw new Error("--frozen is supported as a boolean check option");
-  if (parsed.options.frozen !== undefined && parsed.options.live !== undefined)
-    throw new Error("--frozen and --live cannot be combined");
+  for (const flag of ["frozen", "offline"])
+    if (parsed.options[flag] !== undefined && (parsed.options[flag] !== "true" || parsed.command !== "check"))
+      throw new Error(`--${flag} is supported as a boolean check option`);
+  if (["frozen", "offline", "live"].filter((flag) => parsed.options[flag] !== undefined).length > 1)
+    throw new Error("--frozen, --offline and --live cannot be combined");
   const loaded = await loadConfigSource({
     ...(parsed.options.config === undefined ? {} : { file: parsed.options.config }),
   });
   if (parsed.command === "check" && (parsed.options.frozen !== undefined || loaded.config.analysis !== undefined)) {
-    const analysis = loaded.config.analysis as { readonly mode?: unknown } | undefined;
-    if (parsed.options.frozen === undefined && analysis?.mode !== "frozen")
-      throw new Error("This analysis host currently requires frozen mode; offline/live orchestration is not enabled.");
-    await runFrozenCheck(loaded, parsed.options);
+    await runContractCheck(loaded, parsed.options);
     return;
   }
   const config = loaded.config;

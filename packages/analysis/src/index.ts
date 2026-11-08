@@ -47,6 +47,8 @@ export type {
   NativeQueryContractEvidence,
 } from "./native-evidence.js";
 export { parseNativeQueryContractEvidence } from "./native-evidence.js";
+export { prepareOfflineContractView } from "./offline-view.js";
+export { createPersistentLiveAnalysisRunner } from "./persistent-live.js";
 export type {
   ContractFacetComparison,
   ContractQualificationPolicy,
@@ -62,3 +64,4 @@ export type {
   StaticQueryClaim,
 } from "./reconciliation.js";
 export { createStaticQueryClaim, parseStaticQueryClaim, reconcileQueryContract } from "./reconciliation.js";
+export type { RecordedAnalysisQuery } from "./recorded-query.js";

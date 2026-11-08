@@ -1,7 +1,7 @@
 import { acquireNativeQueryContract, type NativeContractAdapter } from "./acquisition.js";
 import { type NativeContractCandidate, parseNativeContractCandidate } from "./candidate.js";
 import { canonicalContractData, exactSqlDigest, queryContractDigest } from "./canonical.js";
-import { createQueryContractIndex, parseQueryContract, type QueryContract } from "./contracts.js";
+import { createQueryContractIndex, type QueryContract } from "./contracts.js";
 import { type ContractQualificationPolicy, parseContractQualificationPolicy } from "./qualification-model.js";
 import {
   type ContractReconciliationContribution,
@@ -9,6 +9,7 @@ import {
   reconcileQueryContract,
   type StaticQueryClaim,
 } from "./reconciliation.js";
+import { parseRecordedQueryContract } from "./recorded-query.js";
 
 export interface LiveAnalysisRequest {
   readonly connectionContext: string;
@@ -141,20 +142,15 @@ export function parseLiveAnalysisOutcome(
   expected: LiveAnalysisRequest,
 ): LiveAnalysisOutcome {
   if (input.kind === "usable-recorded-context") {
-    const contract = parseQueryContract(input.contract);
-    if (
-      contract.sqlDigest !== exactSqlDigest(expected.candidate.sql) ||
-      canonicalContractData(contract.context) !== canonicalContractData(expected.staticClaim.context) ||
-      contract.qualification?.policyHash !== queryContractDigest(expected.policy) ||
-      contract.qualification.staticClaimHash !== expected.staticClaim.digest ||
-      contract.nativeEvidence?.adapter.id !== expected.adapter.id ||
-      contract.nativeEvidence.adapter.version !== expected.adapter.version ||
-      canonicalContractData(contract.nativeEvidence.parameterOccurrences) !==
-        canonicalContractData(expected.candidate.parameterOccurrences) ||
-      (expected.candidate.columnSpans !== undefined &&
-        canonicalContractData(contract.columnSpans) !== canonicalContractData(expected.candidate.columnSpans))
-    )
-      throw new TypeError("Live contract does not match the requested qualification");
+    const contract = parseRecordedQueryContract(input.contract, {
+      candidate: expected.candidate,
+      context: expected.staticClaim.context,
+      policy: expected.policy,
+      adapter: expected.adapter,
+      connectionContext: expected.connectionContext,
+    });
+    if (contract.qualification!.staticClaimHash !== expected.staticClaim.digest)
+      throw new TypeError("Live contract does not match the requested static claim");
     return Object.freeze({ kind: input.kind, contract });
   }
   return parseLiveAnalysisFailure(input);

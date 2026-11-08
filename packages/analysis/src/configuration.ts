@@ -20,6 +20,11 @@ export interface AnalysisConfiguration {
   readonly identity: ContractInterpreterIdentity;
   readonly qualification: ContractQualificationPolicy;
   readonly contractsDir?: string;
+  readonly cache?: {
+    readonly directory?: string;
+    readonly connectionContext: string;
+    readonly adapter: { readonly id: string; readonly version: string };
+  };
 }
 export interface ResolvedAnalysisConfiguration extends AnalysisConfiguration {
   readonly mode: AnalysisMode;
@@ -38,6 +43,7 @@ export function defineAnalysisConfiguration(input: unknown): ResolvedAnalysisCon
         "qualification",
         ...(Object.hasOwn(value, "mode") ? ["mode"] : []),
         ...(Object.hasOwn(value, "contractsDir") ? ["contractsDir"] : []),
+        ...(Object.hasOwn(value, "cache") ? ["cache"] : []),
       ]
         .sort()
         .join(",")
@@ -61,6 +67,28 @@ export function defineAnalysisConfiguration(input: unknown): ResolvedAnalysisCon
     throw new TypeError("Invalid analysis interpreter identity");
   const context = parseQueryContractContext(value.context),
     qualification = parseContractQualificationPolicy(value.qualification);
+  if (value.cache !== undefined) {
+    const cache = value.cache;
+    if (
+      !cache ||
+      typeof cache !== "object" ||
+      Array.isArray(cache) ||
+      Object.keys(cache).sort().join(",") !==
+        (Object.hasOwn(cache, "directory") ? "adapter,connectionContext,directory" : "adapter,connectionContext") ||
+      typeof cache.connectionContext !== "string" ||
+      !/^[a-f0-9]{64}$/u.test(cache.connectionContext) ||
+      (cache.directory !== undefined &&
+        (typeof cache.directory !== "string" || !cache.directory.length || cache.directory.includes("\0"))) ||
+      !cache.adapter ||
+      typeof cache.adapter !== "object" ||
+      Array.isArray(cache.adapter) ||
+      Object.keys(cache.adapter).sort().join(",") !== "id,version" ||
+      Object.values(cache.adapter).some((item) => typeof item !== "string" || !item.length || item.length > 4096)
+    )
+      throw new TypeError("Invalid analysis cache configuration");
+    Object.freeze(cache.adapter);
+    Object.freeze(cache);
+  }
   for (const key of ["profileHash", "codecHash", "interpreterHash"] as const)
     if (context[key] !== identity[key])
       throw new TypeError(`Recorded analysis ${key} differs from the configured interpreter`);

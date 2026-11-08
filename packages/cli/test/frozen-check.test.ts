@@ -74,6 +74,52 @@ const execute = (directory: string, args: string[] = []) =>
     maxBuffer: 8 * 1024 * 1024,
   });
 await describe("frozen CLI project checking", async () => {
+  await it("preserves ordinary offline checking for configurations without query-contract settings", async () => {
+    await fixture(async (directory) => {
+      const path = join(directory, "typed-sql.config.mjs");
+      const original = await readFile(path, "utf8");
+      const legacy = `${original.slice(0, original.indexOf("analysis:"))}});`.replace(
+        'loadAnalyzer(){throw new Error("analyzer must remain cold")}',
+        'loadAnalyzer:async()=>(await import("@typed-sql/postgres")).postgres()',
+      );
+      await writeFile(path, legacy);
+      strict.match((await execute(directory, ["--offline"])).stdout, /Checked 1 project/u);
+    });
+  });
+  await it("uses durable contracts offline and loads the analyzer only for uncovered hybrid queries", async () => {
+    await fixture(async (directory) => {
+      strict.match((await execute(directory, ["--offline"])).stdout, /Offline checked 1 project/u);
+      const configPath = join(directory, "typed-sql.config.mjs");
+      const original = await readFile(configPath, "utf8");
+      await writeFile(configPath, original.replace('mode:"frozen"', 'mode:"live"'));
+      strict.match((await execute(directory, ["--offline"])).stdout, /Offline checked 1 project/u);
+      await strict.rejects(execute(directory, ["--live"]), (error: unknown) => {
+        strict.match((error as { stderr: string }).stderr, /live orchestration is not enabled/u);
+        return true;
+      });
+      await writeFile(
+        configPath,
+        original
+          .replace('mode:"frozen"', 'mode:"offline"')
+          .replace(
+            'loadAnalyzer(){throw new Error("analyzer must remain cold")}',
+            'loadAnalyzer:async()=>(await import("@typed-sql/postgres")).postgres()',
+          ),
+      );
+      await exportQueryContracts(join(directory, "generated/contracts"), []);
+      strict.match((await execute(directory)).stdout, /Offline checked 1 project/u);
+      await writeFile(
+        configPath,
+        original.replace('mode:"frozen"', 'mode:"offline"').replace('mode:"hybrid"', 'mode:"native-required"'),
+      );
+      await strict.rejects(execute(directory), (error: unknown) => {
+        const failure = (error as { stderr: string }).stderr;
+        strict.match(failure, /TSQ406/u);
+        strict.ok(!failure.includes("analyzer must remain cold"));
+        return true;
+      });
+    });
+  });
   await it("checks TypeScript and SQL assets from durable inputs while ignoring disposable state and cold factories", async () => {
     await fixture(async (directory) => {
       await writeFile(join(directory, "src/value.sql"), "SELECT :id::bigint AS value");

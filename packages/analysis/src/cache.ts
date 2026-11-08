@@ -19,6 +19,12 @@ import {
   parseLiveAnalysisOutcome,
   parseLiveAnalysisRequest,
 } from "./live.js";
+import {
+  parseRecordedAnalysisQuery,
+  parseRecordedQueryContract,
+  type RecordedAnalysisQuery,
+  recordedAnalysisQueryKey,
+} from "./recorded-query.js";
 
 export interface AnalysisCacheOptions {
   /** Explicit private cache root, conventionally .typed-sql/cache/analysis/v1. */
@@ -49,6 +55,8 @@ export interface AnalysisCacheLookup {
   };
 }
 export interface AnalysisCache {
+  /** Contract-first lookup; no analyzer claim or database access is required. */
+  lookupRecorded(query: RecordedAnalysisQuery): Promise<AnalysisCacheLookup>;
   lookup(request: LiveAnalysisRequest): Promise<AnalysisCacheLookup>;
   publish(input: {
     readonly token: AnalysisCacheToken;
@@ -375,45 +383,72 @@ export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<
     }
     return files;
   }
-  return Object.freeze({
-    async lookup(input: LiveAnalysisRequest): Promise<AnalysisCacheLookup> {
-      const request = parseLiveAnalysisRequest(input),
-        requestKey = queryContractDigest(request);
-      return withLock(async () => {
-        await layout();
-        await readUsage();
-        const current = await readIndex(),
-          entry = current.entries.find((item) => item.requestKey === requestKey);
-        const captured = token({
-          formatVersion: 1,
-          ownerInstance: instance!,
-          workspaceContext,
-          epoch: current.epoch,
-          requestKey,
-          entryRevision: entry?.revision ?? null,
-        });
-        if (!entry) return Object.freeze({ token: captured });
-        if (entry.contextHash !== queryContractDigest(request.staticClaim.context))
-          throw new TypeError("Analysis cache context identity differs");
-        let result: LiveAnalysisOutcome;
-        if (entry.result.kind === "usable-recorded-context") {
-          const contract = parseQueryContract(
-            JSON.parse(await readCacheFile(join(path.queries, `${entry.result.contractDigest}.json`), maxObjectBytes)),
-          );
-          if (contract.digest !== entry.result.contractDigest)
-            throw new TypeError("Analysis cache object digest differs");
-          const context = parseQueryContractContext(
-            JSON.parse(await readCacheFile(join(path.contexts, `${entry.contextHash}.json`), maxObjectBytes)),
-          );
-          if (queryContractDigest(context) !== entry.contextHash)
-            throw new TypeError("Analysis cache context digest differs");
-          result = parseLiveAnalysisOutcome({ kind: "usable-recorded-context", contract }, request);
-        } else result = parseLiveAnalysisFailure(entry.result);
-        return Object.freeze({
-          token: captured,
-          cached: Object.freeze({ outcome: result, recordedAt: entry.recordedAt, freshness: "unverified" as const }),
-        });
+  async function lookupRecorded(query: RecordedAnalysisQuery, staticClaimHash?: string): Promise<AnalysisCacheLookup> {
+    const requestKey = recordedAnalysisQueryKey(query),
+      expectedContextHash = queryContractDigest(query.context);
+    return withLock(async (assertLock) => {
+      await layout();
+      await readUsage();
+      const current = await readIndex(),
+        entry = current.entries.find((item) => item.requestKey === requestKey);
+      const captured = token({
+        formatVersion: 1,
+        ownerInstance: instance!,
+        workspaceContext,
+        epoch: current.epoch,
+        requestKey,
+        entryRevision: entry?.revision ?? null,
       });
+      const selected =
+        current.entries.find(
+          (item) => item.result.kind === "stale-context" && item.contextHash === expectedContextHash,
+        ) ?? entry;
+      if (!selected) return Object.freeze({ token: captured });
+      if (selected.contextHash !== expectedContextHash) throw new TypeError("Analysis cache context identity differs");
+      let result: LiveAnalysisOutcome;
+      if (selected.result.kind === "usable-recorded-context") {
+        const contract = parseQueryContract(
+          JSON.parse(await readCacheFile(join(path.queries, `${selected.result.contractDigest}.json`), maxObjectBytes)),
+        );
+        if (contract.digest !== selected.result.contractDigest)
+          throw new TypeError("Analysis cache object digest differs");
+        const context = parseQueryContractContext(
+          JSON.parse(await readCacheFile(join(path.contexts, `${selected.contextHash}.json`), maxObjectBytes)),
+        );
+        if (queryContractDigest(context) !== selected.contextHash)
+          throw new TypeError("Analysis cache context digest differs");
+        const matched = parseRecordedQueryContract(contract, query);
+        if (staticClaimHash !== undefined && matched.qualification!.staticClaimHash !== staticClaimHash) {
+          const epoch = nonce(),
+            revision = nonce(),
+            recordedAt = now();
+          const result = { kind: "partial", code: "static-claim-changed" } as const;
+          const retired: Entry = { requestKey, revision, recordedAt, contextHash: expectedContextHash, result };
+          await writeIndex(
+            epoch,
+            [...current.entries.filter((item) => item.requestKey !== requestKey), retired],
+            assertLock,
+          );
+          return Object.freeze({
+            token: token({ ...captured, epoch, entryRevision: revision }),
+            cached: Object.freeze({ outcome: result, recordedAt, freshness: "unverified" as const }),
+          });
+        }
+        result = Object.freeze({ kind: "usable-recorded-context", contract: matched });
+      } else result = parseLiveAnalysisFailure(selected.result);
+      return Object.freeze({
+        token: captured,
+        cached: Object.freeze({ outcome: result, recordedAt: selected.recordedAt, freshness: "unverified" as const }),
+      });
+    });
+  }
+  return Object.freeze({
+    lookupRecorded(input: RecordedAnalysisQuery) {
+      return lookupRecorded(parseRecordedAnalysisQuery(input));
+    },
+    async lookup(input: LiveAnalysisRequest): Promise<AnalysisCacheLookup> {
+      const request = parseLiveAnalysisRequest(input);
+      return lookupRecorded(recordedQuery(request), request.staticClaim.digest);
     },
     async publish(input) {
       const request = parseLiveAnalysisRequest(input.request),
@@ -422,7 +457,7 @@ export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<
       if (result.kind === "unavailable" && result.retry === "transport")
         throw new TypeError("Transient transport failures are not persisted");
       if (
-        expected.requestKey !== queryContractDigest(request) ||
+        expected.requestKey !== recordedAnalysisQueryKey(recordedQuery(request)) ||
         expected.workspaceContext !== workspaceContext ||
         expected.ownerInstance !== instance
       )
@@ -433,10 +468,17 @@ export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<
           previous = current.entries.find((item) => item.requestKey === expected.requestKey);
         if (current.epoch !== expected.epoch || (previous?.revision ?? null) !== expected.entryRevision)
           return { status: "superseded" as const };
-        const retainedEntries = result.kind === "stale-context" ? [] : current.entries;
+        const contextHash = queryContractDigest(request.staticClaim.context);
+        const retainedEntries =
+          result.kind === "stale-context"
+            ? []
+            : result.kind === "usable-recorded-context"
+              ? current.entries.filter(
+                  (item) => item.result.kind !== "stale-context" || item.contextHash !== contextHash,
+                )
+              : current.entries;
         if (!previous && retainedEntries.length >= maxEntries) return { status: "capacity" as const };
-        const recordedAt = now(),
-          contextHash = queryContractDigest(request.staticClaim.context);
+        const recordedAt = now();
         const stored: CacheResult =
           result.kind === "usable-recorded-context"
             ? { kind: result.kind, contractDigest: result.contract.digest }
@@ -534,4 +576,14 @@ export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<
       });
     },
   } satisfies AnalysisCache);
+}
+
+function recordedQuery(request: LiveAnalysisRequest): RecordedAnalysisQuery {
+  return Object.freeze({
+    connectionContext: request.connectionContext,
+    adapter: request.adapter,
+    candidate: request.candidate,
+    context: request.staticClaim.context,
+    policy: request.policy,
+  });
 }
