@@ -1,0 +1,993 @@
+{
+  "status": "committed-inputs",
+  "baseRevision": "ae5ea0af7bfab9c1e83fb12d18fd43655cd0ab95",
+  "baselineRevision": "417c1d3020b2655dc798ac220bc8de31fa3a7e08",
+  "baselineSourceDigest": "caa505d567d23a1dd4ea1b809a998cafc79ac5b182be95b2392259f3e4b9a359",
+  "tool": {
+    "name": "esbuild",
+    "version": "0.28.2",
+    "digest": "0542bfc20c9bbf7af7a8bcd1775540a39c44884f14f8f513c7afa3465258929c"
+  },
+  "nodeVersion": "v24.22.2",
+  "scope": "Exported analyzer factory footprint; shared type/cast registries remain eager. Not an application workload, installation-size reduction, compact-core claim or complete engine inventory.",
+  "platform": "node",
+  "target": "es2022",
+  "gzipLevel": 9,
+  "brotliQuality": 11,
+  "parity": [
+    {
+      "major": 14,
+      "signatures": 3191,
+      "names": 2622,
+      "baselineDigest": "9419458a8e514a2f7498cb5ffc78e5c14996f59bee22d92a40aa131dce9afaa2",
+      "currentDigest": "9419458a8e514a2f7498cb5ffc78e5c14996f59bee22d92a40aa131dce9afaa2"
+    },
+    {
+      "major": 15,
+      "signatures": 3233,
+      "names": 2646,
+      "baselineDigest": "96db1f84e8ac4e740c12d3bb549f59b6054a7e6d5c1c2c3f2dc4bf8108cdd73e",
+      "currentDigest": "96db1f84e8ac4e740c12d3bb549f59b6054a7e6d5c1c2c3f2dc4bf8108cdd73e"
+    },
+    {
+      "major": 16,
+      "signatures": 3286,
+      "names": 2694,
+      "baselineDigest": "ecd5f4521ff8c02ffe014af74aeb26eb3306f2497bef4e16e3cb42d9750b0fdb",
+      "currentDigest": "ecd5f4521ff8c02ffe014af74aeb26eb3306f2497bef4e16e3cb42d9750b0fdb"
+    },
+    {
+      "major": 17,
+      "signatures": 3319,
+      "names": 2719,
+      "baselineDigest": "f9fbbea3d4603df9de82b76421f9403d4203dd77c0e03b353cd4f2baebd0d6d0",
+      "currentDigest": "f9fbbea3d4603df9de82b76421f9403d4203dd77c0e03b353cd4f2baebd0d6d0"
+    },
+    {
+      "major": 18,
+      "signatures": 3402,
+      "names": 2787,
+      "baselineDigest": "0918e13db03d42769927f18e1cea62c5789be058be523d6ecebd228caf9b2a30",
+      "currentDigest": "0918e13db03d42769927f18e1cea62c5789be058be523d6ecebd228caf9b2a30"
+    },
+    {
+      "major": 19,
+      "signatures": 3426,
+      "names": 2803,
+      "baselineDigest": "28186356932da12a740823baa19ac106458417f71f4c8b20806c5dda84beecf4",
+      "currentDigest": "28186356932da12a740823baa19ac106458417f71f4c8b20806c5dda84beecf4"
+    }
+  ],
+  "rows": [
+    {
+      "scenario": "runtimeRoot",
+      "minified": 17767,
+      "gzip": 5645,
+      "brotli": 5102,
+      "nativeProfiles": [],
+      "typeProfiles": [],
+      "catalogInputs": []
+    },
+    {
+      "scenario": "compatibility",
+      "minified": 1689824,
+      "gzip": 179686,
+      "brotli": 103686,
+      "nativeProfiles": [
+        14,
+        15,
+        16,
+        17,
+        18,
+        19
+      ],
+      "typeProfiles": [
+        14,
+        15,
+        16,
+        17,
+        18,
+        19
+      ],
+      "catalogInputs": [
+        {
+          "path": "packages/core/src/catalog/arguments.ts",
+          "bytes": 1070
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/14.ts",
+          "bytes": 23727
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/15.ts",
+          "bytes": 23659
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/16.ts",
+          "bytes": 23659
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/17.ts",
+          "bytes": 23659
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/18.ts",
+          "bytes": 24085
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/19.ts",
+          "bytes": 24221
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/registry.ts",
+          "bytes": 27
+        },
+        {
+          "path": "packages/postgres/src/catalog/index.ts",
+          "bytes": 1583
+        },
+        {
+          "path": "packages/postgres/src/catalog/native-resolution.ts",
+          "bytes": 942
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/semantics.ts",
+          "bytes": 88
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/14.ts",
+          "bytes": 4982
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/14-15.ts",
+          "bytes": 5931
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/14-15-16.ts",
+          "bytes": 6549
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/14-15-16-17.ts",
+          "bytes": 6956
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/14-15-16-17-18.ts",
+          "bytes": 20009
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/14-15-16-17-18-19.ts",
+          "bytes": 962681
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/14.ts",
+          "bytes": 24207
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/15.ts",
+          "bytes": 974
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/15-16-17.ts",
+          "bytes": 9011
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/15-16-17-18.ts",
+          "bytes": 941
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/15-16-17-18-19.ts",
+          "bytes": 10668
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/15.ts",
+          "bytes": 24449
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/16.ts",
+          "bytes": 4005
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/16-17.ts",
+          "bytes": 1368
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/16-17-18.ts",
+          "bytes": 526
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/16-17-18-19.ts",
+          "bytes": 20119
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/16.ts",
+          "bytes": 24763
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/17.ts",
+          "bytes": 1425
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/17-18.ts",
+          "bytes": 307
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/17-18-19.ts",
+          "bytes": 19386
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/17.ts",
+          "bytes": 24961
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/18.ts",
+          "bytes": 4115
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/18-19.ts",
+          "bytes": 41398
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/18.ts",
+          "bytes": 25486
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/19.ts",
+          "bytes": 27332
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/19.ts",
+          "bytes": 25630
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native.ts",
+          "bytes": 60
+        }
+      ]
+    },
+    {
+      "scenario": "selected14",
+      "minified": 1422853,
+      "gzip": 126378,
+      "brotli": 96378,
+      "nativeProfiles": [
+        14
+      ],
+      "typeProfiles": [
+        14,
+        15,
+        16,
+        17,
+        18,
+        19
+      ],
+      "catalogInputs": [
+        {
+          "path": "packages/core/src/catalog/arguments.ts",
+          "bytes": 1070
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/14.ts",
+          "bytes": 23727
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/15.ts",
+          "bytes": 23659
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/16.ts",
+          "bytes": 23659
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/17.ts",
+          "bytes": 23659
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/18.ts",
+          "bytes": 24085
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/19.ts",
+          "bytes": 24221
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/registry.ts",
+          "bytes": 27
+        },
+        {
+          "path": "packages/postgres/src/catalog/index.ts",
+          "bytes": 1574
+        },
+        {
+          "path": "packages/postgres/src/catalog/native-resolution.ts",
+          "bytes": 941
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/semantics.ts",
+          "bytes": 88
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/14.ts",
+          "bytes": 4982
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/14-15.ts",
+          "bytes": 5932
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/14-15-16.ts",
+          "bytes": 6549
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/14-15-16-17.ts",
+          "bytes": 6956
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/14-15-16-17-18.ts",
+          "bytes": 20009
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/14-15-16-17-18-19.ts",
+          "bytes": 962681
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/14.ts",
+          "bytes": 24213
+        }
+      ]
+    },
+    {
+      "scenario": "selected15",
+      "minified": 1439718,
+      "gzip": 127574,
+      "brotli": 97129,
+      "nativeProfiles": [
+        15
+      ],
+      "typeProfiles": [
+        14,
+        15,
+        16,
+        17,
+        18,
+        19
+      ],
+      "catalogInputs": [
+        {
+          "path": "packages/core/src/catalog/arguments.ts",
+          "bytes": 1070
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/14.ts",
+          "bytes": 23727
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/15.ts",
+          "bytes": 23659
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/16.ts",
+          "bytes": 23659
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/17.ts",
+          "bytes": 23659
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/18.ts",
+          "bytes": 24085
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/19.ts",
+          "bytes": 24221
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/registry.ts",
+          "bytes": 27
+        },
+        {
+          "path": "packages/postgres/src/catalog/index.ts",
+          "bytes": 1574
+        },
+        {
+          "path": "packages/postgres/src/catalog/native-resolution.ts",
+          "bytes": 941
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/semantics.ts",
+          "bytes": 88
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/14-15.ts",
+          "bytes": 5932
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/14-15-16.ts",
+          "bytes": 6549
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/14-15-16-17.ts",
+          "bytes": 6956
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/14-15-16-17-18.ts",
+          "bytes": 20009
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/14-15-16-17-18-19.ts",
+          "bytes": 962681
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/15.ts",
+          "bytes": 974
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/15-16-17.ts",
+          "bytes": 9011
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/15-16-17-18.ts",
+          "bytes": 941
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/15-16-17-18-19.ts",
+          "bytes": 10668
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/15.ts",
+          "bytes": 24455
+        }
+      ]
+    },
+    {
+      "scenario": "selected16",
+      "minified": 1459148,
+      "gzip": 128885,
+      "brotli": 98206,
+      "nativeProfiles": [
+        16
+      ],
+      "typeProfiles": [
+        14,
+        15,
+        16,
+        17,
+        18,
+        19
+      ],
+      "catalogInputs": [
+        {
+          "path": "packages/core/src/catalog/arguments.ts",
+          "bytes": 1070
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/14.ts",
+          "bytes": 23727
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/15.ts",
+          "bytes": 23659
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/16.ts",
+          "bytes": 23659
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/17.ts",
+          "bytes": 23659
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/18.ts",
+          "bytes": 24085
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/19.ts",
+          "bytes": 24221
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/registry.ts",
+          "bytes": 27
+        },
+        {
+          "path": "packages/postgres/src/catalog/index.ts",
+          "bytes": 1582
+        },
+        {
+          "path": "packages/postgres/src/catalog/native-resolution.ts",
+          "bytes": 941
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/semantics.ts",
+          "bytes": 88
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/14-15-16.ts",
+          "bytes": 6549
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/14-15-16-17.ts",
+          "bytes": 6956
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/14-15-16-17-18.ts",
+          "bytes": 20009
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/14-15-16-17-18-19.ts",
+          "bytes": 962681
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/15-16-17.ts",
+          "bytes": 9011
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/15-16-17-18.ts",
+          "bytes": 941
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/15-16-17-18-19.ts",
+          "bytes": 10668
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/16.ts",
+          "bytes": 4005
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/16-17.ts",
+          "bytes": 1368
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/16-17-18.ts",
+          "bytes": 526
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/16-17-18-19.ts",
+          "bytes": 20119
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/16.ts",
+          "bytes": 24763
+        }
+      ]
+    },
+    {
+      "scenario": "selected17",
+      "minified": 1469910,
+      "gzip": 129788,
+      "brotli": 98671,
+      "nativeProfiles": [
+        17
+      ],
+      "typeProfiles": [
+        14,
+        15,
+        16,
+        17,
+        18,
+        19
+      ],
+      "catalogInputs": [
+        {
+          "path": "packages/core/src/catalog/arguments.ts",
+          "bytes": 1070
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/14.ts",
+          "bytes": 23727
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/15.ts",
+          "bytes": 23659
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/16.ts",
+          "bytes": 23659
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/17.ts",
+          "bytes": 23659
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/18.ts",
+          "bytes": 24085
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/19.ts",
+          "bytes": 24221
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/registry.ts",
+          "bytes": 27
+        },
+        {
+          "path": "packages/postgres/src/catalog/index.ts",
+          "bytes": 1582
+        },
+        {
+          "path": "packages/postgres/src/catalog/native-resolution.ts",
+          "bytes": 941
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/semantics.ts",
+          "bytes": 88
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/14-15-16-17.ts",
+          "bytes": 6956
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/14-15-16-17-18.ts",
+          "bytes": 20009
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/14-15-16-17-18-19.ts",
+          "bytes": 962681
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/15-16-17.ts",
+          "bytes": 9011
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/15-16-17-18.ts",
+          "bytes": 941
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/15-16-17-18-19.ts",
+          "bytes": 10668
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/16-17.ts",
+          "bytes": 1368
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/16-17-18.ts",
+          "bytes": 526
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/16-17-18-19.ts",
+          "bytes": 20119
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/17.ts",
+          "bytes": 1425
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/17-18.ts",
+          "bytes": 307
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/17-18-19.ts",
+          "bytes": 19386
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/17.ts",
+          "bytes": 24961
+        }
+      ]
+    },
+    {
+      "scenario": "selected18",
+      "minified": 1497178,
+      "gzip": 131763,
+      "brotli": 100200,
+      "nativeProfiles": [
+        18
+      ],
+      "typeProfiles": [
+        14,
+        15,
+        16,
+        17,
+        18,
+        19
+      ],
+      "catalogInputs": [
+        {
+          "path": "packages/core/src/catalog/arguments.ts",
+          "bytes": 1070
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/14.ts",
+          "bytes": 23727
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/15.ts",
+          "bytes": 23659
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/16.ts",
+          "bytes": 23659
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/17.ts",
+          "bytes": 23659
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/18.ts",
+          "bytes": 24085
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/19.ts",
+          "bytes": 24221
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/registry.ts",
+          "bytes": 27
+        },
+        {
+          "path": "packages/postgres/src/catalog/index.ts",
+          "bytes": 1574
+        },
+        {
+          "path": "packages/postgres/src/catalog/native-resolution.ts",
+          "bytes": 941
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/semantics.ts",
+          "bytes": 88
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/14-15-16-17-18.ts",
+          "bytes": 20009
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/14-15-16-17-18-19.ts",
+          "bytes": 962681
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/15-16-17-18.ts",
+          "bytes": 941
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/15-16-17-18-19.ts",
+          "bytes": 10668
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/16-17-18.ts",
+          "bytes": 526
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/16-17-18-19.ts",
+          "bytes": 20119
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/17-18.ts",
+          "bytes": 307
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/17-18-19.ts",
+          "bytes": 19386
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/18.ts",
+          "bytes": 4115
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/18-19.ts",
+          "bytes": 41398
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/18.ts",
+          "bytes": 25486
+        }
+      ]
+    },
+    {
+      "scenario": "selected19",
+      "minified": 1498756,
+      "gzip": 132803,
+      "brotli": 101142,
+      "nativeProfiles": [
+        19
+      ],
+      "typeProfiles": [
+        14,
+        15,
+        16,
+        17,
+        18,
+        19
+      ],
+      "catalogInputs": [
+        {
+          "path": "packages/core/src/catalog/arguments.ts",
+          "bytes": 1070
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/14.ts",
+          "bytes": 23727
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/15.ts",
+          "bytes": 23659
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/16.ts",
+          "bytes": 23659
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/17.ts",
+          "bytes": 23659
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/18.ts",
+          "bytes": 24085
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/19.ts",
+          "bytes": 24221
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/registry.ts",
+          "bytes": 27
+        },
+        {
+          "path": "packages/postgres/src/catalog/index.ts",
+          "bytes": 1574
+        },
+        {
+          "path": "packages/postgres/src/catalog/native-resolution.ts",
+          "bytes": 941
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/semantics.ts",
+          "bytes": 88
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/14-15-16-17-18-19.ts",
+          "bytes": 962681
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/15-16-17-18-19.ts",
+          "bytes": 10668
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/16-17-18-19.ts",
+          "bytes": 20119
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/17-18-19.ts",
+          "bytes": 19386
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/18-19.ts",
+          "bytes": 41398
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/groups/19.ts",
+          "bytes": 27332
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/native/19.ts",
+          "bytes": 25630
+        }
+      ]
+    }
+  ],
+  "inputDigests": {
+    "grammar/features/ledger.json": "b2bf80fcca2b76d2cfa4fcbddc2bea618473cad88423645d27b50f1cfff2e736",
+    "packages/ast/package.json": "8d0b4d42b0e23ffb4f013c378f4a21e3b1257204146b2f8085d612c4c0c82f55",
+    "packages/ast/src/toolkit/cursor.ts": "a9886e8692bbc78eeeb07ff6692ebbe793dbe26b5a4ca2c7a56514c2b17f7a00",
+    "packages/ast/src/toolkit/index.ts": "82b29b0d9b0b8501272ddd64a0944fef4d5bbb43323330c7b1caf0cbb1fdb587",
+    "packages/ast/src/toolkit/tokenizer.ts": "5662aee420d594accf2fa14958de400274f1bc4204254a99ebec15215f019828",
+    "packages/ast/src/toolkit/types.ts": "d5aa80f836cd1d3b29ab6d3cd41141696c0a6f65c74c02282486877e4ad14153",
+    "packages/core/package.json": "ec0d02f509107172dc2ddab9359deeac94b898a49cf54c2f9d08050f9c6f7a69",
+    "packages/core/src/adapter-capabilities.ts": "8477b8a34b90a5e1916e26d044f17bfc36407aeb9447db04069bfdeabaf6161a",
+    "packages/core/src/artifact-compatibility.ts": "647be3df2bd2eb547e8464845fae8252bd3ab0b79bd583455c1da69293d14767",
+    "packages/core/src/brand.ts": "ef044783814dd265651b4273844ad8d376293838f4217c2dd5a0f53ebf3914ee",
+    "packages/core/src/bulk.ts": "6d368c8c8e24570c6c8a28df34f722bef3d9356e2879dc0cf723699297c234f3",
+    "packages/core/src/catalog/arguments.ts": "c1fa07d706c84c2d5932e8d426c93234b18491a8c7bd1a7984deeedd3efe343c",
+    "packages/core/src/debug.ts": "f570be40897f8928e51569cb9de0431695e9de113034b3a8add41eba2ee289c7",
+    "packages/core/src/diagnostics.ts": "ea0a10cae393d1dcf1695fac17b4d531de642675fe1c975f846f8e028dca774b",
+    "packages/core/src/dialect-capabilities.ts": "4d53de6808beeceb913bbc3995cbbcd466c2f95b09fbb0dcc6b3cc1ad052800b",
+    "packages/core/src/execution.ts": "6e59069de982425fad88b12cd9821000be96b466f4427c1a5b225a10939fedf2",
+    "packages/core/src/index.ts": "56f7be408234bc1671bd08f81d13dc5936b8a4acfa38f7829d1dec7d62678134",
+    "packages/core/src/json-input.ts": "9b7a1b7bdd7a2d8563f038271441b9a4f1f9a2ed35934823d7726ea0056cac8c",
+    "packages/core/src/json.ts": "b03472862a9cfa2d3047652f53e65588b4c805b35a0f235f9f1947250078aabf",
+    "packages/core/src/name-suggestions.ts": "d238365069307ba8005e3e46769866511c16a6c4cef0030e3c03c7be4fcc0015",
+    "packages/core/src/observation.ts": "d7945fe333318993e54a8d63a30da216e559541f35f30dc67c6a03b9ffcfec15",
+    "packages/core/src/prepared.ts": "0ace4b5bba642d457b09e7921517aeb3ce8d44fd9abb9fa9394e8a9048bd5019",
+    "packages/core/src/query-value-plan-selection.ts": "ea4e96eca77f65b064be14d4342a0d3fbc1b4017927efd24224ec1b3f362066d",
+    "packages/core/src/query-value-plan.ts": "33b5bcefffb9c7532ee64e570bf29ee13f24f52bfd84f1c70e0778922d3bead4",
+    "packages/core/src/query.ts": "33dd4b515504eaa45d1e5a35f18aa444b4d6400d0bf9e3886d906813e5d4eca3",
+    "packages/core/src/resolver.ts": "ece3854a5d0aa8e23446994a98d0771238ddd4ccc3445410485d516d90420c2a",
+    "packages/core/src/result-validation.ts": "9f7bf46afec435359a937b23e51506daf56b25793b53bb76e089fe99d7094a7f",
+    "packages/core/src/routing.ts": "a6a2ffa0a1ccfffd93b63d37f6e058fc14e5043b0190058b9aa02a570feb01e2",
+    "packages/core/src/semantics.ts": "03f8125bd43457d69d15409ff6d9e56f6e90ea2454a93f3da4e873d3db3c1364",
+    "packages/core/src/types.ts": "da19fcdbc55e7a97997143b60d507bcaf1eac508de438d9f4f791cd0013a4cc9",
+    "packages/core/src/utf8.ts": "2dc97045241fa81c7c3b2e6b47ac48cbe5cf676961c84561ef9c22167f779875",
+    "packages/postgres/package.json": "1247345701e50713ec0b8585d97b24ee442b7d44d83af8d171180b4f90e0aa6d",
+    "packages/postgres/src/analysis-factory.ts": "b30cbcd1e64d04b4e676b41bcb6fc44b4a30d90803f4c9c312dfc5159217abd1",
+    "packages/postgres/src/analysis.ts": "fc1e2b06ee5bd5bc9d3512751219e5e177acf325ed424e39fdf5830688b8c21e",
+    "packages/postgres/src/analysis/generated/14.ts": "c4aabc46c72d6e374994b117a22df42242d7f862e9385a46f91ee9cd51d0fdbe",
+    "packages/postgres/src/analysis/generated/15.ts": "d1b300f58d0ceea089d5f176b3d048c8550b6cfc4bc79fd07b5dec9de74ff4c0",
+    "packages/postgres/src/analysis/generated/16.ts": "210af85abc12b37bacda4312a5b75cb3a0059465fbcec65a54e5b4190146398f",
+    "packages/postgres/src/analysis/generated/17.ts": "e705f2570b7401375a97e30c3cbdb6b810a7510869f013664c37d4eabf96f93a",
+    "packages/postgres/src/analysis/generated/18.ts": "602abe4403dda49033a744f39f42742e0d48111f123cbf1d92846ebad61bc036",
+    "packages/postgres/src/analysis/generated/19.ts": "d7e599173f67a2bd7c9382b52dd8a8836398a529627400afda034b65b5d1b935",
+    "packages/postgres/src/bulk.ts": "d7f472de8145f2a8de04daf8df00dee11652080b8b7f863454bae968f258540a",
+    "packages/postgres/src/capabilities.ts": "d9fc010f50a280e12a046eb1b404570ac253187cb61dfbb392b8d05f1dd30739",
+    "packages/postgres/src/catalog/generated/14.ts": "c1370d608562d1219c0fb3bc77fe1f879a56ec4f60fef18594ec23376de7ed32",
+    "packages/postgres/src/catalog/generated/15.ts": "80c5f8670966fbfb45b3e1d3a76d9d29aab6622d33fbdc8c07eefa947caa54b4",
+    "packages/postgres/src/catalog/generated/16.ts": "0a248abade6703bbeff0dae59a908864dd7467b573da124d2653ff87bbc390f5",
+    "packages/postgres/src/catalog/generated/17.ts": "3740354bde241c156c962313a1f080087e8fedbc01bca8fb3f3214a445ad804a",
+    "packages/postgres/src/catalog/generated/18.ts": "3c03314963d30d040390d0af82c8fe4f4e8459e277cf3e5f423ce1760d221f05",
+    "packages/postgres/src/catalog/generated/19.ts": "2ec3a73874ad59ec42328ba252e4b519da28313d58d18750e164aa7889c92c8c",
+    "packages/postgres/src/catalog/generated/native.ts": "39d220c5ab1e89f8503c369a293ae685c01bed3aa0038ace99894083bcc5bb3b",
+    "packages/postgres/src/catalog/generated/native/14.ts": "23bdc54ff12ebe72b2f4bf0100cc2bd1e72cae7cd8a875f58c11b82fb9ec7288",
+    "packages/postgres/src/catalog/generated/native/15.ts": "3df524d1eaee032a532985e1b88ccb8dba287ad65de0e5610e9e96547f7568cd",
+    "packages/postgres/src/catalog/generated/native/16.ts": "e1c49b362924bb51da9bde4b7674b61e82a5c564d47429aefe59bd3fae2d5d5b",
+    "packages/postgres/src/catalog/generated/native/17.ts": "e2e6425ddcee7a3946bcec5f67cc73841d1846893eeaac1b06669cd856d64184",
+    "packages/postgres/src/catalog/generated/native/18.ts": "7c22af1a015493745c43aff6e272ec1a3e9dabceca34144d079de010faf7594a",
+    "packages/postgres/src/catalog/generated/native/19.ts": "531295bad7d289ac4a3a68c625e1bb23b96047fde509e033e24248aa1a3f9414",
+    "packages/postgres/src/catalog/generated/native/groups/14-15-16-17-18-19.ts": "28db3cef89d60ba2548bd89bba17a96b68d35b937f66ae72da7b501af1fff811",
+    "packages/postgres/src/catalog/generated/native/groups/14-15-16-17-18.ts": "6b042dfbc76bcc476d4bd5fd99ffec8c00e8b4052b6080aacfb72c513bff6aa6",
+    "packages/postgres/src/catalog/generated/native/groups/14-15-16-17.ts": "e277af9cd4b88e96afbce6ece55f0845d50f94aefd5f9ccbdbe046fba9c1520b",
+    "packages/postgres/src/catalog/generated/native/groups/14-15-16.ts": "426ada056f23382cfa31e62870b4cfaa57128643ce2bb59c3f992453b90d6140",
+    "packages/postgres/src/catalog/generated/native/groups/14-15.ts": "a3e0907b7bdc0aa46401fc24cf68673e6ed1e1808346d2ed34bbd369f16f8566",
+    "packages/postgres/src/catalog/generated/native/groups/14.ts": "cf14423d5064e0c4f6d7fc554fe5273e51d8c8593060fd436dee00d5a2b6c323",
+    "packages/postgres/src/catalog/generated/native/groups/15-16-17-18-19.ts": "3356195e110c2de0da70d0e55ffa0e288567efabff7ca5689d4c03931fab2cdf",
+    "packages/postgres/src/catalog/generated/native/groups/15-16-17-18.ts": "6151e83a10475a87c755033c33e7a2737fadbec4942657e86208e1967dbe9161",
+    "packages/postgres/src/catalog/generated/native/groups/15-16-17.ts": "9650bb0bd29a217c489579ea46b79240dee54b8df4990b444bd5bccc284a9e76",
+    "packages/postgres/src/catalog/generated/native/groups/15.ts": "f583daf7e94f0d00ae9e5025af4f4e47585da4baeec88036a29133f6c50a2e15",
+    "packages/postgres/src/catalog/generated/native/groups/16-17-18-19.ts": "83a1819006430a471b877ebcd37a87d2c67a8e774d96e2119f0c31efc75c0b78",
+    "packages/postgres/src/catalog/generated/native/groups/16-17-18.ts": "45843a034371be911ec23423cc131bd12c98f38a3fcb5c39b8f59dc47db55e5b",
+    "packages/postgres/src/catalog/generated/native/groups/16-17.ts": "08461bbe9cb1737607284aeac77cbde46ad286ac12e12b805587197c10d21447",
+    "packages/postgres/src/catalog/generated/native/groups/16.ts": "b7dd7955d20eb6e7299b46cc9097d5f11e76dd97b7efd802bef7fb1f4a0b2f41",
+    "packages/postgres/src/catalog/generated/native/groups/17-18-19.ts": "b6f1515e6b4b5844b3a5da2d7f4a4115c63f5879086936c630eb86b8dc62489d",
+    "packages/postgres/src/catalog/generated/native/groups/17-18.ts": "abee904db77a3f6c17ad147cd54224a5ec8513d3f1549d55182576801652d585",
+    "packages/postgres/src/catalog/generated/native/groups/17.ts": "7c7fa8602291f722155d48c923b9471b8fecfb5a8d9449f1a7359ca36fafdb1d",
+    "packages/postgres/src/catalog/generated/native/groups/18-19.ts": "8c3a421160da0b7e1a79923577729f40599a80e0034a9dcae7074828a7cb1f72",
+    "packages/postgres/src/catalog/generated/native/groups/18.ts": "e13d57a7fe8c33140139248e8e60d65282bc3a8a1f86a5906279965cf7763d2b",
+    "packages/postgres/src/catalog/generated/native/groups/19.ts": "07a7f45df72f8b0f2a992e677ed6cf7f5fb43f779584177706057f4dab0e7e78",
+    "packages/postgres/src/catalog/generated/registry.ts": "b904c98964554c5174e2ba4b710ea473a6bab263cd1cbb3f3ab29a353ca3628b",
+    "packages/postgres/src/catalog/generated/semantics.ts": "3307139315e6ff09c19064292b5e07fb0a170f0e63f19639997c2096140d6a44",
+    "packages/postgres/src/catalog/index.ts": "2cd4102b851a07e72e3020fcf93c640a169e2ee4ec93d97fed28be8182ad5d23",
+    "packages/postgres/src/catalog/native-resolution.ts": "3af90af0ad5dc56f71417117e9901ffec3ff445b7cd1e99c61e8261b3adc1cc7",
+    "packages/postgres/src/codecs/generated/types.ts": "aadbebc0866674bf6cd4c01fab79388a70939aa6e9975d5055d2f4682238dd5c",
+    "packages/postgres/src/codecs/index.ts": "7270b0ac9c54f3e05395b7cb0aceff28772b6aed7218d0f157f811eaf161d8d3",
+    "packages/postgres/src/codecs/normalize.ts": "c87a3201e8e0d33c6c5b73aae2962c6ff8d95ab94823adc7b38cc20563d96044",
+    "packages/postgres/src/expression-evidence.ts": "b1f7a14a6826f5c4850dfd861618418f0c4f085cbac9408f6ab79e008daef5d3",
+    "packages/postgres/src/extension-contracts.ts": "c9149e79b7d4f7d7204eac4af47f5679ff427215bc196ed79ed6d5836e8fcd3a",
+    "packages/postgres/src/extensions.ts": "cc7bd4949b40bdb47dee3ae142ba29ec0022e7f0659f5b6551b5560d95da5cdd",
+    "packages/postgres/src/index.ts": "9753467a1a90d2ade7c4b756f056f828976f301f33d297a734b75a5badc7ca21",
+    "packages/postgres/src/parser/index.ts": "c2ecc5ebca4701327c54d5ff9248d6364e5777086df974a07a5bafb01a9b8f16",
+    "packages/postgres/src/parser/parser.ts": "8d80e3aaefcfd0d1486a56dc74b88357a95e348fef5e6e8385880d645758aca7",
+    "packages/postgres/src/parser/tokenizer.ts": "8abb19756d07cd6e774379bf061386efb4132ef9f4468b4e3058499da6769ae2",
+    "packages/postgres/src/parser/types.ts": "407171f5d973bcc94bf47066345c42373c976146071141898a0f2dd1bc45ad36",
+    "packages/postgres/src/parser/vocabulary.generated.ts": "96fc0f19424e03c9c92896b5cc408298538721715b081d25407381b62a8f3f73",
+    "packages/postgres/src/parser/walk.ts": "d563beb5fca34a67971d361091c11bc94686731a0e893ffe75db3078557fa7ef",
+    "packages/postgres/src/policy.ts": "e2f6c94d1174a247cab1f2b5ac54f59e94321cf7e115230a02757e31d633c3d1",
+    "packages/postgres/src/profile-snapshot.ts": "c335916049351c90fa8f94e3aba9e3f625bdcd19dcdad79e8bc6c1b284c0c432",
+    "packages/postgres/src/provider.ts": "b0a26b092e9961afd5482ac88b228b08cb69e30d9410f6568f8429f6cd2495da",
+    "packages/postgres/src/query.ts": "ad1792e9125711cc9e67773201818976427d39eed3003e4ac372658e23e1c0e2",
+    "packages/postgres/src/rendering.ts": "d837d87d4f8cda3d1c0615e7992e372a7d058ffb10f6e321fc25c158bf8d4b01",
+    "packages/postgres/src/repeated-inputs.ts": "6c92a254c0279aec2ee1f2158a29e8d2eaa4957d46f259b6f953a4a3ccef95ac",
+    "packages/postgres/src/resolver-engine.ts": "e6996ea64d89c7c5b85df32d028b9ab298141754ccb062a6e4b4cea5b5e9de2f",
+    "packages/postgres/src/resolver.ts": "ffc2e7edaa9eedcf2ebc419dc9b04b4b85387ec0147bb95308914b0bfb4e4777",
+    "packages/postgres/src/routing.ts": "ad20ee9dad164de04175fd2759d14af1dc06d26ba3d12452464642ee39839991",
+    "packages/postgres/src/runtime-compatibility.ts": "b9b85893bfb62c01720630e43aeea70437eafc56804187c0c4492979140573aa",
+    "packages/postgres/src/semantics-engine.ts": "23bab200c7299dc22b13c2fce8df86a55903da92de555b499064e9512860e738",
+    "packages/postgres/src/semantics.ts": "a08768c781c22f15a94897fb35b76cb995b5a70f49047c2d1689de4fee5bf5c0",
+    "packages/postgres/src/server-evidence.ts": "53656d8dac75529bcbac52d1ee345cd91887fd803907293019de3eff511f786a",
+    "packages/postgres/src/support.ts": "d1793b1e5261fa70d9a447d9478ea5e71c178a6bef7a44aa77d7a2644c97e4bf",
+    "packages/postgres/src/type-policy.ts": "ec79476d1736cca8a7ed9c6df33ceca7fc051f88fcad8fc5c4e293e9d6e43655",
+    "packages/postgres/src/type-resolution.ts": "3e70cc46667d2a30933b7dc8176a58b4d91f7d5c4f915dc9f28beff89031bd94",
+    "packages/postgres/src/version.ts": "82a1ca0f3324f488f56b85a054b037024480e2e857cad435e63b691c64eb4a6b",
+    "packages/schema/package.json": "788d8effcb9b6326cc5eb6e593d6292a6fbcb6317bac3b47d06ae28f299f4253",
+    "packages/schema/src/artifact-files.ts": "15d295a678e3128fd82085c1798790b716b9f742f5cb54b672f97160e9be7795",
+    "packages/schema/src/brands.ts": "3d904bc505590d40d912364bd2d1c069e0dcb0374f5890de6b4148888db24cf1",
+    "packages/schema/src/generator.ts": "5ace57f554a702c2421e739828ed93a98e514f95baa097b65e906e57d8780ea1",
+    "packages/schema/src/index.ts": "46290cb7668d830e0215a38d59a1de8e164db69225a37cb619406bcf17c65d5a",
+    "packages/schema/src/json-schema.ts": "28377522609c2d3917dd2d235bc6e5d04316910f72be709494c27c59c46e1ef4",
+    "packages/schema/src/loader.ts": "0e09963955de93e2ebd66ae055394d514a2af3100fecd426182a81a346e0e056",
+    "packages/schema/src/model.ts": "c759b2b33676ffc7bfcf7d08b7ba0bb6cac22c045c7e9493cf13ca282a51b7bf",
+    "packages/schema/src/ordering.ts": "4f94647922185948f6aefe321bd4ca347bd5fc26b9aeb14e0fe6171fe6ba681a",
+    "packages/schema/src/snapshot.ts": "83efaca3407d416f5c3d0a05565fac4ed8591c9aa6f1a93e4793d5978295e9c6",
+    "packages/schema/src/v1/codec.ts": "b59292b2d432eb7ebea00bf7770e0a5d97a7e7cdbe6a16f8865bd9c998d9c32c",
+    "packages/schema/src/v1/model.ts": "ba1930926b07abbf2d4df0fe1b266d8128aafadc996e2e3b9b382b2d7be1b2f5",
+    "packages/schema/src/v1/upgrade.ts": "735c07034064519bc0a5bff8d1b1143538790c7ae20897f4067bc773c217b346",
+    "packages/schema/src/v2/codec.ts": "72a315a3bb28f25b70b0f3bdead5605b3635f272d0ffa041620a7f1b3d9c7bda",
+    "packages/schema/src/v2/model.ts": "4377b06fb950972480c44f3be19731c297028ba8295c5f37ab9f3d8ff99e388f",
+    "planning/hybrid-analysis/measure-selected-postgres.mjs": "0542bfc20c9bbf7af7a8bcd1775540a39c44884f14f8f513c7afa3465258929c"
+  }
+}
