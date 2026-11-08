@@ -1,5 +1,10 @@
 import { defineQueryValuePlan, type QueryValuePlan } from "@typed-sql/core";
 import { canonicalContractData, exactSqlDigest, queryContractDigest } from "./canonical.js";
+import {
+  type NativeQueryContractEvidence,
+  nativeContractValuePlan,
+  parseNativeQueryContractEvidence,
+} from "./native-evidence.js";
 
 export interface QueryContractContext {
   readonly grammar: { readonly id: string; readonly version: string };
@@ -18,6 +23,7 @@ export interface QueryContract {
   readonly sqlLength: number;
   readonly origin: "offline-rule" | "native-description" | "reconciled";
   readonly valuePlan: QueryValuePlan;
+  readonly nativeEvidence?: NativeQueryContractEvidence;
   /** SQL-relative ranges; source-file positions are never persisted. */
   readonly columnSpans: readonly { readonly start: number; readonly end: number }[];
 }
@@ -54,7 +60,17 @@ export function parseQueryContractContext(input: unknown): QueryContractContext 
 }
 export function parseQueryContract(input: unknown): QueryContract {
   const value = object(JSON.parse(canonicalContractData(input)));
-  keys(value, ["formatVersion", "digest", "context", "sqlDigest", "sqlLength", "origin", "valuePlan", "columnSpans"]);
+  keys(value, [
+    "formatVersion",
+    "digest",
+    "context",
+    "sqlDigest",
+    "sqlLength",
+    "origin",
+    "valuePlan",
+    "columnSpans",
+    ...(Object.hasOwn(value, "nativeEvidence") ? ["nativeEvidence"] : []),
+  ]);
   if (
     value.formatVersion !== 1 ||
     typeof value.digest !== "string" ||
@@ -89,6 +105,14 @@ export function parseQueryContract(input: unknown): QueryContract {
     )
       throw new TypeError("Invalid query contract SQL span");
   }
+  if (Object.hasOwn(value, "nativeEvidence")) {
+    const evidence = parseNativeQueryContractEvidence(value.nativeEvidence, value.sqlLength as number);
+    if (
+      value.origin === "offline-rule" ||
+      canonicalContractData(nativeContractValuePlan(evidence, context)) !== canonicalContractData(plan)
+    )
+      throw new TypeError("Native contract evidence differs from its value plan or origin");
+  }
   const { digest, ...body } = value;
   if (queryContractDigest(body) !== digest) throw new TypeError("Query contract content digest differs");
   // Normalize only after checking the original bytes: unknown plan fields cannot become trusted metadata.
@@ -102,6 +126,7 @@ export function createQueryContract(input: {
   readonly origin: QueryContract["origin"];
   readonly valuePlan: QueryValuePlan;
   readonly columnSpans?: QueryContract["columnSpans"];
+  readonly nativeEvidence?: NativeQueryContractEvidence;
 }): QueryContract {
   const context = parseQueryContractContext(input.context),
     plan = defineQueryValuePlan(input.valuePlan);
@@ -112,6 +137,7 @@ export function createQueryContract(input: {
     sqlLength: input.sql.length,
     origin: input.origin,
     valuePlan: plan,
+    ...(input.nativeEvidence === undefined ? {} : { nativeEvidence: input.nativeEvidence }),
     columnSpans: input.columnSpans ?? plan.columns.map(() => ({ start: 0, end: input.sql.length })),
   };
   return parseQueryContract({ ...body, digest: queryContractDigest(body) });

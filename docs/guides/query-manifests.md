@@ -176,3 +176,30 @@ These APIs consume previously established evidence. Setting a contract's `origin
 perform native qualification or prove that an engine supplied it. Contract digests detect
 inconsistent contents; they do not authenticate the producer. Use reviewed compiler inputs
 from a trusted generator. Application code continues using its grammar's `sql` tag.
+
+
+### Acquire evidence through an explicit adapter
+
+Compiler hosts can call `acquireNativeQueryContract` with a `NativeContractAdapter`, the expected
+context and a static candidate. Candidates contain SQL, every placeholder occurrence and optional
+SQL-relative result spans. They contain no application values. The grammar owner accepts only
+statement classes and binding behavior it can safely describe before opening a session.
+
+The session supplies context identities and a native description under a declared snapshot or
+qualified guard. Acquisition compares context before and after description, snapshots caller
+inputs before awaiting, checks adapter identity and parameter layout, and closes the session on
+success, failure or cancellation. A changed context or unavailable parameter identity prevents
+contract acquisition. The session owner remains responsible for the consistency guarantee;
+before/after equality alone cannot establish an engine's snapshot semantics.
+
+Native evidence records sanitized descriptors and known/unknown facts separately for native
+identity, runtime representation and nullability. Unknown nullability projects to a nullable
+application type. A known SQL family with incomplete modifiers remains partial when consumed.
+Unknown result representations remain `unknown`. Contract loading validates that evidence and
+the runtime value plan agree. A lightweight profile must establish the same placeholder layout
+before consuming a parameterized native contract.
+
+This acquisition API is separate from [live verification](./live-verification.md): it does not
+require a resolved compiler claim. Adapter implementations and hosts must supply their qualified
+context, statement acceptance and descriptor interpretation. Calling the API does not activate
+background refresh or change ordinary build network behavior.

@@ -37,6 +37,28 @@ Unrelated planning work is left unchanged.
   documentation, public API and packed editor checks are included in that evidence. Full
   repository verification and native acquisition remain open.
 
+## Native acquisition foundation
+
+- Added independently validated native evidence: adapter revisions, consistency scope, result
+  kind, sanitized descriptors, exact parameter occurrences and separate known/unknown native
+  identity, runtime representation and nullability facts. Partial native identity survives
+  contract consumption; unknown nullability becomes conservatively nullable.
+- Added explicit async acquisition over grammar-owned sessions. Statement acceptance precedes
+  opening a connection; candidate data is snapshotted and frozen. Expected context is checked
+  before and after description, parameter slots/layout and adapter revision are validated,
+  unresolved parameter evidence is rejected, and sessions close on every outcome.
+- Native evidence and runtime plans must agree even after an artifact digest is recomputed.
+  Parameterized native hits require the lightweight profile to attest the same occurrence layout.
+- Synthetic adapter tests cover independent acquisition, persistence/reload, partial facets,
+  descriptor limits/validation, context drift, cancellation, failed cleanup and caller edits.
+  These are neutral mechanics tests, not proof of any built-in transport or native consistency.
+- Core parameter collection, compiler manifests and existing verification preserve explicitly
+  partial native identity. Incomplete modifiers cannot earn an exact-identity verification claim;
+  independent representation/nullability mismatches remain visible.
+- Analysis coverage passes with 100% lines/statements/functions and 96.87% branches. Typechecking,
+  focused package/API/documentation boundaries and quality pass for the acquisition foundation.
+- Real adapter ownership, strict native/static reconciliation and the native vertical remain open.
+
 ## Required work still open
 
 1. Complete the contract/evidence model: native descriptors and provenance, reusable/facet-specific

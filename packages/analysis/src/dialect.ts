@@ -1,11 +1,13 @@
 import { type DialectAnalysis, type DialectPlugin, type SchemaSnapshot, unknownQuerySemantics } from "@typed-sql/core";
 import { calculateSchemaHash, calculateTypePolicyHash } from "@typed-sql/schema";
+import { canonicalContractData } from "./canonical.js";
 import {
   createQueryContractIndex,
   parseQueryContractContext,
   type QueryContract,
   type QueryContractContext,
 } from "./contracts.js";
+import { nativeContractParametersAvailable } from "./native-evidence.js";
 import { contractTypeScriptType } from "./runtime-type.js";
 
 export type ContractGrammarProfile<Snapshot extends SchemaSnapshot, Policy> = Omit<
@@ -53,6 +55,18 @@ export function createContractDialect<Snapshot extends SchemaSnapshot, Policy>(i
         return unavailable("Query contract does not establish repeated-result invariance");
       const contract = index.resolve(context, sql);
       if (!contract) return unavailable("No matching query contract");
+      if (contract.nativeEvidence) {
+        if (!nativeContractParametersAvailable(contract.nativeEvidence))
+          return unavailable("Native query contract parameter metadata is unresolved");
+        const occurrences = profile.parameterOccurrences?.(sql, schema, policy);
+        const layout = occurrences?.map(({ index, range }) => ({ index, start: range.start, end: range.end }));
+        if (
+          layout
+            ? canonicalContractData(layout) !== canonicalContractData(contract.nativeEvidence.parameterOccurrences)
+            : contract.nativeEvidence.parameterOccurrences.length > 0
+        )
+          return unavailable("Native query contract parameter layout does not match");
+      }
       const sourceRange = (span: { readonly start: number; readonly end: number }) => {
         const prefix = sql.slice(0, span.start),
           line = prefix.split("\n").length,
@@ -64,13 +78,22 @@ export function createContractDialect<Snapshot extends SchemaSnapshot, Policy>(i
           ...column,
           tsType: contractTypeScriptType(column),
           runtimeType: column.type,
+          ...(contract.nativeEvidence?.columns[position]?.nativeType.status === "known" &&
+          !contract.nativeEvidence.columns[position]!.nativeType.value.complete
+            ? { databaseTypeIsPartial: true as const }
+            : {}),
           range: sourceRange(contract.columnSpans[position]!),
         })),
-        parameters: contract.valuePlan.parameters.map((parameter) => ({
+        parameters: contract.valuePlan.parameters.map((parameter, position) => ({
           ...parameter,
           tsType: contractTypeScriptType(parameter),
           runtimeType: parameter.type,
+          ...(contract.nativeEvidence?.parameters[position]?.nativeType.status === "known" &&
+          !contract.nativeEvidence.parameters[position]!.nativeType.value.complete
+            ? { databaseTypeIsPartial: true as const }
+            : {}),
         })),
+        ...(contract.nativeEvidence ? { resultKind: contract.nativeEvidence.resultKind } : {}),
         diagnostics: [],
         semantics: unknownQuerySemantics(range, "Query contract does not establish execution effects or cardinality"),
       };
