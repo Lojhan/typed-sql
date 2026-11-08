@@ -32,6 +32,8 @@ export interface AnalysisRegistration<Snapshot extends SchemaSnapshot = SchemaSn
   extends AnalysisConfiguration {
   readonly live?: LiveAnalysisRegistration<Snapshot, Policy>;
   readonly projectCatalogs?: {
+    /** Explicitly capture selected declarations during live preparation. */
+    readonly capture?: boolean;
     /** Installed grammar interpreters; loaded only when selected catalog inputs require them. */
     loadContributions():
       | readonly ProjectCatalogContribution<Snapshot, Policy>[]
@@ -52,7 +54,11 @@ export function defineAnalysisRegistration<Snapshot extends SchemaSnapshot = Sch
   let catalogs: AnalysisRegistration<Snapshot, Policy>["projectCatalogs"];
   if (projectCatalogs !== undefined) {
     const registered = fields(projectCatalogs);
-    if (Object.keys(registered).join() !== "loadContributions" || typeof registered.loadContributions !== "function")
+    if (
+      Object.keys(registered).some((key) => key !== "loadContributions" && key !== "capture") ||
+      typeof registered.loadContributions !== "function" ||
+      (registered.capture !== undefined && typeof registered.capture !== "boolean")
+    )
       throw new TypeError("Invalid project catalog registration");
     catalogs = Object.freeze(registered) as unknown as NonNullable<typeof catalogs>;
   }

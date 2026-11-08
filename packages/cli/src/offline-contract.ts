@@ -18,8 +18,11 @@ export function materializeOfflineContract<Snapshot extends SchemaSnapshot, Poli
 }) {
   const { sql, context, dialect, schema, typePolicy } = input;
   const analysis = dialect.analyze(sql, schema, typePolicy, { runtimeValidation: true });
-  if (analysis.diagnostics.some((diagnostic) => diagnostic.severity === "error"))
-    throw new Error("Offline contract generation requires successful grammar analysis");
+  const failure = analysis.diagnostics.find((diagnostic) => diagnostic.severity === "error");
+  if (failure)
+    throw new Error(
+      `Offline contract generation requires successful grammar analysis: ${failure.code}: ${failure.message}`,
+    );
   if ([...analysis.columns, ...analysis.parameters].some((field) => field.databaseTypeIsPartial))
     throw new Error(
       "Offline contract generation cannot yet preserve partial native type identity; acquire a qualified native contract",

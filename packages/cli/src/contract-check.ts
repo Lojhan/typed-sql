@@ -70,6 +70,10 @@ export async function runContractCommand(
   });
   if (configuration.mode === "live" && (!live || !configuration.cache))
     throw new Error("Live checking requires analysis.live.adapter and an explicit analysis.cache target identity.");
+  if (configuration.mode === "live" && projectCatalogs?.capture && !generating)
+    throw new Error(
+      "Selected catalog capture requires generate --queries --live; use recorded inputs for offline or frozen checking",
+    );
   const profile = loaded.config.dialect,
     policy = loaded.config.typePolicy ?? profile.defaultTypePolicy;
   const schemaFile = fromConfig(loaded.directory, options.schema ?? loaded.config.schema.file);
@@ -180,9 +184,13 @@ export async function runContractCommand(
     ? createAnalysisContextScope({ profile, schema, typePolicy: policy, configuration })
     : undefined;
   const automaticScope = raw.context === undefined ? bindingScope! : undefined;
+  const recordedCatalogs =
+    configuration.mode === "live" && projectCatalogs?.capture && baselineManifest !== null
+      ? (await loadQueryContractInputs(directory, bindingScope)).projectCatalogs
+      : undefined;
   const recordedContext =
     configuration.mode !== "frozen" && bindingScope && baselineManifest !== null
-      ? await loadQueryContractContext(directory, bindingScope)
+      ? (recordedCatalogs?.baseContext ?? (await loadQueryContractContext(directory, bindingScope)))
       : undefined;
   let selectedCatalogs: import("@typed-sql/analysis").ProjectCatalogClosure | undefined;
   let selectionToken: import("@typed-sql/analysis").AnalysisCacheToken | undefined;
@@ -270,6 +278,15 @@ export async function runContractCommand(
             configuration,
             cache: cache!,
             ...(recordedContext ? { recordedContext } : {}),
+            ...(recordedCatalogs ? { recordedProjectCatalogs: recordedCatalogs } : {}),
+            ...(projectCatalogs
+              ? {
+                  projectCatalogs: {
+                    ...projectCatalogs,
+                    loadContributions: () => runConfigFactory(loaded, () => projectCatalogs.loadContributions()),
+                  },
+                }
+              : {}),
             live: {
               ...live!,
               adapter: (input) =>

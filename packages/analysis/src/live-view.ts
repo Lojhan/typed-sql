@@ -5,6 +5,7 @@ import {
   type DialectProfile,
   type SchemaSnapshot,
 } from "@typed-sql/core";
+import { calculateSchemaHash, calculateTypePolicyHash } from "@typed-sql/schema";
 import type { AnalysisCache, AnalysisCacheToken } from "./cache.js";
 import { type NativeContractCandidate, parseNativeContractCandidate } from "./candidate.js";
 import { canonicalContractData, exactSqlDigest, queryContractDigest } from "./canonical.js";
@@ -24,16 +25,21 @@ import {
   type LiveAnalysisScheduler,
   type LiveAnalysisSubscription,
 } from "./live.js";
+import { prepareCapturedCatalogView } from "./live-catalog.js";
 import { createPersistentLiveAnalysisRunner } from "./persistent-live.js";
+import type { ProjectCatalogClosure } from "./project-catalog.js";
 import { createStaticQueryClaim } from "./reconciliation.js";
 import {
   type AnalysisOwnerLoader,
+  type AnalysisRegistration,
   defineAnalysisRegistration,
   type LiveAnalysisRegistration,
   type LiveAnalysisServices,
 } from "./registration.js";
 
 export interface LiveContractView<Snapshot extends SchemaSnapshot, Policy> {
+  readonly schema: Snapshot;
+  readonly projectCatalogs?: ProjectCatalogClosure;
   readonly dialect: DialectPlugin<Snapshot, Policy>;
   readonly contracts: readonly QueryContract[];
   readonly context: QueryContractContext;
@@ -53,6 +59,8 @@ export interface LiveContractPreparation<Snapshot extends SchemaSnapshot, Policy
   readonly loadAnalyzer: AnalysisOwnerLoader<Snapshot, Policy>;
   readonly signal?: AbortSignal;
   readonly recordedContext?: QueryContractContext;
+  readonly recordedProjectCatalogs?: ProjectCatalogClosure;
+  readonly projectCatalogs?: AnalysisRegistration<Snapshot, Policy>["projectCatalogs"];
 }
 class ObservedContextChangedError extends Error {}
 function snapshotCandidates(candidates: readonly NativeContractCandidate[]): readonly NativeContractCandidate[] {
@@ -66,6 +74,11 @@ export async function prepareLiveContractView<Snapshot extends SchemaSnapshot, P
   input: LiveContractPreparation<Snapshot, Policy>,
 ): Promise<LiveContractView<Snapshot, Policy>> {
   const configuration = defineAnalysisConfiguration(input.configuration);
+  if (input.projectCatalogs?.capture)
+    return prepareCapturedCatalogView(
+      { ...input, candidates: snapshotCandidates(input.candidates) },
+      prepareLiveContractView,
+    );
   if (configuration.context !== undefined) return prepareLiveContractViewWithScheduler(input);
   const live = defineAnalysisRegistration({ ...configuration, live: input.live }).live;
   if (!live) throw new TypeError("Live preparation requires a native registration");
@@ -138,9 +151,10 @@ export async function prepareLiveContractViewWithScheduler<Snapshot extends Sche
   let services: LiveAnalysisServices | undefined, scheduler: LiveAnalysisScheduler | undefined;
   async function produce(): Promise<LiveContractView<Snapshot, Policy>> {
     const outcomes: { sqlDigest: string; outcome: LiveAnalysisOutcome }[] = [];
+    let owner: DialectPlugin<Snapshot, Policy> | undefined;
     if (!unique.length && context) return view(outcomes);
     const captured = automatic ? await input.cache.lookupContext(scope) : undefined;
-    const owner = unique.length ? await input.loadAnalyzer() : undefined;
+    owner = unique.length ? await input.loadAnalyzer() : undefined;
     signal.throwIfAborted();
     if (owner) assertDialectPlugin(owner);
     if (
@@ -320,9 +334,21 @@ export async function prepareLiveContractViewWithScheduler<Snapshot extends Sche
       );
       const dialect: DialectPlugin<Snapshot, Policy> = Object.freeze({
         ...consumer,
-        analyze(sql, schema, policy, analysisContext) {
+        ...(profile.runtimeValueType === undefined && owner?.runtimeValueType !== undefined
+          ? { runtimeValueType: owner.runtimeValueType.bind(owner) }
+          : {}),
+        analyze(sql, schema, policy = typePolicy, analysisContext) {
           const analysis = consumer.analyze(sql, schema, policy, analysisContext),
             failure = failures.get(exactSqlDigest(sql));
+          if (
+            configuration.qualification.mode === "hybrid" &&
+            failure?.kind === "partial" &&
+            failure.code === "unsupported-statement" &&
+            owner &&
+            calculateSchemaHash(schema) === selectedContext().schemaHash &&
+            calculateTypePolicyHash(policy ?? {}) === selectedContext().typePolicyHash
+          )
+            return owner.analyze(sql, schema, policy, analysisContext);
           return failure
             ? {
                 ...analysis,
@@ -337,6 +363,7 @@ export async function prepareLiveContractViewWithScheduler<Snapshot extends Sche
         },
       });
       return Object.freeze({
+        schema: input.schema,
         dialect,
         context: selectedContext(),
         async assertCurrent() {

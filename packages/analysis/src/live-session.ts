@@ -65,6 +65,10 @@ export interface LiveContractSession<Snapshot extends SchemaSnapshot, Policy> {
 export function createLiveContractSession<Snapshot extends SchemaSnapshot, Policy>(
   input: SessionInput<Snapshot, Policy>,
 ): LiveContractSession<Snapshot, Policy> {
+  if (input.projectCatalogs?.capture)
+    throw new TypeError(
+      "Session catalog capture requires a persisted catalog cache; use explicit live generation for selected catalogs",
+    );
   const registration = defineAnalysisRegistration({ ...input.configuration, live: input.live });
   if (registration.mode !== "live" || !registration.cache)
     throw new TypeError("Live sessions require a live target registration");

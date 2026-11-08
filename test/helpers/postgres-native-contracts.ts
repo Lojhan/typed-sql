@@ -22,6 +22,7 @@ import {
   exportQueryContracts,
   type LiveAnalysisState,
   loadFrozenContractView,
+  loadQueryContractInputs,
   loadQueryContracts,
   openAnalysisCache,
   parseContractQualificationPolicy,
@@ -96,7 +97,7 @@ export async function assertPostgresNativeContracts(connectionString: string, di
     strict.equal(candidates.candidates.length, 1);
     strict.equal(candidates.candidates[0]!.sql, text);
     const parameterOccurrences = candidates.candidates[0]!.parameterOccurrences;
-    const context = await native.inspectContext();
+    let context = await native.inspectContext();
     // Metadata acquisition now owns context observation and collection on one guarded lease.
     const projectBase = {
       ...upgradeSchemaSnapshotV1({
@@ -302,9 +303,65 @@ export default {dialect:{...postgresProfile(),async loadAnalyzer(){return (await
       } finally {
         await editor.close();
       }
+      // Explicit live generation captures its own catalog; no recorded objects are inputs.
+      await rm(join(catalogDirectory, "manifest.json"));
+      for (const part of ["queries", "contexts", "catalogs"])
+        await rm(join(catalogDirectory, part), { recursive: true, force: true });
+      const { context: _recordedBase, ...targetSettings } = configured;
+      await writeFile(
+        join(catalogDirectory, "typed-sql.config.mjs"),
+        `
+import {Pool} from "pg";
+import {postgresProfile} from "@typed-sql/postgres/profile";
+import {postgresContractIdentity} from "@typed-sql/postgres/contract-profile";
+export default {dialect:{...postgresProfile(),async loadAnalyzer(){return (await import("@typed-sql/postgres/analysis")).postgres();}},schema:{file:"schema.json"},outDir:"generated",projects:["tsconfig.json"],analysis:{...${JSON.stringify(targetSettings)},identity:postgresContractIdentity(),mode:"live",contractsDir:".",projectCatalogs:{capture:true,async loadContributions(){return [(await import("@typed-sql/postgres/project-catalog")).createPostgresProjectCatalogContribution()];}},live:{async adapter({schema}){
+ const {createPgNativeContractAdapter}=await import("@typed-sql/postgres/pg-contracts");
+ const {createPostgresContractReconciler}=await import("@typed-sql/postgres/reconciliation");
+ const pool=new Pool({connectionString:process.env.TYPED_SQL_CATALOG_TEST_URI,max:2});
+ const adapter=createPgNativeContractAdapter({schema,pool});
+ return {connectionContext:${JSON.stringify(configured.cache.connectionContext)},adapter,contribution:createPostgresContractReconciler({schema}),inspectContext:signal=>adapter.inspectContext(signal),close:()=>pool.end()};
+}}}};`,
+      );
+      const liveCommand = () =>
+        promisify(callback)(process.execPath, [cli, "generate", "--queries", "--live"], {
+          cwd: catalogDirectory,
+          env: { ...process.env, TYPED_SQL_CATALOG_TEST_URI: connectionString },
+          maxBuffer: 8 * 1024 * 1024,
+        });
+      const automaticSource = `${catalogSource}\n${application.slice(application.indexOf("export function")).replace("export function query", "export function exactQuery")}`;
+      await writeFile(join(catalogDirectory, "application.ts"), automaticSource);
+      await liveCommand();
+      const automaticCatalog = await loadQueryContractInputs(catalogDirectory);
+      strict.ok(automaticCatalog.projectCatalogs?.catalogs[0]?.entries.length);
+      strict.equal(automaticCatalog.contracts.length, 2);
+      strict.equal(automaticCatalog.contracts.filter((contract) => contract.origin === "reconciled").length, 1);
+      strict.equal(automaticCatalog.contracts.filter((contract) => contract.origin === "offline-rule").length, 1);
+      strict.notEqual(
+        automaticCatalog.contracts[0]!.context.schemaHash,
+        automaticCatalog.projectCatalogs!.baseContext.schemaHash,
+      );
+      await writeFile(join(catalogDirectory, "application.ts"), automaticSource.replace("+ 7::bigint", "+ 11::bigint"));
+      await liveCommand();
+      strict.notDeepEqual(
+        (await loadQueryContracts(catalogDirectory)).map((contract) => contract.sqlDigest).sort(),
+        automaticCatalog.contracts.map((contract) => contract.sqlDigest).sort(),
+      );
+      await pool.query(
+        `CREATE FUNCTION ${namespace}.catalog_refresh_marker() RETURNS integer LANGUAGE sql IMMUTABLE AS $$SELECT 1$$`,
+      );
+      await liveCommand();
+      const refreshedCatalog = await loadQueryContractInputs(catalogDirectory);
+      strict.notEqual(
+        refreshedCatalog.projectCatalogs!.baseContext.databaseContextHash,
+        automaticCatalog.projectCatalogs!.baseContext.databaseContextHash,
+      );
+      strict.match((await command(["check", "--offline", "--show-types"])).stdout, /bigint/u);
+      strict.match((await command(["check", "--frozen", "--show-types"])).stdout, /bigint/u);
     } finally {
       await rm(catalogDirectory, { recursive: true, force: true });
     }
+    // The catalog-refresh probe deliberately changes the epoch before the independent query proof.
+    context = await native.inspectContext();
     strict.equal(
       (await pool.query<{ count: number }>(`SELECT count FROM ${namespace}.calls`)).rows[0]!.count,
       0,

@@ -37,7 +37,7 @@ await describe("explicit live registration", async () => {
       const registered = defineAnalysisRegistration({
         ...configuration,
         ...(live ? { live } : {}),
-        projectCatalogs: { loadContributions },
+        projectCatalogs: { loadContributions, capture: true },
       });
       strict.equal(registered.projectCatalogs?.loadContributions, loadContributions);
       strict.ok(Object.isFrozen(registered.projectCatalogs));
@@ -66,6 +66,7 @@ await describe("explicit live registration", async () => {
       { ...configuration, projectCatalogs: {} },
       { ...configuration, projectCatalogs: { loadContributions: 1 } },
       { ...configuration, projectCatalogs: { loadContributions, extra: true } },
+      { ...configuration, projectCatalogs: { loadContributions, capture: "all" } },
       {
         ...configuration,
         projectCatalogs: {

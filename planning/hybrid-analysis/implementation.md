@@ -308,3 +308,38 @@ The packed consumer also creates a sparse contributed catalog after analyzer/cat
 and drivers are physically removed, then compiles and checks its exact contract through the
 installed frozen CLI. This qualifies the neutral contribution boundary; it does not claim that
 every built-in project interpreter is independent of its grammar's semantic catalog.
+
+## Automatic finite catalog capture
+
+`analysis.projectCatalogs.capture` opts explicit live generation into selected metadata capture.
+The native service is constructed against the base snapshot and independently configured target.
+Guarded catalog acquisition validates the selected owner and both context reads, then installed
+contributions derive the schema and profile identity. Query acquisition wraps native context reads
+with exact base-context validation before exposing the derived identity; it never configures a
+base adapter with the enriched schema or silently drops its changed hashes.
+
+A shared batch deadline bounds capture, pure loaders, native wrappers and service cleanup.
+Late factories are disposed. Automatic selection retries bounded context drift only after closing
+the previous owner; pinned-context drift, unavailable capabilities, ownership mismatch and cleanup
+failures remain blocking. The base observation token and derived query tokens fence publication.
+The CLI exports the returned catalog closure through the existing atomic manifest commit.
+
+Hybrid preparation uses independently owned offline rules only when the adapter declines the
+statement class. Native-required mode still blocks that case; conflicts, native rejections and
+incomplete comparisons cannot use this fallback. This closes a live/offline inconsistency exposed
+by a PostgreSQL operator expression supported by offline catalog semantics but excluded by the
+restricted native profile. No native statement scope is widened by this change.
+
+The PostgreSQL helper starts without exported catalog objects, automatically captures selected
+routine declarations, exports both reconciled native and offline-rule queries, regenerates changed
+SQL and refreshes after a catalog-epoch change. Offline and frozen consumers then use the new
+closure, with the routine side-effect counter unchanged. Automatic session/editor capture remains
+unimplemented: it requires persisted catalog selections in the disposable cache and bounded
+session scheduling. The session API explicitly diagnoses that unsupported capture capability.
+
+Validation: all 19 analysis test files pass with 98.66% statement, 93.22% branch and
+99.43% function coverage. All 11 CLI files and 16 language-server files pass, along with
+packed consumers, API/package graph checks, build/type checks, documentation checks/build,
+quality and isolated performance gates. The isolated PostgreSQL helper passes the complete
+automatic-capture and existing native/cache/editor/frozen flow. An earlier parallel run returned
+stale-context in a later guarded acquisition; the guard and assertion were retained.

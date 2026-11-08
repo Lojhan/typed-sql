@@ -233,8 +233,25 @@ frozen checks require an exact query contract. Builds consume durable catalog in
 opening the development cache or native services. Editors track both the catalog objects and
 local interpreter dependencies. A known retired base context blocks offline reuse of its derived
 catalog, even if a target head was never published; frozen builds remain independent of that
-disposable cache. Catalog acquisition and automatic live refresh remain separate from this
-recorded-input registration.
+disposable cache.
+
+Set `analysis.projectCatalogs.capture: true` to capture selected declarations during
+`typed-sql generate --queries --live`. The registered native adapter must provide a qualified
+catalog capability. Native capture and description use an adapter constructed from the original
+base schema. Static qualification uses the enriched schema; each native context must match the
+base context before evidence is rebound to the derived schema/profile identities.
+Generation refreshes the selected catalog and publishes it with the query contracts. A database
+context change during capture or qualification retires that attempt and permits a bounded fresh
+attempt when the configuration selects its context automatically. A pinned context remains
+blocking when it differs.
+
+Hybrid mode retains independent offline rules when the native adapter declines a statement
+class. The resulting export records an offline-rule contract. Native-required mode requires
+native qualification; conflicts, native rejections and incomplete qualification remain blocking.
+
+Catalog capture is an explicit generation/preparation operation. Use offline or frozen editor
+checking to consume its exports. Session APIs require persisted catalog inputs and do not capture
+selected catalogs themselves.
 
 
 ### Acquire evidence through an explicit adapter
