@@ -980,6 +980,7 @@ const expectedRuntimeExports = {
     "walkTree",
   ],
   compiler: [
+    "SQL_FILE_DECLARATION_HEADER",
     "DEFAULT_MAX_GENERATED_DECLARATION_BYTES",
     "DEFAULT_MAX_QUERIES",
     "DEFAULT_MAX_SOURCE_BYTES",

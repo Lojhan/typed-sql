@@ -546,6 +546,26 @@ Unrelated planning work is left unchanged.
   other failing CI lanes need independent investigation. These local fixes do not certify remote
   matrix success, full architecture acceptance or bulk catalog removal.
 
+## SQL declaration compatibility follow-up
+
+- The build-integration conflict compared build-owned SQL declarations, which include an ownership
+  comment, with the compiler's current comment-free projection. Compiler/build now share the exact
+  ownership marker. Compatibility comparison removes only that marker and normalizes CRLF; changed
+  declaration contents still conflict, including incorrect files carrying the marker. Virtual checking
+  continues to use independently generated current evidence rather than trusting adjacent declarations.
+- Regression coverage accepts current declarations with CRLF and rejects stale owned and unowned
+  declarations. All 20 compiler test files and the build suite pass; the new comparison module has
+  complete line/function/branch coverage. Public API/package contracts and incremental TypeScript
+  build pass. The actual packed DuckDB integration passes for both native SDKs, and the Next.js
+  integration passes for Turbopack and webpack. These are existing build flows, not qualification of
+  contract-only build-host integration with physically absent analyzers.
+- Metadata canonicalizer declarations now preserve recursively canonicalized record/array shapes,
+  convert bigint fields to strings and leave unknown input unknown. The entire packed E2E TypeScript
+  closure passes without weakening checks. Generator provenance reports are refreshed from the clean
+  committed corpus; unrelated pending MySQL metadata remains outside this checkpoint.
+- New-head remote CI, native SQL Server audit failures, full Electron/native matrices, root migration,
+  compact-core/pack selection and bulk semantic catalog deletion remain open.
+
 ## Required work still open
 
 1. Complete the contract/evidence model: native descriptors and provenance, reusable/facet-specific

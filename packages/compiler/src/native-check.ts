@@ -8,6 +8,7 @@ import { Worker } from "node:worker_threads";
 import type { Diagnostic } from "typescript/unstable/async";
 import type { SourceAnalysisResult } from "./analysis.js";
 import { listProjectSourceFiles } from "./project.js";
+import { comparableSqlDeclaration } from "./sql-declaration.js";
 import { assertTypeScriptCompilerVersion } from "./typescript.js";
 
 export interface NativeCheckResult {
@@ -102,7 +103,10 @@ export async function runNativeCheck(options: {
   for (const [file, analysis] of options.analyses)
     if (/\.sql$/iu.test(file)) {
       const declaration = fileKey(file.replace(/\.sql$/iu, ".d.sql.ts"));
-      if (Object.hasOwn(virtualFiles, declaration) && virtualFiles[declaration] !== analysis.transformedSource)
+      if (
+        Object.hasOwn(virtualFiles, declaration) &&
+        comparableSqlDeclaration(virtualFiles[declaration]!) !== comparableSqlDeclaration(analysis.transformedSource)
+      )
         throw new Error(
           `SQL asset declaration conflicts with generated evidence: ${declaration}. Remove or regenerate that declaration.`,
         );

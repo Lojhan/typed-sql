@@ -120,6 +120,7 @@ export type { ListProjectSourceFilesOptions } from "./project.js";
 export { listProjectSourceFiles } from "./project.js";
 export type { ExtractedDynamicQuery, ExtractedInterpolation, ExtractedQuery } from "./scanner.js";
 export { extractDynamicQueries, extractStaticQueries, mapSqlRange } from "./scanner.js";
+export { SQL_FILE_DECLARATION_HEADER } from "./sql-declaration.js";
 export { type CompileSqlFileOptions, type CompileSqlFileResult, compileSqlFile } from "./sql-file.js";
 export type { TypeScriptCompilerVersionSupport } from "./typescript.js";
 export {

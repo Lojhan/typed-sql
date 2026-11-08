@@ -3,7 +3,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it, strict } from "poku";
 import { postgres } from "../../postgres/src/index.js";
-import { checkFile, checkProject } from "../src/index.js";
+import { checkFile, checkProject, compileSqlFile, SQL_FILE_DECLARATION_HEADER } from "../src/index.js";
 
 const fixture = resolve(dirname(fileURLToPath(import.meta.url)), "../../../test/fixtures/success");
 const schema = join(fixture, "schema.json");
@@ -36,6 +36,24 @@ await describe("project-wide native checking", async () => {
       const invalid = await checkProject({ project, schema, dialect: postgres() });
       strict.equal(invalid.ok, false);
       strict.match(invalid.typeScript.output, /consumer\.ts.*not assignable/u);
+      await writeFile(consumer, source);
+      const declaration = compileSqlFile({
+        source: await readFile(asset, "utf8"),
+        schema: postgres().validateSnapshot(JSON.parse(await readFile(schema, "utf8"))),
+        dialect: postgres(),
+      }).text;
+      await writeFile(
+        join(root, "lookup.d.sql.ts"),
+        `${SQL_FILE_DECLARATION_HEADER}${declaration}`.replaceAll("\n", "\r\n"),
+      );
+      const withGeneratedDeclaration = await checkProject({ project, schema, dialect: postgres() });
+      strict.equal(withGeneratedDeclaration.ok, true, withGeneratedDeclaration.typeScript.output);
+      // The ownership marker grants no authority to an incorrect declaration.
+      await writeFile(
+        join(root, "lookup.d.sql.ts"),
+        `${SQL_FILE_DECLARATION_HEADER}declare const stale: string; export default stale;`,
+      );
+      await strict.rejects(checkProject({ project, schema, dialect: postgres() }), /declaration conflicts/u);
       await writeFile(join(root, "lookup.d.sql.ts"), "declare const stale: string; export default stale;");
       await strict.rejects(checkProject({ project, schema, dialect: postgres() }), /declaration conflicts/u);
     } finally {
