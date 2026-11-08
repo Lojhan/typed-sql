@@ -23,18 +23,23 @@ export async function prepareMySql(client, sql) {
   try {
     const statement = await client.prepare(sql);
     const columns = statement.statement?.columns;
+    const parameters = statement.statement?.parameters;
+    const descriptor = (column) => ({
+      name: column.name,
+      engineType: column.columnType,
+      flags: column.flags,
+      characterSet: column.characterSet,
+      columnLength: column.columnLength,
+      decimals: column.decimals,
+    });
     const metadata = Array.isArray(columns)
       ? {
           status: "native preparation metadata for this invocation",
-          columns: columns.map((column) => ({
-            name: column.name,
-            engineType: column.columnType,
-            flags: column.flags,
-            characterSet: column.characterSet,
-            columnLength: column.columnLength,
-            decimals: column.decimals,
-          })),
+          columns: columns.map(descriptor),
           parameterCount: statement.statement.parameters?.length ?? null,
+          ...(Array.isArray(parameters) && parameters.length
+            ? { parameters: parameters.map((parameter, index) => ({ index: index + 1, ...descriptor(parameter) })) }
+            : {}),
         }
       : { status: "unavailable in this driver interface", columns: null };
     await statement.close();

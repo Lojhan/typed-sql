@@ -8,6 +8,10 @@ export interface NativeTypeDescriptor {
   maxLength?: number | string;
   precision?: number | string;
   scale?: number | string;
+  flags?: number;
+  characterSet?: number;
+  columnLength?: number;
+  decimals?: number;
 }
 
 export interface NativeDescription {

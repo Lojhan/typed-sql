@@ -39,6 +39,7 @@ import {
   assertLegacyValuePlans,
   assertMySqlRawJsonValuePlans,
 } from "../../../test/helpers/legacy-value-plans.js";
+import { assertMySqlContractProtocol } from "../../../test/helpers/mysql-contract-protocol.js";
 import { assertMySqlNumericConformance } from "../../../test/helpers/mysql-numeric-conformance.js";
 import { mysqlCodecFidelity } from "../src/codec-query.js";
 import { mysqlJsonEmptyAggregate, mysqlJsonMutations, mysqlJsonProjection } from "../src/json-query.js";
@@ -264,6 +265,20 @@ try {
       }
       strict.strictEqual(snapshot.metadata.schemaHash.length, 64);
       strict.strictEqual(snapshot.metadata.typePolicyHash.length, 64);
+    });
+
+    await it("captures native input and result metadata independently without executing candidates", async () => {
+      const pool = createPool({ uri: connectionUri });
+      try {
+        const connection = await pool.getConnection();
+        try {
+          await assertMySqlContractProtocol((sql) => prepareMySql(connection, sql));
+        } finally {
+          connection.release();
+        }
+      } finally {
+        await pool.end();
+      }
     });
 
     await it("matches native numeric descriptors and compiled runtime values", async () => {

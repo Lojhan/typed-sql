@@ -128,3 +128,28 @@ classes instead of obtaining stronger-looking metadata by executing them.
 The proposed live behavior is technically feasible under these boundaries. A universal promise
 that every advanced query becomes fully typed after one database call is not supported by the
 available native APIs.
+
+## MySQL protocol qualification
+
+The preparation-only regression in
+[mysql-contract-protocol.ts](../../test/helpers/mysql-contract-protocol.ts) runs in the MySQL
+E2E matrix. It was also executed directly against MySQL 8.4.11 using mysql2 3.24.6. It checks
+independent ordered input definitions, complete descriptor facets, multiple parameters and
+unsigned result identity. No candidate is executed or bound to sample values.
+
+For `SELECT CAST(? AS DECIMAL(12,3)) AS value`, the native input definition reports type 246,
+length 67 and decimal digits 30; the result reports type 246, length 14 and decimal digits 3.
+The parameter is not equivalent to the cast result. This is invocation evidence, not a reusable
+function rule or proof of nullability. The audit adapter now retains the parameter block alongside
+the result block, preserving missing blocks as unavailable.
+
+The [prepare protocol](https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_com_stmt_prepare.html)
+allows metadata omission during capability negotiation. Native acquisition must verify complete
+blocks and interpret their type/flag/charset/dimension facets under grammar policy. Existing
+verification's family-only type names do not establish a complete contract identity.
+
+MySQL also releases preparation metadata locks when preparation finishes, even inside a
+transaction ([metadata locking](https://dev.mysql.com/doc/refman/8.4/en/metadata-locking.html)).
+A read-only transaction alone therefore cannot guarantee dictionary stability across description
+and both context reads. A native acquisition implementation still needs a qualified consistency
+guard; the protocol regression does not claim that the acquisition adapter is implemented.

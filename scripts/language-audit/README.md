@@ -51,6 +51,12 @@ Preparation evidence also retains native result descriptors where available: MyS
 SQL Server result-set descriptions, DuckDB logical types, and SQLite column metadata. These
 describe the generated invocation, not a universal signature for every possible argument value.
 
+MySQL parameterized probes also retain the independent input definition block: ordered slot,
+native type code, flags, character set, length and decimal digits. The result of an explicit cast
+does not stand in for its input descriptor. An absent parameter block stays unavailable rather
+than becoming zero parameters. The MySQL engine matrix checks this protocol boundary without
+executing the candidate statements.
+
 The intended generation flow is captured facts → grammar-owned policy → generated catalogs.
 Coercions, polymorphism, nullability, special syntax, decoding and availability between observed
 versions remain explicit policy. In particular, PostgreSQL strictness does not establish that a

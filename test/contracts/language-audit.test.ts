@@ -242,6 +242,42 @@ await describe("independent upstream language auditing", async () => {
     strict.throws(() => expandFindings(corrupt), /Invalid shared native observation/u);
   });
 
+  await it("preserves independent MySQL parameter descriptors instead of copying result dimensions", async () => {
+    let closed = 0;
+    const captured = await prepareMySql(
+      {
+        prepare: async () => ({
+          statement: {
+            columns: [{ name: "value", columnType: 246, columnLength: 14, decimals: 3, flags: 128, characterSet: 63 }],
+            parameters: [{ name: "?", columnType: 246, columnLength: 67, decimals: 30, flags: 128, characterSet: 63 }],
+          },
+          close: async () => {
+            closed++;
+          },
+        }),
+      },
+      "SELECT CAST(? AS DECIMAL(12,3)) AS value",
+    );
+    strict.equal(captured.accepted, true);
+    strict.equal(closed, 1);
+    strict.deepEqual(captured.metadata, {
+      status: "native preparation metadata for this invocation",
+      columns: [{ name: "value", engineType: 246, columnLength: 14, decimals: 3, flags: 128, characterSet: 63 }],
+      parameterCount: 1,
+      parameters: [
+        { index: 1, name: "?", engineType: 246, columnLength: 67, decimals: 30, flags: 128, characterSet: 63 },
+      ],
+    });
+    const missing = await prepareMySql(
+      {
+        prepare: async () => ({ statement: { columns: [] }, close: async () => {} }),
+      },
+      "SELECT ? AS value",
+    );
+    strict.equal(missing.metadata.parameterCount, null, "A missing parameter block must not become zero inputs");
+    strict.equal(Object.hasOwn(missing.metadata, "parameters"), false);
+  });
+
   await it("recognizes modern MySQL server rejections without swallowing transport failures", async () => {
     const rejected = await prepareMySql(
       {
