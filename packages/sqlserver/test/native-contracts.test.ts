@@ -20,6 +20,7 @@ import {
   SqlServerContractAcquisitionError,
   sqlServerContractContextQueries,
 } from "../src/native-contracts.js";
+import { createSqlServerOdbcNativeContractAdapter } from "../src/odbc-contracts.js";
 import { sqlserverProfile } from "../src/profile.js";
 import { createSqlServerContractReconciler } from "../src/reconciliation.js";
 import { readSqlServerServerEvidence, sqlServerServerQueries } from "../src/server-evidence.js";
@@ -151,6 +152,25 @@ function fixture() {
 }
 
 await describe("guarded SQL Server contract acquisition", async () => {
+  await it("keeps the owned ODBC adapter lazy and sanitizes a failed native connection", async () => {
+    let imports = 0;
+    const adapter = createSqlServerOdbcNativeContractAdapter({
+      schema,
+      connectionString: "private-connection-string",
+      driverImporter: async () => {
+        imports++;
+        throw Error("private-driver-message");
+      },
+    });
+    strict.equal(imports, 0);
+    strict.equal(adapter.accept?.(candidate("DELETE FROM private_table")).accepted, false);
+    strict.equal(imports, 0);
+    await strict.rejects(
+      adapter.open(),
+      (error: unknown) => error instanceof SqlServerContractAcquisitionError && !error.message.includes("private"),
+    );
+    strict.equal(imports, 1);
+  });
   await it("binds descriptions as data, uses independent native facets and releases clean leases", async () => {
     const f = fixture(),
       adapter = createSqlServerNativeContractAdapter({ pool: f.pool, schema });

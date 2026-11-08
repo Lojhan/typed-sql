@@ -16,6 +16,10 @@ Native execution is qualified on Linux x64; grammar analysis and the browser ent
 | Import | Purpose |
 | --- | --- |
 | `@typed-sql/sqlserver/profile` | Driver-free `sqlserverProfile()` for [query contract consumption](../guides/query-manifests.md#consume-durable-query-contracts-in-a-compiler-host), without semantic catalogs or an analyzer loader. |
+| `@typed-sql/sqlserver/contract-profile` | Lightweight native contract compatibility identities and reconciliation owner. |
+| `@typed-sql/sqlserver/native-contracts` | Explicit guarded acquisition from an application-owned exclusive session pool. |
+| `@typed-sql/sqlserver/odbc-contracts` | Explicit native acquisition with an owned fresh ODBC connection per lease. |
+| `@typed-sql/sqlserver/reconciliation` | Independent comparison of static claims with native descriptions. |
 | `@typed-sql/sqlserver/query` | Portable `sql`, renderer, compiler value plans and query types. |
 | `@typed-sql/sqlserver` | Lightweight `sql`, runtime plans, renderer and policies. |
 | `@typed-sql/sqlserver/analysis` | Explicit eager analyzer and compatibility exports, including the injected catalog provider. |
@@ -56,6 +60,83 @@ Microsoft ODBC Driver 18 and the native driver's platform prerequisites are sepa
 installations. Before issuing SQL, the direct adapter reads and validates the actual native driver
 identity: Microsoft ODBC Driver 18 is accepted, with 18.7.1.1 tested. An ODBC connection string
 that selects a different driver does not satisfy this contract. Native Linux x64 engine results do not qualify an emulated SQL Server container.
+
+## Native query contracts
+
+Explicit live generation can describe builtin expression projections, including routines absent
+from the offline catalog. The adapter binds candidate text to SQL Server's description APIs;
+it does not execute the candidate. Configure the identities, reconciliation policy and a native
+factory alongside your saved schema:
+
+```ts
+import { queryContractDigest } from "@typed-sql/analysis";
+import { sqlserverProfile } from "@typed-sql/sqlserver/profile";
+import type { SqlServerOdbcContractOptions } from "@typed-sql/sqlserver/odbc-contracts";
+import {
+  sqlServerContractAdapterVersion,
+  sqlServerContractIdentity,
+  sqlServerContractReconciliationOwner,
+} from "@typed-sql/sqlserver/contract-profile";
+
+const connectionContext = queryContractDigest({ target: "app-development-sqlserver" });
+
+export default {
+  dialect: {
+    ...sqlserverProfile(),
+    async loadAnalyzer() {
+      return (await import("@typed-sql/sqlserver/analysis")).sqlserver();
+    },
+  },
+  schema: { file: "generated/schema.json" },
+  outDir: "generated",
+  projects: ["tsconfig.json"],
+  analysis: {
+    mode: "live",
+    identity: sqlServerContractIdentity(),
+    qualification: {
+      mode: "native-required",
+      owner: sqlServerContractReconciliationOwner,
+      requiredNativeFacets: ["runtime-type"],
+    },
+    cache: {
+      connectionContext,
+      adapter: { id: "@typed-sql/sqlserver/native-contracts", version: sqlServerContractAdapterVersion },
+    },
+    live: {
+      async adapter({ schema, typePolicy }: Pick<SqlServerOdbcContractOptions, "schema" | "typePolicy">) {
+        const { createSqlServerOdbcNativeContractAdapter } = await import("@typed-sql/sqlserver/odbc-contracts");
+        const { createSqlServerContractReconciler } = await import("@typed-sql/sqlserver/reconciliation");
+        const adapter = createSqlServerOdbcNativeContractAdapter({ schema, typePolicy, connectionString: process.env.SQLSERVER_DSN! });
+        return {
+          connectionContext,
+          adapter,
+          contribution: createSqlServerContractReconciler({ typePolicy }),
+          inspectContext: (signal?: AbortSignal) => adapter.inspectContext(signal),
+          async close() {},
+        };
+      },
+    },
+  },
+};
+```
+
+Run `typed-sql generate --queries --live` to export contracts. Use `typed-sql check --frozen`
+and ordinary build hooks to consume those durable inputs without native sessions. Importing the
+profile or loading this configuration does not load Koffi or open a connection. See
+[query contracts](../guides/query-manifests.md#consume-durable-query-contracts-in-a-compiler-host)
+for offline reuse and [editor configuration](../guides/editors.md) for opted-in live refresh.
+
+Each lease must be exclusive, outside an application transaction and independently disposable.
+The guard binds database/recovery identity, connection, log position, session settings and visible
+catalog metadata. It requires database `VIEW DEFINITION` and the server permissions required by
+`sys.dm_db_log_stats` and `sys.dm_exec_connections`. Concurrent log activity can conservatively
+invalidate an acquisition. Missing permissions or changed settings do not permit an unguarded fallback.
+
+This profile accepts plain SELECT expressions and canonical rendered parameters. Relations,
+CTEs, nested statements, qualified routines, windows, custom casts and dynamic statements remain
+outside its native scope. Required unavailable facets block qualification. Unknown or upper-bound
+nullability stays nullable; alias/CLR/XML provenance and incomplete dimensions do not become
+complete type identities. The selected codec policy governs both generated types and decoding.
 
 ## Exact values
 

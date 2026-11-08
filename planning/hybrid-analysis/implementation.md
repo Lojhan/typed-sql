@@ -14,6 +14,7 @@ native transport currently qualified by this PR.
 - Qualify PostgreSQL expression-query acquisition with independent static reconciliation.
 - Add DuckDB builtin expression-query acquisition and reconciliation on both qualified Node SDK engines.
 - Add MySQL builtin expression-query acquisition with an owned backup-locked session and independent reconciliation.
+- Add SQLite read-only native query acquisition and SQL Server guarded expression acquisition.
 
 The exhaustive upstream inventory, vendor fact extraction, global catalog model, generated
 completeness reports and selected-version/core/compatibility-pack APIs are excluded. Normal
@@ -29,14 +30,16 @@ its real-engine tests exercise the shared live runner, persistent cache, offline
 DuckDB packed CLI generation, changed-query regeneration and frozen checking pass on both SDKs;
 its packaged editor path is also qualified for SQL documents and TypeScript templates.
 MySQL acquisition is qualified on 8.4.11 and 9.7.2 for builtin expression projections, including
-installed CLI/build/editor entrypoints. SQLite and SQL Server retain their existing
-offline support and contract-profile interfaces without native acquisition qualification.
+installed CLI/build/editor entrypoints. SQLite acquisition and installed host flows pass on the
+qualified Node runtimes. SQL Server acquisition passes on the four pinned engines and ten
+compatibility profiles; installed host qualification for its new public entrypoints is pending.
 Build transforms and `typed-sql-build types` consume durable query contracts. Frozen builds avoid
 analyzer/native initialization; offline and live-configured builds use offline rules for unrecorded
 queries without opening a database. Build inputs exclude the disposable development cache.
-Project routine catalog library APIs support PostgreSQL fixed scalar declarations. Automatic
-catalog generation/refresh in the CLI and editors, other grammar interpreters, custom type/rule
-qualification and workload-selected offline packs remain incomplete.
+Project routine catalog APIs support PostgreSQL fixed scalar declarations, automatic selected
+capture/refresh in the CLI and editors, and offline restart from exact SQL-set cache closures.
+Other grammar interpreters, custom type/rule qualification, selection merging and workload-selected
+offline packs remain incomplete.
 
 ## Validation
 
@@ -502,3 +505,25 @@ offline lookup does not clear the barrier. Explicit cache invalidation remains a
 Regression tests reproduce the prior failure and cover consecutive retirements, query-reported
 staleness, capacity-limited context publication, restart, pruning, count/byte bounds and recovery
 through fresh observation. The existing index format and publication-token contracts are retained.
+
+## SQL Server public integration
+
+Explicit `contract-profile`, `native-contracts`, `odbc-contracts` and `reconciliation` entrypoints
+expose native acquisition independently of normal query imports. The ODBC factory owns a fresh
+connection per lease and initializes no driver when constructed. Generic pools remain available
+through the native adapter. Manifest-declared development exports keep acquisition and comparison
+outside ordinary runtime distribution checks. The public profile and its capability limits are
+documented in the SQL Server guide.
+
+The packed native fixture uses installed CLI, build, language-server and grammar tarballs. Its
+pending qualification covers a builtin absent from the offline catalog, changed-query generation,
+bigint parameter plans, SQL declarations, frozen bundling/execution, unsaved SQL/TypeScript edits,
+context drift and an offline cache-only restart. It deletes its owned database and development
+cache before a final frozen check/build. This fixture is wired into all four native CI jobs;
+it has not yet passed on the engines.
+
+Local validation passes the clean build, 24 SQL Server test files and their coverage gate,
+public API/package graph checks, the packed-consumer regression suite, quality and documentation
+checks/build. The preceding complete native qualification run
+[42517605531](https://github.com/Lojhan/typed-sql/actions/runs/42517605531) passes all four jobs,
+including the reviewed inventory baselines; that run predates these public integration changes.

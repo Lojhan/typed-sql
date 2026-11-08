@@ -3,16 +3,16 @@ import { randomBytes } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { sqlserver } from "@typed-sql/sqlserver/analysis";
+import { sqlServerContractReconciliationOwner } from "@typed-sql/sqlserver/contract-profile";
+import { createSqlServerNativeContractAdapter } from "@typed-sql/sqlserver/native-contracts";
 import { createSqlServerOdbcDatabase } from "@typed-sql/sqlserver/odbc";
 import { sqlserverProfile } from "@typed-sql/sqlserver/profile";
+import { createSqlServerContractReconciler } from "@typed-sql/sqlserver/reconciliation";
 import {
   acquireNativeQueryContract,
   createStaticQueryClaim,
   reconcileQueryContract,
 } from "../../packages/analysis/dist/packages/analysis/src/index.js";
-import { sqlServerContractReconciliationOwner } from "../../packages/sqlserver/dist/packages/sqlserver/src/contract-profile.js";
-import { createSqlServerNativeContractAdapter } from "../../packages/sqlserver/dist/packages/sqlserver/src/native-contracts.js";
-import { createSqlServerContractReconciler } from "../../packages/sqlserver/dist/packages/sqlserver/src/reconciliation.js";
 
 const password = process.env.TYPED_SQL_SQLSERVER_PASSWORD;
 assert.ok(password && !/[;{}]/u.test(password));

@@ -19,7 +19,8 @@ compatibility setting. Artifacts contain validated reconciled contracts without 
 
 This proves the restricted expression profile, not general SQL Server query support. Native
 relations, qualified routines, custom bindings, installed CLI/build/editor flows and consumer
-execution remain outside this proof. The native acquisition modules remain private.
+execution remain outside this proof. Explicit public native entrypoints have a separate installed
+consumer fixture whose engine qualification is pending.
 
 The overall run fails its separate catalog inventory review. Reviewing every captured target
 shows only five probe-result corrections from earlier changes: COL_LENGTH and both DB_ID
@@ -27,4 +28,7 @@ invocations now retain native smallint identity; DB_ID() stays nullable; both JS
 invocations retain nvarchar(4000). All native metadata, inventories, recognition counts and
 missing-function observations are unchanged. Reversing only these static result fields exactly
 reproduces every previously reviewed full recognition fingerprint across all ten unique
-engine/compatibility targets. The reviewed baselines are updated; a fresh complete run is required.
+engine/compatibility targets. The reviewed baselines are updated; the complete rerun
+[42517605531](https://github.com/Lojhan/typed-sql/actions/runs/42517605531) at commit
+`7d33bbb5b4be8e7d6f591f3cf729f32a4812d331` passes all four jobs. This rerun predates the new
+public entrypoints and installed host fixture.

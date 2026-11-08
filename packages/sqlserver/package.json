@@ -31,7 +31,10 @@
     "releaseTrack": "stable",
     "developmentEntrypoints": [
       "./analysis",
-      "./browser"
+      "./browser",
+      "./native-contracts",
+      "./odbc-contracts",
+      "./reconciliation"
     ]
   },
   "sideEffects": false,
@@ -49,7 +52,11 @@
     "./msnodesqlv8": "./dist/packages/sqlserver/src/msnodesqlv8.js",
     "./browser": "./dist/packages/sqlserver/src/browser.js",
     "./profile": "./dist/packages/sqlserver/src/profile.js",
-    "./analysis": "./dist/packages/sqlserver/src/analysis.js"
+    "./analysis": "./dist/packages/sqlserver/src/analysis.js",
+    "./contract-profile": "./dist/packages/sqlserver/src/contract-profile.js",
+    "./native-contracts": "./dist/packages/sqlserver/src/native-contracts-entry.js",
+    "./odbc-contracts": "./dist/packages/sqlserver/src/odbc-contracts.js",
+    "./reconciliation": "./dist/packages/sqlserver/src/reconciliation.js"
   },
   "dependencies": {
     "@typed-sql/ast": "workspace:*",

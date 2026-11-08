@@ -292,10 +292,14 @@ import * as sqliteReconciliationApi from "../../packages/sqlite/src/reconciliati
 import * as sqliteRuntimeApi from "../../packages/sqlite/src/runtime.js";
 import * as sqlserverApi from "../../packages/sqlserver/src/analysis.js";
 import * as sqlServerBrowserApi from "../../packages/sqlserver/src/browser.js";
+import * as sqlServerContractProfileApi from "../../packages/sqlserver/src/contract-profile.js";
 import * as sqlserverRootApi from "../../packages/sqlserver/src/index.js";
 import * as sqlServerMsnodesqlv8Api from "../../packages/sqlserver/src/msnodesqlv8.js";
+import * as sqlServerContractsApi from "../../packages/sqlserver/src/native-contracts-entry.js";
+import * as sqlServerOdbcContractsApi from "../../packages/sqlserver/src/odbc-contracts.js";
 import * as sqlServerOdbcApi from "../../packages/sqlserver/src/odbc-entry.js";
 import * as sqlServerQueryApi from "../../packages/sqlserver/src/query.js";
+import * as sqlServerReconciliationApi from "../../packages/sqlserver/src/reconciliation.js";
 import * as sqlServerRuntimeApi from "../../packages/sqlserver/src/runtime-entry.js";
 import * as tsBridgeApi from "../../packages/ts-bridge/src/index.js";
 import * as nativeLspApi from "../../packages/ts-bridge/src/native-lsp.js";
@@ -1018,6 +1022,15 @@ const expectedRuntimeExports = {
   ],
   duckdbReconciliation: ["createDuckDBContractReconciler"],
   sqliteContracts: ["SqliteContractAcquisitionError", "createNodeSqliteNativeContractAdapter"],
+  sqlServerContracts: ["SqlServerContractAcquisitionError", "createSqlServerNativeContractAdapter"],
+  sqlServerOdbcContracts: ["createSqlServerOdbcNativeContractAdapter"],
+  sqlServerContractProfile: [
+    "sqlServerContractAdapterVersion",
+    "sqlServerContractIdentity",
+    "sqlServerContractPolicy",
+    "sqlServerContractReconciliationOwner",
+  ],
+  sqlServerReconciliation: ["createSqlServerContractReconciler"],
   sqliteContractProfile: [
     "sqliteContractAdapterVersion",
     "sqliteContractIdentity",
@@ -1504,6 +1517,10 @@ await describe("stable public API", async () => {
       sqlServerOdbc: Object.keys(sqlServerOdbcApi).sort(),
       sqlServerMsnodesqlv8: Object.keys(sqlServerMsnodesqlv8Api).sort(),
       sqlServerBrowser: Object.keys(sqlServerBrowserApi).sort(),
+      sqlServerContracts: Object.keys(sqlServerContractsApi).sort(),
+      sqlServerOdbcContracts: Object.keys(sqlServerOdbcContractsApi).sort(),
+      sqlServerContractProfile: Object.keys(sqlServerContractProfileApi).sort(),
+      sqlServerReconciliation: Object.keys(sqlServerReconciliationApi).sort(),
       duckdbAnalysis: Object.keys(duckdbApi).sort(),
       duckdb: Object.keys(duckdbRootApi).sort(),
       duckdbQuery: Object.keys(duckdbQueryApi).sort(),
