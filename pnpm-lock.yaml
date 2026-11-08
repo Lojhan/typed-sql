@@ -510,6 +510,10 @@ importers:
       '@typed-sql/schema':
         specifier: workspace:*
         version: link:../schema
+    devDependencies:
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
 
   packages/config:
     dependencies:

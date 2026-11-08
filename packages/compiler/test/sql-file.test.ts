@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { build } from "esbuild";
 import { describe, it, strict } from "poku";
 import { renderQuery } from "../../core/src/index.js";
 import { mysql } from "../../mysql/src/analysis.js";
@@ -13,6 +14,72 @@ const schema = dialect.validateSnapshot(
 );
 
 await describe("stable SQL module compiler", async () => {
+  await it("tree-shakes unselected SQL modules through a barrel without application sideEffects metadata", async () => {
+    const used = compileSqlFile({ dialect, schema, source: "SELECT $1::bigint AS retained" });
+    const unused = compileSqlFile({ dialect, schema, source: "SELECT 'unused-query-marker' AS unused_column" });
+    strict.deepEqual(used.diagnostics, []);
+    strict.deepEqual(unused.diagnostics, []);
+    const modules = new Map([
+      ["used.js", used.runtime],
+      ["unused.js", unused.runtime],
+      ["barrel.js", 'export {default as used} from "./used.js"; export {default as unused} from "./unused.js";'],
+    ]);
+    const bundle = () =>
+      build({
+        stdin: { contents: 'export {used} from "./barrel.js";', loader: "js" },
+        bundle: true,
+        write: false,
+        format: "esm",
+        platform: "node",
+        minify: true,
+        treeShaking: true,
+        plugins: [
+          {
+            name: "generated-sql-modules",
+            setup(bundler) {
+              bundler.onResolve({ filter: /^\.\// }, (args) => ({ path: args.path.slice(2), namespace: "sql-module" }));
+              bundler.onLoad({ filter: /.*/, namespace: "sql-module" }, (args) => ({
+                contents: modules.get(args.path)!,
+                loader: "js",
+              }));
+              bundler.onResolve({ filter: /^@typed-sql\// }, (args) => ({
+                path: import.meta.resolve(args.path),
+                external: true,
+              }));
+            },
+          },
+        ],
+      });
+    const code = (await bundle()).outputFiles[0]!.text;
+    strict.ok(!code.includes("unused-query-marker"), "Unused SQL text must leave the bundle");
+    strict.ok(!code.includes("unused_column"), "Unused value plans must leave the bundle");
+    const module = await import(`data:text/javascript;base64,${Buffer.from(code).toString("base64")}`);
+    strict.deepEqual(renderQuery(module.used(42n), postgresRenderer).values, [42n]);
+    strict.match(renderQuery(module.used(42n), postgresRenderer).text, /AS retained/u);
+    const runtime = await import(import.meta.resolve("@typed-sql/core"));
+    strict.equal(runtime.getQueryValuePlan(module.used(42n)).columns[0].type, "bigint");
+    const invalid = compileSqlFile({ dialect, schema, source: "SELECT missing FROM absent" });
+    strict.ok(invalid.diagnostics.length > 0);
+    modules.set("unused.js", invalid.runtime);
+    const invalidBundle = (await bundle()).outputFiles[0]!.text;
+    await strict.rejects(
+      import(`data:text/javascript;base64,${Buffer.from(invalidBundle).toString("base64")}`),
+      SyntaxError,
+    );
+  });
+  await it("rejects invalid codec metadata before a generated initializer can be marked pure", () => {
+    const invalid = {
+      ...dialect,
+      analyze(...args: Parameters<typeof dialect.analyze>) {
+        const result = dialect.analyze(...args);
+        return {
+          ...result,
+          columns: result.columns.map((column) => ({ ...column, runtimeType: "invalid-runtime-type" as never })),
+        };
+      },
+    };
+    strict.throws(() => compileSqlFile({ dialect: invalid, schema, source: "SELECT 1 AS value" }), /runtime|type/iu);
+  });
   await it("retains grammar type dependencies when SQL becomes invalid while failing closed", () => {
     for (const grammar of [postgres(), mysql(), sqlite()]) {
       const snapshot = grammar.validateSnapshot({ dialect: grammar.id, tables: {} });

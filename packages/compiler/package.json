@@ -43,5 +43,8 @@
   "dependencies": {
     "@typed-sql/core": "workspace:*",
     "@typed-sql/schema": "workspace:*"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
   }
 }

@@ -547,3 +547,16 @@ It remeasures the 20 earlier exhaustive-pipeline scenarios with the same tool. R
 and frozen hosts contain no global grammar catalog inputs. The result distinguishes analyzer
 changes from production tags and contract-host overhead; it does not claim representative corpus,
 package installation, selected-core or schema/plan-growth measurements.
+
+## Generated SQL-file tree-shaking
+
+A bundler regression confirms that unselected SQL-file modules retained their SQL text and value
+plans through barrel exports when the application did not declare `sideEffects: false`. Static
+successful initializers now carry purity annotations. Value plans are validated during compilation
+before their constructor call can be removed; invalid SQL modules retain their throwing behavior.
+The regression executes the selected factory and verifies its bigint parameter and decoding plan,
+checks that unused SQL/column markers disappear, and checks invalid metadata fails before emission.
+
+All 20 compiler test files and the existing coverage gate pass, along with workspace type checks.
+The clean build passes. Packed-consumer and isolated performance checks remain in progress for
+this addition; representative corpus and installation measurements remain incomplete.

@@ -17,6 +17,10 @@ co-located `.d.sql.ts` declarations with `typed-sql-build types` and enable
 Run generation before checking and use `typed-sql-build types --check` to verify committed
 outputs in CI. Build adapters validate the current SQL and attach checked runtime value plans.
 
+Generated SQL-file modules support tree-shaking through static barrel exports. The esbuild
+integration can discard unused factories, SQL text and value plans without marking the whole
+application `sideEffects: false`. Selected factories retain their parameter and decoding checks.
+
 The [installation tutorials](../integrations/index.md) cover Vite/Vitest, Jest, webpack, Rspack,
 Rsbuild, Next.js, esbuild, Rollup, Rolldown, Bun, native Node test runners, Astro, Nuxt,
 SvelteKit, and Wrangler/D1.
