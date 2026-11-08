@@ -19,8 +19,14 @@ compatibility setting. Artifacts contain validated reconciled contracts without 
 
 This proves the restricted expression profile, not general SQL Server query support. Native
 relations, qualified routines, custom bindings, installed CLI/build/editor flows and consumer
-execution remain outside this proof. Explicit public native entrypoints have a separate installed
-consumer fixture whose engine qualification is pending.
+execution remain outside this direct acquisition proof. The separate installed consumer fixture
+passes on all four engines in [run 42519523928](https://github.com/Lojhan/typed-sql/actions/runs/42519523928)
+at commit `ab69557c7704635e92c8653cc47d444c2674fdbf`. It covers a builtin missing from the offline
+catalog, regeneration, bigint parameter decoding, SQL declarations, frozen bundling and execution,
+unsaved SQL/TypeScript editor updates, routine-context drift and cache-only offline restart.
+Final frozen checking/building succeeds after deleting the owned database and development cache,
+with analyzer/native factories guarded against initialization. The profile's statement and facet
+limitations remain unchanged.
 
 The overall run fails its separate catalog inventory review. Reviewing every captured target
 shows only five probe-result corrections from earlier changes: COL_LENGTH and both DB_ID

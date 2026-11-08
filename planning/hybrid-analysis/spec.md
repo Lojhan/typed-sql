@@ -14,7 +14,7 @@ provenance, registry, generation and independent-auditing requirements remain us
 implementation evidence is historical evidence, not proof that this design is implemented.
 
 The source investigation and engine-specific limitations are in [research.md](./research.md).
-Measured current bundle sizes and the limits of projected savings are in
+Measured source-graph bundle sizes and their remaining workload/installation gaps are in
 [bundle-size.md](./bundle-size.md), with [machine-readable evidence](./bundle-measurements.json).
 All commands, configuration fields, interfaces and paths introduced below describe proposed
 behavior. They are not statements that the current CLI supports them.
@@ -737,7 +737,7 @@ moving rows from TypeScript into JSON as a maintenance reduction.
 
 ### 21.1 Measured bundle baseline and removal boundary
 
-The [bundle-size investigation](./bundle-size.md) measures twenty synthetic entrypoints from
+The [bundle-size investigation](./bundle-size.md) compares twenty historical synthetic entrypoints from
 committed revision `a1f27fc894e48021e91ce4c9a4b98929890f233d`, using esbuild 0.28.2,
 minified ESM, Node platform, ES2022 and tree-shaking. Source comes from Git blobs, not the
 pending working-tree implementation. Values below are KiB (1,024 bytes).
@@ -750,17 +750,24 @@ pending working-tree implementation. Values below are KiB (1,024 bytes).
 | SQL Server | 138.7 | 35.6 | 23.0 | 16.6% |
 | DuckDB | 1,340.3 | 101.4 | 1,219.7 | 91.0% |
 
-These generated contributions are current attribution and an offloading ceiling, not a
-measured future net reduction. Some compact generated vocabulary/type/codec metadata remains;
-core selection, contract consumption and orchestration add bytes. Their compressed differences
-must be measured after implementation. Do not multiply the gzip column by the minified share.
+These generated contributions describe that historical exhaustive pipeline, not the current
+implementation. The current [machine-readable report](./bundle-measurements.json) remeasures
+the same four source scenarios and adds profile/frozen-host scenarios for all five grammars.
+The analyzer-only current minified sizes are 382.4 KiB PostgreSQL, 183.4 KiB MySQL, 148.7 KiB
+SQLite, 121.1 KiB SQL Server and 625.8 KiB DuckDB. These net changes include pipeline removal,
+semantic corrections and API separation; they do not isolate the effect of query contracts.
+Some compact generated vocabulary/type/codec metadata remains. Do not multiply the gzip column
+by the historical minified generated share.
 
-The tree-shaken root `sql` tag samples already retain zero generated catalogs in all five
-grammars. Execution-factory samples retain only 0–3.6 KiB of generated lexical/type projections.
+The current tree-shaken root `sql` tag samples retain zero global grammar catalogs in all five
+grammars. Historical execution-factory samples retained only 0–3.6 KiB of generated lexical/type projections.
 Consequently there is no large additional production-tag catalog saving to promise. The major
-win is avoiding global analyzer catalogs in compiler/editor/browser-analysis contexts and
+win is avoiding global analyzer catalogs in contract-only compilation and
 isolating profiles/packs. Profile isolation independently saves unused versions; it is not a
-benefit unique to query contracts.
+benefit unique to query contracts. Current frozen hosts contain zero global grammar catalog
+inputs but include contract loading and compilation machinery; SQL Server's helper sample is
+slightly larger than its analyzer-only sample. Workload-selected core/packs, representative
+project corpora, installation size and schema/value-plan growth remain unmeasured.
 
 Final distribution requirements are zero global analysis catalog bytes in runtime entrypoints,
 zero global analyzer catalog bytes in frozen contract-only consumers, and explicit bounded

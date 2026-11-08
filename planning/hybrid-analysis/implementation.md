@@ -32,7 +32,7 @@ its packaged editor path is also qualified for SQL documents and TypeScript temp
 MySQL acquisition is qualified on 8.4.11 and 9.7.2 for builtin expression projections, including
 installed CLI/build/editor entrypoints. SQLite acquisition and installed host flows pass on the
 qualified Node runtimes. SQL Server acquisition passes on the four pinned engines and ten
-compatibility profiles; installed host qualification for its new public entrypoints is pending.
+compatibility profiles; installed CLI/build/editor flows pass on all four pinned engines.
 Build transforms and `typed-sql-build types` consume durable query contracts. Frozen builds avoid
 analyzer/native initialization; offline and live-configured builds use offline rules for unrecorded
 queries without opening a database. Build inputs exclude the disposable development cache.
@@ -516,11 +516,12 @@ outside ordinary runtime distribution checks. The public profile and its capabil
 documented in the SQL Server guide.
 
 The packed native fixture uses installed CLI, build, language-server and grammar tarballs. Its
-pending qualification covers a builtin absent from the offline catalog, changed-query generation,
+qualification covers a builtin absent from the offline catalog, changed-query generation,
 bigint parameter plans, SQL declarations, frozen bundling/execution, unsaved SQL/TypeScript edits,
 context drift and an offline cache-only restart. It deletes its owned database and development
-cache before a final frozen check/build. This fixture is wired into all four native CI jobs;
-it has not yet passed on the engines.
+cache before a final frozen check/build. This fixture passes on all four pinned native engines
+in [run 42519523928](https://github.com/Lojhan/typed-sql/actions/runs/42519523928) at commit
+`ab69557c7704635e92c8653cc47d444c2674fdbf`.
 
 Local validation passes the clean build, 24 SQL Server test files and their coverage gate,
 public API/package graph checks, the packed-consumer regression suite, quality and documentation
@@ -535,4 +536,14 @@ within the existing batch deadline. Pinned contexts, cancellation, invalid metad
 failures still block. Borrowed catalog views propagate drift to their owning capture so the full
 catalog is recaptured after closing its owner. Regression tests cover both observation boundaries,
 attempt limits and cleanup ordering. The installed fixture labels generation phases for further
-diagnosis; real-engine requalification is still required.
+diagnosis. The complete native rerun above passes after this correction.
+
+## Current bundle evidence
+
+The [bundle report](./bundle-size.md) restores the specification's missing measurement links.
+A reproducible committed-source tool discovers all five grammars from the ledger, resolves public
+exports and reports 30 current source graphs with minified/gzip/Brotli sizes and input attribution.
+It remeasures the 20 earlier exhaustive-pipeline scenarios with the same tool. Root tags, profiles
+and frozen hosts contain no global grammar catalog inputs. The result distinguishes analyzer
+changes from production tags and contract-host overhead; it does not claim representative corpus,
+package installation, selected-core or schema/plan-growth measurements.
