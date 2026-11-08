@@ -3,4 +3,5 @@ import {createPostgresAnalyzer} from "../../analysis-factory.js";
 import type {PostgresDialectOptions} from "../../analysis-options.js";
 import {nativeSignatures} from "../../catalog/generated/native/18.js";
 export type {PostgresDialectOptions} from "../../analysis-options.js";
-export function postgres(options:PostgresDialectOptions={}) {return createPostgresAnalyzer(options,Object.freeze({18:nativeSignatures}),18);}
+import catalog from "../../catalog/generated/18.js";
+export function postgres(options:PostgresDialectOptions={}) {return createPostgresAnalyzer(options,Object.freeze({18:nativeSignatures}),()=>catalog,18);}

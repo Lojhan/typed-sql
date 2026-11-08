@@ -8,7 +8,9 @@ import {
 import type { PostgresDialectOptions, PostgresSchemaSnapshot } from "./analysis-options.js";
 import { POSTGRES_CAPABILITIES, resolvePostgresCapabilities } from "./capabilities.js";
 import type { PostgresNativeCatalog } from "./catalog/native-resolution.js";
-import { resolvePostgresExtensionManifests } from "./extensions.js";
+import { scopePostgresCatalog } from "./catalog/resolution.js";
+import type { PostgresCoreCatalog } from "./catalog/types.js";
+import { resolvePostgresExtensionManifests } from "./extensions-engine.js";
 import { parseStatement, SqlParseError, tokenize } from "./parser/index.js";
 import { validatePostgresSnapshot } from "./profile-snapshot.js";
 import { postgresRuntimeValueType } from "./query.js";
@@ -22,12 +24,21 @@ import { POSTGRES_DIALECT_VERSION } from "./version.js";
 export function createPostgresAnalyzer(
   options: PostgresDialectOptions,
   nativeCatalog: PostgresNativeCatalog,
+  coreCatalogFor: (snapshot: PostgresSchemaSnapshot) => PostgresCoreCatalog,
   requiredMajor?: number,
 ): DialectPlugin<PostgresSchemaSnapshot, PostgresTypePolicy> {
   const defaultTypePolicy = options.typePolicy ?? defaultPostgresTypePolicy;
   const versionPolicy = options.versionPolicy ?? "stable";
   const capabilityCache = new WeakMap<PostgresSchemaSnapshot, ReturnType<typeof resolvePostgresCapabilities>>();
   const extensionCache = new WeakMap<PostgresSchemaSnapshot, ReturnType<typeof resolvePostgresExtensionManifests>>();
+  const scopedSnapshots = new WeakMap<PostgresSchemaSnapshot, PostgresSchemaSnapshot>();
+  const scopeSnapshot = (snapshot: PostgresSchemaSnapshot): PostgresSchemaSnapshot => {
+    const cached = scopedSnapshots.get(snapshot);
+    if (cached !== undefined) return cached;
+    const scoped = scopePostgresCatalog(snapshot, coreCatalogFor(snapshot));
+    scopedSnapshots.set(snapshot, scoped);
+    return scoped;
+  };
   const capabilitiesFor = (snapshot: PostgresSchemaSnapshot): ReturnType<typeof resolvePostgresCapabilities> => {
     const cached = capabilityCache.get(snapshot);
     if (cached !== undefined) return cached;
@@ -94,11 +105,11 @@ export function createPostgresAnalyzer(
         if ((options.extensions?.length ?? 0) > 0) {
           extensions = extensionCache.get(snapshot);
           if (extensions === undefined) {
-            extensions = resolvePostgresExtensionManifests(snapshot, options.extensions ?? []);
+            extensions = resolvePostgresExtensionManifests(scopeSnapshot(snapshot), options.extensions ?? []);
             extensionCache.set(snapshot, extensions);
           }
         }
-        const analysisSnapshot = extensions?.snapshot ?? snapshot;
+        const analysisSnapshot = extensions?.snapshot ?? scopeSnapshot(snapshot);
         const extensionIssues = extensions?.issues ?? [];
         const resolved = resolveStatement(
           statement,

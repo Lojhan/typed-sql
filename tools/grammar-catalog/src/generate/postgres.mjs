@@ -111,13 +111,17 @@ export async function generateCatalog({ groups, semanticGroups, input, emit, hea
   for (const major of sourceSignatures.keys()) {
     await emit(
       `packages/postgres/src/analysis/generated/${major}.ts`,
-      `${header}import {createPostgresAnalyzer} from "../../analysis-factory.js";\nimport type {PostgresDialectOptions} from "../../analysis-options.js";\nimport {nativeSignatures} from "../../catalog/generated/native/${major}.js";\nexport type {PostgresDialectOptions} from "../../analysis-options.js";\nexport function postgres(options:PostgresDialectOptions={}) {return createPostgresAnalyzer(options,Object.freeze({${major}:nativeSignatures}),${major});}\n`,
+      `${header}import {createPostgresAnalyzer} from "../../analysis-factory.js";\nimport type {PostgresDialectOptions} from "../../analysis-options.js";\nimport {nativeSignatures} from "../../catalog/generated/native/${major}.js";\nexport type {PostgresDialectOptions} from "../../analysis-options.js";\nimport catalog from "../../catalog/generated/${major}.js";\nexport function postgres(options:PostgresDialectOptions={}) {return createPostgresAnalyzer(options,Object.freeze({${major}:nativeSignatures}),()=>catalog,${major});}\n`,
     );
   }
   const majors = [...sourceSignatures.keys()];
   await emit(
     "packages/postgres/src/catalog/generated/native.ts",
     `${header}import type { PostgresNativeCatalog } from "../native-resolution.js";\n${majors.map((major) => `import {nativeSignatures as native${major}} from "./native/${major}.js";`).join("\n")}\nexport const nativeSignatures: PostgresNativeCatalog = Object.freeze({${majors.map((major) => `${major}:native${major}`).join(",")}});\n`,
+  );
+  await emit(
+    "packages/postgres/src/catalog/generated/core-loader.ts",
+    `${header}import type { PostgresCoreCatalog } from "../types.js";\nconst loaders: Readonly<Record<number,()=>Promise<{readonly default:PostgresCoreCatalog}>>> = {${majors.map((major) => `${major}:()=>import("./${major}.js")`).join(",")}};\nexport async function loadPostgresCoreCatalog(major:number):Promise<PostgresCoreCatalog> {if(!Number.isSafeInteger(major)||!Object.hasOwn(loaders,major))throw new RangeError("Unsupported PostgreSQL core profile");return (await loaders[major]!()).default;}\n`,
   );
   await emit(
     "packages/postgres/src/catalog/generated/native-loader.ts",

@@ -36,6 +36,10 @@ export async function assertSelectedPostgresConsumer(consumer: string, workspace
       "analysis",
       "resolver",
       "semantics",
+      "type-resolution",
+      "extensions",
+      "catalog/index",
+      "catalog/generated/registry",
       "provider",
       "pg",
       "pg-contracts",
@@ -47,6 +51,9 @@ export async function assertSelectedPostgresConsumer(consumer: string, workspace
         await rm(join(source, name + extension), { force: true });
     for (const entry of await readdir(join(source, "analysis/generated")))
       if (entry.split(".")[0] !== String(major)) await rm(join(source, "analysis/generated", entry));
+    for (const entry of await readdir(join(source, "catalog/generated")))
+      if (/^\d+\./u.test(entry) && entry.split(".")[0] !== String(major))
+        await rm(join(source, "catalog/generated", entry));
     const native = join(source, "catalog/generated/native");
     for (const entry of await readdir(native, { withFileTypes: true }))
       if (entry.isFile() && entry.name.split(".")[0] !== String(major)) await rm(join(native, entry.name));
@@ -66,6 +73,9 @@ export async function assertSelectedPostgresConsumer(consumer: string, workspace
       metafile: true,
     });
     for (const file of Object.keys(bundled.metafile!.inputs)) {
+      const coreProfile = /catalog\/generated\/(\d+)\.[cm]?js$/u.exec(file);
+      if (coreProfile) strict.equal(Number(coreProfile[1]), major);
+      strict.ok(!/catalog\/(?:index|generated\/registry)\.js$/u.test(file), file);
       const nativeProfile = /catalog\/generated\/native\/(\d+)\.[cm]?js$/u.exec(file);
       if (nativeProfile) strict.equal(Number(nativeProfile[1]), major);
       const group = /catalog\/generated\/native\/groups\/([\d-]+)\.[cm]?js$/u.exec(file);

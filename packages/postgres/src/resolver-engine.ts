@@ -28,14 +28,14 @@ import type {
   SchemaSnapshot,
   TableSnapshot,
 } from "@typed-sql/schema";
+import type { PostgresNativeCatalog } from "./catalog/native-resolution.js";
+import { postgresNativeArguments, postgresNativeOverloads } from "./catalog/native-resolution.js";
 import {
   postgresCatalogCast,
   postgresCatalogRoutineRule,
   postgresCatalogTableRoutineRule,
   postgresCatalogTypeMapping,
-} from "./catalog/index.js";
-import type { PostgresNativeCatalog } from "./catalog/native-resolution.js";
-import { postgresNativeArguments, postgresNativeOverloads } from "./catalog/native-resolution.js";
+} from "./catalog/resolution.js";
 import { fingerprintPostgresExpression, postgresExpressionIdentity } from "./expression-evidence.js";
 import type {
   CallExpression,
@@ -84,7 +84,7 @@ import {
   resolvePostgresCandidates,
   resolvePostgresOperator,
   resolvePostgresUnaryOperator,
-} from "./type-resolution.js";
+} from "./type-resolution-engine.js";
 
 interface Relation {
   readonly alias: string;

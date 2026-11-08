@@ -1,9 +1,13 @@
 import { readFile } from "node:fs/promises";
+import { upgradeSchemaSnapshotV1 } from "@typed-sql/schema";
 import { describe, it, strict } from "poku";
 import { postgres } from "../src/analysis.js";
+import { postgresServerEvidence } from "../src/capabilities.js";
+import { loadPostgresCoreCatalog } from "../src/catalog/generated/core-loader.js";
 import { nativeSignatures } from "../src/catalog/generated/native.js";
 import { loadPostgresNativeSignatures } from "../src/catalog/generated/native-loader.js";
 import { postgresNativeOverloads } from "../src/catalog/native-resolution.js";
+import { postgresCatalogTypeMapping, scopePostgresCatalog } from "../src/catalog/resolution.js";
 import { loadPostgresAnalyzer } from "../src/selected-analysis.js";
 import { defaultPostgresTypePolicy } from "../src/type-policy.js";
 
@@ -33,6 +37,10 @@ await describe("selected PostgreSQL native profiles", async () => {
       "SELECT pg_catalog.text($1) AS label, int4('2') AS amount",
       "SELECT pg_backend_pid() AS process",
       "SELECT count(*) AS count FROM missing_relation",
+      "SELECT ARRAY[1, 2]::bigint[] AS values, 1::smallint + 2::bigint AS amount",
+      "SELECT coalesce(NULL::numeric, 1.25) AS amount, CASE WHEN true THEN 1 ELSE 2.5 END AS selected",
+      "SELECT value FROM generate_series(1, 3) AS value",
+      "SELECT jsonb_build_object('x', 1)->>'x' AS label, current_date + 1 AS tomorrow",
       "SELECT (",
     ];
     for (const major of majors) {
@@ -68,6 +76,59 @@ await describe("selected PostgreSQL native profiles", async () => {
       tables: {},
     });
     strict.equal(result.columns[0]?.tsType, "number");
+  });
+  await it("keeps core catalog ownership isolated without binding the caller snapshot", async () => {
+    const major = majors[0]!;
+    const catalog = await loadPostgresCoreCatalog(major);
+    const altered = {
+      ...catalog,
+      types: catalog.types.map((type) => (type.name === "text" ? { ...type, mapping: "number" as const } : type)),
+    };
+    const schema = Object.freeze({
+      formatVersion: 1,
+      dialect: "postgres",
+      version: String(major),
+      tables: {},
+    } as const);
+    const before = JSON.stringify(schema);
+    const normal = scopePostgresCatalog(schema, catalog);
+    const different = scopePostgresCatalog(schema, altered);
+    strict.equal(postgresCatalogTypeMapping("text", normal), "string");
+    strict.equal(postgresCatalogTypeMapping("text", different), "number");
+    strict.equal(postgresCatalogTypeMapping("text", normal), "string");
+    strict.throws(() => postgresCatalogTypeMapping("text", schema), /explicitly scoped core catalog/u);
+    strict.notEqual(normal, schema);
+    strict.ok(Object.isFrozen(normal));
+    strict.equal(JSON.stringify(schema), before);
+    strict.deepEqual(Object.keys(schema), ["formatVersion", "dialect", "version", "tables"]);
+    strict.ok(Object.isFrozen(catalog.types));
+  });
+  await it("preserves catalog ownership through extension snapshot upgrades and contributions", async () => {
+    const major = majors[0]!;
+    const options = {
+      extensions: [
+        {
+          formatVersion: 1 as const,
+          name: "test_extension",
+          supportedVersions: ["1"],
+          revision: "test",
+          casts: [{ sourceType: "extension_type", targetType: "text", context: "explicit" as const }],
+        },
+      ],
+    };
+    const selected = await loadPostgresAnalyzer({ major, ...options });
+    const compatibility = postgres(options);
+    const legacy = { formatVersion: 1, dialect: "postgres", version: String(major), tables: {} } as const;
+    const upgraded = {
+      ...upgradeSchemaSnapshotV1(legacy),
+      dialect: "postgres" as const,
+      server: postgresServerEvidence(String(major), ["test_extension:1"]),
+    };
+    for (const schema of [legacy, upgraded]) {
+      const sql = "SELECT '2'::integer + 1 AS value, lower('X') AS label";
+      strict.deepEqual(selected.analyze(sql, schema), compatibility.analyze(sql, schema));
+      strict.deepEqual(selected.analyze(sql, schema).diagnostics, []);
+    }
   });
   await it("refuses missing, unsupported and mismatched version evidence", async () => {
     for (const major of [0, Math.min(...majors) - 1, Math.max(...majors) + 1, 1.5, NaN, Infinity])

@@ -103,6 +103,8 @@ for (const [scenario, contents] of Object.entries(scenarios)) {
     .sort((a, b) => a - b);
   if (scenario.startsWith("selected")) {
     const major = Number(scenario.slice("selected".length));
+    if (typeProfiles.length !== 1 || typeProfiles[0] !== major)
+      throw new Error(`Selected profile ${major} loaded other core catalog data`);
     if (nativeProfiles.length !== 1 || nativeProfiles[0] !== major)
       throw Error(`Selected bundle includes unrelated native profiles: ${scenario}`);
   }
@@ -140,7 +142,7 @@ const report = {
   tool: { name: "esbuild", version: esbuildVersion, digest: hash(readFileSync(new URL(import.meta.url))) },
   nodeVersion: process.version,
   scope:
-    "Exported analyzer factory footprint; shared type/cast registries remain eager. Not an application workload, installation-size reduction, compact-core claim or complete engine inventory.",
+    "Exported analyzer factory footprint; selected factories retain only their native and core version profiles. Not an application workload, installation-size reduction, compact-core claim or complete engine inventory.",
   platform: "node",
   target: "es2022",
   gzipLevel: 9,

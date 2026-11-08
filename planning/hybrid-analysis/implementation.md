@@ -723,6 +723,26 @@ Unrelated planning work is left unchanged.
   changing any measured values. Bulk generated-catalog deletion, compact cores, other selected
   grammars and the remaining complete acceptance matrix are still required.
 
+## Selected PostgreSQL core catalog isolation
+
+- Fixed-major analyzers import only that major's core catalog as well as its native signature
+  profile. The asynchronous analyzer loads both selected profiles together. The full compatibility
+  entrypoint still selects from every retained major and preserves its existing fallback policy.
+- Cold catalog lookup, type resolution and extension resolution no longer import the all-major
+  registry. An analyzer owns a shallow frozen snapshot clone associated with its explicit catalog;
+  caller snapshots are neither mutated nor globally registered. Catalog indexes and deep-freeze
+  admission are keyed by catalog identity. Extension snapshot upgrades and contribution results
+  preserve that ownership. Legacy private helpers retain their prior default selection behavior.
+- Packed verification removes unrelated core profiles, the all-major registry and legacy catalog,
+  extension and type-resolution wrappers before importing or bundling the selected APIs. Bundle
+  attribution rejects extra core profiles as well as extra native profiles.
+- Verification passes: full clean build; all 37 PostgreSQL test files with 97.57% line,
+  90.52% branch and 97.68% function coverage; all 68 repository contracts including physically
+  stripped selected consumers; quality; production documentation; the complete restricted real
+  PostgreSQL native/editor/watch/offline/packed frozen proof; and the isolated performance gate.
+- This removes unselected core data from selected analyzer graphs. Full compatibility data still
+  ships in npm; compact common-function cores, optional packs and bulk deletion remain required.
+
 ## Required work still open
 
 1. Complete the contract/evidence model: native descriptors and provenance, reusable/facet-specific

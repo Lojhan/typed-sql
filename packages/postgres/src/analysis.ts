@@ -2,6 +2,7 @@ import type { DialectPlugin } from "@typed-sql/core";
 import { createPostgresAnalyzer } from "./analysis-factory.js";
 import type { PostgresDialectOptions, PostgresSchemaSnapshot } from "./analysis-options.js";
 import { nativeSignatures } from "./catalog/generated/native.js";
+import { postgresCoreCatalogForSchema } from "./catalog/index.js";
 import type { PostgresTypePolicy } from "./type-policy.js";
 
 export type { PostgresDialectOptions, PostgresSchemaSnapshot } from "./analysis-options.js";
@@ -42,7 +43,7 @@ export { POSTGRES_DIALECT_VERSION } from "./version.js";
 export function postgres(
   options: PostgresDialectOptions = {},
 ): DialectPlugin<PostgresSchemaSnapshot, PostgresTypePolicy> {
-  return createPostgresAnalyzer(options, nativeSignatures);
+  return createPostgresAnalyzer(options, nativeSignatures, postgresCoreCatalogForSchema);
 }
 
 export { sql } from "@typed-sql/core";
