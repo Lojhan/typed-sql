@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import {
   parameterTypeLiteral as coreParameterTypeLiteral,
   type DialectPlugin,
+  defineQueryValuePlan,
+  defineQueryValuePlanSelector,
   mapQuerySemanticRanges,
   mergeQuerySemantics,
   type QuerySemantics,
@@ -784,10 +786,16 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
     for (const item of [...compiled, ...compositions]) {
       const name = uniqueName();
       runtimePlans.set(item, name);
-      runtimeDeclarations +=
-        item.valuePlanChoices === undefined
-          ? `const ${name} = ${define}(${JSON.stringify("valuePlan" in item ? item.valuePlan : undefined)});\n`
-          : `const ${name} = ${select}(${renderer}, ${JSON.stringify(item.valuePlanChoices)});\n`;
+      // Validate compiler-owned metadata before making its runtime construction removable.
+      // Application initializers and actual query evaluation remain effectful.
+      if (item.valuePlanChoices === undefined) {
+        if (!("valuePlan" in item) || item.valuePlan === undefined) throw new TypeError("Missing runtime value plan");
+        const plan = defineQueryValuePlan(item.valuePlan);
+        runtimeDeclarations += `const ${name} = /* @__PURE__ */ ${define}(${JSON.stringify(plan)});\n`;
+      } else {
+        defineQueryValuePlanSelector(dialect, item.valuePlanChoices);
+        runtimeDeclarations += `const ${name} = /* @__PURE__ */ ${select}(${renderer}, ${JSON.stringify(item.valuePlanChoices)});\n`;
+      }
     }
   }
   let transformedSource = source;
