@@ -1,18 +1,15 @@
 import { describe, it, strict } from "poku";
-import { unknownQuerySemantics } from "../../core/src/index.js";
 import {
   acquireNativeQueryContract,
-  type ContractReconciliationContribution,
   createLiveAnalysisScheduler,
   createNativeLiveAnalysisRunner,
-  createStaticQueryClaim,
   type LiveAnalysisClock,
   type LiveAnalysisOutcome,
-  type LiveAnalysisRequest,
   type NativeContractAdapter,
-  type NativeQueryContractEvidence,
   queryContractDigest,
 } from "../src/index.js";
+
+import { adapter, context, evidence, fixture, hash, owner, runner } from "./helpers/live-fixture.js";
 
 function clock() {
   let now = 0,
@@ -61,75 +58,6 @@ function deferred<Value>() {
   });
   return { promise, resolve, reject };
 }
-const hash = queryContractDigest("fixture");
-const context = {
-  grammar: { id: "vendor/live", version: "1" },
-  profileHash: hash,
-  schemaHash: hash,
-  databaseContextHash: hash,
-  typePolicyHash: hash,
-  codecHash: hash,
-  interpreterHash: hash,
-};
-const evidence: NativeQueryContractEvidence = {
-  adapter: { id: "vendor/native", version: "1" },
-  consistency: { mechanism: "snapshot", scope: "fixture" },
-  resultKind: "rows",
-  parameters: [],
-  parameterOccurrences: [],
-  columns: [
-    {
-      name: "value",
-      nativeType: { status: "known", value: { name: "integer", complete: true } },
-      runtimeType: { status: "known", value: "number" },
-      nullable: { status: "known", value: false, precision: "exact" },
-      descriptor: {},
-    },
-  ],
-};
-const owner: ContractReconciliationContribution = {
-  id: "vendor/reconciliation",
-  version: "1",
-  grammar: context.grammar,
-  classify: () => ({ status: "resolved", rule: "fixture", reason: "Independent fixture" }),
-  compare: () => ({ status: "compatible", staticStatus: "known", rule: "fixture", reason: "Equal fixture facts" }),
-};
-function fixture(sql = "SELECT 1 AS value", connectionContext = hash): LiveAnalysisRequest {
-  const range = { start: 0, end: sql.length, line: 1, column: 1 };
-  return {
-    connectionContext,
-    adapter: evidence.adapter,
-    candidate: { sql, parameterOccurrences: [], columnSpans: [{ start: 7, end: 8 }] },
-    staticClaim: createStaticQueryClaim({
-      sql,
-      context,
-      analysis: {
-        columns: [
-          { name: "value", tsType: "number", runtimeType: "number", databaseType: "integer", nullable: false, range },
-        ],
-        parameters: [],
-        diagnostics: [],
-        resultKind: "rows",
-        semantics: unknownQuerySemantics(range, "fixture"),
-      },
-    }),
-    policy: {
-      mode: "native-required",
-      owner: { id: owner.id, version: owner.version },
-      requiredNativeFacets: ["runtime-type"],
-    },
-  };
-}
-function adapter(patch: Partial<NativeContractAdapter> = {}): NativeContractAdapter {
-  return {
-    ...evidence.adapter,
-    grammar: context.grammar,
-    accept: () => ({ accepted: true }),
-    open: async () => ({ context: async () => context, describe: async () => evidence, close: async () => {} }),
-    ...patch,
-  };
-}
-const runner = createNativeLiveAnalysisRunner({ adapter: adapter(), contribution: owner });
 const ticket = (document = "file:///query.ts", documentVersion = 0) => ({
   document,
   documentVersion,

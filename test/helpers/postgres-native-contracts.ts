@@ -13,6 +13,7 @@ import {
   exportQueryContracts,
   type LiveAnalysisState,
   loadQueryContracts,
+  openAnalysisCache,
   parseContractQualificationPolicy,
   queryContractDigest,
   reconcileQueryContract,
@@ -118,6 +119,19 @@ export async function assertPostgresNativeContracts(connectionString: string, di
     });
     strict.equal(reconciled.status, "qualified");
     if (reconciled.status !== "qualified") throw Error("Native/static qualification was incomplete");
+    const cacheOptions = {
+      directory: join(temporary, ".typed-sql/cache/analysis/v1"),
+      workspaceContext: queryContractDigest("native-contract-proof-workspace"),
+    };
+    const cache = await openAnalysisCache(cacheOptions);
+    const cacheRequest = {
+      connectionContext: queryContractDigest("dedicated-native-proof-pool"),
+      adapter: { id: native.id, version: native.version },
+      candidate: { sql: text, parameterOccurrences },
+      staticClaim: createStaticQueryClaim({ sql: text, context, analysis: staticAnalysis }),
+      policy: qualification,
+    };
+    const cacheToken = (await cache.lookup(cacheRequest)).token;
     const live = createLiveAnalysisScheduler({
       debounceMs: 0,
       run: createNativeLiveAnalysisRunner({ adapter: native, contribution }),
@@ -134,13 +148,7 @@ export async function assertPostgresNativeContracts(connectionString: string, di
               policyGeneration: 0,
             },
             queryId: "increment",
-            request: {
-              connectionContext: queryContractDigest("dedicated-native-proof-pool"),
-              adapter: { id: native.id, version: native.version },
-              candidate: { sql: text, parameterOccurrences },
-              staticClaim: createStaticQueryClaim({ sql: text, context, analysis: staticAnalysis }),
-              policy: qualification,
-            },
+            request: cacheRequest,
           },
           (value) => {
             if (value.kind !== "pending") resolve(value);
@@ -148,7 +156,19 @@ export async function assertPostgresNativeContracts(connectionString: string, di
         );
       });
       strict.equal(state.kind, "usable-recorded-context");
+      if (state.kind !== "usable-recorded-context") throw Error("Live acquisition was incomplete");
       strict.equal(live.view.contracts.length, 1);
+      strict.equal(
+        (await cache.publish({ token: cacheToken, request: cacheRequest, outcome: state })).status,
+        "published",
+      );
+      const reopened = await openAnalysisCache(cacheOptions);
+      const cached = await reopened.lookup(cacheRequest);
+      strict.equal(cached.cached?.freshness, "unverified");
+      strict.equal(cached.cached?.outcome.kind, "usable-recorded-context");
+      if (cached.cached?.outcome.kind !== "usable-recorded-context") throw Error("Missing cached native contract");
+      strict.deepEqual(cached.cached.outcome.contract.valuePlan, reconciled.contract.valuePlan);
+
       strict.deepEqual(live.view.contracts[0]!.valuePlan, reconciled.contract.valuePlan);
       strict.equal((await pool.query<{ count: number }>(`SELECT count FROM ${namespace}.calls`)).rows[0]!.count, 0);
       live.advance({ inputGeneration: 0, contextGeneration: 1, policyGeneration: 0 });
@@ -217,6 +237,19 @@ export async function assertPostgresNativeContracts(connectionString: string, di
         candidate: { sql: text, parameterOccurrences },
       }),
       (error: unknown) => error instanceof PostgresContractAcquisitionError && error.reason === "context-changed",
+    );
+    // A known context change retires disposable evidence, including old in-flight producers.
+    await cache.invalidate();
+    strict.equal((await cache.lookup(cacheRequest)).cached, undefined);
+    strict.equal(
+      (
+        await cache.publish({
+          token: cacheToken,
+          request: cacheRequest,
+          outcome: { kind: "usable-recorded-context", contract: reconciled.contract },
+        })
+      ).status,
+      "superseded",
     );
     await pool.end();
     // Reopen only durable files and use the synchronous consumer after every native client is closed.

@@ -131,6 +131,39 @@ Unrelated planning work is left unchanged.
 - This is a programmatic in-memory scheduling layer. CLI/editor integration, independent context
   freshness polling, disk cache/restart reuse and cross-process ownership remain required.
 
+## Disposable query-cache checkpoint
+
+- Added explicitly opened owned/versioned storage with workspace/config lookup namespaces,
+  content-addressed context/query objects and atomic index publication. Successful cached outcomes
+  are revalidated against exact request SQL/context/static claim/qualification/adapter/layout.
+  Only digests, descriptors, sanitized statuses and local timestamps persist; no SQL/source claims,
+  credentials or native error messages. Hits explicitly report remote freshness as unverified.
+- Publication tokens bind cache instance, namespace epoch and per-request revision. Unrelated
+  writers merge; competing replacements and producers predating invalidation are fenced. A known
+  stale context retires the namespace. Negative results cannot preserve disproved evidence merely
+  because storage is over budget. Transport failures do not replace persistent evidence.
+- Cooperative cross-process locking uses the existing pinned filesystem lock library, loaded only
+  when opening the cache. Short storage operations stay inside the lock; acquisition remains outside.
+  Stale lock recovery and lease checks accompany generation checks. Private/cooperative local
+  filesystem behavior is assumed; this is not an authentication boundary against malicious writers.
+- A validated reservation ledger admits bytes before writing objects/indexes. Interrupted writers
+  can overcount space until maintenance reconstructs usage. Per-publication admission avoids a
+  full object-directory/stat scan; the namespace index remains bounded.
+- Bounded regular-file IO rejects symlinks/invalid UTF-8, invalid ownership/schema/digests, oversized
+  objects and corrupt/missing referenced closures. Pruning protects every namespace's references,
+  handles abandoned staged objects, preserves foreign files and never operates on durable directories.
+- Tests use real child processes for restart, first initialization, competing same-request writers,
+  unrelated publications and prune races; also exercise corruption, resource pressure, invalidation,
+  stale locks, namespace isolation, interrupted object publication and symlink escapes.
+- The PostgreSQL proof persists and reopens a live qualified result, then retires it after known
+  context change and rejects the old producer token. The disconnected durable proof remains separate.
+- Local checks pass full typechecking, quality, documentation/API/package-graph and packed-consumer
+  checks, plus the real PostgreSQL proof. Analysis coverage is 99.92% lines/statements, 98.97%
+  functions and 94.38% branches. This does not establish exact-head CI or final all-engine gates.
+- This stores concrete query outcomes only. Host cache/scheduler coordination, context observations,
+  request-driven freshness, project catalog/declaration storage, cache status/maintenance CLI and
+  actual editor/CLI offline/live workflows remain required.
+
 ## Required work still open
 
 1. Complete the contract/evidence model: native descriptors and provenance, reusable/facet-specific
@@ -142,10 +175,12 @@ Unrelated planning work is left unchanged.
 4. Complete frozen configuration/CLI and whole-project TypeScript checking with the durable
    closure, native qualification policy and physically absent heavy modules. Durable storage and
    the isolated programmatic/packed consumer proofs above do not finish the full host workflow.
-5. Disposable cache persistence, ownership, atomic publication, corruption/limit handling,
-   cross-process locking, pruning and context-aware invalidation.
+5. Complete cache/scheduler host integration, context observations and project catalog/declaration
+   persistence; qualify ownership, admission, cross-process interruption/recovery and pruning in
+   the actual CLI/editor workflows. Concrete query storage and process tests are implemented above.
 6. Explicit offline/frozen/live configuration and CLI generation/check/watch operations.
-7. Race-safe live scheduling, cancellation/backoff, editor/project invalidation and restart reuse.
+7. Integrate the bounded live scheduler with editor/project invalidation, request-driven context
+   freshness, persistent restart reuse and finite batch generation.
 8. Finite/repeated structural variant coverage, ambiguous/repeated parameters, unsupported syntax
    fallback and conservative runtime effect/routing behavior.
 9. Built-in lightweight profile/runtime entrypoint migration, selected core/profile/pack loading

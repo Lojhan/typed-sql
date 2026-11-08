@@ -6,6 +6,8 @@ export type {
 } from "./acquisition.js";
 export { acquireNativeQueryContract } from "./acquisition.js";
 export { exportQueryContracts, loadQueryContracts } from "./artifacts.js";
+export type { AnalysisCache, AnalysisCacheLookup, AnalysisCacheOptions, AnalysisCacheToken } from "./cache.js";
+export { openAnalysisCache } from "./cache.js";
 export { canonicalContractData, exactSqlDigest, queryContractDigest } from "./canonical.js";
 export type { QueryContract, QueryContractContext } from "./contracts.js";
 export {

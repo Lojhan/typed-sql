@@ -284,3 +284,60 @@ This scheduler holds an in-memory view only. It does not write the disposable ca
 contracts, or activate CLI/editor watching. The host owns context freshness checks, project query
 and variant enumeration, connection credentials, persistence and explicit publication of reviewed
 compiler inputs.
+
+### Persist disposable evidence between host sessions
+
+`openAnalysisCache({ directory, workspaceContext })` opens a private disposable cache root, usually
+`.typed-sql/cache/analysis/v1`. `workspaceContext` is a configured workspace/config digest. Different
+namespaces share immutable objects without sharing their lookup entries. The cache validates its
+ownership/version marker and refuses to claim an unrelated directory.
+
+Call `lookup(request)` before asynchronous acquisition. It returns a publication token and, when
+present, a validated cached outcome. A cached contract must match the exact current request,
+including its static claim, context, adapter, qualification policy and parameter layout. The result
+reports `recordedAt` and `freshness: "unverified"`; a disk hit does not establish current database
+freshness. An offline host can consume a matching qualified contract through `createContractDialect`.
+A live host separately decides when to check context or acquire new evidence.
+
+After acquisition, pass that token, the same request and the outcome to `publish`. Its result is:
+
+- `published` when the new entry is committed;
+- `superseded` when another producer replaced that request or the namespace was invalidated;
+- `capacity` when admitting the entry would exceed configured limits.
+
+Unrelated request publications merge under a short filesystem lock. Two producers holding the
+same token cannot both replace that entry. `invalidate()` rotates this namespace's epoch and clears
+its entries, fencing pre-existing producers. Publishing `stale-context` also retires the namespace's
+other entries because dependency coverage is conservative. Hosts coordinate this with scheduler
+generation changes. Invalidation does not delete immutable objects or touch other namespaces.
+
+The cache stores sanitized negative outcomes by exact request identity. Transient transport
+failures are not persisted over previous evidence. A known rejection, conflict or partial result
+replaces the previous outcome; resource pressure cannot retain a disproved contract. If even a
+replacement index exceeds its object limit, the namespace is invalidated before reporting capacity.
+
+Storage uses immutable `contexts/` and `queries/objects/` JSON plus atomic `indexes/` pointers.
+A reservation ledger accounts for admitted payloads before writes; interrupted publishers can
+overcount space until pruning reconstructs usage. Publication does not scan every cached object.
+The index contains request digests, revisions, timestamps and sanitized negative status codes.
+SQL text, source paths, executable type declarations, credentials and native error messages are
+not persisted. Readers check bounded regular files, digests, context identity and qualification;
+missing, corrupt or incompatible referenced objects throw instead of supplying types.
+
+The cooperative lock protocol has fixed heartbeat/stale recovery settings, validates the held
+lease before publication and keeps database work outside the lock. Objects are staged before an
+index commits. Use the same cache protocol for every writer rather than modifying its files or
+locks directly.
+
+`prune()` preserves all objects referenced by every namespace index. It removes unreachable objects
+and abandoned staging files after thirty days by default, or sooner under the payload budget.
+`prune({ retentionMs: 0 })` removes all unreachable owned objects. Unrelated files and durable
+contract directories are preserved. Defaults allow 4,096 entries per namespace, 128 namespaces,
+8 MiB per object and a 256 MiB payload admission budget. Limits are configurable. A reduced budget
+can leave referenced objects above the target; pruning reports retained bytes instead of deleting
+active inputs.
+
+Opening this cache does not enable CLI/editor refresh, create project catalogs or declarations,
+record context-check observations, or export durable compiler inputs. Those operations belong to
+the explicit host workflow. Frozen consumers use their durable contract closure independently of
+this cache and its clock, contents or existence.

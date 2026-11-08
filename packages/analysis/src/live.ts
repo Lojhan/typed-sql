@@ -117,7 +117,7 @@ function generations(value: LiveAnalysisGenerations): void {
   for (const key of ["inputGeneration", "contextGeneration", "policyGeneration"] as const)
     if (!Number.isSafeInteger(value[key]) || value[key] < 0) throw new TypeError("Invalid live analysis generation");
 }
-function request(input: LiveAnalysisRequest): LiveAnalysisRequest {
+export function parseLiveAnalysisRequest(input: LiveAnalysisRequest): LiveAnalysisRequest {
   const value: LiveAnalysisRequest = JSON.parse(canonicalContractData(input));
   if (
     !value ||
@@ -136,7 +136,10 @@ function request(input: LiveAnalysisRequest): LiveAnalysisRequest {
     throw new TypeError("Live candidate/static query identity differs");
   return Object.freeze({ ...value, adapter: Object.freeze(value.adapter), candidate, staticClaim, policy });
 }
-function outcome(input: LiveAnalysisOutcome, expected: LiveAnalysisRequest): LiveAnalysisOutcome {
+export function parseLiveAnalysisOutcome(
+  input: LiveAnalysisOutcome,
+  expected: LiveAnalysisRequest,
+): LiveAnalysisOutcome {
   if (input.kind === "usable-recorded-context") {
     const contract = parseQueryContract(input.contract);
     if (
@@ -154,6 +157,9 @@ function outcome(input: LiveAnalysisOutcome, expected: LiveAnalysisRequest): Liv
       throw new TypeError("Live contract does not match the requested qualification");
     return Object.freeze({ kind: input.kind, contract });
   }
+  return parseLiveAnalysisFailure(input);
+}
+export function parseLiveAnalysisFailure(input: unknown): LiveAnalysisFailure {
   const value = JSON.parse(canonicalContractData(input));
   if (
     !value ||
@@ -382,7 +388,7 @@ export function createLiveAnalysisScheduler(options: LiveAnalysisSchedulerOption
     void (async () => {
       try {
         const result = await options.run(record.request, operation.controller.signal);
-        if (valid() && !operation.expired) install(record, outcome(result, record.request));
+        if (valid() && !operation.expired) install(record, parseLiveAnalysisOutcome(result, record.request));
       } catch {
         if (valid() && !operation.expired)
           install(record, { kind: "unavailable", code: "live-runner-error", retry: "change" });
@@ -435,7 +441,7 @@ export function createLiveAnalysisScheduler(options: LiveAnalysisSchedulerOption
       if (!Number.isSafeInteger(ticket.documentVersion) || ticket.documentVersion < 0)
         throw new TypeError("Invalid document version");
       const captured = Object.freeze(ticket),
-        normalized = request(input.request),
+        normalized = parseLiveAnalysisRequest(input.request),
         key = queryContractDigest(normalized),
         slot = canonicalContractData([ticket.document, input.queryId]);
       const version = documents.get(ticket.document);

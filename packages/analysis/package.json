@@ -41,6 +41,7 @@
   },
   "dependencies": {
     "@typed-sql/core": "workspace:*",
-    "@typed-sql/schema": "workspace:*"
+    "@typed-sql/schema": "workspace:*",
+    "proper-lockfile": "4.1.2"
   }
 }
