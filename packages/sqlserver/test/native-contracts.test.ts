@@ -19,6 +19,7 @@ import {
   createSqlServerNativeContractAdapter,
   SqlServerContractAcquisitionError,
   sqlServerContractContextQueries,
+  sqlServerContractRelationQuery,
 } from "../src/native-contracts.js";
 import { createSqlServerOdbcNativeContractAdapter } from "../src/odbc-contracts.js";
 import { sqlserverProfile } from "../src/profile.js";
@@ -77,6 +78,7 @@ function fixture() {
   let columns: readonly Record<string, unknown>[] = [column],
     parameters: readonly Record<string, unknown>[] = [parameter];
   const sessions: SqlServerServiceSession[] = [];
+  const catalog: Record<string, readonly Record<string, unknown>[]> = {};
   const pool: SqlServerServicePool = {
     async acquire() {
       const ordinal = sessions.length + 1;
@@ -101,6 +103,8 @@ function fixture() {
             ];
           else if (sql === sqlServerContractDescriptionQueries.parameters) result = parameters;
           else if (sql === sqlServerContractDescriptionQueries.columns) result = columns;
+          else if (sql === sqlServerContractRelationQuery) result = catalog.resolved ?? [{ object_id: 42 }];
+          else if (sql in catalog) result = catalog[sql]!;
           else if (Object.values(sqlServerContractContextQueries).some((query) => query === sql)) result = [];
           else {
             result = await base.query(sql, values);
@@ -124,6 +128,7 @@ function fixture() {
     base,
     pool,
     sessions,
+    catalog,
     get lsn() {
       return lsn;
     },
@@ -149,6 +154,35 @@ function fixture() {
       parameters = value;
     },
   };
+}
+
+const ordinary = {
+  object_id: 42,
+  is_memory_optimized: 0,
+  is_filetable: 0,
+  is_remote_data_archive_enabled: 0,
+  temporal_type: 0,
+  is_external: 0,
+  is_node: 0,
+  is_edge: 0,
+};
+const storedColumn = {
+  object_id: 42,
+  system_type_id: 127,
+  user_type_id: 127,
+  is_computed: 0,
+  is_hidden: 0,
+  encryption_type: null,
+  generated_always_type: 0,
+  xml_collection_id: 0,
+};
+const systemType = { user_type_id: 127, name: "bigint", is_user_defined: 0, is_assembly_type: 0 };
+function tableFixture() {
+  const f = fixture();
+  f.catalog[sqlServerContractContextQueries.tables] = [ordinary];
+  f.catalog[sqlServerContractContextQueries.columns] = [storedColumn];
+  f.catalog[sqlServerContractContextQueries.types] = [systemType];
+  return f;
 }
 
 await describe("guarded SQL Server contract acquisition", async () => {
@@ -197,11 +231,15 @@ await describe("guarded SQL Server contract acquisition", async () => {
     strict.equal(f.base.released, 2);
     strict.equal(f.base.discarded, 0);
   });
-  await it("declines objects, procedural SQL, qualified functions, custom casts and noncanonical binds before acquisition", () => {
+  await it("declines unqualified or remote objects, procedural SQL, qualified functions and noncanonical binds", () => {
     const f = fixture(),
       adapter = createSqlServerNativeContractAdapter({ pool: f.pool, schema });
     for (const sql of [
-      "SELECT value FROM dbo.widgets",
+      "SELECT value FROM widgets",
+      "SELECT value FROM remote.dbo.widgets",
+      "SELECT value FROM dbo.widgets WITH (NOLOCK)",
+      "SELECT value FROM dbo.widgets FOR SYSTEM_TIME ALL",
+      "SELECT value FROM dbo.widgets CROSS APPLY dbo.other(1) AS b",
       "SELECT dbo.user_function(1) AS value",
       "SELECT CAST(1 AS dbo.custom) AS value",
       "EXEC dbo.proc",
@@ -220,7 +258,105 @@ await describe("guarded SQL Server contract acquisition", async () => {
     );
     strict.equal(adapter.accept(candidate()).accepted, true);
     strict.equal(adapter.accept(candidate("SELECT IIF(1=1, 1, 2) AS value")).accepted, true);
+    strict.equal(
+      adapter.accept(
+        candidate("SELECT a.* FROM dbo.widgets a LEFT JOIN dbo.other b ON a.id=b.id WHERE a.id=@__typed_sql_1"),
+      ).accepted,
+      true,
+    );
     strict.equal(f.sessions.length, 0);
+  });
+  await it("qualifies local table catalogs and resolves quoted names as bound metadata", async () => {
+    const f = tableFixture(),
+      calls: { sql: string; values: readonly unknown[] }[] = [];
+    f.hook = async (sql, values) => {
+      calls.push({ sql, values });
+    };
+    const adapter = createSqlServerNativeContractAdapter({ pool: f.pool, schema }),
+      session = await adapter.open(),
+      query = candidate("SELECT a.value FROM [odd.schema].[odd'table] a WHERE a.value=@__typed_sql_1");
+    const result = await session.describe(query);
+    strict.deepEqual(result.columns[0]?.runtimeType, { status: "known", value: "bigint" });
+    strict.deepEqual(calls.find(({ sql }) => sql === sqlServerContractRelationQuery)?.values, [
+      "odd.schema",
+      "odd'table",
+    ]);
+    strict.ok(!calls.some(({ sql }) => sql === query.sql));
+    await session.close();
+    const before = await adapter.inspectContext();
+    f.catalog[sqlServerContractContextQueries.tables] = [{ ...ordinary, is_external: 1 }];
+    strict.notEqual((await adapter.inspectContext()).databaseContextHash, before.databaseContextHash);
+  });
+  await it("rejects unsafe or incomplete table evidence before native candidate description", async () => {
+    const mutations: ((f: ReturnType<typeof tableFixture>) => void)[] = [
+      (f) => {
+        f.catalog.resolved = [{ object_id: null }];
+      },
+      (f) => {
+        f.catalog.resolved = [];
+      },
+      (f) => {
+        f.catalog[sqlServerContractContextQueries.tables] = [];
+      },
+      (f) => {
+        f.catalog[sqlServerContractContextQueries.columns] = [];
+      },
+      (f) => {
+        f.catalog[sqlServerContractContextQueries.types] = [];
+      },
+      (f) => {
+        f.catalog[sqlServerContractContextQueries.predicates] = [{ target_object_id: 42 }];
+      },
+      ...[
+        "is_memory_optimized",
+        "is_filetable",
+        "is_remote_data_archive_enabled",
+        "is_external",
+        "is_node",
+        "is_edge",
+        "temporal_type",
+      ].map((key) => (f: ReturnType<typeof tableFixture>) => {
+        f.catalog[sqlServerContractContextQueries.tables] = [{ ...ordinary, [key]: 1 }];
+      }),
+      ...[
+        "is_computed",
+        "is_hidden",
+        "encryption_type",
+        "generated_always_type",
+        "xml_collection_id",
+        "user_type_id",
+      ].map((key) => (f: ReturnType<typeof tableFixture>) => {
+        f.catalog[sqlServerContractContextQueries.columns] = [{ ...storedColumn, [key]: 1 }];
+      }),
+      ...[{ is_user_defined: 1 }, { is_assembly_type: 1 }, { name: "opaque" }].map(
+        (patch) => (f: ReturnType<typeof tableFixture>) => {
+          f.catalog[sqlServerContractContextQueries.types] = [{ ...systemType, ...patch }];
+        },
+      ),
+    ];
+    for (const mutate of mutations) {
+      const f = tableFixture();
+      mutate(f);
+      let descriptions = 0;
+      f.hook = async (sql) => {
+        if (sql === sqlServerContractDescriptionQueries.columns) descriptions++;
+      };
+      const session = await createSqlServerNativeContractAdapter({ pool: f.pool, schema }).open();
+      await strict.rejects(session.describe(candidate("SELECT value FROM dbo.widgets")), /unsupported-statement/u);
+      strict.equal(descriptions, 0);
+      strict.equal(f.base.discarded, 1);
+    }
+  });
+  await it("rejects DDL racing with name resolution before describing the candidate", async () => {
+    const f = tableFixture();
+    let descriptions = 0;
+    f.hook = async (sql) => {
+      if (sql === sqlServerContractRelationQuery) f.lsn = "00000001:00000002:0001";
+      if (sql === sqlServerContractDescriptionQueries.columns) descriptions++;
+    };
+    const session = await createSqlServerNativeContractAdapter({ pool: f.pool, schema }).open();
+    await strict.rejects(session.describe(candidate("SELECT value FROM dbo.widgets")), /context-changed/u);
+    strict.equal(descriptions, 0);
   });
   await it("fences log drift and settings changes instead of publishing mixed observations", async () => {
     for (const mutate of [

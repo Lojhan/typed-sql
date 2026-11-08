@@ -48,10 +48,42 @@ try {
   created = true;
   // This fixture owns its database. Native acquisition does not alter user database settings.
   await admin.queryable.all(`ALTER DATABASE [${name}] SET QUERY_STORE=OFF`);
+  const setup = await createSqlServerOdbcDatabase({ connectionString: dsn(name) });
+  try {
+    for (const sql of [
+      "CREATE TABLE dbo.records (id bigint NOT NULL, quantity int NOT NULL, amount decimal(12,2) NULL)",
+      "INSERT dbo.records VALUES (1,2,3.25)",
+      "CREATE VIEW dbo.record_view AS SELECT id FROM dbo.records",
+      "CREATE TABLE dbo.computed_records (id bigint NOT NULL, computed AS id+1)",
+      "CREATE TYPE dbo.contract_id FROM bigint NOT NULL",
+      "CREATE TABLE dbo.alias_records (id dbo.contract_id)",
+      "CREATE TABLE dbo.protected_records (id bigint NOT NULL)",
+      "CREATE FUNCTION dbo.contract_filter(@id bigint) RETURNS TABLE WITH SCHEMABINDING AS RETURN SELECT 1 AS allowed WHERE @id>=0",
+      "CREATE SECURITY POLICY dbo.contract_policy ADD FILTER PREDICATE dbo.contract_filter(id) ON dbo.protected_records WITH (STATE=ON)",
+    ])
+      await setup.queryable.all(sql);
+  } finally {
+    await setup.close();
+  }
   for (const compatibility of [140, 150, 160, 170].filter((level) => level <= major * 10)) {
     await admin.queryable.all(`ALTER DATABASE [${name}] SET COMPATIBILITY_LEVEL=${compatibility}`);
     const connection = await createSqlServerOdbcDatabase({ connectionString: dsn(name) });
-    const schema = { formatVersion: 1, dialect: "sqlserver", tables: {}, server: connection.serverEvidence };
+    const schema = {
+      formatVersion: 1,
+      dialect: "sqlserver",
+      tables: {
+        records: {
+          schema: "dbo",
+          name: "records",
+          columns: {
+            id: { name: "id", databaseType: "bigint", tsType: "bigint", nullable: false },
+            quantity: { name: "quantity", databaseType: "int", tsType: "number", nullable: false },
+            amount: { name: "amount", databaseType: "decimal(12,2)", tsType: "string", nullable: true },
+          },
+        },
+      },
+      server: connection.serverEvidence,
+    };
     await connection.close();
     assert.equal(schema.server.version, build);
     assert.equal(schema.server.settings.compatibilityLevel, compatibility);
@@ -66,6 +98,12 @@ try {
       ["iif", "SELECT IIF(1=1,CAST(1 AS bigint),CAST(2 AS bigint)) AS value"],
       ["decimal", "SELECT CAST(1 AS decimal(38,10)) AS value"],
       ["concat", "SELECT CONCAT(N'hello',N'world') AS value"],
+      ["table-parameter", "SELECT a.id AS value FROM dbo.records a WHERE a.id=@__typed_sql_1"],
+      [
+        "table-join",
+        "SELECT a.id AS value,b.amount AS amount FROM dbo.records a LEFT JOIN dbo.records b ON a.id=b.id WHERE a.quantity>0",
+      ],
+      ["table-star", "SELECT a.* FROM dbo.records a WHERE a.id=1"],
     ]) {
       let result;
       for (let attempt = 0; attempt < 3; attempt++) {
@@ -93,6 +131,18 @@ try {
       });
       assert.equal(qualified.status, "qualified", JSON.stringify(qualified.report));
       evidence.cases.push({ compatibility, id, status: "pass", contract: qualified.contract });
+    }
+    for (const relation of ["record_view", "computed_records", "alias_records", "protected_records"]) {
+      const session = await adapter.open();
+      try {
+        await assert.rejects(
+          session.describe(candidate(`SELECT id FROM dbo.${relation}`, schema)),
+          /unsupported-statement/u,
+        );
+      } finally {
+        await session.close();
+      }
+      evidence.cases.push({ compatibility, id: `reject-${relation}`, status: "pass" });
     }
   }
   const output = resolve(`../../artifacts/sqlserver/native-contracts-${major}.json`);

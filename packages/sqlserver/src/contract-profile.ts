@@ -1,7 +1,7 @@
 import { type ContractInterpreterIdentity, canonicalContractData, queryContractDigest } from "@typed-sql/analysis";
 import { defaultSqlServerTypePolicy, type SqlServerTypePolicy, validateSqlServerTypePolicy } from "./type-policy.js";
 
-export const sqlServerContractAdapterVersion = "sqlserver-log-guarded-describe-v1";
+export const sqlServerContractAdapterVersion = "sqlserver-log-guarded-describe-v2";
 export const sqlServerContractReconciliationOwner = Object.freeze({
   id: "@typed-sql/sqlserver/reconciliation",
   version: "sqlserver-contract-reconciliation-v1",
@@ -17,7 +17,7 @@ export function sqlServerContractIdentity(
   policy: SqlServerTypePolicy = defaultSqlServerTypePolicy,
 ): ContractInterpreterIdentity {
   return Object.freeze({
-    profileHash: queryContractDigest({ profile: "sqlserver-builtin-expression-profile-v1" }),
+    profileHash: queryContractDigest({ profile: "sqlserver-guarded-select-profile-v2" }),
     codecHash: queryContractDigest({
       codec: "sqlserver-native-descriptor-v1",
       policy: sqlServerContractPolicy(policy),

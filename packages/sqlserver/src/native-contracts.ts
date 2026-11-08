@@ -23,7 +23,7 @@ import {
 import type { SqlServerServicePool, SqlServerServiceSession } from "./live-verifier.js";
 import { parseSqlServerNativeType } from "./native-types.js";
 import { parseStatement, tokenize, walkStatement } from "./parser/index.js";
-import { readSqlServerServerEvidence } from "./server-evidence.js";
+import { flag, integer, readSqlServerServerEvidence, text } from "./server-evidence.js";
 import {
   activeSqlServerServices as activeServices,
   poisonedSqlServerServices as poisonedServices,
@@ -68,27 +68,36 @@ export const sqlServerContractContextQueries = Object.freeze({
   objects:
     "SELECT o.object_id,o.schema_id,s.name AS schema_name,o.name,o.type,o.parent_object_id,CONVERT(nvarchar(33),o.modify_date,126) AS modified FROM sys.objects o JOIN sys.schemas s ON s.schema_id=o.schema_id WHERE o.is_ms_shipped=0 ORDER BY o.object_id",
   columns:
-    "SELECT object_id,column_id,name,system_type_id,user_type_id,max_length,precision,scale,collation_name,is_nullable,is_computed,xml_collection_id FROM sys.columns ORDER BY object_id,column_id",
+    "SELECT object_id,column_id,name,system_type_id,user_type_id,max_length,precision,scale,collation_name,is_nullable,is_computed,xml_collection_id,encryption_type,generated_always_type,is_hidden FROM sys.columns ORDER BY object_id,column_id",
+  tables:
+    "SELECT object_id,is_memory_optimized,is_filetable,is_remote_data_archive_enabled,temporal_type,is_external,is_node,is_edge FROM sys.tables ORDER BY object_id",
+  predicates:
+    "SELECT object_id,security_predicate_id,target_object_id,predicate_definition,predicate_type,operation FROM sys.security_predicates ORDER BY object_id,security_predicate_id",
   types:
     "SELECT user_type_id,system_type_id,schema_id,name,is_user_defined,is_assembly_type,max_length,precision,scale,collation_name FROM sys.types ORDER BY user_type_id",
   modules:
     "SELECT object_id,definition,uses_ansi_nulls,uses_quoted_identifier,is_schema_bound,execute_as_principal_id FROM sys.sql_modules ORDER BY object_id",
   principal: "SELECT name,type,usage FROM sys.user_token ORDER BY name,type,usage",
 });
+/** Resolve names using the server's collation, without interpolating identifiers into SQL. */
+export const sqlServerContractRelationQuery = "SELECT OBJECT_ID(QUOTENAME(?) + N'.' + QUOTENAME(?)) AS object_id";
 type Row = Readonly<Record<string, unknown>>;
-function admit(input: NativeContractCandidate): { candidate: NativeContractCandidate; indices: readonly number[] } {
+function admit(input: NativeContractCandidate): {
+  candidate: NativeContractCandidate;
+  indices: readonly number[];
+  relations: readonly (readonly string[])[];
+} {
   const candidate = JSON.parse(canonicalContractData(input)) as NativeContractCandidate;
   if (!candidate || typeof candidate.sql !== "string" || !Array.isArray(candidate.parameterOccurrences))
     throw new SqlServerContractAcquisitionError("unsupported-statement");
   const statement = parseStatement(candidate.sql);
+  const relations: (readonly string[])[] = [];
   walkStatement(statement, {
     statement(node) {
       if (
         node.kind !== "select" ||
         node.with.length ||
-        node.from ||
-        node.joins.length ||
-        node.where ||
+        node.joins.some((join) => join.kind === "cross-apply" || join.kind === "outer-apply") ||
         node.group.length ||
         node.having ||
         node.order.length ||
@@ -101,11 +110,23 @@ function admit(input: NativeContractCandidate): { candidate: NativeContractCandi
       )
         throw new SqlServerContractAcquisitionError("unsupported-statement");
     },
+    source(node) {
+      if (
+        node.kind !== "table" ||
+        node.name.parts.length !== 2 ||
+        node.hints.length ||
+        node.systemTime ||
+        node.name.parts.some((part) => !part || part.length > 128 || part.startsWith("#"))
+      )
+        throw new SqlServerContractAcquisitionError("unsupported-statement");
+      relations.push(node.name.parts);
+    },
     expression(node) {
       if (
         ["subquery", "exists", "default"].includes(node.kind) ||
         (node.kind === "call" && (node.name.parts.length !== 1 || node.over || node.withinGroup)) ||
-        (node.kind === "column" && node.name.parts.length !== 1) ||
+        (node.kind === "column" && node.name.parts.length > 3) ||
+        (node.kind === "star" && (node.qualifier?.parts.length ?? 0) > 2) ||
         (node.kind === "cast" && !parseSqlServerNativeType(node.databaseType))
       )
         throw new SqlServerContractAcquisitionError("unsupported-statement");
@@ -126,7 +147,46 @@ function admit(input: NativeContractCandidate): { candidate: NativeContractCandi
     canonicalContractData(occurrences) !== canonicalContractData(candidate.parameterOccurrences)
   )
     throw new SqlServerContractAcquisitionError("unsupported-statement");
-  return { candidate, indices };
+  return { candidate, indices, relations };
+}
+function ordinaryTable(
+  id: number,
+  tables: readonly Row[],
+  columns: readonly Row[],
+  types: readonly Row[],
+  predicates: readonly Row[],
+) {
+  const table = tables.find((row) => integer(row, "object_id") === id),
+    fields = columns.filter((row) => integer(row, "object_id") === id);
+  return (
+    !!table &&
+    fields.length > 0 &&
+    [
+      "is_memory_optimized",
+      "is_filetable",
+      "is_remote_data_archive_enabled",
+      "is_external",
+      "is_node",
+      "is_edge",
+    ].every((key) => !flag(table, key)) &&
+    integer(table, "temporal_type") === 0 &&
+    !predicates.some((row) => integer(row, "target_object_id") === id) &&
+    fields.every((field) => {
+      const type = types.find((row) => integer(row, "user_type_id") === integer(field, "user_type_id"));
+      return (
+        !flag(field, "is_computed") &&
+        !flag(field, "is_hidden") &&
+        field.encryption_type === null &&
+        integer(field, "generated_always_type") === 0 &&
+        integer(field, "xml_collection_id") === 0 &&
+        integer(field, "user_type_id") === integer(field, "system_type_id") &&
+        !!type &&
+        !flag(type, "is_user_defined") &&
+        !flag(type, "is_assembly_type") &&
+        !!parseSqlServerNativeType(text(type, "name"))
+      );
+    })
+  );
 }
 function errorNumbers(input: unknown): readonly number[] {
   if (!input || typeof input !== "object") return [];
@@ -347,9 +407,13 @@ export function createSqlServerNativeContractAdapter(
         }
       };
       const evidence = await attest(initialSignal);
-      const catalog: unknown[] = [];
-      for (const key of ["objects", "columns", "types", "modules", "principal"] as const)
-        catalog.push(await all(sqlServerContractContextQueries[key], undefined, initialSignal));
+      const catalog: Record<string, readonly Row[]> = {};
+      for (const key of ["objects", "columns", "types", "modules", "principal", "tables", "predicates"] as const) {
+        const rows = await all(sqlServerContractContextQueries[key], undefined, initialSignal);
+        if (rows.length > (key === "columns" ? 65536 : 20000))
+          throw new SqlServerContractAcquisitionError("unsupported-context");
+        catalog[key] = rows;
+      }
       const selected = Object.freeze<QueryContractContext>({
         grammar: Object.freeze({ id: "sqlserver", version: SQLSERVER_DIALECT_VERSION }),
         ...identity,
@@ -405,8 +469,28 @@ export function createSqlServerNativeContractAdapter(
           }),
         describe: (input, signal) =>
           operation(async (): Promise<NativeQueryContractEvidence> => {
-            const { candidate, indices } = admit(input);
+            const { candidate, indices, relations } = admit(input);
             await consistent(signal);
+            for (const relation of relations) {
+              const resolved = await all(sqlServerContractRelationQuery, relation, signal);
+              try {
+                if (
+                  resolved.length !== 1 ||
+                  !ordinaryTable(
+                    integer(resolved[0]!, "object_id"),
+                    catalog.tables!,
+                    catalog.columns!,
+                    catalog.types!,
+                    catalog.predicates!,
+                  )
+                )
+                  throw new TypeError("Unavailable relation");
+              } catch {
+                throw new SqlServerContractAcquisitionError("unsupported-statement");
+              }
+            }
+            // Do not describe a name resolved after a concurrent catalog change.
+            if (relations.length) await consistent(signal);
             const rows = indices.length
               ? await all(sqlServerContractDescriptionQueries.parameters, [candidate.sql], signal, true)
               : [];
@@ -438,7 +522,7 @@ export function createSqlServerNativeContractAdapter(
             await consistent(signal);
             return {
               adapter: { id: adapterId, version: sqlServerContractAdapterVersion },
-              consistency: { mechanism: "guarded", scope: "sqlserver-exclusive-log-quiescent-builtin-expressions-v1" },
+              consistency: { mechanism: "guarded", scope: "sqlserver-exclusive-log-quiescent-guarded-select-v2" },
               resultKind: "rows",
               columns,
               parameters: parameters.parameters,
@@ -461,7 +545,7 @@ export function createSqlServerNativeContractAdapter(
         admit(candidate);
         return { accepted: true };
       } catch {
-        return { accepted: false, reason: "sqlserver-builtin-expression-scope" };
+        return { accepted: false, reason: "sqlserver-guarded-select-scope" };
       }
     },
     open,

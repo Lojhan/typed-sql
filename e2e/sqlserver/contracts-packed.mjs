@@ -21,8 +21,9 @@ export async function qualifyPackedContracts(fixture) {
     fixture.directory,
     "node_modules/@typed-sql/language-server/dist/packages/language-server/src/server.js",
   );
-  const initial = "SELECT IS_SRVROLEMEMBER(N'sysadmin') AS value";
-  const changed = "SELECT CAST(IS_SRVROLEMEMBER(N'sysadmin') AS bigint) AS value";
+  const from = " FROM dbo.contract_records a LEFT JOIN dbo.contract_records b ON a.id=b.id WHERE a.id=1";
+  const initial = `SELECT IS_SRVROLEMEMBER(N'sysadmin') AS value${from}`;
+  const changed = `SELECT CAST(IS_SRVROLEMEMBER(N'sysadmin') AS bigint) AS value${from}`;
   const source = (sql) =>
     `import {sql} from "@typed-sql/sqlserver";\nexport const query=sql\`${sql}\`;\n` +
     // biome-ignore lint/suspicious/noTemplateCurlyInString: Application source checked through installed packages.
@@ -46,7 +47,22 @@ export async function qualifyPackedContracts(fixture) {
     created = true;
     await admin.queryable.all(`ALTER DATABASE [${name}] SET QUERY_STORE=OFF`);
     const db = await createSqlServerOdbcDatabase({ connectionString: dsn(name) });
-    const schema = { formatVersion: 1, dialect: "sqlserver", tables: {}, server: db.serverEvidence };
+    await db.queryable.all("CREATE TABLE dbo.contract_records (id bigint NOT NULL PRIMARY KEY)");
+    await db.queryable.all("INSERT dbo.contract_records VALUES (1)");
+    const schema = {
+      formatVersion: 1,
+      dialect: "sqlserver",
+      tables: {
+        contract_records: {
+          schema: "dbo",
+          name: "contract_records",
+          columns: {
+            id: { name: "id", databaseType: "bigint", tsType: "bigint", nullable: false },
+          },
+        },
+      },
+      server: db.serverEvidence,
+    };
     await db.close();
     await mkdir(project);
     await writeFile(join(project, "schema.json"), JSON.stringify(schema));
@@ -178,6 +194,12 @@ try{assert.deepEqual(await db.one(statement),{value:1n});assert.deepEqual(await 
           await inspect(live, initial, "number");
           const after = await live.request("typedSql/status", {});
           assert.ok(after.workspaces[0].metrics.generation > before.workspaces[0].metrics.generation);
+          await admin.queryable.all(
+            `EXEC [${name}].sys.sp_executesql N'ALTER TABLE dbo.contract_records ADD context_marker int NULL'`,
+          );
+          await inspect(live, initial, "number");
+          const tableAfter = await live.request("typedSql/status", {});
+          assert.ok(tableAfter.workspaces[0].metrics.generation > after.workspaces[0].metrics.generation);
         }
         live.notify("textDocument/didChange", {
           textDocument: { uri, version: 2 },

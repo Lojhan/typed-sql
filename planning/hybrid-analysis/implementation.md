@@ -674,3 +674,15 @@ that its programmatic Poku child exits nonzero. The clean build, public API/pack
 packed-consumer and documentation gates pass. See the [native scope and evidence](./duckdb-native-proof.md).
 
 Final workspace type checks, clean-tree quality, documentation checks and the isolated performance gate pass.
+
+## SQL Server guarded table descriptions
+
+The v2 native adapter admits schema-qualified ordinary local table projections, stars, filters
+and joins. Bound server-side name resolution precedes capability checks; captured table/column
+flags and security predicates join context identity. Existing log-quiescence guards remain in
+force around resolution and description. Unsupported relations, custom types and implicit
+computed/security behavior are rejected. See [scope and qualification evidence](./sqlserver-table-proof.md).
+
+All 24 package test files pass with 96.69% statements, 91.09% branches and 95.78% functions;
+workspace type checks pass. Real-engine and installed-host qualification is pending in the
+four-engine Linux x64 matrix. Broader architecture acceptance remains outstanding.

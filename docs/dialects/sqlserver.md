@@ -63,8 +63,8 @@ that selects a different driver does not satisfy this contract. Native Linux x64
 
 ## Native query contracts
 
-Explicit live generation can describe builtin expression projections, including routines absent
-from the offline catalog. The adapter binds candidate text to SQL Server's description APIs;
+Explicit live generation can describe builtin expression projections and guarded table queries,
+including routines absent from the offline catalog. The adapter binds candidate text to SQL Server's description APIs;
 it does not execute the candidate. Configure the identities, reconciliation policy and a native
 factory alongside your saved schema:
 
@@ -132,8 +132,13 @@ catalog metadata. It requires database `VIEW DEFINITION` and the server permissi
 `sys.dm_db_log_stats` and `sys.dm_exec_connections`. Concurrent log activity can conservatively
 invalidate an acquisition. Missing permissions or changed settings do not permit an unguarded fallback.
 
-This profile accepts plain SELECT expressions and canonical rendered parameters. Relations,
-CTEs, nested statements, qualified routines, windows, custom casts and dynamic statements remain
+This profile accepts plain SELECT expressions, projections, stars, filters and ordinary joins with
+canonical rendered parameters. Table sources use explicit two-part names such as `dbo.records`.
+Identifiers resolve through bound metadata queries using the server's collation. The adapter
+requires ordinary local stored tables and system column types; views, synonyms, external,
+temporal, graph, memory-optimized and FileTable sources, computed/generated/hidden/encrypted
+columns, typed XML, custom types and tables with security predicates are unavailable.
+CTEs, nested statements, table hints, qualified routines, windows, custom casts and dynamic statements remain
 outside its native scope. Required unavailable facets block qualification. Unknown or upper-bound
 nullability stays nullable; alias/CLR/XML provenance and incomplete dimensions do not become
 complete type identities. The selected codec policy governs both generated types and decoding.
