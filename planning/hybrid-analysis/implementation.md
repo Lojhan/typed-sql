@@ -249,3 +249,30 @@ with no connection URI and analyzer/native factories guarded against initializat
 Direct packed proofs and all six maintained engine/SQL-mode E2E flows pass with this same
 expanded proof. The complete packed-consumer regression suite, TypeScript project checks,
 documentation checks and quality gate also pass after this fixture extension.
+
+## Durable selected catalog closure
+
+A catalog export records its base context, selected catalog metadata and resulting context in
+a content-addressed closure. Query-contract manifest version 2 includes that closure in the same
+atomic publication; exports without catalogs retain version 1. The target scope identifies base
+inputs, while query objects bind to the enriched context. Catalog objects participate in declared
+build/watcher dependencies and fail closed when missing, replaced or inconsistent.
+
+Frozen programmatic loading requires independently installed catalog contributions, recomputes
+the enriched schema and returns it with the consumer dialect. Stored schema/profile hashes
+cannot certify themselves. Changed owners, code output, decoding policy, base scope or metadata
+reject consumption. A base schema cannot substitute for the returned enriched compiler input.
+
+The PostgreSQL real-engine helper exercises captured fixed-result routine declarations through
+this export/rematerialization path and compiles a different invocation offline without executing
+the routine. Neutral tests cover interrupted publication, missing/replaced catalog objects,
+forged effective schema hashes, changed owners and exact base/effective identity separation.
+Automatic CLI/editor capture, registration of catalog interpreters and live application remain
+incomplete; this closure supplies their required durable boundary.
+
+Validation of the catalog closure boundary: all 18 analysis test files pass with 98.60%
+statement, 93.36% branch and 99.41% function coverage. Build/type checks, public API/package
+graph contracts, the complete packed-consumer suite, documentation checks/build, quality and
+performance gates pass. The PostgreSQL 18 native helper passes with catalog rematerialization
+included. One earlier run observed stale context in the subsequent pre-existing conflict-cache
+check; an isolated recheck passed that full flow without changing the guard or its assertion.

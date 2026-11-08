@@ -19,6 +19,14 @@ export interface ProjectCatalog {
   readonly owner: { readonly id: string; readonly version: string };
   readonly entries: readonly ProjectCatalogEntry[];
 }
+/** Durable provenance for an enriched schema; installed interpreters must rematerialize it. */
+export interface ProjectCatalogClosure {
+  readonly formatVersion: 1;
+  readonly digest: string;
+  readonly baseContext: QueryContractContext;
+  readonly context: QueryContractContext;
+  readonly catalogs: readonly ProjectCatalog[];
+}
 export interface ProjectCatalogContribution<Snapshot extends SchemaSnapshot, Policy> {
   readonly id: string;
   readonly version: string;
@@ -87,6 +95,65 @@ export function createProjectCatalog(input: Omit<ProjectCatalog, "formatVersion"
   });
   const body = { formatVersion: 1, context: input.context, owner: input.owner, entries };
   return parseProjectCatalog({ ...body, digest: queryContractDigest(body) });
+}
+/** Validates data and the identity transition, without granting an artifact inference permission. */
+export function parseProjectCatalogClosure(input: unknown): ProjectCatalogClosure {
+  const value = record(JSON.parse(canonicalContractData(input)));
+  fields(value, ["formatVersion", "digest", "baseContext", "context", "catalogs"]);
+  const { digest, ...body } = value;
+  if (value.formatVersion !== 1 || digest !== queryContractDigest(body))
+    throw new TypeError("Project catalog closure digest or format differs");
+  const base = parseQueryContractContext(value.baseContext),
+    context = parseQueryContractContext(value.context);
+  if (!Array.isArray(value.catalogs) || !value.catalogs.length || value.catalogs.length > 64)
+    throw new RangeError("Project catalog closure count differs");
+  const catalogs = value.catalogs.map(parseProjectCatalog);
+  if (
+    catalogs.some(
+      (catalog, index) =>
+        canonicalContractData(catalog.context) !== canonicalContractData(base) ||
+        (index > 0 && catalog.digest <= catalogs[index - 1]!.digest),
+    )
+  )
+    throw new TypeError("Project catalog closure contexts or ordering differ");
+  const expected = {
+    ...base,
+    schemaHash: context.schemaHash,
+    profileHash: queryContractDigest({
+      baseProfileHash: base.profileHash,
+      projectCatalogs: catalogs.map((catalog) => catalog.digest),
+    }),
+  };
+  if (canonicalContractData(context) !== canonicalContractData(expected))
+    throw new TypeError("Project catalog closure identity transition differs");
+  return freeze(value) as unknown as ProjectCatalogClosure;
+}
+export function createProjectCatalogClosure<Snapshot extends SchemaSnapshot, Policy>(
+  input: Parameters<typeof applyProjectCatalogs<Snapshot, Policy>>[0],
+): ProjectCatalogClosure {
+  const projected = applyProjectCatalogs(input);
+  const body = {
+    formatVersion: 1,
+    baseContext: input.context,
+    context: projected.context,
+    catalogs: [...input.catalogs]
+      .map(parseProjectCatalog)
+      .sort((a, b) => (a.digest < b.digest ? -1 : a.digest > b.digest ? 1 : 0)),
+  };
+  return parseProjectCatalogClosure({ ...body, digest: queryContractDigest(body) });
+}
+/** Recompute with independently installed owners; stored effective hashes cannot certify themselves. */
+export function materializeProjectCatalogClosure<Snapshot extends SchemaSnapshot, Policy>(input: {
+  readonly closure: ProjectCatalogClosure;
+  readonly schema: Snapshot;
+  readonly typePolicy: Policy;
+  readonly contributions: readonly ProjectCatalogContribution<Snapshot, Policy>[];
+}): { readonly schema: Snapshot; readonly context: QueryContractContext } {
+  const closure = parseProjectCatalogClosure(input.closure);
+  const result = applyProjectCatalogs({ ...input, context: closure.baseContext, catalogs: closure.catalogs });
+  if (canonicalContractData(result.context) !== canonicalContractData(closure.context))
+    throw new TypeError("Project catalog closure differs from installed interpretation");
+  return result;
 }
 /** Explicit offline interpretation. Returned context identities must accompany the enriched schema. */
 export function applyProjectCatalogs<Snapshot extends SchemaSnapshot, Policy>(input: {

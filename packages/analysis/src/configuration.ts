@@ -6,6 +6,7 @@ import { canonicalContractData, queryContractDigest } from "./canonical.js";
 import { type AnalysisContextScope, assertContextScope, parseAnalysisContextScope } from "./context-scope.js";
 import { parseQueryContractContext, type QueryContract, type QueryContractContext } from "./contracts.js";
 import { createContractDialect } from "./dialect.js";
+import { materializeProjectCatalogClosure, type ProjectCatalogContribution } from "./project-catalog.js";
 import { type ContractQualificationPolicy, parseContractQualificationPolicy } from "./qualification-model.js";
 
 export type AnalysisMode = "offline" | "frozen" | "live";
@@ -112,6 +113,7 @@ export async function loadFrozenContractView<Snapshot extends SchemaSnapshot, Po
   readonly typePolicy?: Policy;
   readonly configuration: AnalysisConfiguration;
   readonly directory: string;
+  readonly projectCatalogContributions?: readonly ProjectCatalogContribution<Snapshot, Policy>[];
 }): Promise<{
   readonly dialect: DialectPlugin<Snapshot, Policy>;
   readonly contracts: readonly QueryContract[];
@@ -119,6 +121,7 @@ export async function loadFrozenContractView<Snapshot extends SchemaSnapshot, Po
   readonly context: QueryContractContext;
   readonly files: readonly string[];
   readonly manifestDigest: string;
+  readonly schema: Snapshot;
 }> {
   const configuration = defineAnalysisConfiguration(input.configuration),
     profile = input.profile;
@@ -131,14 +134,33 @@ export async function loadFrozenContractView<Snapshot extends SchemaSnapshot, Po
     configuration.cache ? createAnalysisContextScope(input) : undefined,
   );
   const declared = inputs.context;
-  if (declared && configuration.context && queryContractDigest(declared) !== queryContractDigest(configuration.context))
+  const baseContext = inputs.projectCatalogs?.baseContext ?? declared;
+  if (
+    baseContext &&
+    configuration.context &&
+    queryContractDigest(baseContext) !== queryContractDigest(configuration.context)
+  )
     throw new TypeError("Pinned context differs from the durable target selection");
-  const context = configuration.context ?? declared;
+  let schema = input.schema;
+  if (inputs.projectCatalogs) {
+    if (configuration.cache && !inputs.context)
+      throw new TypeError("Frozen project catalog base scope differs from installed inputs");
+    if (!input.projectCatalogContributions)
+      throw new TypeError("Frozen project catalogs require independently installed interpreters");
+    const projected = materializeProjectCatalogClosure({
+      closure: inputs.projectCatalogs,
+      schema,
+      typePolicy: policy,
+      contributions: input.projectCatalogContributions,
+    });
+    schema = projected.schema;
+  }
+  const context = inputs.projectCatalogs?.context ?? configuration.context ?? declared;
   if (!context) throw new TypeError("Frozen checking requires a declared durable target/context selection");
   if (
     context.grammar.id !== profile.id ||
     context.grammar.version !== profile.grammarVersion ||
-    context.schemaHash !== calculateSchemaHash(input.schema) ||
+    context.schemaHash !== calculateSchemaHash(schema) ||
     context.typePolicyHash !== calculateTypePolicyHash(policy ?? {})
   )
     throw new TypeError("Frozen analysis profile, schema or decoding policy differs");
@@ -157,6 +179,7 @@ export async function loadFrozenContractView<Snapshot extends SchemaSnapshot, Po
   });
   return Object.freeze({
     dialect,
+    schema,
     contracts,
     context,
     digest: queryContractDigest(contracts.map((item) => item.digest).sort()),

@@ -11,10 +11,13 @@ import {
   acquireNativeProjectCatalog,
   acquireNativeQueryContract,
   applyProjectCatalogs,
+  createAnalysisContextScope,
   createContractDialect,
   createLiveAnalysisScheduler,
   createNativeLiveAnalysisRunner,
   createPersistentLiveAnalysisRunner,
+  createProjectCatalogClosure,
+  createQueryContract,
   createStaticQueryClaim,
   exportQueryContracts,
   type LiveAnalysisState,
@@ -170,6 +173,69 @@ export async function assertPostgresNativeContracts(connectionString: string, di
     strict.match(reused.queries[0]!.rowType, /result.*bigint.*null/u);
     strict.equal(reused.queries[0]!.valuePlan?.columns[0]?.type, "bigint");
     strict.equal(reused.queries[0]!.valuePlan?.parameters[0]?.type, "bigint");
+    const catalogDirectory = await mkdtemp(join(directory, ".typed-sql-project-closure-"));
+    try {
+      const catalogClosure = createProjectCatalogClosure({
+        schema: projectBase,
+        context: projectCatalog.context,
+        typePolicy: profile.defaultTypePolicy,
+        catalogs: [projectCatalog],
+        contributions: [createPostgresProjectCatalogContribution()],
+      });
+      const rules = createPostgresContractReconciler({ schema: projectBase });
+      const configured = {
+        mode: "frozen" as const,
+        context: projectCatalog.context,
+        identity: postgresContractIdentity(),
+        qualification: {
+          mode: "hybrid" as const,
+          owner: { id: rules.id, version: rules.version },
+          requiredNativeFacets: [],
+        },
+        cache: {
+          connectionContext: queryContractDigest("project-catalog-proof"),
+          adapter: { id: projectNative.id, version: projectNative.version },
+        },
+      };
+      await exportQueryContracts(
+        catalogDirectory,
+        [
+          createQueryContract({
+            sql: reused.queries[0]!.query.sql,
+            context: catalogClosure.context,
+            origin: "offline-rule",
+            valuePlan: reused.queries[0]!.valuePlan!,
+          }),
+        ],
+        {
+          selection: {
+            scope: createAnalysisContextScope({ profile, schema: projectBase, configuration: configured }),
+            context: catalogClosure.context,
+            projectCatalogs: catalogClosure,
+          },
+        },
+      );
+      const frozenCatalog = await loadFrozenContractView({
+        profile,
+        schema: projectBase,
+        configuration: configured,
+        directory: catalogDirectory,
+        projectCatalogContributions: [createPostgresProjectCatalogContribution()],
+      });
+      const frozenReuse = compileSource({
+        source: application.replace("::bigint) AS result", "::bigint + 7::bigint) AS result"),
+        dialect: frozenCatalog.dialect,
+        schema: frozenCatalog.schema,
+      });
+      strict.deepEqual(
+        frozenReuse.diagnostics.filter((item) => item.severity === "error"),
+        [],
+      );
+      strict.match(frozenReuse.queries[0]!.rowType, /result.*bigint.*null/u);
+      strict.notEqual(frozenCatalog.context.schemaHash, projectCatalog.context.schemaHash);
+    } finally {
+      await rm(catalogDirectory, { recursive: true, force: true });
+    }
     strict.equal(
       (await pool.query<{ count: number }>(`SELECT count FROM ${namespace}.calls`)).rows[0]!.count,
       0,

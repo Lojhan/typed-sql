@@ -192,6 +192,28 @@ perform native qualification or prove that an engine supplied it. Contract diges
 inconsistent contents; they do not authenticate the producer. Use reviewed compiler inputs
 from a trusted generator. Application code continues using its grammar's `sql` tag.
 
+### Selected project catalog inputs
+
+A compiler host can bind selected catalog declarations to its query-contract export with
+`createProjectCatalogClosure({ schema, context, typePolicy, catalogs, contributions })`.
+The closure records the base context, selected catalog metadata and resulting context.
+Applying a catalog can change both the schema and profile hashes; it does not replace the
+base identity or prove freshness of the remote database.
+
+Pass the closure as `selection.projectCatalogs` to `exportQueryContracts`, together with the
+base target `scope` and the closure's resulting `context`. The resulting version 2 manifest
+publishes `catalogs/`, context and query objects through the same atomic commit. Exports without
+catalogs retain manifest version 1. Missing or changed catalog objects fail loading and are
+included in `loadQueryContractInputs().files` for build dependencies and watching.
+
+`materializeProjectCatalogClosure` requires the original schema, type policy and independently
+installed grammar contributions. It recomputes the enriched schema and rejects an incompatible
+interpreter or stored result. `loadFrozenContractView` accepts those contributions through
+`projectCatalogContributions` and returns the resulting `schema` alongside its dialect. Compile
+using that schema; the base schema cannot stand in for an enriched compiler input. Without the
+required interpreters, frozen loading fails explicitly. These are programmatic host APIs;
+catalog capture and CLI/editor registration remain separate integration work.
+
 
 ### Acquire evidence through an explicit adapter
 

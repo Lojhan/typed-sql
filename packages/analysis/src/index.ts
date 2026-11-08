@@ -75,11 +75,19 @@ export { prepareOfflineContractView } from "./offline-view.js";
 export { createPersistentLiveAnalysisRunner } from "./persistent-live.js";
 export type {
   ProjectCatalog,
+  ProjectCatalogClosure,
   ProjectCatalogContribution,
   ProjectCatalogEntry,
   ProjectCatalogPermission,
 } from "./project-catalog.js";
-export { applyProjectCatalogs, createProjectCatalog, parseProjectCatalog } from "./project-catalog.js";
+export {
+  applyProjectCatalogs,
+  createProjectCatalog,
+  createProjectCatalogClosure,
+  materializeProjectCatalogClosure,
+  parseProjectCatalog,
+  parseProjectCatalogClosure,
+} from "./project-catalog.js";
 export type { NativeProjectCatalogAcquisition } from "./project-catalog-acquisition.js";
 export { acquireNativeProjectCatalog } from "./project-catalog-acquisition.js";
 export type {

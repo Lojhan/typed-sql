@@ -17,12 +17,14 @@ import {
   type QueryContractContext,
   serializeQueryContract,
 } from "./contracts.js";
+import { type ProjectCatalogClosure, parseProjectCatalogClosure } from "./project-catalog.js";
 
 const MAX_BYTES = 8 * 1024 * 1024;
 const digestPattern = /^[a-f0-9]{64}$/u;
 export interface QueryContractSelection {
   readonly scope: AnalysisContextScope;
   readonly context: QueryContractContext;
+  readonly projectCatalogs?: ProjectCatalogClosure;
 }
 /** Pure identity for a complete prospective export; no files are created. */
 export function queryContractManifestDigest(
@@ -32,10 +34,11 @@ export function queryContractManifestDigest(
   return exportParts(inputs, options.selection).manifest.digest;
 }
 interface ContractManifest {
-  readonly formatVersion: 1;
+  readonly formatVersion: 1 | 2;
   readonly digest: string;
   readonly contexts: readonly string[];
   readonly queries: readonly string[];
+  readonly projectCatalogs?: string;
   readonly selection?: { readonly scopeHash: string; readonly contextHash: string; readonly targetHash: string };
 }
 function parseManifest(input: unknown): ContractManifest {
@@ -45,10 +48,20 @@ function parseManifest(input: unknown): ContractManifest {
     typeof value !== "object" ||
     Array.isArray(value) ||
     Object.keys(value).sort().join(",") !==
-      (Object.hasOwn(value, "selection")
-        ? "contexts,digest,formatVersion,queries,selection"
-        : "contexts,digest,formatVersion,queries") ||
-    value.formatVersion !== 1 ||
+      [
+        "contexts",
+        "digest",
+        "formatVersion",
+        "queries",
+        ...(Object.hasOwn(value, "selection") ? ["selection"] : []),
+        ...(Object.hasOwn(value, "projectCatalogs") ? ["projectCatalogs"] : []),
+      ]
+        .sort()
+        .join(",") ||
+    ![1, 2].includes(value.formatVersion) ||
+    (value.formatVersion === 2) !== Object.hasOwn(value, "projectCatalogs") ||
+    (value.projectCatalogs !== undefined &&
+      (!value.selection || typeof value.projectCatalogs !== "string" || !digestPattern.test(value.projectCatalogs))) ||
     typeof value.digest !== "string" ||
     !digestPattern.test(value.digest)
   )
@@ -86,10 +99,14 @@ function exportParts(inputs: readonly QueryContract[], selected?: QueryContractS
   const contexts = new Map(contracts.map((contract) => [queryContractDigest(contract.context), contract.context]));
   const queries = new Map(contracts.map((contract) => [contract.digest, contract]));
   let selection: ContractManifest["selection"];
+  const projectCatalogs =
+    selected?.projectCatalogs === undefined ? undefined : parseProjectCatalogClosure(selected.projectCatalogs);
   if (selected) {
     const scope = parseAnalysisContextScope(selected.scope),
       context = parseQueryContractContext(selected.context);
-    assertContextScope(context, scope);
+    assertContextScope(projectCatalogs?.baseContext ?? context, scope);
+    if (projectCatalogs && canonicalContractData(context) !== canonicalContractData(projectCatalogs.context))
+      throw new TypeError("Query contracts differ from the selected project catalog context");
     const contextHash = queryContractDigest(context);
     if (contracts.some((contract) => queryContractDigest(contract.context) !== contextHash))
       throw new TypeError("Query contracts differ from the selected target context");
@@ -97,14 +114,35 @@ function exportParts(inputs: readonly QueryContract[], selected?: QueryContractS
     selection = { scopeHash: analysisContextScopeKey(scope), contextHash, targetHash: scope.connectionContext };
   }
   const body = {
-    formatVersion: 1,
+    formatVersion: projectCatalogs ? 2 : 1,
     contexts: [...contexts.keys()].sort(),
     queries: [...queries.keys()].sort(),
     ...(selection ? { selection } : {}),
+    ...(projectCatalogs ? { projectCatalogs: projectCatalogs.digest } : {}),
   };
-  return { contexts, queries, manifest: parseManifest({ ...body, digest: queryContractDigest(body) }) };
+  return {
+    contexts,
+    queries,
+    projectCatalogs,
+    manifest: parseManifest({ ...body, digest: queryContractDigest(body) }),
+  };
 }
 const readBounded = (path: string) => readCacheFile(path, MAX_BYTES, "Query contract artifact");
+async function loadProjectCatalogs(
+  directory: string,
+  manifest: ContractManifest,
+): Promise<ProjectCatalogClosure | undefined> {
+  if (manifest.projectCatalogs === undefined) return undefined;
+  const closure = parseProjectCatalogClosure(
+    JSON.parse(await readBounded(join(directory, "catalogs", `${manifest.projectCatalogs}.json`))),
+  );
+  if (
+    closure.digest !== manifest.projectCatalogs ||
+    queryContractDigest(closure.context) !== manifest.selection!.contextHash
+  )
+    throw new TypeError("Project catalog closure differs from the selected context");
+  return closure;
+}
 async function publish(
   path: string,
   data: string,
@@ -156,9 +194,10 @@ export async function exportQueryContracts(
     (typeof options.expectedManifestDigest !== "string" || !digestPattern.test(options.expectedManifestDigest))
   )
     throw new TypeError("Invalid expected query contract manifest digest");
-  const { contexts, queries, manifest } = exportParts(inputs, options.selection);
+  const { contexts, queries, projectCatalogs, manifest } = exportParts(inputs, options.selection);
   await mkdir(join(directory, "contexts"), { recursive: true });
   await mkdir(join(directory, "queries"), { recursive: true });
+  if (projectCatalogs) await mkdir(join(directory, "catalogs"), { recursive: true });
   const lockPath = join(directory, ".publication.lock");
   const existing = await lstat(lockPath).catch((error: NodeJS.ErrnoException) => {
     if (error.code !== "ENOENT") throw error;
@@ -204,6 +243,12 @@ export async function exportQueryContracts(
       await publish(join(directory, "contexts", `${digest}.json`), `${canonicalContractData(context)}\n`, true);
     for (const [digest, contract] of queries)
       await publish(join(directory, "queries", `${digest}.json`), serializeQueryContract(contract), true);
+    if (projectCatalogs)
+      await publish(
+        join(directory, "catalogs", `${projectCatalogs.digest}.json`),
+        `${canonicalContractData(projectCatalogs)}\n`,
+        true,
+      );
     await publish(join(directory, "manifest.json"), `${canonicalContractData(manifest)}\n`, false, async () => {
       await options.beforeCommit?.();
       await guard();
@@ -230,12 +275,13 @@ export async function loadQueryContractContext(
   if (manifest.selection.targetHash !== scope.connectionContext)
     throw new TypeError("Durable contract manifest does not select the configured target scope");
   if (manifest.selection.scopeHash !== analysisContextScopeKey(scope)) return undefined;
+  const catalogs = await loadProjectCatalogs(directory, manifest);
   const context = parseQueryContractContext(
     JSON.parse(await readBounded(join(directory, "contexts", `${manifest.selection.contextHash}.json`))),
   );
   if (queryContractDigest(context) !== manifest.selection.contextHash)
     throw new TypeError("Durable selected context digest differs");
-  assertContextScope(context, scope);
+  assertContextScope(catalogs?.baseContext ?? context, scope);
   return context;
 }
 
@@ -253,8 +299,10 @@ export async function loadQueryContractInputs(
   readonly manifestDigest: string;
   readonly files: readonly string[];
   readonly context?: QueryContractContext;
+  readonly projectCatalogs?: ProjectCatalogClosure;
 }> {
   const manifest = parseManifest(JSON.parse(await readBounded(join(directory, "manifest.json"))));
+  const projectCatalogs = await loadProjectCatalogs(directory, manifest);
   const contexts = new Map<string, string>();
   for (const digest of manifest.contexts) {
     const context = parseQueryContractContext(
@@ -286,7 +334,7 @@ export async function loadQueryContractInputs(
       throw new TypeError("Durable contract manifest does not select the configured target scope");
     if (manifest.selection.scopeHash === analysisContextScopeKey(scope)) {
       context = parseQueryContractContext(JSON.parse(contexts.get(manifest.selection.contextHash)!));
-      assertContextScope(context, scope);
+      assertContextScope(projectCatalogs?.baseContext ?? context, scope);
     }
   }
   return Object.freeze({
@@ -297,8 +345,10 @@ export async function loadQueryContractInputs(
         join(directory, "manifest.json"),
         ...manifest.contexts.map((digest) => join(directory, "contexts", `${digest}.json`)),
         ...manifest.queries.map((digest) => join(directory, "queries", `${digest}.json`)),
+        ...(manifest.projectCatalogs ? [join(directory, "catalogs", `${manifest.projectCatalogs}.json`)] : []),
       ].sort(),
     ),
     ...(context ? { context } : {}),
+    ...(projectCatalogs ? { projectCatalogs } : {}),
   });
 }
