@@ -33,7 +33,9 @@
     "releaseTrack": "stable",
     "developmentEntrypoints": [
       "./analysis",
-      "./browser"
+      "./browser",
+      "./node-api-contracts",
+      "./reconciliation"
     ]
   },
   "exports": {
@@ -43,7 +45,10 @@
     "./node-api": "./dist/packages/duckdb/src/node-api.js",
     "./browser": "./dist/packages/duckdb/src/browser.js",
     "./profile": "./dist/packages/duckdb/src/profile.js",
-    "./analysis": "./dist/packages/duckdb/src/analysis.js"
+    "./analysis": "./dist/packages/duckdb/src/analysis.js",
+    "./node-api-contracts": "./dist/packages/duckdb/src/node-api-contracts.js",
+    "./contract-profile": "./dist/packages/duckdb/src/contract-profile.js",
+    "./reconciliation": "./dist/packages/duckdb/src/reconciliation.js"
   },
   "scripts": {
     "test": "poku test --sequential --coverage=@pokujs/c8 --coverageConfig=.c8rc.json --reporter=compact --enforce",
@@ -55,7 +60,8 @@
   "dependencies": {
     "@typed-sql/ast": "workspace:*",
     "@typed-sql/core": "workspace:*",
-    "@typed-sql/schema": "workspace:*"
+    "@typed-sql/schema": "workspace:*",
+    "@typed-sql/analysis": "workspace:*"
   },
   "devDependencies": {
     "@typed-sql/conformance": "workspace:*",

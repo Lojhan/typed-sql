@@ -328,6 +328,12 @@ await describe("independent upstream language auditing", async () => {
     const gap = result.find((row) => row.name === "new_vendor_function_omitted_from_grammar");
     strict.equal(gap?.status, "unknown-function-observed");
     strict.ok(gap?.diagnostics?.some((message) => /Unknown function/u.test(message)));
+    const duckDBGap = auditFunctions(
+      [{ name: "new_vendor_function_omitted_from_grammar" }],
+      grammarFor("duckdb", "2.0.0"),
+    )[0];
+    strict.equal(duckDBGap?.status, "unknown-function-observed");
+    strict.ok(duckDBGap?.diagnostics?.some((message) => message.startsWith("TSQ408:")));
     const categories = { functions: { ...inventory([{ name: "count" }], "test"), fingerprint: "tampered" } };
     strict.throws(() => auditInventory({ dialect: "postgres", target: { version: "18" }, categories }), /fingerprint/u);
   });

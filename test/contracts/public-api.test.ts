@@ -234,9 +234,12 @@ import type {
 import * as coreApi from "../../packages/core/src/index.js";
 import * as duckdbApi from "../../packages/duckdb/src/analysis.js";
 import * as duckdbBrowserApi from "../../packages/duckdb/src/browser.js";
+import * as duckdbContractProfileApi from "../../packages/duckdb/src/contract-profile.js";
 import * as duckdbRootApi from "../../packages/duckdb/src/index.js";
 import * as duckdbNodeApiApi from "../../packages/duckdb/src/node-api.js";
+import * as duckdbContractsApi from "../../packages/duckdb/src/node-api-contracts.js";
 import * as duckdbQueryApi from "../../packages/duckdb/src/query.js";
+import * as duckdbReconciliationApi from "../../packages/duckdb/src/reconciliation.js";
 import * as duckdbRuntimeApi from "../../packages/duckdb/src/runtime.js";
 import * as languageServerApi from "../../packages/language-server/src/index.js";
 import type {
@@ -1001,6 +1004,13 @@ const expectedRuntimeExports = {
     "withQueryValuePlan",
   ],
   duckdbRuntime: ["createDuckDBDatabase", "duckdbAppender"],
+  duckdbContracts: ["DuckDBContractAcquisitionError", "createNodeDuckDBNativeContractAdapter"],
+  duckdbContractProfile: [
+    "duckDBContractAdapterVersion",
+    "duckDBContractIdentity",
+    "duckDBContractReconciliationOwner",
+  ],
+  duckdbReconciliation: ["createDuckDBContractReconciler"],
   duckdbNodeApi: [
     "DuckDBAdapterError",
     "adaptDuckDBConnection",
@@ -1476,6 +1486,9 @@ await describe("stable public API", async () => {
       duckdb: Object.keys(duckdbRootApi).sort(),
       duckdbQuery: Object.keys(duckdbQueryApi).sort(),
       duckdbRuntime: Object.keys(duckdbRuntimeApi).sort(),
+      duckdbContracts: Object.keys(duckdbContractsApi).sort(),
+      duckdbContractProfile: Object.keys(duckdbContractProfileApi).sort(),
+      duckdbReconciliation: Object.keys(duckdbReconciliationApi).sort(),
       duckdbNodeApi: Object.keys(duckdbNodeApiApi).sort(),
       duckdbBrowser: Object.keys(duckdbBrowserApi).sort(),
 

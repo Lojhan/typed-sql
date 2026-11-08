@@ -40,11 +40,46 @@ the native adapter does not claim their compatibility.
 | `@typed-sql/duckdb/query` | Lightweight query construction and native `$N` rendering |
 | `@typed-sql/duckdb/runtime` | Driver-neutral native connection and execution contracts |
 | `@typed-sql/duckdb/node-api` | Lazy official SDK loading, catalog provider and executable adapter |
+| `@typed-sql/duckdb/node-api-contracts` | Explicit non-executing native query-contract acquisition |
+| `@typed-sql/duckdb/contract-profile` | Contract compatibility identity without loading the SDK |
+| `@typed-sql/duckdb/reconciliation` | Independent comparison of offline claims and native evidence |
 
 The browser and query entrypoints do not import Node services or the driver.
 The full analysis entrypoint exports the catalog provider, whose fingerprinting services use Node
 APIs. Installing the grammar does not install the SDK. The SDK is loaded when the explicit native
 adapter is constructed.
+
+## Native query contracts
+
+`createNodeDuckDBNativeContractAdapter` from `@typed-sql/duckdb/node-api-contracts` prepares
+qualified expression queries on DuckDB 1.5.6 and 2.0.0. Its `path` selects an existing database
+file or `:memory:`; its `schema` is the project's saved snapshot. Construction performs no I/O.
+The file must be available to a separate read-only instance; an active writer can prevent acquisition.
+`inspectContext()` explicitly opens the database to capture the context used for acquisition.
+Use `duckDBContractIdentity()` and `duckDBContractReconciliationOwner` from
+`@typed-sql/duckdb/contract-profile`, and `createDuckDBContractReconciler()` from
+`@typed-sql/duckdb/reconciliation`, with the [query contract configuration](../guides/query-manifests.md).
+
+Each acquisition owns a fresh instance and connection, opens existing files read-only, and
+describes within a read-only transaction. External access, automatic extension installation,
+automatic extension loading and optimizer evaluation are disabled. Function families and type
+metadata are captured inside the transaction; context identities also include engine and settings
+evidence. Candidate SQL is never bound or executed, and sample values are never used for inference.
+
+The qualified scope contains scalar builtin expression projections and numbered `$N` parameters.
+Relation queries, views, table functions, macros, aggregates, windows, side-effecting routines,
+external extension packs and remote transports require separate qualification. A conflicting
+schema-owned routine family blocks builtin fallback, including case-insensitive name collisions.
+
+Native logical types preserve decimal precision/scale and nested result structure. Preparation
+does not establish nullability, so published fields include `null`. Unconstrained parameters such
+as `$1 + $2` can have unavailable metadata and do not produce a usable contract. Explicit casts can
+provide enough native parameter information without binding values.
+
+`TSQ408` identifies a missing offline routine-result rule. Qualified native preparation can supply
+that result, including shapes such as `json_transform` with a constant structure declaration.
+Other static errors remain blocking, and independently successful static claims are compared
+before publication. Recorded contracts support offline reuse; changed SQL requires fresh evidence.
 
 ## Native values
 

@@ -1397,7 +1397,11 @@ export class DuckDBResolver {
         return { type: parseDuckDBType(routine.result.databaseType), nullable: true };
       }
     }
-    this.error(`Unknown or ambiguous DuckDB function ${name}`, expr.range, "TSQ201");
+    this.error(
+      `Offline DuckDB routine metadata cannot establish ${name}'s result`,
+      expr.range,
+      matches.length || (!signatures.length && !candidates.length) ? "TSQ408" : "TSQ201",
+    );
     return unknown;
   }
   table(names: readonly string[], range: SourceRange): readonly Field[] {

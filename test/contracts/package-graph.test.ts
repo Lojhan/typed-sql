@@ -137,7 +137,18 @@ const expectedEntrypoints: Readonly<Record<(typeof publicPackages)[number], read
   "language-server": ["."],
   sqlite: [".", "./runtime", "./node-sqlite", "./query", "./profile", "./analysis"],
   sqlserver: [".", "./query", "./runtime", "./odbc", "./msnodesqlv8", "./browser", "./profile", "./analysis"],
-  duckdb: [".", "./query", "./runtime", "./node-api", "./browser", "./profile", "./analysis"],
+  duckdb: [
+    ".",
+    "./query",
+    "./runtime",
+    "./node-api",
+    "./node-api-contracts",
+    "./reconciliation",
+    "./contract-profile",
+    "./browser",
+    "./profile",
+    "./analysis",
+  ],
 };
 
 async function manifest(packageName: string, parent = "packages"): Promise<PackageManifest> {

@@ -59,6 +59,7 @@ export const diagnosticRegistry = Object.freeze({
   TSQ405: { category: "support", summary: "The SQL feature was removed before the recorded server version." },
   TSQ406: { category: "support", summary: "A required server feature, setting, or declaration is absent." },
   TSQ407: { category: "support", summary: "Recorded server settings make SQL behavior ambiguous." },
+  TSQ408: { category: "support", summary: "Offline routine metadata cannot establish this invocation's result." },
   TSQ500: { category: "verification", summary: "Live database metadata differs from compiler evidence." },
   TSQ501: { category: "verification", summary: "A query could not be verified safely or statically." },
   TSQ502: { category: "verification", summary: "Native live verification failed without persisting driver details." },

@@ -142,6 +142,7 @@ export function auditFunctions(rows: FunctionRow[], grammar: ReturnType<typeof g
       )
         return { name, status: "typed-recognition-semantics-unverified", example };
       if (
+        result.diagnostics.some((row) => row.code === "TSQ408") ||
         diagnostics.some((message) => /unknown\s+(?:(?:or ambiguous|qualified)\s+)?(?:\w+\s+)?function/iu.test(message))
       )
         unknown = { example, diagnostics };

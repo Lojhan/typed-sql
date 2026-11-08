@@ -70,6 +70,7 @@ Automation should depend on diagnostic codes and source ranges, not English mess
 | `TSQ405` | The SQL feature was removed before the recorded server version. |
 | `TSQ406` | Required server evidence, capability declarations or matching qualified query contracts are unavailable. |
 | `TSQ407` | Recorded server settings make SQL behavior ambiguous. |
+| `TSQ408` | Offline routine metadata cannot establish this invocation's result; a qualified query contract is required. |
 | `TSQ500` | Live database metadata differs from compiler evidence. |
 | `TSQ501` | A query could not be verified safely or completely. |
 | `TSQ502` | Native verification failed; driver details are not persisted. |

@@ -12,6 +12,7 @@ native transport currently qualified by this PR.
 - Integrate offline, frozen and live modes with the compiler, CLI and language server.
 - Isolate lightweight runtime/profile entrypoints from eager analysis and optional drivers.
 - Qualify PostgreSQL expression-query acquisition with independent static reconciliation.
+- Add DuckDB builtin expression-query acquisition and reconciliation on both qualified Node SDK engines.
 
 The exhaustive upstream inventory, vendor fact extraction, global catalog model, generated
 completeness reports and selected-version/core/compatibility-pack APIs are excluded. Normal
@@ -22,8 +23,13 @@ from their maintained catalog inputs, preserving compile-time/runtime policy agr
 ## Qualification limits
 
 PostgreSQL native acquisition is restricted to the documented expression-query profile.
-The other four grammars retain their existing offline support and contract-profile interfaces;
-they do not acquire broader native query-description qualification from this change.
+DuckDB native acquisition supports builtin scalar expression projections on 1.5.6 and 2.0.0;
+its real-engine tests exercise the shared live runner, persistent cache, offline reuse and conflicts.
+DuckDB packed CLI generation, changed-query regeneration and frozen checking pass on both SDKs;
+its editor qualification remains outstanding. MySQL, SQLite and SQL Server retain
+their existing offline support and contract-profile interfaces without native acquisition qualification.
+The `typed-sql-build types` host rejects analysis configurations; analysis-aware build integration
+remains required for the complete architecture. Frozen `typed-sql check` is a distinct supported host.
 Project routine catalog library APIs support PostgreSQL fixed scalar declarations. Automatic
 catalog generation/refresh in the CLI and editors, other grammar interpreters, custom type/rule
 qualification and workload-selected offline packs remain incomplete.
@@ -85,3 +91,32 @@ catalog families. Qualified system functions and operators avoid application ove
 no user statement or default expression is executed. The native fixture includes shadowing
 metadata helper functions and an injected DDL race. This is an explicit library operation;
 automatic catalog publication and CLI/editor refresh remain unimplemented.
+
+## DuckDB native query evidence
+
+The explicit Node contract adapter creates an owned instance/connection, opens existing files
+read-only, disables external access and extension auto-loading/installing, disables optimizer
+evaluation, and prepares inside a read-only transaction. It checks the actual engine version
+against its SDK and captures bounded function/type metadata plus settings for the context hash.
+Only builtin scalar expression projections are admitted; conflicting routine families, macros,
+relations, table functions, aggregates/windows and side-effecting routines remain unqualified.
+Descriptors retain decimal dimensions and nested logical shape. No candidate is bound or run,
+and absent parameter metadata does not become an inferred input type. Nullability stays unknown.
+
+The grammar contribution distinguishes an unsupported routine-result rule (TSQ408) from invalid
+overloads and other errors. Real engine tests resolve json_transform's constant result shape
+through native preparation, publish it through the shared persistent live runner, reuse it without
+loading the SDK, regenerate changed SQL, reject a deliberately wrong successful offline rule,
+persist the conflict and recover after restoring the rule. Separate SDK processes verify 1.5.6
+and 2.0.0. An instrumented real SDK rejects execution/binding attempts and checks every native
+handle is released when cancellation arrives during preparation. File-backed tests prove routine
+DDL changes the context and case-insensitive macro shadowing blocks builtin fallback.
+Application-owned instances and files locked by active writers are not qualified by this adapter.
+
+The packed consumer matrix exercises `typed-sql generate --queries --live` and `typed-sql check`
+against public package entrypoints on both SDKs. Changing json_transform's constant declaration
+from INTEGER to VARCHAR changes the displayed nested field type. Frozen checking then succeeds
+with both analyzer loading and native registration configured to throw if initialized. The same
+matrix retains the existing runtime, offline build under a writer lock, no-SDK consumption,
+provider generation and bundled execution checks. These existing build tests use ordinary offline
+configuration; they do not establish analysis-configuration support in the build host.

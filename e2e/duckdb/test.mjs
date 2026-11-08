@@ -3,6 +3,7 @@ import { cp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { consumer } from "../build/src/consumer.mjs";
+import { verifyQueryContracts } from "./contracts.mjs";
 import { lockDatabase, offlineCommands, prepareProject } from "./offline.mjs";
 
 const directory = dirname(fileURLToPath(import.meta.url));
@@ -51,6 +52,7 @@ for (const [sdk, engine] of [
     ]);
     await writeFile(join(artifacts, `${engine}-types.log`), types.output);
     const environment = { TYPED_SQL_DUCKDB_EXPECTED_ENGINE: engine };
+    await verifyQueryContracts(fixture, project, artifacts, engine);
     await prepareProject(project, directory);
     const lock = await lockDatabase(project, environment);
     try {
