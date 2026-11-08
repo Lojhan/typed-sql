@@ -1,24 +1,16 @@
 import {
   applyDialectCapabilityStates,
-  DIALECT_CONTRACT_VERSION,
   type DialectAnalysisContext,
   type DialectPlugin,
   unknownQuerySemantics,
 } from "@typed-sql/core";
-import { parseSchemaSnapshot, type SchemaSnapshot } from "@typed-sql/schema";
-import {
-  assertMySqlServerEvidence,
-  MYSQL_CAPABILITIES,
-  resolveMySqlCapabilities,
-  unmodeledMySqlSqlModes,
-} from "./capabilities.js";
-import { parseStatement, SqlParseError, tokenize } from "./parser/index.js";
-import { mysqlRuntimeValueType } from "./query.js";
+import { unmodeledMySqlSqlModes } from "./capabilities.js";
+import { parseStatement, SqlParseError } from "./parser/index.js";
+import { type MySqlProfileOptions as MySqlDialectOptions, type MySqlSchemaSnapshot, mysqlProfile } from "./profile.js";
 import { hasStableRepeatedResult } from "./repeated-inputs.js";
 import { resolveMySqlStatement } from "./resolver.js";
 import { analyzeMySqlSemantics } from "./semantics.js";
-import { defaultMySqlTypePolicy, type MySqlTypePolicy } from "./type-policy.js";
-import { MYSQL_DIALECT_VERSION } from "./version.js";
+import type { MySqlTypePolicy } from "./type-policy.js";
 
 export type {
   MySqlBulkCapability,
@@ -29,61 +21,14 @@ export type {
 export { mysqlBulk } from "./bulk.js";
 export type { MySqlCoreCatalog } from "./catalog/index.js";
 export { MYSQL_CORE_CATALOG_FORMAT_VERSION, mySqlCoreCatalog } from "./catalog/index.js";
+export type { MySqlProfileOptions as MySqlDialectOptions, MySqlSchemaSnapshot } from "./profile.js";
 export { MySqlRuntimeCompatibilityError, MySqlWarningError, MySqlWarningInspectionError } from "./runtime.js";
 export { MYSQL_DIALECT_VERSION } from "./version.js";
-export type MySqlSchemaSnapshot = SchemaSnapshot & { readonly dialect: "mysql" };
-
-export interface MySqlDialectOptions {
-  readonly typePolicy?: MySqlTypePolicy;
-  readonly versionPolicy?: import("./support.js").MySqlVersionPolicy;
-}
-
-function validateMySqlSnapshot(value: unknown): MySqlSchemaSnapshot {
-  const snapshot = parseSchemaSnapshot(value);
-  if (snapshot.dialect !== "mysql")
-    throw new TypeError(`@typed-sql/mysql cannot use a ${snapshot.dialect} schema snapshot`);
-  if (snapshot.dialectVersion !== undefined && snapshot.dialectVersion !== MYSQL_DIALECT_VERSION) {
-    throw new TypeError(
-      `@typed-sql/mysql grammar ${MYSQL_DIALECT_VERSION} cannot use snapshot dialectVersion ${snapshot.dialectVersion}`,
-    );
-  }
-  if (snapshot.server !== undefined && snapshot.server.product !== "mysql") {
-    throw new TypeError(`@typed-sql/mysql cannot use ${snapshot.server.product} server evidence`);
-  }
-  if (snapshot.server !== undefined) assertMySqlServerEvidence(snapshot.server);
-  return snapshot as MySqlSchemaSnapshot;
-}
-
 export function mysql(options: MySqlDialectOptions = {}): DialectPlugin<MySqlSchemaSnapshot, MySqlTypePolicy> {
-  const defaultTypePolicy = options.typePolicy ?? defaultMySqlTypePolicy;
-  const versionPolicy = options.versionPolicy ?? "stable";
+  const profile = mysqlProfile(options);
+  const defaultTypePolicy = profile.defaultTypePolicy;
   return Object.freeze({
-    contractVersion: DIALECT_CONTRACT_VERSION,
-    id: "mysql",
-    grammarVersion: MYSQL_DIALECT_VERSION,
-    sqlModule: "@typed-sql/mysql",
-    runtimeSqlModule: "@typed-sql/mysql/query",
-    capabilities: MYSQL_CAPABILITIES,
-    resolveCapabilities: (snapshot: MySqlSchemaSnapshot) => resolveMySqlCapabilities(snapshot, versionPolicy),
-    defaultTypePolicy,
-    runtimeValueType: mysqlRuntimeValueType,
-    placeholder(index: number): string {
-      if (!Number.isInteger(index) || index < 1) throw new RangeError("MySQL parameter indexes start at 1");
-      return "?";
-    },
-    quoteIdentifier(identifier: string): string {
-      return `\`${identifier.replaceAll("`", "``")}\``;
-    },
-    parameterOccurrences(sql: string, snapshot: MySqlSchemaSnapshot) {
-      const sqlMode = snapshot.server?.settings.sqlMode;
-      return tokenize(sql, { ...(typeof sqlMode === "string" ? { sqlMode } : {}), sqlFileParameters: true })
-        .filter((token) => token.kind === "parameter")
-        .map((token) => ({
-          index: token.text.startsWith(":") ? 0 : Number(token.value),
-          ...(token.text.startsWith(":") ? { name: token.value } : {}),
-          range: token.range,
-        }));
-    },
+    ...profile,
     analyze(
       sql: string,
       snapshot: MySqlSchemaSnapshot,
@@ -124,11 +69,7 @@ export function mysql(options: MySqlDialectOptions = {}): DialectPlugin<MySqlSch
             ? unknownQuerySemantics(statement.range, "MySQL semantic analysis reported an error.")
             : analyzeMySqlSemantics(statement, snapshot),
         };
-        return applyDialectCapabilityStates(
-          analysis,
-          resolveMySqlCapabilities(snapshot, versionPolicy),
-          statement.range,
-        );
+        return applyDialectCapabilityStates(analysis, profile.resolveCapabilities!(snapshot), statement.range);
       } catch (error) {
         if (!(error instanceof SqlParseError)) throw error;
         return {
@@ -139,7 +80,6 @@ export function mysql(options: MySqlDialectOptions = {}): DialectPlugin<MySqlSch
         };
       }
     },
-    validateSnapshot: validateMySqlSnapshot,
   });
 }
 

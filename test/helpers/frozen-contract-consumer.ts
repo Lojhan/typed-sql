@@ -44,7 +44,8 @@ async function assertRuntimeWithoutSemanticCatalogs(consumer: string, env: NodeJ
   for (const name of grammars) {
     const grammar = join(consumer, "node_modules", "@typed-sql", name, "dist", "packages", name, "src");
     await strip(join(grammar, "catalog"));
-    for (const path of ["index.js", "resolver.js", "semantics.js"]) await rm(join(grammar, path), { force: true });
+    for (const path of ["index.js", "browser.js", "resolver.js", "semantics.js"])
+      await rm(join(grammar, path), { force: true });
   }
   await writeFile(join(consumer, "runtime-grammars.json"), JSON.stringify(grammars));
   const file = join(consumer, "runtime-without-catalogs.mjs");
@@ -56,6 +57,7 @@ import {readFile} from "node:fs/promises";
 for (const grammar of JSON.parse(await readFile("./runtime-grammars.json","utf8"))) {
   const runtime=await import("@typed-sql/"+grammar+"/runtime");
   assert.ok(Object.keys(runtime).length,grammar+" runtime has no exports");
+
 }
 import {sql,defineQueryValuePlan,withQueryValuePlan} from "@typed-sql/postgres/tag";
 import {createPostgresDatabase} from "@typed-sql/postgres/runtime";
@@ -77,6 +79,34 @@ await assert.rejects(database.all(query));
 `,
   );
   await execFile(process.execPath, [file], { cwd: consumer, env });
+  // Profiles must also load without introspection providers, in a fresh module graph.
+  for (const name of grammars)
+    await rm(join(consumer, "node_modules", "@typed-sql", name, "dist", "packages", name, "src", "provider.js"), {
+      force: true,
+    });
+  const profileFile = join(consumer, "profiles-without-analyzers.mjs");
+  await writeFile(
+    profileFile,
+    `
+import assert from "node:assert/strict";
+import {readFile} from "node:fs/promises";
+for (const grammar of JSON.parse(await readFile("./runtime-grammars.json","utf8"))) {
+  const profiles=await import("@typed-sql/"+grammar+"/profile");
+  const profile=profiles[grammar+"Profile"]();
+  assert.equal(profile.id,grammar);
+  assert.equal("analyze" in profile,false);
+  assert.equal("loadAnalyzer" in profile,false);
+  const placeholder=profile.placeholder(1);
+  const text="SELECT "+placeholder+" AS value";
+  const occurrences=profile.parameterOccurrences(text,{formatVersion:1,dialect:grammar,tables:{}});
+  assert.equal(occurrences.length,1,grammar+" parameter occurrence");
+  assert.equal(occurrences[0].index,1,grammar+" parameter index");
+  assert.equal(text.slice(occurrences[0].range.start,occurrences[0].range.end),placeholder);
+  assert.throws(()=>profile.validateSnapshot({formatVersion:1,dialect:"wrong",tables:{}}));
+}
+`,
+  );
+  await execFile(process.execPath, [profileFile], { cwd: consumer, env });
 }
 
 /** Mutates only this disposable packed installation, after its other consumer checks finish. */

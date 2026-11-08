@@ -1,52 +1,24 @@
 import {
   applyDialectCapabilityStates,
-  DIALECT_CONTRACT_VERSION,
   type DialectAnalysisContext,
   type DialectPlugin,
   unknownQuerySemantics,
 } from "@typed-sql/core";
-import { assertSqliteServerEvidence, resolveSqliteCapabilities, SQLITE_CAPABILITIES } from "./capabilities.js";
-import { parseStatement, SqlParseError, tokenize } from "./parser/index.js";
-import { sqliteRuntimeValueType } from "./query.js";
+import { resolveSqliteCapabilities } from "./capabilities.js";
+import { parseStatement, SqlParseError } from "./parser/index.js";
+import { type SqliteProfileOptions as SqliteDialectOptions, sqliteProfile } from "./profile.js";
 import { hasStableRepeatedResult } from "./repeated-inputs.js";
 import { resolveSqliteStatement } from "./resolver.js";
 import { analyzeSqliteSemantics } from "./semantics.js";
-import { parseSqliteSchemaSnapshot, type SqliteSchemaSnapshot } from "./snapshot.js";
-import { defaultSqliteTypePolicy, type SqliteTypePolicy } from "./type-policy.js";
-import { SQLITE_DIALECT_VERSION } from "./version.js";
+import type { SqliteSchemaSnapshot } from "./snapshot.js";
+import type { SqliteTypePolicy } from "./type-policy.js";
 
-export interface SqliteDialectOptions {
-  readonly typePolicy?: SqliteTypePolicy;
-}
-
+export type { SqliteProfileOptions as SqliteDialectOptions } from "./profile.js";
 export function sqlite(options: SqliteDialectOptions = {}): DialectPlugin<SqliteSchemaSnapshot, SqliteTypePolicy> {
-  const defaultTypePolicy = options.typePolicy ?? defaultSqliteTypePolicy;
+  const profile = sqliteProfile(options);
+  const defaultTypePolicy = profile.defaultTypePolicy;
   return Object.freeze({
-    contractVersion: DIALECT_CONTRACT_VERSION,
-    id: "sqlite",
-    grammarVersion: SQLITE_DIALECT_VERSION,
-    sqlModule: "@typed-sql/sqlite",
-    runtimeSqlModule: "@typed-sql/sqlite/query",
-    capabilities: SQLITE_CAPABILITIES,
-    resolveCapabilities: resolveSqliteCapabilities,
-    defaultTypePolicy,
-    runtimeValueType: sqliteRuntimeValueType,
-    placeholder(index: number): string {
-      if (!Number.isInteger(index) || index < 1) throw new RangeError("SQLite parameter indexes start at 1");
-      return "?";
-    },
-    quoteIdentifier(identifier: string): string {
-      return `"${identifier.replaceAll('"', '""')}"`;
-    },
-    parameterOccurrences(sql: string) {
-      return tokenize(sql, { sqlFileParameters: true })
-        .filter((token) => token.kind === "parameter")
-        .map((token) => ({
-          index: token.text.startsWith(":") ? 0 : Number(token.value),
-          ...(token.text.startsWith(":") ? { name: token.value } : {}),
-          range: token.range,
-        }));
-    },
+    ...profile,
     analyze(
       sql: string,
       snapshot: SqliteSchemaSnapshot,
@@ -78,19 +50,6 @@ export function sqlite(options: SqliteDialectOptions = {}): DialectPlugin<Sqlite
           semantics: unknownQuerySemantics(error.range, "The SQL could not be parsed by the SQLite grammar."),
         };
       }
-    },
-    validateSnapshot(value: unknown) {
-      const snapshot = parseSqliteSchemaSnapshot(value);
-      if (snapshot.server !== undefined && snapshot.server.product !== "sqlite") {
-        throw new TypeError(`@typed-sql/sqlite cannot use ${snapshot.server.product} server evidence`);
-      }
-      if (snapshot.server !== undefined) assertSqliteServerEvidence(snapshot.server);
-      if (snapshot.dialectVersion !== undefined && snapshot.dialectVersion !== SQLITE_DIALECT_VERSION) {
-        throw new TypeError(
-          `@typed-sql/sqlite grammar ${SQLITE_DIALECT_VERSION} cannot use snapshot dialectVersion ${snapshot.dialectVersion}`,
-        );
-      }
-      return snapshot;
     },
   });
 }

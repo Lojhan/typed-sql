@@ -1,51 +1,25 @@
 import {
   applyDialectCapabilityStates,
-  DIALECT_CONTRACT_VERSION,
   type DialectAnalysisContext,
   type DialectPlugin,
   unknownQuerySemantics,
 } from "@typed-sql/core";
-import { resolveSqlServerCapabilities, SQLSERVER_CAPABILITIES } from "./capabilities.js";
-import { parseStatement, SqlServerParseError, tokenize, walkStatement } from "./parser/index.js";
-import { sqlServerRenderer } from "./query.js";
+import { resolveSqlServerCapabilities } from "./capabilities.js";
+import { parseStatement, SqlServerParseError, walkStatement } from "./parser/index.js";
+import { type SqlServerProfileOptions as SqlServerDialectOptions, sqlserverProfile } from "./profile.js";
 import { resolveSqlServerStatement } from "./resolver.js";
 import { analyzeSqlServerSemantics } from "./semantics.js";
-import { parseSqlServerSchemaSnapshot, type SqlServerSchemaSnapshot } from "./snapshot.js";
-import {
-  defaultSqlServerTypePolicy,
-  type SqlServerTypePolicy,
-  sqlServerRuntimeValueType,
-  validateSqlServerTypePolicy,
-} from "./type-policy.js";
-import { SQLSERVER_DIALECT_VERSION } from "./version.js";
-export interface SqlServerDialectOptions {
-  readonly typePolicy?: SqlServerTypePolicy;
-}
+import type { SqlServerSchemaSnapshot } from "./snapshot.js";
+import type { SqlServerTypePolicy } from "./type-policy.js";
+
+export type { SqlServerProfileOptions as SqlServerDialectOptions } from "./profile.js";
 export function sqlserver(
   options: SqlServerDialectOptions = {},
 ): DialectPlugin<SqlServerSchemaSnapshot, SqlServerTypePolicy> {
-  const policy = validateSqlServerTypePolicy(options.typePolicy ?? defaultSqlServerTypePolicy);
+  const profile = sqlserverProfile(options);
+  const policy = profile.defaultTypePolicy;
   return Object.freeze({
-    contractVersion: DIALECT_CONTRACT_VERSION,
-    id: "sqlserver",
-    grammarVersion: SQLSERVER_DIALECT_VERSION,
-    sqlModule: "@typed-sql/sqlserver",
-    runtimeSqlModule: "@typed-sql/sqlserver/query",
-    capabilities: SQLSERVER_CAPABILITIES,
-    resolveCapabilities: resolveSqlServerCapabilities,
-    defaultTypePolicy: policy,
-    runtimeValueType: sqlServerRuntimeValueType,
-    placeholder: sqlServerRenderer.placeholder,
-    quoteIdentifier: sqlServerRenderer.quoteIdentifier,
-    parameterOccurrences(source: string) {
-      return tokenize(source, { sqlFileParameters: true })
-        .filter((token) => token.kind === "parameter")
-        .map((token) => ({
-          index: /^@__typed_sql_\d+$/u.test(token.text) || token.text === "?" ? Number(token.value) : 0,
-          ...(/^@__typed_sql_\d+$/u.test(token.text) || token.text === "?" ? {} : { name: token.text.slice(1) }),
-          range: token.range,
-        }));
-    },
+    ...profile,
     analyze(
       source: string,
       snapshot: SqlServerSchemaSnapshot,
@@ -117,7 +91,6 @@ export function sqlserver(
         };
       }
     },
-    validateSnapshot: parseSqlServerSchemaSnapshot,
   });
 }
 /** Repeated scalar lists cannot alter a WHERE/JOIN predicate's output row shape. */

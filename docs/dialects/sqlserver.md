@@ -15,6 +15,7 @@ Native execution is qualified on Linux x64; grammar analysis and the browser ent
 
 | Import | Purpose |
 | --- | --- |
+| `@typed-sql/sqlserver/profile` | Driver-free `sqlserverProfile()` for [query contract consumption](../guides/query-manifests.md#consume-durable-query-contracts-in-a-compiler-host), without semantic catalogs or an analyzer loader. |
 | `@typed-sql/sqlserver/query` | Portable `sql`, renderer, compiler value plans and query types. |
 | `@typed-sql/sqlserver` | Grammar factory, policies, analysis and injected catalog provider. |
 | `@typed-sql/sqlserver/runtime` | Driver-neutral execution, live verification, plan inspection and connection ownership. |

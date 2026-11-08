@@ -10,6 +10,8 @@ description: MySQL grammar coverage, catalog introspection, application-owned my
 
 ## Public entrypoints
 
+- `@typed-sql/mysql/profile` — driver-free `mysqlProfile()` for [query contract consumption](../guides/query-manifests.md#consume-durable-query-contracts-in-a-compiler-host), without semantic catalogs or an analyzer loader.
+
 - `@typed-sql/mysql/query` — portable `sql`, renderer, and runtime value descriptors for buffered adapters.
 
 - `@typed-sql/mysql` — `sql`, dialect factory, default type policy, analysis, type mapping, semantic routing, and transaction retry classification.

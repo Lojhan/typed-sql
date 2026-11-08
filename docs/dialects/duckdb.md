@@ -10,6 +10,8 @@ description: DuckDB SQL analysis, qualified engine and Node SDK versions, exact 
 this grammar. The native Node SDK is an application dependency accessed through the explicit
 `@typed-sql/duckdb/node-api` entrypoint.
 
+`@typed-sql/duckdb/profile` exports `duckdbProfile()` for [query contract consumption](../guides/query-manifests.md#consume-durable-query-contracts-in-a-compiler-host). It provides grammar mechanics without loading semantic catalogs or introspection providers and contains no analyzer loader. Contextual parameter extraction retains the syntax parser.
+
 ## Engine and driver compatibility
 
 Support consists of these exact qualified targets. It does not include intermediate or newer releases.

@@ -502,6 +502,28 @@ Unrelated planning work is left unchanged.
   catalogs remain shipped. This checkpoint establishes the runtime codec boundary, not production
   bundle savings, compact-core/pack migration, all-engine qualification or bulk catalog deletion.
 
+## Built-in lightweight profile checkpoint
+
+- MySQL, SQLite, SQL Server and DuckDB now expose explicit `/profile` modules alongside PostgreSQL.
+  Existing analyzer factories compose those same profile mechanics, removing duplicated rendering,
+  placeholder extraction, policy selection and snapshot validation rather than maintaining a second
+  implementation. Existing root runtime exports remain unchanged. Profiles contain no analyzer
+  factory or native connection loader; development hosts register their contributions explicitly.
+- DuckDB preserves parser-based contextual marker extraction. Its syntax parser and compact type
+  aliases remain profile dependencies; struct separators, slice colons and lambda syntax cannot be
+  replaced with a lexical guess. This checkpoint does not claim unknown-syntax parameter coverage.
+- A ledger-discovered packed proof imports all five profiles in a fresh process with root/browser,
+  resolver, semantic catalog and provider modules absent, checks their IDs, lack of analyzer/loaders,
+  positional parameter indexes/spans, and wrong-dialect snapshot rejection. Runtime imports are
+  checked in a separate process before providers are stripped: SQL Server's existing live-verifier
+  runtime export still depends on its provider. That runtime boundary remains required work.
+- The affected grammar suites pass: MySQL 27 files, SQLite 16, SQL Server 23 and DuckDB 42. Public API,
+  package entrypoint and documentation contracts pass; packed consumer/editor/native-editor tests,
+  TypeScript checking, quality, production documentation build and isolated performance gate pass.
+  Documentation lists the profile boundaries and DuckDB's
+  contextual extraction requirement. This is an incremental profile boundary, not lightweight-root
+  migration, native transport qualification or removal of bulk generated semantic catalogs.
+
 ## Required work still open
 
 1. Complete the contract/evidence model: native descriptors and provenance, reusable/facet-specific

@@ -1,47 +1,24 @@
 import {
   applyDialectCapabilityStates,
-  DIALECT_CONTRACT_VERSION,
   type DialectAnalysisContext,
   type DialectPlugin,
   unknownQuerySemantics,
 } from "@typed-sql/core";
-import { duckDBParameterOccurrences, parseDuckDBStatement } from "./parser/parser.js";
+import { parseDuckDBStatement } from "./parser/parser.js";
 import { DuckDBParseError, tokenize } from "./parser/tokenizer.js";
+import { type DuckDBProfileOptions as DuckDBDialectOptions, duckdbProfile } from "./profile.js";
 import { resolveDuckDBStatement } from "./resolver.js";
 import { assertDuckDBSemanticEvidence } from "./settings.js";
-import { type DuckDBSchemaSnapshot, parseDuckDBSchemaSnapshot } from "./snapshot.js";
-import { DUCKDB_CAPABILITIES, duckDBVersionSupport, resolveDuckDBCapabilities } from "./support.js";
-import {
-  type DuckDBTypePolicy,
-  defaultDuckDBTypePolicy,
-  duckDBRuntimeValueType,
-  validateDuckDBTypePolicy,
-} from "./type-policy.js";
-import { DUCKDB_DIALECT_VERSION } from "./version.js";
-export interface DuckDBDialectOptions {
-  readonly typePolicy?: DuckDBTypePolicy;
-}
+import type { DuckDBSchemaSnapshot } from "./snapshot.js";
+import { duckDBVersionSupport, resolveDuckDBCapabilities } from "./support.js";
+import type { DuckDBTypePolicy } from "./type-policy.js";
+
+export type { DuckDBProfileOptions as DuckDBDialectOptions } from "./profile.js";
 export function duckdb(options: DuckDBDialectOptions = {}): DialectPlugin<DuckDBSchemaSnapshot, DuckDBTypePolicy> {
-  const policy = validateDuckDBTypePolicy(options.typePolicy ?? defaultDuckDBTypePolicy);
+  const profile = duckdbProfile(options);
+  const policy = profile.defaultTypePolicy;
   return Object.freeze({
-    contractVersion: DIALECT_CONTRACT_VERSION,
-    id: "duckdb",
-    grammarVersion: DUCKDB_DIALECT_VERSION,
-    sqlModule: "@typed-sql/duckdb",
-    runtimeSqlModule: "@typed-sql/duckdb/query",
-    defaultTypePolicy: policy,
-    runtimeValueType: duckDBRuntimeValueType,
-    capabilities: DUCKDB_CAPABILITIES,
-    resolveCapabilities: resolveDuckDBCapabilities,
-    placeholder(index: number) {
-      if (!Number.isSafeInteger(index) || index < 1 || index > 65535)
-        throw new RangeError("DuckDB parameter index must be1–65535");
-      return `$${index}`;
-    },
-    quoteIdentifier(name: string) {
-      return `"${name.replaceAll('"', '""')}"`;
-    },
-    parameterOccurrences: duckDBParameterOccurrences,
+    ...profile,
     analyze(
       source: string,
       snapshot: DuckDBSchemaSnapshot,
@@ -92,7 +69,6 @@ export function duckdb(options: DuckDBDialectOptions = {}): DialectPlugin<DuckDB
         };
       }
     },
-    validateSnapshot: parseDuckDBSchemaSnapshot,
   });
 }
 

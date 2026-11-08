@@ -127,15 +127,15 @@ const expectedEntrypoints: Readonly<Record<(typeof publicPackages)[number], read
     "./contract-profile",
     "./reconciliation",
   ],
-  mysql: [".", "./runtime", "./mysql2", "./query"],
+  mysql: [".", "./runtime", "./mysql2", "./query", "./profile"],
   compiler: ["."],
   conformance: [".", "./v2"],
   cli: [],
   "ts-bridge": [".", "./native-lsp", "./native-preview", "./sql-register", "./vite"],
   "language-server": ["."],
-  sqlite: [".", "./runtime", "./node-sqlite", "./query"],
-  sqlserver: [".", "./query", "./runtime", "./odbc", "./msnodesqlv8", "./browser"],
-  duckdb: [".", "./query", "./runtime", "./node-api", "./browser"],
+  sqlite: [".", "./runtime", "./node-sqlite", "./query", "./profile"],
+  sqlserver: [".", "./query", "./runtime", "./odbc", "./msnodesqlv8", "./browser", "./profile"],
+  duckdb: [".", "./query", "./runtime", "./node-api", "./browser", "./profile"],
 };
 
 async function manifest(packageName: string, parent = "packages"): Promise<PackageManifest> {

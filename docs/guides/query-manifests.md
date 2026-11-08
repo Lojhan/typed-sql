@@ -172,6 +172,21 @@ columns and the runtime value plan. A SQL, schema or policy mismatch produces `T
 Repeated fragments require additional invariance evidence and are conservatively rejected.
 Execution effects and cardinality remain unknown.
 
+Each built-in grammar exposes a driver-free `/profile` entrypoint:
+
+| Grammar | Import | Factory |
+| --- | --- | --- |
+| PostgreSQL | `@typed-sql/postgres/profile` | `postgresProfile()` |
+| MySQL | `@typed-sql/mysql/profile` | `mysqlProfile()` |
+| SQLite | `@typed-sql/sqlite/profile` | `sqliteProfile()` |
+| SQL Server | `@typed-sql/sqlserver/profile` | `sqlserverProfile()` |
+| DuckDB | `@typed-sql/duckdb/profile` | `duckdbProfile()` |
+
+Profiles provide grammar mechanics without constructing an analyzer or loading semantic routine
+catalogs and introspection providers. They contain no analyzer loader. A development host registers
+its analyzer contribution separately. DuckDB retains its syntax parser for contextual parameter
+extraction: a struct field separator or slice colon must not become a named parameter.
+
 These APIs consume previously established evidence. Setting a contract's `origin` does not
 perform native qualification or prove that an engine supplied it. Contract digests detect
 inconsistent contents; they do not authenticate the producer. Use reviewed compiler inputs

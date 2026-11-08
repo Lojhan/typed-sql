@@ -12,6 +12,8 @@ through `@typed-sql/sqlite/node-sqlite`.
 
 ## Public entrypoints
 
+- `@typed-sql/sqlite/profile` — driver-free `sqliteProfile()` for [query contract consumption](../guides/query-manifests.md#consume-durable-query-contracts-in-a-compiler-host), without semantic catalogs or an analyzer loader.
+
 - `@typed-sql/sqlite/query` — portable `sql`, renderer, and runtime value descriptors for buffered adapters.
 
 - `@typed-sql/sqlite` — `sql`, dialect factory, snapshot types, type policy, and introspection over an injected queryable.
