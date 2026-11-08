@@ -809,6 +809,13 @@ Unrelated planning work is left unchanged.
   avoidable legacy array assembly, the five affected source/packed/bootstrap files pass again.
   The final isolated performance recheck passes after that assembly change. Committed-input
   bundle attribution is recorded separately.
+- Committed-input measurements at `1f498aac`: compact all-version factory 559,455 minified /
+  79,539 gzip / 64,528 Brotli bytes versus full compatibility 1,687,142 / 179,402 / 104,008
+  (55.7% less gzip). Fixed PostgreSQL 18 core is 411,192 / 76,701 / 63,457 versus its full
+  selected analyzer 1,377,998 / 129,378 / 100,384 (40.7% less gzip). Core plus its long-tail pack
+  is 1,380,131 / 130,307 / 100,449. Runtime-root bytes remain 17,767 / 5,645 / 5,102.
+  These are analyzer footprints; full compatibility installation data remains present. This
+  does not claim a query-runtime saving or a production popularity-weighted coverage percentage.
 - Remaining: equivalent compact cores/packs for the other grammars, broader real application
   workload selection evidence, richer project catalogs, pack/contribution identity integration
   across every host and bulk generated-code removal. This does not qualify additional native
