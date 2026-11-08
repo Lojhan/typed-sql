@@ -483,9 +483,11 @@ cleanup failures and contradictory static claims. All 24 SQL Server test files a
 coverage gate pass; workspace type checks, quality and public API/package graph checks pass.
 The real-engine probe is wired into the existing Linux x64 qualification matrix for SQL Server
 14–17 and each supported compatibility level. It reads actual connection version/settings and
-requires exact fixture builds. This probe has not yet passed on real engines. The adapter,
-identity and reconciliation modules remain private; public CLI/editor integration and installed
-consumer qualification are still outstanding. Local fixture tests do not establish native support.
+requires exact fixture builds. The native acquisition step passes on all four engines, with 40
+reconciled contracts across ten compatibility profiles; see [the native proof](./sqlserver-native-proof.md).
+The adapter, identity and reconciliation modules remain private; public CLI/editor integration
+and installed consumer qualification are still outstanding. Local fixtures alone do not establish
+native support.
 
 ## Retirement history under cache pressure
 
