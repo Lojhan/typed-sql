@@ -72,3 +72,16 @@ Validation for this addition: build and typecheck; analysis and PostgreSQL cover
 repository contracts; packed consumers with project-catalog modules physically absent from the
 frozen/runtime path; documentation and quality checks; the real PostgreSQL helper; and the
 existing performance budgets. No global source inventory or generated mapping blob is added.
+
+## Native catalog acquisition
+
+The shared native adapter contract has an optional catalog owner and session collection method.
+`acquireNativeProjectCatalog` snapshots bounded selectors, observes context without caller
+stitching, validates owner/context identity before and after collection, and closes the lease
+on success, rejection, cancellation or failure. Unsupported adapters return without connecting.
+
+PostgreSQL collection reuses the introspector's routine mapper and reads only matching system
+catalog families. Qualified system functions and operators avoid application overload dispatch;
+no user statement or default expression is executed. The native fixture includes shadowing
+metadata helper functions and an injected DDL race. This is an explicit library operation;
+automatic catalog publication and CLI/editor refresh remain unimplemented.

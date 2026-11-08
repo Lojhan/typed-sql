@@ -15,3 +15,5 @@ export function postgresContractIdentity(
     interpreterHash: queryContractDigest(postgresContractAdapterVersion),
   });
 }
+
+export { postgresProjectCatalogOwner } from "./project-catalog-identity.js";

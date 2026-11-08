@@ -1564,6 +1564,7 @@ await describe("query contract public API", async () => {
         "parseContractQualificationPolicy",
         "parseQueryContractQualification",
         "acquireNativeQueryContract",
+        "acquireNativeProjectCatalog",
         "parseNativeQueryContractEvidence",
         "canonicalContractData",
         "createContractDialect",

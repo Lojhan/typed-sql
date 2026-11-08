@@ -14,12 +14,15 @@ import {
   parseNativeQueryContractEvidence,
 } from "./native-evidence.js";
 
+import type { ProjectCatalog } from "./project-catalog.js";
+
 export type { NativeContractCandidate } from "./candidate.js";
 
 /** Grammar-owned session. Its consistency scope must cover description and both context reads. */
 export interface NativeContractSession {
   context(signal?: AbortSignal): Promise<QueryContractContext>;
   describe(candidate: NativeContractCandidate, signal?: AbortSignal): Promise<NativeQueryContractEvidence>;
+  projectCatalog?(sql: readonly string[], context: QueryContractContext, signal?: AbortSignal): Promise<ProjectCatalog>;
   close(): Promise<void>;
 }
 /** Explicit acquisition contribution; registration or importing it must not open a connection. */
@@ -27,6 +30,7 @@ export interface NativeContractAdapter {
   readonly id: string;
   readonly version: string;
   readonly grammar: QueryContractContext["grammar"];
+  readonly projectCatalogOwner?: ProjectCatalog["owner"];
   /** Sanitized grammar/transport-owned failures; never includes SQL or driver messages. */
   classifyError?(error: unknown): LiveAnalysisFailure;
   /** A grammar owner qualifies statement classes and binding/external-resource behavior before prepare. */

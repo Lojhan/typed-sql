@@ -1,11 +1,9 @@
+export { postgresProjectCatalogOwner } from "./project-catalog-identity.js";
+
 import type { RoutineSnapshot, SchemaSnapshot } from "@typed-sql/schema";
 import { postgresCatalogType } from "./catalog/index.js";
 import { mapPostgresType, type PostgresTypePolicy } from "./type-policy.js";
 
-export const postgresProjectCatalogOwner = Object.freeze({
-  id: "@typed-sql/postgres/project-catalog",
-  version: "postgres-project-catalog-v1",
-});
 export const postgresProjectCatalogPermissionKey = "projectRoutineInference";
 /** Only fixed scalar identities with known policy/codec mappings receive reusable permission. */
 export function postgresProjectRoutineIsFixed(

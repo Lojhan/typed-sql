@@ -14,13 +14,13 @@ import {
   type SchemaSnapshotV2,
 } from "@typed-sql/schema";
 import type { PostgresSchemaSnapshot } from "./analysis-options.js";
-import { parseStatement, walkStatement } from "./parser/index.js";
 import { validatePostgresSnapshot } from "./profile-snapshot.js";
 import {
   postgresProjectCatalogOwner,
   postgresProjectCatalogPermissionKey,
   postgresProjectRoutineIsFixed,
 } from "./project-catalog-policy.js";
+import { postgresProjectRoutineReferences } from "./project-catalog-selection.js";
 import { defaultPostgresTypePolicy, mapPostgresType, type PostgresTypePolicy } from "./type-policy.js";
 import { POSTGRES_DIALECT_VERSION } from "./version.js";
 
@@ -43,25 +43,7 @@ export function createPostgresProjectCatalog(input: {
     throw new TypeError("PostgreSQL project catalog source grammar differs");
   if (calculateTypePolicyHash(policy) !== input.context.typePolicyHash)
     throw new TypeError("PostgreSQL project catalog decoding policy differs");
-  if (input.sql.length > 4096 || input.sql.reduce((size, sql) => size + Buffer.byteLength(sql), 0) > 16 * 1024 * 1024)
-    throw new RangeError("PostgreSQL project query limit exceeded");
-  const calls = new Map<string, Set<string | undefined>>();
-  for (const sql of input.sql)
-    walkStatement(parseStatement(sql), {
-      expression(expression) {
-        if (expression.kind !== "call") return;
-        const name = expression.name.quoted ? expression.name.name : expression.name.name.toLowerCase();
-        const namespace =
-          expression.schema === undefined
-            ? undefined
-            : expression.schema.quoted
-              ? expression.schema.name
-              : expression.schema.name.toLowerCase();
-        const namespaces = calls.get(name) ?? new Set<string | undefined>();
-        namespaces.add(namespace);
-        calls.set(name, namespaces);
-      },
-    });
+  const calls = postgresProjectRoutineReferences(input.sql);
   const entries: ProjectCatalogEntry[] = [];
   const sourceSchemaHash = calculateSchemaHash(source);
   for (const overloads of Object.values(source.routines)) {

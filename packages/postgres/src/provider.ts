@@ -3,7 +3,6 @@ import type {
   ForeignKeyAction,
   IndexSnapshot,
   RelationSnapshot,
-  RoutineArgumentMode,
   RoutineSnapshot,
   SchemaInput,
   SchemaProvider,
@@ -25,6 +24,11 @@ import type {
   PostgresQueryResult,
   PostgresSchemaProviderOptions,
 } from "./provider-contracts.js";
+import {
+  type PostgresRoutineCatalogRow as FunctionCatalogRow,
+  postgresRoutineCatalogQuery,
+  postgresRoutineSnapshot,
+} from "./routine-catalog.js";
 import { postgresVersionQuery } from "./server-evidence.js";
 import { defaultPostgresTypePolicy, mapPostgresType } from "./type-policy.js";
 import { POSTGRES_DIALECT_VERSION } from "./version.js";
@@ -81,24 +85,6 @@ interface DomainCatalogRow extends Record<string, unknown> {
   readonly not_null: boolean;
   readonly type_identity?: string;
   readonly check_expressions?: readonly string[];
-}
-
-interface FunctionCatalogRow extends Record<string, unknown> {
-  readonly schema_name: string;
-  readonly function_name: string;
-  readonly argument_types: string[];
-  readonly argument_type_identities?: readonly string[];
-  readonly return_type_identity?: string;
-  readonly database_return_type: string;
-  readonly set_returning: boolean;
-  readonly volatility: "i" | "s" | "v";
-  readonly routine_identity?: string;
-  readonly routine_kind?: "f" | "p" | "a" | "w";
-  readonly argument_names?: readonly (string | null)[];
-  readonly argument_modes?: readonly ("i" | "o" | "b" | "v" | "t")[];
-  readonly argument_defaults?: number;
-  readonly strict?: boolean;
-  readonly parallel_safety?: "r" | "s" | "u";
 }
 
 interface ConstraintCatalogRow extends Record<string, unknown> {
@@ -253,47 +239,7 @@ export const postgresCatalogQueries = {
       AND ($1::text[] IS NULL OR n.nspname = ANY($1::text[]))
     ORDER BY n.nspname, t.typname
   `,
-  functions: `
-    SELECT
-      n.nspname AS schema_name,
-      p.proname AS function_name,
-      'pg:' || p.oid::text AS routine_identity,
-      p.prokind AS routine_kind,
-      ARRAY(
-        SELECT format_type(argument_oid, NULL)
-        FROM unnest(COALESCE(p.proallargtypes, p.proargtypes::oid[])) WITH ORDINALITY AS arguments(argument_oid, position)
-        ORDER BY position
-      ) AS argument_types,
-      ARRAY(
-        SELECT pg_catalog.format('%I.%I', type_namespace.nspname, argument_type.typname)
-        FROM unnest(COALESCE(p.proallargtypes, p.proargtypes::oid[])) WITH ORDINALITY AS arguments(argument_oid, position)
-        JOIN pg_catalog.pg_type AS argument_type ON argument_type.oid = argument_oid
-        JOIN pg_catalog.pg_namespace AS type_namespace ON type_namespace.oid = argument_type.typnamespace
-        ORDER BY position
-      ) AS argument_type_identities,
-      (SELECT pg_catalog.format('%I.%I', type_namespace.nspname, result_type.typname)
-        FROM pg_catalog.pg_type AS result_type
-        JOIN pg_catalog.pg_namespace AS type_namespace ON type_namespace.oid = result_type.typnamespace
-        WHERE result_type.oid = p.prorettype) AS return_type_identity,
-      COALESCE(p.proargnames, ARRAY[]::text[]) AS argument_names,
-      ARRAY(
-        SELECT mode::text
-        FROM unnest(COALESCE(p.proargmodes, ARRAY[]::"char"[])) WITH ORDINALITY AS modes(mode, position)
-        ORDER BY position
-      ) AS argument_modes,
-      p.pronargdefaults AS argument_defaults,
-      format_type(p.prorettype, NULL) AS database_return_type,
-      p.proretset AS set_returning,
-      p.provolatile AS volatility,
-      p.proisstrict AS strict,
-      p.proparallel AS parallel_safety
-    FROM pg_catalog.pg_proc AS p
-    JOIN pg_catalog.pg_namespace AS n ON n.oid = p.pronamespace
-    WHERE p.prokind IN ('f', 'p', 'a', 'w')
-      AND n.nspname NOT IN ('pg_catalog', 'information_schema')
-      AND ($1::text[] IS NULL OR n.nspname = ANY($1::text[]))
-    ORDER BY n.nspname, p.proname, p.oid
-  `,
+  functions: postgresRoutineCatalogQuery(),
   constraints(serverMajor: number): string {
     const nullsNotDistinct = serverMajor >= 15 ? "i.indnullsnotdistinct" : "NULL::boolean";
     return `
@@ -457,37 +403,10 @@ function foreignKeyAction(action: ConstraintCatalogRow["update_action"]): Foreig
   return "unknown";
 }
 
-function argumentMode(mode: "i" | "o" | "b" | "v" | "t" | undefined): RoutineArgumentMode {
-  if (mode === "o" || mode === "t") return "out";
-  if (mode === "b") return "inout";
-  if (mode === "v") return "variadic";
-  return "in";
-}
-
-function routineKind(kind: FunctionCatalogRow["routine_kind"]): RoutineSnapshot["kind"] {
-  if (kind === "p") return "procedure";
-  if (kind === "a") return "aggregate";
-  if (kind === "w") return "window";
-  return "function";
-}
-
 function partitionStrategy(strategy: RelationCatalogRow["partition_strategy"]): string | undefined {
   if (strategy === "h") return "hash";
   if (strategy === "l") return "list";
   if (strategy === "r") return "range";
-  return undefined;
-}
-
-function parallelSafety(safety: FunctionCatalogRow["parallel_safety"]): string {
-  if (safety === "r") return "restricted";
-  if (safety === "s") return "safe";
-  if (safety === "u") return "unsafe";
-  return "unknown";
-}
-
-function polymorphicFamily(types: readonly string[]): string | undefined {
-  if (types.some((type) => /^anycompatible/u.test(type))) return "postgres-anycompatible";
-  if (types.some((type) => /^any/u.test(type))) return "postgres-anyelement";
   return undefined;
 }
 
@@ -960,78 +879,7 @@ export class PostgresSchemaProvider implements SchemaProvider<SchemaSnapshotV2> 
       const routines: Record<string, RoutineSnapshot[]> = {};
       for (const row of functionResult.rows) {
         const name = qualifiedKey(row.schema_name, row.function_name);
-        const modes = row.argument_modes ?? [];
-        const inputPositions = row.argument_types
-          .map((_, index) => index)
-          .filter((index) => argumentMode(modes[index]) !== "out");
-        const defaultStart = inputPositions.length - (row.argument_defaults ?? 0);
-        const argumentsList = row.argument_types.map((databaseType, index) => ({
-          ...(row.argument_names?.[index] == null ? {} : { name: row.argument_names[index]! }),
-          mode: argumentMode(modes[index]),
-          typeIdentity: row.argument_type_identities?.[index] ?? databaseType,
-          databaseType,
-          tsType: mapPostgresType(databaseType, policy, schemaForFunctions),
-          default:
-            inputPositions.indexOf(index) >= defaultStart && defaultStart >= 0
-              ? ("present" as const)
-              : ("none" as const),
-        }));
-        const outputArguments = argumentsList.filter(({ mode }) => mode === "out" || mode === "inout");
-        const kind = routineKind(row.routine_kind);
-        const result =
-          kind === "procedure"
-            ? ({ kind: "command" } as const)
-            : outputArguments.length > 0
-              ? ({
-                  kind: "table" as const,
-                  columns: Object.fromEntries(
-                    outputArguments.map((argument, position) => [
-                      argument.name ?? `column${position + 1}`,
-                      {
-                        name: argument.name ?? `column${position + 1}`,
-                        position,
-                        databaseType: argument.databaseType,
-                        typeIdentity: argument.typeIdentity,
-                        tsType: argument.tsType,
-                        nullable: true,
-                        nullabilitySource: "unknown" as const,
-                        default: "none" as const,
-                        generated: "none" as const,
-                        identity: "none" as const,
-                        classification: "normal" as const,
-                        insertable: false,
-                        updatable: false,
-                      },
-                    ]),
-                  ),
-                } as const)
-              : row.database_return_type === "record"
-                ? ({ kind: "record", columns: {} } as const)
-                : ({
-                    kind: row.set_returning ? "set" : "scalar",
-                    typeIdentity: row.return_type_identity ?? row.database_return_type,
-                    databaseType: row.database_return_type,
-                    tsType: mapPostgresType(row.database_return_type, policy, schemaForFunctions),
-                    nullable: true,
-                  } as const);
-        const family = polymorphicFamily([...row.argument_types, row.database_return_type]);
-        const routine: RoutineSnapshot = {
-          name: row.function_name,
-          schema: row.schema_name,
-          identity: row.routine_identity ?? `${name}(${row.argument_types.join(",")})`,
-          kind,
-          arguments: argumentsList,
-          result,
-          volatility: row.volatility === "i" ? "immutable" : row.volatility === "s" ? "stable" : "volatile",
-          deterministic: row.volatility === "i" ? true : "unknown",
-          dataAccess: "unknown",
-          nullInput: row.strict === undefined ? "unknown" : row.strict ? "strict" : "called",
-          ...(family === undefined ? {} : { polymorphicFamily: family }),
-          extension: {
-            version: "1",
-            attributes: { parallelSafety: parallelSafety(row.parallel_safety) },
-          },
-        };
+        const routine = postgresRoutineSnapshot(row, policy, schemaForFunctions);
         const overloads = routines[name];
         if (overloads === undefined) routines[name] = [routine];
         else overloads.push(routine);

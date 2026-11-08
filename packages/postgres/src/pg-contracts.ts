@@ -9,8 +9,12 @@ import type {
 } from "@typed-sql/analysis";
 import { queryContractDigest } from "@typed-sql/analysis";
 import { calculateSchemaHash, calculateTypePolicyHash } from "@typed-sql/schema";
-import { postgresContractAdapterVersion, postgresContractIdentity } from "./contract-profile.js";
-import { parseStatement } from "./parser/parser.js";
+import {
+  postgresContractAdapterVersion,
+  postgresContractIdentity,
+  postgresProjectCatalogOwner,
+} from "./contract-profile.js";
+import { parseStatement, SqlParseError } from "./parser/parser.js";
 import type { Expression } from "./parser/types.js";
 import type { PgLiveVerifierPool } from "./pg.js";
 import { describePgStatement, type PgProtocolDescription } from "./pg-description.js";
@@ -95,7 +99,9 @@ export class PostgresContractAcquisitionError extends Error {
       | "native-failure"
       | "transport-unavailable"
       | "native-rejected"
-      | "closed-session",
+      | "closed-session"
+      | "unsupported-catalog-selection"
+      | "metadata-unavailable",
   ) {
     super(`PostgreSQL query contract acquisition failed: ${reason}`);
     this.name = "PostgresContractAcquisitionError";
@@ -116,7 +122,11 @@ function classifyError(error: unknown, depth = 0): LiveAnalysisFailure {
   if (error instanceof PostgresContractAcquisitionError) {
     if (error.reason === "context-changed") return { kind: "stale-context", code: "postgres-context-changed" };
     if (error.reason === "native-rejected") return { kind: "rejected", code: "postgres-native-rejected" };
-    if (error.reason === "unsupported-context" || error.reason === "protocol-unavailable")
+    if (
+      error.reason === "unsupported-context" ||
+      error.reason === "protocol-unavailable" ||
+      error.reason === "unsupported-catalog-selection"
+    )
       return { kind: "partial", code: `postgres-${error.reason}` };
     return {
       kind: "unavailable",
@@ -237,6 +247,9 @@ export function createPgNativeContractAdapter(options: PgNativeContractOptions):
     const client = await options.pool.connect();
     let closed = false,
       described = false,
+      catalogCollected = false,
+      observedContextHash: string | undefined,
+      observedVersion: string | undefined,
       initialEpoch: string | undefined;
     const close = async () => {
       if (closed) return;
@@ -310,18 +323,63 @@ export function createPgNativeContractAdapter(options: PgNativeContractOptions):
           throw new PostgresContractAcquisitionError("unsupported-context");
         checkEpoch(row.epoch);
         contextSignal?.throwIfAborted();
-        return {
+        const context = {
           grammar: { id: "postgres", version: POSTGRES_DIALECT_VERSION },
           ...postgresContractIdentity(policy),
           schemaHash: calculateSchemaHash(schema),
           databaseContextHash: queryContractDigest({ version: row.version, catalog: row.fingerprint }),
           typePolicyHash: calculateTypePolicyHash(policy),
         };
+        observedContextHash = queryContractDigest(context);
+        observedVersion = row.version;
+        return context;
+      },
+      async projectCatalog(sql, context, catalogSignal) {
+        requireOpen();
+        catalogSignal?.throwIfAborted();
+        if (
+          described ||
+          catalogCollected ||
+          schema.formatVersion !== 2 ||
+          observedVersion !== schema.server.version ||
+          observedContextHash !== queryContractDigest(context)
+        )
+          throw new PostgresContractAcquisitionError("unsupported-context");
+        catalogCollected = true;
+        try {
+          const { collectPostgresProjectRoutines } = await import("./project-catalog-source.js");
+          const { createPostgresProjectCatalog } = await import("./project-catalog.js");
+          requireOpen();
+          catalogSignal?.throwIfAborted();
+          const source = await collectPostgresProjectRoutines({
+            client,
+            schema,
+            sql,
+            typePolicy: policy,
+            ...(catalogSignal ? { signal: catalogSignal } : {}),
+          });
+          requireOpen();
+          catalogSignal?.throwIfAborted();
+          return createPostgresProjectCatalog({ source, sql, context, typePolicy: policy });
+        } catch (error) {
+          requireOpen();
+          catalogSignal?.throwIfAborted();
+          if (error instanceof PostgresContractAcquisitionError) throw error;
+          if (error instanceof SqlParseError)
+            throw new PostgresContractAcquisitionError("unsupported-catalog-selection");
+          const failure = classifyError(error);
+          throw new PostgresContractAcquisitionError(
+            failure.kind === "unavailable" && failure.retry === "transport"
+              ? "transport-unavailable"
+              : "metadata-unavailable",
+          );
+        }
       },
       async describe(candidate, describeSignal): Promise<NativeQueryContractEvidence> {
         requireOpen();
         describeSignal?.throwIfAborted();
-        if (described || !accepts(candidate)) throw new PostgresContractAcquisitionError("unsupported-context");
+        if (described || catalogCollected || !accepts(candidate))
+          throw new PostgresContractAcquisitionError("unsupported-context");
         // Metadata queries subsequently replace this unnamed statement; no server/client name
         // cache can accumulate application SQL across live edits.
         const pending = describePgStatement(client, "", candidate.sql);
@@ -438,6 +496,7 @@ export function createPgNativeContractAdapter(options: PgNativeContractOptions):
     id: adapterId,
     version: adapterVersion,
     grammar: { id: "postgres", version: POSTGRES_DIALECT_VERSION },
+    ...(schema.formatVersion === 2 ? { projectCatalogOwner: postgresProjectCatalogOwner } : {}),
     classifyError,
     accept: (candidate: NativeContractCandidate) =>
       accepts(candidate)

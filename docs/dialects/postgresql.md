@@ -304,3 +304,12 @@ exact native argument-type matches; coercion-dependent selection requires a qual
 query contract. Missing or ambiguous
 overloads and unsupported call syntax remain conservative diagnostics. Selecting a declaration
 cannot silently bypass these restrictions by sharing a name with a built-in.
+
+`acquireNativeProjectCatalog` from `@typed-sql/analysis` provides the explicit database-backed
+capture path. Pass a `createPgNativeContractAdapter` instance and the project's rendered SQL
+statements. With a format-2 base snapshot and matching PostgreSQL 18 server evidence, acquisition
+observes the context, reads matching user routine families on the same guarded lease and checks
+the context again before returning a catalog. It does not prepare the application statements.
+Missing capabilities report unavailable; changed contexts, truncated families and unsupported
+selections cannot publish metadata. Non-ASCII routine identifiers require explicit quoting.
+Normal imports and offline interpretation do not invoke this acquisition path.

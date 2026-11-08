@@ -79,6 +79,8 @@ export type {
   ProjectCatalogPermission,
 } from "./project-catalog.js";
 export { applyProjectCatalogs, createProjectCatalog, parseProjectCatalog } from "./project-catalog.js";
+export type { NativeProjectCatalogAcquisition } from "./project-catalog-acquisition.js";
+export { acquireNativeProjectCatalog } from "./project-catalog-acquisition.js";
 export type {
   ContractFacetComparison,
   ContractQualificationPolicy,

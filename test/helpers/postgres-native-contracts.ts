@@ -8,6 +8,7 @@ import type { Query } from "@typed-sql/core";
 import { Pool, type PoolClient } from "pg";
 import { strict } from "poku";
 import {
+  acquireNativeProjectCatalog,
   acquireNativeQueryContract,
   applyProjectCatalogs,
   createContractDialect,
@@ -25,21 +26,18 @@ import {
   reconcileQueryContract,
 } from "../../packages/analysis/src/index.js";
 import { collectSourceQueryCandidates, compileSource } from "../../packages/compiler/src/index.js";
-import { PostgresSchemaProvider, postgres } from "../../packages/postgres/src/analysis.js";
+import { postgres, postgresServerEvidence } from "../../packages/postgres/src/analysis.js";
 import { postgresContractIdentity } from "../../packages/postgres/src/contract-profile.js";
-import { adaptPgPool } from "../../packages/postgres/src/pg.js";
+import { adaptPgPool, type PgLiveVerifierClient } from "../../packages/postgres/src/pg.js";
 import {
   createPgNativeContractAdapter,
   PostgresContractAcquisitionError,
 } from "../../packages/postgres/src/pg-contracts.js";
 import { postgresProfile } from "../../packages/postgres/src/profile.js";
-import {
-  createPostgresProjectCatalog,
-  createPostgresProjectCatalogContribution,
-} from "../../packages/postgres/src/project-catalog.js";
+import { createPostgresProjectCatalogContribution } from "../../packages/postgres/src/project-catalog.js";
 import { createPostgresContractReconciler } from "../../packages/postgres/src/reconciliation.js";
 import { createPostgresDatabase } from "../../packages/postgres/src/runtime.js";
-import { calculateSchemaHash, upgradeSchemaSnapshotV1 } from "../../packages/schema/src/index.js";
+import { type RoutineSnapshot, upgradeSchemaSnapshotV1 } from "../../packages/schema/src/index.js";
 import { assertIsolatedPostgresContractConsumer } from "./frozen-contract-consumer.js";
 import { ProtocolClient } from "./protocol-client.js";
 import { startWatchedCli } from "./watch-cli.js";
@@ -73,6 +71,12 @@ export async function assertPostgresNativeContracts(connectionString: string, di
     await pool.query(
       `CREATE FUNCTION ${namespace}.strict_null(value bigint) RETURNS bigint LANGUAGE sql IMMUTABLE STRICT AS $$SELECT NULL::bigint$$`,
     );
+    await pool.query(
+      `CREATE FUNCTION ${namespace}.format_type(value oid, modifier text) RETURNS text LANGUAGE plpgsql AS $$BEGIN UPDATE ${namespace}.calls SET count=count+1; RETURN 'wrong'; END$$`,
+    );
+    await pool.query(
+      `CREATE FUNCTION ${namespace}.unnest(value oid[]) RETURNS SETOF oid LANGUAGE plpgsql AS $$BEGIN UPDATE ${namespace}.calls SET count=count+1; RETURN QUERY SELECT pg_catalog.unnest(value); END$$`,
+    );
     const text = `SELECT ${namespace}.increment($1::bigint) AS result`;
     const source =
       // biome-ignore lint/suspicious/noTemplateCurlyInString: This is application source for the compiler proof.
@@ -90,67 +94,60 @@ export async function assertPostgresNativeContracts(connectionString: string, di
     strict.equal(candidates.candidates[0]!.sql, text);
     const parameterOccurrences = candidates.candidates[0]!.parameterOccurrences;
     const context = await native.inspectContext();
-    // Reusable declarations come from native catalog metadata, not a sampled invocation.
-    const captureMetadata = async () => {
-      const guard = await native.open();
-      try {
-        const observed = await guard.context();
-        strict.deepEqual(observed, context);
-        const metadataClient = await pool.connect();
-        let source: Awaited<ReturnType<PostgresSchemaProvider["introspect"]>>;
-        try {
-          await metadataClient.query("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
-          source = await new PostgresSchemaProvider({ client: metadataClient, includeSchemas: [namespace] }).introspect(
-            {},
-          );
-        } finally {
-          try {
-            await metadataClient.query("ROLLBACK");
-          } finally {
-            metadataClient.release();
-          }
-        }
-        strict.deepEqual(await guard.context(), observed);
-        return source;
-      } finally {
-        await guard.close();
-      }
+    // Metadata acquisition now owns context observation and collection on one guarded lease.
+    const projectBase = {
+      ...upgradeSchemaSnapshotV1({
+        ...schema,
+        dialectVersion: context.grammar.version,
+        server: postgresServerEvidence(version),
+      }),
+      dialect: "postgres" as const,
     };
-    let routineSource: Awaited<ReturnType<typeof captureMetadata>>;
+    const projectNative = createPgNativeContractAdapter({
+      schema: projectBase,
+      pool: {
+        async connect() {
+          const client = await pool.connect();
+          return {
+            async query<Row extends Record<string, unknown>>(sql: string, values?: readonly unknown[]) {
+              const result = await client.query<Row>(sql, values === undefined ? [] : [...values]);
+              if (sql === "BEGIN READ ONLY")
+                await client.query(`SET LOCAL search_path TO pg_catalog, ${namespace}, public`);
+              return result;
+            },
+            release: client.release.bind(client),
+          } as PgLiveVerifierClient;
+        },
+      },
+    });
+    const strictSql = `SELECT ${namespace}.strict_null(1::bigint) AS result`;
+    let capture: Awaited<ReturnType<typeof acquireNativeProjectCatalog>>;
     for (let attempt = 0; ; attempt++) {
       try {
-        routineSource = await captureMetadata();
+        capture = await acquireNativeProjectCatalog({ adapter: projectNative, sql: [text, strictSql] });
         break;
       } catch (error) {
         if (!(error instanceof PostgresContractAcquisitionError) || error.reason !== "context-changed" || attempt >= 2)
           throw error;
       }
     }
-    const strictNull = postgres().analyze(`SELECT ${namespace}.strict_null(1::bigint) AS result`, {
-      ...routineSource,
-      dialect: "postgres",
-    });
-    strict.equal(
-      strictNull.columns[0]?.nullable,
-      true,
+    strict.equal(capture.status, "acquired");
+    if (capture.status !== "acquired") throw Error("Native project metadata is unavailable");
+    const projectCatalog = capture.catalog;
+    strict.equal(projectCatalog.entries.length, 2);
+    strict.ok(projectCatalog.entries.every((entry) => entry.permission === "fixed-result"));
+    const strictDeclaration = projectCatalog.entries
+      .map((entry) => entry.definition.routine as RoutineSnapshot)
+      .find((routine) => routine.name === "strict_null");
+    strict.equal(strictDeclaration?.nullInput, "strict");
+    strict.ok(
+      strictDeclaration?.result.kind === "scalar" && strictDeclaration.result.nullable,
       "STRICT does not prove a non-null result for non-null arguments",
     );
-    strict.equal((await pool.query(`SELECT ${namespace}.strict_null(1::bigint) AS result`)).rows[0]?.result, null);
-    const projectBase = {
-      ...upgradeSchemaSnapshotV1({ ...schema, dialectVersion: context.grammar.version, server: routineSource.server }),
-      dialect: "postgres" as const,
-    };
-    const projectContext = { ...context, schemaHash: calculateSchemaHash(projectBase) };
-    const projectCatalog = createPostgresProjectCatalog({
-      source: routineSource,
-      context: projectContext,
-      sql: [text],
-    });
-    strict.equal(projectCatalog.entries.length, 1);
-    strict.equal(projectCatalog.entries[0]!.permission, "fixed-result");
+    strict.equal((await pool.query(strictSql)).rows[0]?.result, null);
     const project = applyProjectCatalogs({
       schema: projectBase,
-      context: projectContext,
+      context: projectCatalog.context,
       typePolicy: postgres().defaultTypePolicy,
       catalogs: [JSON.parse(JSON.stringify(projectCatalog))],
       contributions: [createPostgresProjectCatalogContribution()],
@@ -795,6 +792,26 @@ export default defineConfig({
         context: current,
         candidate: { sql: text, parameterOccurrences },
       }),
+      (error: unknown) => error instanceof PostgresContractAcquisitionError && error.reason === "context-changed",
+    );
+    const driftingMetadata = {
+      ...projectNative,
+      async open(signal?: AbortSignal) {
+        const session = await projectNative.open(signal);
+        return {
+          ...session,
+          async projectCatalog(...args: Parameters<NonNullable<typeof session.projectCatalog>>) {
+            const result = await session.projectCatalog!(...args);
+            await pool.query(
+              `COMMENT ON FUNCTION ${namespace}.increment(bigint) IS 'changed during metadata acquisition'`,
+            );
+            return result;
+          },
+        };
+      },
+    };
+    await strict.rejects(
+      acquireNativeProjectCatalog({ adapter: driftingMetadata, sql: [text] }),
       (error: unknown) => error instanceof PostgresContractAcquisitionError && error.reason === "context-changed",
     );
     // A known context change retires disposable evidence, including old in-flight producers.
