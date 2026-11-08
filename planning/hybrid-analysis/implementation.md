@@ -667,6 +667,40 @@ Unrelated planning work is left unchanged.
   useful performance evidence. The isolated macro performance gate passed at the watch checkpoint.
   Full new-head CI and the broader architecture acceptance audit remain required.
 
+## Selected PostgreSQL native-signature profiles
+
+- Shared analyzer construction, resolver and semantic mechanics receive their native catalog
+  explicitly. Compatibility wrappers retain the previous `/analysis`, private resolver and routing
+  behavior. Lookup indexes are keyed by catalog identity, so contributions with the same major
+  cannot reuse each other's overload indexes.
+- Generated signatures partition by exact major membership. Fixed-major public factories and an
+  asynchronous selector load one native profile; snapshot evidence must match the selected major.
+  The ordinary compatibility entrypoint still loads every retained profile. Shared type/cast
+  registries remain eager across all six versions. This is not yet compact-core or optional-pack
+  selection and does not delete the full semantic distribution.
+- Deep comparison with the preceding generated module preserves all 19,857 ordered signature
+  records across PostgreSQL 14–19. Tests discover the majors from the feature ledger, check their
+  public packaging registrations and compare complete analysis results between compatibility,
+  async-selected and fixed factories. Unsupported/missing/mismatched version evidence fails closed.
+- Each major runs in a separate packed package copy after unrelated native profile/group files,
+  compatibility analyzers, providers and their declarations/maps are removed. Both selected APIs
+  work; the fixed factory also bundles and executes with only its native profile in the graph.
+  Declaration checking uses the independent packed consumer's TypeScript executable. The separate
+  frozen proof now removes the new factory/engine modules and generated analyzer entrypoints too.
+- All 37 PostgreSQL test files and coverage thresholds, all 68 contract files, incremental root
+  typechecking, quality, documentation production build and isolated performance gate pass. The
+  complete local restricted PostgreSQL native/editor/watch/offline/packed frozen CLI proof passes.
+  Generation bootstrap still works without host implementations or package manifests. Packaging
+  validation stays in the tests rather than making the generator read host implementation metadata.
+- The reproducible measurement script compares ordered records against commit `417c1d30` and
+  reports minified/gzip/Brotli factory footprints, native profiles, remaining eager type profiles
+  and input digests. Provisional PostgreSQL 18 factory gzip is 131,763 bytes versus 179,686 for the
+  compatibility factory (26.7% smaller). This is not application runtime or installed-package savings;
+  committed-input measurements are recorded separately after implementation is committed.
+- Newer merge-ref CI still reports a conservative stale-context rejection during PostgreSQL watch
+  recovery and an eager-root import in a browser fixture introduced on the advancing base branch.
+  Those are separate follow-ups; the local results do not certify the full merged PR matrix.
+
 ## Required work still open
 
 1. Complete the contract/evidence model: native descriptors and provenance, reusable/facet-specific

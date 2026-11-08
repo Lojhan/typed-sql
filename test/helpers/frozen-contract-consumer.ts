@@ -11,7 +11,12 @@ async function omitPostgresAnalyzer(consumer: string): Promise<void> {
   const grammar = join(consumer, "node_modules", "@typed-sql", "postgres", "dist", "packages", "postgres", "src");
   for (const path of [
     "catalog",
+    "analysis",
     "analysis.js",
+    "analysis-factory.js",
+    "selected-analysis.js",
+    "resolver-engine.js",
+    "semantics-engine.js",
     "resolver.js",
     "semantics.js",
     "provider.js",
@@ -62,8 +67,10 @@ async function assertRuntimeWithoutSemanticCatalogs(consumer: string, env: NodeJ
     for (const entry of exports)
       if (!development.includes(entry)) runtimeEntries.push(`@typed-sql/${name}${entry === "." ? "" : entry.slice(1)}`);
     await strip(join(grammar, "catalog"));
+    if (name === "postgres") await rm(join(grammar, "analysis"), { recursive: true, force: true });
     for (const module of [
       "analysis",
+      ...(name === "postgres" ? ["analysis-factory", "selected-analysis", "resolver-engine", "semantics-engine"] : []),
       "browser",
       "resolver",
       "semantics",

@@ -90,7 +90,13 @@ await describe("PostgreSQL versioned core catalogs", async () => {
       new URL("../../../scripts/generate-postgres-catalog.mjs", import.meta.url).pathname,
       "--check",
     ]);
-    const resolver = await readFile(new URL("../src/resolver.ts", import.meta.url), "utf8");
+    const resolver = (
+      await Promise.all(
+        ["resolver.ts", "resolver-engine.ts"].map((file) =>
+          readFile(new URL(`../src/${file}`, import.meta.url), "utf8"),
+        ),
+      )
+    ).join("\n");
     const typePolicy = await readFile(new URL("../src/type-policy.ts", import.meta.url), "utf8");
     strict.ok(!resolver.includes("const booleanOperators"));
     strict.ok(!resolver.includes("const numericTypes"));

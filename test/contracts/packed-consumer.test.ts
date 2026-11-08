@@ -12,6 +12,7 @@ import { assertMinimalGrammarConsumer } from "../helpers/minimal-grammar-consume
 import { packedConsumerOverrides } from "../helpers/packed-editor-consumer.js";
 import { ensurePackedEditorSdk } from "../helpers/packed-editor-sdk.js";
 import { assertPortableWorkerConsumer } from "../helpers/portable-worker-consumer.js";
+import { assertSelectedPostgresConsumer } from "../helpers/selected-postgres-consumer.js";
 import { assertSqlFileConsumer } from "../helpers/sql-file-consumer.js";
 
 const execFile = promisify(execFileCallback);
@@ -501,6 +502,7 @@ await describe("packed public packages", async () => {
           createRequire(join(workspace, "packages/adapters/package.json")).resolve("miniflare"),
         ).href,
       });
+      await assertSelectedPostgresConsumer(consumer, workspace, isolatedEnvironment);
       await assertFrozenContractConsumer(consumer, isolatedEnvironment);
     } finally {
       await rm(temporary, { recursive: true, force: true });

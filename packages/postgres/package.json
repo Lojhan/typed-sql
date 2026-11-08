@@ -32,7 +32,14 @@
     "developmentEntrypoints": [
       "./analysis",
       "./reconciliation",
-      "./migrations"
+      "./migrations",
+      "./analysis/selected",
+      "./analysis/profiles/14",
+      "./analysis/profiles/15",
+      "./analysis/profiles/16",
+      "./analysis/profiles/17",
+      "./analysis/profiles/18",
+      "./analysis/profiles/19"
     ]
   },
   "sideEffects": false,
@@ -53,7 +60,14 @@
     "./pg-contracts": "./dist/packages/postgres/src/pg-contracts.js",
     "./reconciliation": "./dist/packages/postgres/src/reconciliation.js",
     "./contract-profile": "./dist/packages/postgres/src/contract-profile.js",
-    "./analysis": "./dist/packages/postgres/src/analysis.js"
+    "./analysis": "./dist/packages/postgres/src/analysis.js",
+    "./analysis/selected": "./dist/packages/postgres/src/selected-analysis.js",
+    "./analysis/profiles/14": "./dist/packages/postgres/src/analysis/generated/14.js",
+    "./analysis/profiles/15": "./dist/packages/postgres/src/analysis/generated/15.js",
+    "./analysis/profiles/16": "./dist/packages/postgres/src/analysis/generated/16.js",
+    "./analysis/profiles/17": "./dist/packages/postgres/src/analysis/generated/17.js",
+    "./analysis/profiles/18": "./dist/packages/postgres/src/analysis/generated/18.js",
+    "./analysis/profiles/19": "./dist/packages/postgres/src/analysis/generated/19.js"
   },
   "dependencies": {
     "@typed-sql/ast": "workspace:*",

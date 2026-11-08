@@ -34,6 +34,7 @@
       "!!grammar/sqlserver/facts/catalog.json",
       "!!packages/*/src/codecs/generated",
       "!!packages/postgres/src/catalog/generated",
+      "!!packages/postgres/src/analysis/generated",
       "!!packages/mysql/src/catalog/generated",
       "!!packages/duckdb/src/catalog/generated",
       "!!packages/sqlite/src/catalog/generated",

@@ -275,6 +275,7 @@ import type {
   PostgresTransaction,
 } from "../../packages/postgres/src/runtime.js";
 import * as postgresRuntimeApi from "../../packages/postgres/src/runtime.js";
+import * as postgresSelectedApi from "../../packages/postgres/src/selected-analysis.js";
 import * as schemaApi from "../../packages/schema/src/index.js";
 import * as schemaSnapshotApi from "../../packages/schema/src/snapshot.js";
 import * as sqliteApi from "../../packages/sqlite/src/analysis.js";
@@ -1308,6 +1309,7 @@ const expectedRuntimeExports = {
     "MySqlWarningInspectionError",
   ],
   opentelemetry: ["createOpenTelemetryObserver"],
+  postgresSelected: ["loadPostgresAnalyzer"],
   postgresAnalysis: [
     "POSTGRES_DIALECT_VERSION",
     "POSTGRES_EXTENSION_MANIFEST_FORMAT_VERSION",
@@ -1493,6 +1495,7 @@ await describe("stable public API", async () => {
       mysqlRuntime: Object.keys(mysqlRuntimeApi).sort(),
       opentelemetry: Object.keys(openTelemetryApi).sort(),
       postgresAnalysis: Object.keys(postgresApi).sort(),
+      postgresSelected: Object.keys(postgresSelectedApi).sort(),
       postgres: Object.keys(postgresRootApi).sort(),
       pg: Object.keys(pgApi).sort(),
       postgresRuntime: Object.keys(postgresRuntimeApi).sort(),

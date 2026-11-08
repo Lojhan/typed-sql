@@ -65,13 +65,62 @@ export async function generateCatalog({ groups, semanticGroups, input, emit, hea
       return [group.band, ordered(signatures)];
     }),
   );
-  const shared = ordered([...sourceSignatures.values()].flat());
-  const indexes = new Map(shared.map((signature, index) => [JSON.stringify(signature), index]));
-  let native = `${header}import type { PostgresNativeSignature } from "../native.js";\nconst entries: readonly PostgresNativeSignature[] = ${rowsLiteral(shared)};\nexport const nativeSignatures: Readonly<Record<number, readonly PostgresNativeSignature[]>> = {\n`;
-  for (const group of postgres) {
-    const signatures = sourceSignatures.get(group.band);
-    native += `  ${group.band}: [${signatures.map((signature) => `entries[${indexes.get(JSON.stringify(signature))}]!`).join(",")}],\n`;
+  // Partition by exact profile membership. A selected profile imports only groups it uses.
+  const memberships = new Map();
+  for (const [major, signatures] of sourceSignatures)
+    for (const signature of signatures) {
+      const key = JSON.stringify(signature);
+      const entry = memberships.get(key) ?? { signature, majors: [] };
+      entry.majors.push(major);
+      memberships.set(key, entry);
+    }
+  const partitions = new Map();
+  for (const { signature, majors } of memberships.values()) {
+    const name = majors
+      .map(Number)
+      .sort((a, b) => a - b)
+      .join("-");
+    const rows = partitions.get(name) ?? [];
+    rows.push(signature);
+    partitions.set(name, rows);
   }
-  native += "};\n";
-  await emit("packages/postgres/src/catalog/generated/native.ts", native);
+  const locations = new Map();
+  for (const [name, values] of [...partitions].sort(([a], [b]) => a.localeCompare(b))) {
+    const signatures = ordered(values);
+    signatures.forEach((signature, index) => {
+      locations.set(JSON.stringify(signature), { name, index });
+    });
+    await emit(
+      `packages/postgres/src/catalog/generated/native/groups/${name}.ts`,
+      `${header}import type { PostgresNativeSignature } from "../../../native-resolution.js";\nexport const entries: readonly PostgresNativeSignature[] = ${rowsLiteral(signatures)};\n`,
+    );
+  }
+  for (const [major, signatures] of sourceSignatures) {
+    const groups = [...new Set(signatures.map((signature) => locations.get(JSON.stringify(signature)).name))].sort();
+    const aliases = new Map(groups.map((name, index) => [name, `group${index}`]));
+    await emit(
+      `packages/postgres/src/catalog/generated/native/${major}.ts`,
+      `${header}import type { PostgresNativeSignature } from "../../native-resolution.js";\n${groups.map((name) => `import {entries as ${aliases.get(name)}} from "./groups/${name}.js";`).join("\n")}\nexport const nativeSignatures: readonly PostgresNativeSignature[] = Object.freeze([${signatures
+        .map((signature) => {
+          const { name, index } = locations.get(JSON.stringify(signature));
+          return `${aliases.get(name)}[${index}]!`;
+        })
+        .join(",")}]);\n`,
+    );
+  }
+  for (const major of sourceSignatures.keys()) {
+    await emit(
+      `packages/postgres/src/analysis/generated/${major}.ts`,
+      `${header}import {createPostgresAnalyzer} from "../../analysis-factory.js";\nimport type {PostgresDialectOptions} from "../../analysis-options.js";\nimport {nativeSignatures} from "../../catalog/generated/native/${major}.js";\nexport type {PostgresDialectOptions} from "../../analysis-options.js";\nexport function postgres(options:PostgresDialectOptions={}) {return createPostgresAnalyzer(options,Object.freeze({${major}:nativeSignatures}),${major});}\n`,
+    );
+  }
+  const majors = [...sourceSignatures.keys()];
+  await emit(
+    "packages/postgres/src/catalog/generated/native.ts",
+    `${header}import type { PostgresNativeCatalog } from "../native-resolution.js";\n${majors.map((major) => `import {nativeSignatures as native${major}} from "./native/${major}.js";`).join("\n")}\nexport const nativeSignatures: PostgresNativeCatalog = Object.freeze({${majors.map((major) => `${major}:native${major}`).join(",")}});\n`,
+  );
+  await emit(
+    "packages/postgres/src/catalog/generated/native-loader.ts",
+    `${header}import type { PostgresNativeSignature } from "../native-resolution.js";\nconst loaders: Readonly<Record<number,()=>Promise<{readonly nativeSignatures:readonly PostgresNativeSignature[]}>>> = {${majors.map((major) => `${major}:()=>import("./native/${major}.js")`).join(",")}};\nexport async function loadPostgresNativeSignatures(major:number):Promise<readonly PostgresNativeSignature[]> {if(!Number.isSafeInteger(major)||!Object.hasOwn(loaders,major))throw new RangeError("Unsupported PostgreSQL native-signature profile");return (await loaders[major]!()).nativeSignatures;}\n`,
+  );
 }
