@@ -20,7 +20,8 @@ let changed: string | undefined;
 const api = new NativeAPI({
   cwd: input.cwd,
   fs: {
-    fileExists: (file) => (fileKey(file) === virtualProject ? true : undefined),
+    fileExists: (file) =>
+      fileKey(file) === virtualProject || Object.hasOwn(input.files, fileKey(file)) ? true : undefined,
     readFile(file) {
       if (fileKey(file) === virtualProject)
         return JSON.stringify({

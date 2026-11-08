@@ -9,6 +9,13 @@ export { exportQueryContracts, loadQueryContracts } from "./artifacts.js";
 export type { AnalysisCache, AnalysisCacheLookup, AnalysisCacheOptions, AnalysisCacheToken } from "./cache.js";
 export { openAnalysisCache } from "./cache.js";
 export { canonicalContractData, exactSqlDigest, queryContractDigest } from "./canonical.js";
+export type {
+  AnalysisConfiguration,
+  AnalysisMode,
+  ContractInterpreterIdentity,
+  ResolvedAnalysisConfiguration,
+} from "./configuration.js";
+export { defineAnalysisConfiguration, loadFrozenContractView } from "./configuration.js";
 export type { QueryContract, QueryContractContext } from "./contracts.js";
 export {
   createQueryContract,

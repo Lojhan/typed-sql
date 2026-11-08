@@ -11,6 +11,7 @@ description: PostgreSQL grammar coverage, catalog introspection, application-own
 ## Public entrypoints
 
 - `@typed-sql/postgres/profile` — lightweight grammar profile for exact query-contract consumption, without the SQL analyzer or global routine catalogs.
+- `@typed-sql/postgres/contract-profile` — pure interpreter identities and reconciliation-owner revisions for independently checking recorded contract compatibility.
 - `@typed-sql/postgres/tag` — `sql`, renderer and runtime plan primitives without analyzer imports.
 - `@typed-sql/postgres/reconciliation` — pure grammar-owned comparisons between native evidence and independent static claims.
 - `@typed-sql/postgres/pg-contracts` — explicit native query-contract acquisition over a dedicated application-owned pool.

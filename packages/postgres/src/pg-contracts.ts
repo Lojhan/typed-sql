@@ -8,6 +8,7 @@ import type {
 } from "@typed-sql/analysis";
 import { queryContractDigest } from "@typed-sql/analysis";
 import { calculateSchemaHash, calculateTypePolicyHash } from "@typed-sql/schema";
+import { postgresContractAdapterVersion, postgresContractIdentity } from "./contract-profile.js";
 import { parseStatement } from "./parser/parser.js";
 import type { Expression } from "./parser/types.js";
 import type { PgLiveVerifierPool } from "./pg.js";
@@ -22,7 +23,7 @@ import {
 } from "./type-policy.js";
 import { POSTGRES_DIALECT_VERSION } from "./version.js";
 
-const adapterVersion = "postgres-contract-describe-v2";
+const adapterVersion = postgresContractAdapterVersion;
 const adapterId = "@typed-sql/postgres/pg-contracts";
 const known = <Value>(value: Value) => ({ status: "known" as const, value });
 const unknown = (reason: string) => ({ status: "unknown" as const, reason });
@@ -239,12 +240,10 @@ export function createPgNativeContractAdapter(options: PgNativeContractOptions):
         contextSignal?.throwIfAborted();
         return {
           grammar: { id: "postgres", version: POSTGRES_DIALECT_VERSION },
-          profileHash: queryContractDigest({ profile: "postgres-expression-profile-v1" }),
+          ...postgresContractIdentity(policy),
           schemaHash: calculateSchemaHash(schema),
           databaseContextHash: queryContractDigest({ version: row.version, catalog: row.fingerprint }),
           typePolicyHash: calculateTypePolicyHash(policy),
-          codecHash: queryContractDigest({ codec: "postgres-wire-v1", policy }),
-          interpreterHash: queryContractDigest(adapterVersion),
         };
       },
       async describe(candidate, describeSignal): Promise<NativeQueryContractEvidence> {

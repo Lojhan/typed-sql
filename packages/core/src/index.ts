@@ -249,6 +249,7 @@ export type {
   DialectCapabilities,
   DialectPlugin,
   DialectProfile,
+  DialectRegistration,
   DomainSnapshot,
   FunctionSnapshot,
   GeneratedSchemaMetadata,
@@ -269,6 +270,7 @@ export type {
   QueryPlanSample,
   QueryPlanSampleProvider,
   QueryPlanSampleRequest,
+  RegisteredTypedSqlConfig,
   ResolvedColumn,
   ResolvedParameter,
   SchemaProvider,
@@ -283,6 +285,7 @@ export type {
   StructuralRoutineSnapshot,
   TableSnapshot,
   TypedSqlConfig,
+  TypedSqlConfigSource,
 } from "./types.js";
 export {
   assertDialectPlugin,

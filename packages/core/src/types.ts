@@ -264,6 +264,12 @@ export interface DialectPlugin<Snapshot extends SchemaSnapshot = SchemaSnapshot,
   analyze(sql: string, snapshot: Snapshot, policy?: Policy, context?: DialectAnalysisContext): DialectAnalysis;
 }
 
+/** Pure profile plus an optional explicit asynchronous semantic owner. */
+export interface DialectRegistration<Snapshot extends SchemaSnapshot = SchemaSnapshot, Policy = unknown>
+  extends DialectProfile<Snapshot, Policy> {
+  readonly loadAnalyzer?: () => DialectPlugin<Snapshot, Policy> | Promise<DialectPlugin<Snapshot, Policy>>;
+}
+
 export interface SchemaProvider<Snapshot extends SchemaSnapshot = SchemaSnapshot> {
   introspect(): Promise<Snapshot>;
 }
@@ -424,6 +430,8 @@ export interface PlaygroundConfiguration {
 export interface TypedSqlConfig<Snapshot extends SchemaSnapshot = SchemaSnapshot, Policy = unknown> {
   /** Optional migration configuration, validated by @typed-sql/migrations without an implementation dependency. */
   readonly migrations?: unknown;
+  /** Validated by the artifact-aware host; core does not depend on its implementation. */
+  readonly analysis?: unknown;
   readonly dialect: DialectPlugin<Snapshot, Policy>;
   readonly schema: {
     readonly file: string;
@@ -465,6 +473,14 @@ export interface TypedSqlConfig<Snapshot extends SchemaSnapshot = SchemaSnapshot
     readonly failOn?: "none" | "violation" | "uncertainty";
   };
 }
+
+export interface RegisteredTypedSqlConfig<Snapshot extends SchemaSnapshot = SchemaSnapshot, Policy = unknown>
+  extends Omit<TypedSqlConfig<Snapshot, Policy>, "dialect"> {
+  readonly dialect: DialectRegistration<Snapshot, Policy>;
+}
+export type TypedSqlConfigSource<Snapshot extends SchemaSnapshot = SchemaSnapshot, Policy = unknown> =
+  | TypedSqlConfig<Snapshot, Policy>
+  | RegisteredTypedSqlConfig<Snapshot, Policy>;
 
 function record(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -653,8 +669,20 @@ function assertPlanBudgets(config: Pick<TypedSqlConfig, "plans">): void {
 
 export function defineConfig<Snapshot extends SchemaSnapshot, Policy>(
   config: TypedSqlConfig<Snapshot, Policy>,
-): TypedSqlConfig<Snapshot, Policy> {
-  assertDialectPlugin(config.dialect);
+): TypedSqlConfig<Snapshot, Policy>;
+export function defineConfig<Snapshot extends SchemaSnapshot, Policy>(
+  config: RegisteredTypedSqlConfig<Snapshot, Policy>,
+): RegisteredTypedSqlConfig<Snapshot, Policy>;
+export function defineConfig<Snapshot extends SchemaSnapshot, Policy>(
+  config: TypedSqlConfigSource<Snapshot, Policy>,
+): TypedSqlConfigSource<Snapshot, Policy> {
+  if (typeof config.dialect === "object" && config.dialect !== null && "analyze" in config.dialect)
+    assertDialectPlugin(config.dialect);
+  else {
+    assertDialectProfile(config.dialect);
+    if (config.dialect.loadAnalyzer !== undefined && typeof config.dialect.loadAnalyzer !== "function")
+      throw new TypeError("typed-sql dialect.loadAnalyzer must be a function");
+  }
   assertCompilerConfig(config);
   assertVerificationConfig(config);
   assertCompatibilityConfig(config);

@@ -124,6 +124,7 @@ const expectedEntrypoints: Readonly<Record<(typeof publicPackages)[number], read
     "./profile",
     "./tag",
     "./pg-contracts",
+    "./contract-profile",
     "./reconciliation",
   ],
   mysql: [".", "./runtime", "./mysql2", "./query"],

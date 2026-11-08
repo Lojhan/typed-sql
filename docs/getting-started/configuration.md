@@ -60,6 +60,65 @@ pnpm exec typed-sql check --project tsconfig.json
 The generated files are compiler inputs, not application imports. Commit the snapshot when review and
 CI need a stable schema identity.
 
+## Checking durable query contracts
+
+`typed-sql check --frozen` checks a project using a declared durable query-contract closure.
+It requires an `analysis` configuration and a lightweight dialect profile. Missing contracts,
+changed schema or decoding policies, and incompatible qualification evidence fail checking.
+The command reads neither the disposable cache nor a database connection.
+
+For PostgreSQL, register the profile separately from its optional analyzer:
+
+```ts
+import { defineConfig } from "@typed-sql/core";
+import { defineAnalysisConfiguration } from "@typed-sql/analysis";
+import { postgresProfile } from "@typed-sql/postgres/profile";
+import {
+  postgresContractIdentity,
+  postgresContractReconciliationOwner,
+} from "@typed-sql/postgres/contract-profile";
+import recordedContext from "./generated/db/analysis-context.json" with { type: "json" };
+
+export default defineConfig({
+  dialect: {
+    ...postgresProfile(),
+    loadAnalyzer: async () => (await import("@typed-sql/postgres")).postgres(),
+  },
+  schema: { file: "generated/db/schema.json" },
+  outDir: "generated/db",
+  projects: ["tsconfig.json"],
+  analysis: defineAnalysisConfiguration({
+    mode: "frozen",
+    context: recordedContext,
+    identity: postgresContractIdentity(),
+    contractsDir: "generated/db/contracts",
+    qualification: {
+      mode: "native-required",
+      owner: postgresContractReconciliationOwner,
+      requiredNativeFacets: [],
+    },
+  }),
+});
+```
+
+The context file records the acquisition context; it does not establish current database freshness.
+The installed interpreter supplies compatibility identities independently of the artifacts.
+Use the same qualification policy when producing and consuming contracts. A native-required policy
+requires a qualified comparison proof even when its additional native-facet list is empty.
+
+Publish the durable closure with `exportQueryContracts()` from `@typed-sql/analysis` after acquiring
+and qualifying its contracts. Commit the manifest and every referenced object alongside the context
+and schema. The CLI consumes this explicit closure; ordinary schema generation does not create it.
+Changing SQL requires matching contracts for the new statements.
+
+```sh
+pnpm exec typed-sql check --frozen --project tsconfig.json
+```
+
+Setting `analysis.mode` to `"frozen"` also selects this path without the flag. The optional
+`loadAnalyzer` callback remains unloaded during frozen checking. SQL-file imports receive
+in-memory factory declarations, so checking does not write adjacent declaration files.
+
 ## Production profile
 
 The following complete PostgreSQL profile starts from the same minimum and enables each artifact

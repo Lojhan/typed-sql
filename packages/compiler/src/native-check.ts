@@ -83,6 +83,7 @@ export async function runNativeCheck(options: {
   const files = await listProjectSourceFiles({
     project: options.project,
     cwd,
+    includeSqlAssets: true,
     typeScriptTimeoutMs: options.timeout,
     ...(options.file === undefined ? {} : { entryFile: options.file }),
   });
@@ -94,6 +95,20 @@ export async function runNativeCheck(options: {
       known.add(fileKey(key));
     }
   }
+  const virtualFiles: Record<string, string> = Object.fromEntries(
+    [...options.analyses].map(([file, analysis]) => [fileKey(file), analysis.transformedSource]),
+  );
+  const sqlDeclarations = new Map<string, string>();
+  for (const [file, analysis] of options.analyses)
+    if (/\.sql$/iu.test(file)) {
+      const declaration = fileKey(file.replace(/\.sql$/iu, ".d.sql.ts"));
+      if (Object.hasOwn(virtualFiles, declaration) && virtualFiles[declaration] !== analysis.transformedSource)
+        throw new Error(
+          `SQL asset declaration conflicts with generated evidence: ${declaration}. Remove or regenerate that declaration.`,
+        );
+      virtualFiles[declaration] = analysis.transformedSource;
+      sqlDeclarations.set(declaration, file);
+    }
   const virtualProject = options.file === undefined ? undefined : join(cwd, `.typed-sql-check-${randomUUID()}.json`);
   const worker = new Worker(
     new URL(
@@ -111,9 +126,7 @@ export async function runNativeCheck(options: {
         project: options.project,
         file: options.file,
         virtualProject,
-        files: Object.fromEntries(
-          [...options.analyses].map(([file, analysis]) => [fileKey(file), analysis.transformedSource]),
-        ),
+        files: virtualFiles,
       },
     },
   );
@@ -135,8 +148,12 @@ export async function runNativeCheck(options: {
         else resolveCheck(message.diagnostics);
       });
     });
+    const mapped = diagnostics.map((item) => {
+      const asset = item.fileName === undefined ? undefined : sqlDeclarations.get(fileKey(item.fileName));
+      return asset === undefined ? item : { ...item, fileName: asset, pos: 0 };
+    });
     const unique = [
-      ...new Map(diagnostics.map((item) => [`${item.fileName}:${item.pos}:${item.code}:${item.text}`, item])).values(),
+      ...new Map(mapped.map((item) => [`${item.fileName}:${item.pos}:${item.code}:${item.text}`, item])).values(),
     ];
     const byFile = new Map([...options.analyses].map(([file, analysis]) => [fileKey(file), analysis]));
     return {

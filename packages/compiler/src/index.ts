@@ -89,6 +89,7 @@ export {
   QUERY_MANIFEST_JSON_SCHEMA,
   serializeQueryManifest,
 } from "./manifest.js";
+export { findConfig as findTypeScriptConfig } from "./native-check.js";
 export type {
   CapturedQueryPlanEntry,
   CaptureQueryPlansOptions,

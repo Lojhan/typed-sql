@@ -199,6 +199,37 @@ Unrelated planning work is left unchanged.
   descriptors, source-graph orchestration, qualification over all variants, CLI/editor integration
   and the remaining facet/parameter authority model are still required.
 
+## Frozen configuration and CLI checkpoint
+
+- Added real profile registrations with an optional explicit lazy analyzer loader. Config discovery
+  returns raw registrations without initializing semantic owners; explicit owner resolution coalesces
+  requests, preserves profile rendering/policy, binds owner methods and tracks lazy-imported source
+  dependencies. Legacy hosts reject analysis configurations before initializing an analyzer.
+- Added data-only analysis configuration and durable frozen views. Installed/configured interpreter
+  identities are checked independently of recorded artifacts, alongside grammar, schema, decoding
+  policy and qualification policy. Frozen views load only the declared durable closure.
+- `check --frozen` and `analysis.mode: "frozen"` select the actual CLI path. It collects candidates
+  before checking, rejects unavailable structural coverage, supplies the synchronous contract view
+  to TypeScript and fences source/config/schema/project/closure changes during checking. Analyzer
+  factories, schema providers and disposable cache files remain unused.
+- Native TypeScript checking now discovers SQL assets and supplies their generated factory
+  declarations through the in-memory filesystem. Invalid parameter types are rejected at the
+  consumer; conflicting physical declarations fail rather than override evidence. SQL asset source
+  analysis obeys configured source/declaration limits and reports unsupported SQL conservatively.
+- PostgreSQL exposes pure contract compatibility identities without importing its analyzer or native
+  client. The real PostgreSQL 18.3 proof consumes its qualified native closure through the high-level
+  frozen loader after clients close, and in the distribution-only isolated process with heavy
+  analyzer/native files removed. The CLI proof additionally checks the real native closure with
+  analyzer/provider factories that throw if called. This does not yet prove the CLI itself runs in
+  that physically stripped installation.
+- Local checks pass core/config/analysis/compiler/CLI/PostgreSQL suites, full typechecking,
+  quality, public API/package graph/documentation checks, packed consumers and the performance
+  gate. Compiler coverage is 96.85% lines, 99.57% functions and 91.08% branches; config coverage is
+  100% lines/functions and 96.62% branches. Exact-head CI remains separate evidence.
+- Frozen CLI is the implemented product mode at this checkpoint. Offline/live orchestration,
+  generation/watch/editor integration, project-wide resource admission, all-engine qualification,
+  and final physically stripped native CLI proofs remain required. Bulk catalogs still ship.
+
 ## Required work still open
 
 1. Complete the contract/evidence model: native descriptors and provenance, reusable/facet-specific

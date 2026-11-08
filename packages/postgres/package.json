@@ -46,7 +46,8 @@
     "./profile": "./dist/packages/postgres/src/profile.js",
     "./tag": "./dist/packages/postgres/src/tag.js",
     "./pg-contracts": "./dist/packages/postgres/src/pg-contracts.js",
-    "./reconciliation": "./dist/packages/postgres/src/reconciliation.js"
+    "./reconciliation": "./dist/packages/postgres/src/reconciliation.js",
+    "./contract-profile": "./dist/packages/postgres/src/contract-profile.js"
   },
   "dependencies": {
     "@typed-sql/ast": "workspace:*",

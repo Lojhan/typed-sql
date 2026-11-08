@@ -2,7 +2,7 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
-import { dirname, join, parse, relative, resolve } from "node:path";
+import { dirname, join, parse, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   analyzeSchemaCompatibility,
@@ -27,7 +27,7 @@ import {
   typeScriptCompilerVersionSupport,
   verifyQueryManifest,
 } from "@typed-sql/compiler";
-import { fromConfig, type LoadedConfig, loadConfig } from "@typed-sql/config";
+import { fromConfig, type LoadedConfig, loadConfigSource, resolveConfigDialect } from "@typed-sql/config";
 import {
   createDebugEvent,
   createSupportBundle,
@@ -44,6 +44,8 @@ import {
   parseSchemaSnapshot,
   writeArtifactFiles,
 } from "@typed-sql/schema";
+import { reportCheckedFiles } from "./check-report.js";
+import { runFrozenCheck } from "./frozen-check.js";
 import { runInit } from "./init.js";
 import { runMigrationCli } from "./migrate.js";
 import { runPlayground } from "./playground.js";
@@ -111,6 +113,7 @@ Global options:
 
 Examples:
   typed-sql capabilities --config typed-sql.config.ts
+  typed-sql check --frozen --project tsconfig.json
   typed-sql check --project tsconfig.json
   typed-sql check --file src/query.ts --project tsconfig.json --show-types
   typed-sql compat --before schema.before.json --after schema.after.json --before-manifest old.json --after-manifest new.json
@@ -136,6 +139,7 @@ function parseArguments(args: readonly string[]): ParsedArguments {
       argument === "--no-open" ||
       argument === "--show-types" ||
       argument === "--live" ||
+      argument === "--frozen" ||
       argument === "--json" ||
       argument === "--dry-run" ||
       argument === "--apply" ||
@@ -393,7 +397,20 @@ async function main(): Promise<void> {
   if (parsed.options["dry-run"] !== undefined) throw new Error("--dry-run is only supported by init");
   for (const flag of ["apply", "install", "verify", "recover", "allow-scripts"])
     if (parsed.options[flag] !== undefined) throw new Error(`--${flag} is only supported by init`);
-  const loaded = await loadConfig({ ...(parsed.options.config === undefined ? {} : { file: parsed.options.config }) });
+  if (parsed.options.frozen !== undefined && (parsed.options.frozen !== "true" || parsed.command !== "check"))
+    throw new Error("--frozen is supported as a boolean check option");
+  if (parsed.options.frozen !== undefined && parsed.options.live !== undefined)
+    throw new Error("--frozen and --live cannot be combined");
+  const loaded = await loadConfigSource({
+    ...(parsed.options.config === undefined ? {} : { file: parsed.options.config }),
+  });
+  if (parsed.command === "check" && (parsed.options.frozen !== undefined || loaded.config.analysis !== undefined)) {
+    const analysis = loaded.config.analysis as { readonly mode?: unknown } | undefined;
+    if (parsed.options.frozen === undefined && analysis?.mode !== "frozen")
+      throw new Error("This analysis host currently requires frozen mode; offline/live orchestration is not enabled.");
+    await runFrozenCheck(loaded, parsed.options);
+    return;
+  }
   const config = loaded.config;
   const dialect = config.dialect;
   const policy = config.typePolicy ?? dialect.defaultTypePolicy;
@@ -612,6 +629,7 @@ async function main(): Promise<void> {
   }
 
   if (parsed.command === "check") {
+    const dialect = (await resolveConfigDialect(loaded)).config.dialect;
     const common = {
       schema: schemaFile,
       dialect,
@@ -627,25 +645,14 @@ async function main(): Promise<void> {
       }[],
       output: string,
       ok: boolean,
-    ) => {
-      let sqlErrors = false;
-      for (const { file, analysis } of files) {
-        for (const diagnostic of analysis.diagnostics) {
-          sqlErrors ||= diagnostic.severity === "error";
-          const suggestion = diagnostic.suggestion === undefined ? "" : ` ${diagnostic.suggestion}`;
-          process.stderr.write(
-            `${file}:${diagnostic.range.line}:${diagnostic.range.column} - ${diagnostic.severity} ${diagnostic.code}: ${diagnostic.message}${suggestion}\n`,
-          );
-        }
-        if (parsed.options["show-types"] === "true")
-          for (const query of analysis.queries)
-            process.stdout.write(
-              `${relative(loaded.directory, file)}: ${query.binding?.name ?? `query ${query.index + 1}`} — ${query.queryType}\n`,
-            );
-      }
-      if (!sqlErrors && output) process.stderr.write(output);
-      if (!ok) process.exitCode = 1;
-    };
+    ) =>
+      reportCheckedFiles({
+        files,
+        output,
+        ok,
+        directory: loaded.directory,
+        showTypes: parsed.options["show-types"] === "true",
+      });
     if (parsed.options.file !== undefined) {
       const file = resolve(parsed.options.file);
       const result = await checkFile({
@@ -688,6 +695,7 @@ async function main(): Promise<void> {
   }
 
   if (parsed.command === "manifest") {
+    const dialect = (await resolveConfigDialect(loaded)).config.dialect;
     const schema = await readSnapshot(schemaFile, (value) => dialect.validateSnapshot(value));
     const { projects, sources } = await projectSources(loaded.directory, config.projects, parsed.options.project);
     const outFile = fromConfig(
@@ -733,7 +741,12 @@ async function main(): Promise<void> {
       const verifier = config.verification?.live;
       if (verifier === undefined)
         throw new Error("typed-sql verify --live requires verification.live in typed-sql.config.ts");
-      const candidates = await loadVerificationCandidates(loaded, schemaFile, manifest, parsed.options.project);
+      const candidates = await loadVerificationCandidates(
+        await resolveConfigDialect(loaded),
+        schemaFile,
+        manifest,
+        parsed.options.project,
+      );
       try {
         const result = await verifyQueryManifest({
           manifest,
@@ -794,7 +807,12 @@ async function main(): Promise<void> {
             JSON.parse(await readFile(fromConfig(loaded.directory, compareOption), "utf8")) as unknown,
           );
     const manifest = parseQueryManifest(JSON.parse(await readFile(manifestFile, "utf8")) as unknown);
-    const candidates = await loadVerificationCandidates(loaded, schemaFile, manifest, parsed.options.project);
+    const candidates = await loadVerificationCandidates(
+      await resolveConfigDialect(loaded),
+      schemaFile,
+      manifest,
+      parsed.options.project,
+    );
     try {
       const result = await captureQueryPlans({
         manifest,

@@ -93,6 +93,7 @@ export async function assertIsolatedPostgresContractConsumer(input: {
   source: string;
   expected: string;
   qualificationPolicyHash: string;
+  qualification: unknown;
 }): Promise<void> {
   const consumer = await mkdtemp(join(tmpdir(), "typed-sql-frozen-isolated-"));
   const workspace = fileURLToPath(new URL("../../", import.meta.url));
@@ -114,6 +115,7 @@ export async function assertIsolatedPostgresContractConsumer(input: {
         source: input.source,
         expected: input.expected,
         qualificationPolicyHash: input.qualificationPolicyHash,
+        qualification: input.qualification,
       }),
     );
     await writeFile(
@@ -138,8 +140,9 @@ import assert from "node:assert/strict";
 import { readFile, rm } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { collectSourceQueryCandidates, compileSource } from "@typed-sql/compiler";
-import { createContractDialect, loadQueryContracts } from "@typed-sql/analysis";
+import { loadFrozenContractView, loadQueryContracts } from "@typed-sql/analysis";
 import { postgresProfile } from "@typed-sql/postgres/profile";
+import { postgresContractIdentity } from "@typed-sql/postgres/contract-profile";
 import { connect } from "node:net";
 assert.throws(() => connect(9, "127.0.0.1"), /Frozen contract consumer attempted network access/u);
 const require = createRequire(import.meta.url);
@@ -155,7 +158,9 @@ assert.equal(candidates.complete, true);
 assert.equal(candidates.candidates.length, 1);
 assert.deepEqual(candidates.candidates[0].parameterOccurrences, contracts[0].nativeEvidence.parameterOccurrences);
 const result = compileSource({ source: input.source, schema: input.schema,
-  dialect: createContractDialect({ profile: postgresProfile(), context: input.context, contracts, qualificationPolicyHash: input.qualificationPolicyHash }), runtimeMetadata: true });
+  dialect: (await loadFrozenContractView({ profile: postgresProfile(), schema: input.schema, directory: "./contracts",
+    configuration: {mode: "frozen", context: input.context, identity: postgresContractIdentity(), qualification: input.qualification} })).dialect,
+  runtimeMetadata: true });
 assert.deepEqual(result.diagnostics, []);
 assert.equal(result.transformedSource, input.expected);
 const manifest = JSON.parse(await readFile("./contracts/manifest.json", "utf8"));

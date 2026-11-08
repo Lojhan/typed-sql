@@ -1,6 +1,8 @@
+import { execFile as callback } from "node:child_process";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { promisify } from "node:util";
 import type { Query } from "@typed-sql/core";
 import { Pool } from "pg";
 import { strict } from "poku";
@@ -12,6 +14,7 @@ import {
   createStaticQueryClaim,
   exportQueryContracts,
   type LiveAnalysisState,
+  loadFrozenContractView,
   loadQueryContracts,
   openAnalysisCache,
   parseContractQualificationPolicy,
@@ -19,6 +22,7 @@ import {
   reconcileQueryContract,
 } from "../../packages/analysis/src/index.js";
 import { collectSourceQueryCandidates, compileSource } from "../../packages/compiler/src/index.js";
+import { postgresContractIdentity } from "../../packages/postgres/src/contract-profile.js";
 import { postgres } from "../../packages/postgres/src/index.js";
 import { adaptPgPool, type PgLiveVerifierPool } from "../../packages/postgres/src/pg.js";
 import {
@@ -256,16 +260,63 @@ export async function assertPostgresNativeContracts(connectionString: string, di
     const offline = compileSource({
       source: application,
       schema,
-      dialect: createContractDialect({
-        profile,
-        context,
-        contracts: await loadQueryContracts(durable),
-        qualificationPolicyHash,
-      }),
+      dialect: (
+        await loadFrozenContractView({
+          profile,
+          schema,
+          directory: durable,
+          configuration: {
+            mode: "frozen",
+            context,
+            identity: postgresContractIdentity(),
+            qualification,
+          },
+        })
+      ).dialect,
       runtimeMetadata: true,
     });
     strict.deepEqual(offline.diagnostics, []);
     strict.equal(offline.transformedSource, compiled.transformedSource);
+    // Exercise the product host with the real durable native closure, after native clients close.
+    await writeFile(join(temporary, "schema.json"), JSON.stringify(schema));
+    await writeFile(
+      join(temporary, "application.ts"),
+      application.replace('"@typed-sql/postgres"', '"@typed-sql/postgres/tag"'),
+    );
+    await writeFile(
+      join(temporary, "tsconfig.json"),
+      JSON.stringify({
+        compilerOptions: {
+          strict: true,
+          target: "ESNext",
+          module: "NodeNext",
+          moduleResolution: "NodeNext",
+          noEmit: true,
+        },
+        files: ["application.ts"],
+      }),
+    );
+    await writeFile(
+      join(temporary, "typed-sql.config.mjs"),
+      `
+import {defineConfig} from "@typed-sql/core";
+import {postgresProfile} from "@typed-sql/postgres/profile";
+import {postgresContractIdentity} from "@typed-sql/postgres/contract-profile";
+export default defineConfig({
+  dialect: {...postgresProfile(), loadAnalyzer(){throw Error("Frozen native proof initialized an analyzer");}},
+  schema: {file: "schema.json", provider: {introspect(){throw Error("Frozen native proof opened a provider");}}},
+  outDir: "generated", projects: ["tsconfig.json"],
+  analysis: {mode: "frozen", context: ${JSON.stringify(context)}, identity: postgresContractIdentity(),
+    contractsDir: "contracts", qualification: ${JSON.stringify(qualification)}}
+});`,
+    );
+    const checked = await promisify(callback)(
+      process.execPath,
+      [join(directory, "packages/cli/dist/packages/cli/src/cli.js"), "check", "--frozen", "--show-types"],
+      { cwd: temporary, maxBuffer: 8 * 1024 * 1024 },
+    );
+    strict.match(checked.stdout, /Frozen checked 1 project\(s\), 1 query\(s\)/u);
+    strict.match(checked.stdout, /bigint/u);
     strict.equal(
       createContractDialect({ profile, context, contracts: [] }).analyze(text, schema).diagnostics[0]?.code,
       "TSQ406",
@@ -277,6 +328,7 @@ export async function assertPostgresNativeContracts(connectionString: string, di
       source: application,
       expected: compiled.transformedSource,
       qualificationPolicyHash,
+      qualification,
     });
     // Cleanup uses a distinct administrative connection, after disconnected reuse has been proved.
     const cleanup = new Pool({ connectionString });

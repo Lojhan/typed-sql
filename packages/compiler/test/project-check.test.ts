@@ -9,6 +9,40 @@ const fixture = resolve(dirname(fileURLToPath(import.meta.url)), "../../../test/
 const schema = join(fixture, "schema.json");
 
 await describe("project-wide native checking", async () => {
+  await it("checks SQL asset factories in memory and rejects conflicting declarations", async () => {
+    const root = await mkdtemp(join(fixture, ".project-assets-"));
+    try {
+      const project = join(root, "tsconfig.json");
+      const asset = join(root, "lookup.sql");
+      const consumer = join(root, "consumer.ts");
+      await writeFile(
+        project,
+        JSON.stringify({
+          extends: "../tsconfig.json",
+          compilerOptions: { declarationMap: false, allowArbitraryExtensions: true },
+          files: ["consumer.ts"],
+          include: [],
+        }),
+      );
+      await writeFile(asset, "SELECT id, name FROM users WHERE id = :id");
+      const source = 'import lookup from "./lookup.sql";\nexport const query = lookup({id: 1});\n';
+      await writeFile(consumer, source);
+      const before = await readdir(root);
+      const valid = await checkProject({ project, schema, dialect: postgres() });
+      strict.equal(valid.ok, true, valid.typeScript.output);
+      strict.equal(valid.files.find(({ file }) => file === asset)?.analysis.queries.length, 1);
+      strict.deepEqual(await readdir(root), before);
+      await writeFile(consumer, source.replace("id: 1", 'id: "wrong"'));
+      const invalid = await checkProject({ project, schema, dialect: postgres() });
+      strict.equal(invalid.ok, false);
+      strict.match(invalid.typeScript.output, /consumer\.ts.*not assignable/u);
+      await writeFile(join(root, "lookup.d.sql.ts"), "declare const stale: string; export default stale;");
+      await strict.rejects(checkProject({ project, schema, dialect: postgres() }), /declaration conflicts/u);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   await it("shares inferred contracts through aliases, re-exports and cross-file consumers without writing sources", async () => {
     const root = await mkdtemp(join(fixture, ".project-check-"));
     try {

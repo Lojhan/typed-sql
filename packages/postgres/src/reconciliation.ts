@@ -6,6 +6,7 @@ import type {
 } from "@typed-sql/analysis";
 import { canonicalContractData } from "@typed-sql/analysis";
 import { postgresCatalogType } from "./catalog/index.js";
+import { postgresContractReconciliationOwner } from "./contract-profile.js";
 import type { PostgresProfileSnapshot } from "./profile.js";
 import { postgresRuntimeValueType } from "./query.js";
 import { defaultPostgresTypePolicy, type PostgresTypePolicy } from "./type-policy.js";
@@ -52,8 +53,7 @@ export function createPostgresContractReconciler(
 ): ContractReconciliationContribution {
   const policy = Object.freeze({ ...(options.typePolicy ?? defaultPostgresTypePolicy) });
   return Object.freeze({
-    id: "@typed-sql/postgres/reconciliation",
-    version: "postgres-contract-reconciliation-v1",
+    ...postgresContractReconciliationOwner,
     grammar: { id: "postgres", version: POSTGRES_DIALECT_VERSION },
     classify(claim) {
       return claim.diagnostics.some((item) => item.severity === "error")

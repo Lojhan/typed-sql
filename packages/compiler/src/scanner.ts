@@ -1236,7 +1236,11 @@ export function extractAppendFragments(
   return fragments;
 }
 
-export function mapSqlRange(source: string, query: ExtractedQuery, range: SourceRange): SourceRange {
+export function mapSqlRange(
+  source: string,
+  query: Pick<ExtractedQuery, "range" | "sqlOffsetMap">,
+  range: SourceRange,
+): SourceRange {
   const start = query.sqlOffsetMap[range.start] ?? query.range.start;
   const last = range.end > range.start ? query.sqlOffsetMap[range.end - 1] : start;
   return positionRange(source, start, (last ?? start) + 1);
