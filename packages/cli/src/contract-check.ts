@@ -3,14 +3,20 @@ import { lstat, readFile, realpath } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import {
   type AnalysisRegistration,
+  createContractDialect,
+  createQueryContractIndex,
   defineAnalysisConfiguration,
   defineAnalysisRegistration,
+  exportQueryContracts,
   loadFrozenContractView,
   loadQueryContracts,
   openAnalysisCache,
   prepareLiveContractView,
   prepareOfflineContractView,
+  type QueryContract,
   queryContractDigest,
+  queryContractManifestDigest,
+  readQueryContractManifestDigest,
 } from "@typed-sql/analysis";
 import {
   checkFile,
@@ -31,17 +37,24 @@ import {
 } from "@typed-sql/config";
 import type { SqlDiagnostic } from "@typed-sql/core";
 import { reportCheckedFiles } from "./check-report.js";
+import { materializeOfflineContract } from "./offline-contract.js";
 
 const hash = (text: string) => `sha256:${createHash("sha256").update(text).digest("hex")}`;
 /** Explicit artifact-aware host. Network access is never initiated by offline/frozen checks. */
-export async function runContractCheck(
+export async function runContractCommand(
   loaded: LoadedConfigSource,
   options: Readonly<Record<string, string>>,
 ): Promise<void> {
+  const generating = options.queries === "true";
+  if (generating && options.file !== undefined)
+    throw new Error("Query generation requires complete projects; use --project or config.projects");
   const { live, ...data } = defineAnalysisRegistration(loaded.config.analysis as AnalysisRegistration);
   const raw = defineAnalysisConfiguration(data);
   const configuration = defineAnalysisConfiguration({
     ...raw,
+    ...(options.qualification === undefined
+      ? {}
+      : { qualification: { ...raw.qualification, mode: options.qualification } }),
     mode:
       options.frozen === "true"
         ? "frozen"
@@ -58,7 +71,16 @@ export async function runContractCheck(
   const schemaFile = fromConfig(loaded.directory, options.schema ?? loaded.config.schema.file);
   const schemaText = await readFile(schemaFile, "utf8"),
     schema = profile.validateSnapshot(JSON.parse(schemaText));
-  const directory = fromConfig(loaded.directory, configuration.contractsDir ?? `${loaded.config.outDir}/contracts`);
+  const directory = fromConfig(
+    loaded.directory,
+    (generating ? options.out : undefined) ?? configuration.contractsDir ?? `${loaded.config.outDir}/contracts`,
+  );
+  const manifestDigest = () =>
+    readQueryContractManifestDigest(directory).catch((error: NodeJS.ErrnoException) => {
+      if (error.code !== "ENOENT") throw error;
+      return null;
+    });
+  const expectedManifestDigest = generating ? await manifestDigest() : undefined;
   const durable = async () => {
     if (configuration.mode !== "frozen") {
       try {
@@ -71,6 +93,8 @@ export async function runContractCheck(
     return loadQueryContracts(directory);
   };
   const initialContracts = await durable();
+  if (generating && expectedManifestDigest !== (await manifestDigest()))
+    throw new Error("Query contract manifest changed before generation; retry generation");
   const closure = async () => queryContractDigest((await durable()).map((item) => item.digest).sort());
   const initialClosure = queryContractDigest(initialContracts.map((item) => item.digest).sort());
   const file = options.file === undefined ? undefined : resolve(options.file);
@@ -178,7 +202,45 @@ export async function runContractCheck(
             ...(cache ? { cache } : {}),
             loadAnalyzer: async () => (await resolveConfigDialect(loaded)).config.dialect,
           });
-  const dialect = view.dialect;
+  let dialect = view.dialect;
+  const generated: QueryContract[] = [];
+  if (generating) {
+    const index = createQueryContractIndex(view.contracts),
+      selected = new Map<string, QueryContract>();
+    for (const { path, collection } of collections)
+      for (const candidate of collection.candidates) {
+        if (selected.has(candidate.sql)) continue;
+        let contract = index.resolve(configuration.context, candidate.sql);
+        if (!contract) {
+          if (configuration.qualification.mode !== "hybrid")
+            throw new Error("Native-required query generation requires qualified contracts for every candidate");
+          try {
+            contract = materializeOfflineContract({
+              sql: candidate.sql,
+              context: configuration.context,
+              dialect,
+              schema,
+              typePolicy: policy,
+              parameterCount: Math.max(0, ...candidate.parameterOccurrences.map(({ index }) => index)),
+            });
+          } catch (error) {
+            throw new Error(
+              `${path}:${candidate.sourceRange.line}:${candidate.sourceRange.column}: ${error instanceof Error ? error.message : "Offline contract generation failed"}`,
+            );
+          }
+        }
+        selected.set(candidate.sql, contract);
+      }
+    generated.push(...selected.values());
+    dialect = createContractDialect({
+      profile,
+      context: configuration.context,
+      contracts: generated,
+      ...(configuration.qualification.mode === "native-required"
+        ? { qualificationPolicyHash: queryContractDigest(configuration.qualification) }
+        : {}),
+    });
+  }
   for (const path of loaded.dependencies ?? [])
     if (!inputs.has(resolve(path))) inputs.set(resolve(path), await readFile(path, "utf8"));
   let invalid = false;
@@ -227,18 +289,38 @@ export async function runContractCheck(
       showTypes: options["show-types"] === "true",
     });
   }
-  for (const { file: analyzed, analysis } of analyses) {
-    const expected = sourceHashes.get(await realpath(analyzed));
-    if (expected === undefined || analysis.identity.source.hash !== expected)
-      throw new Error("Analysis project inputs changed after candidate collection; retry checking.");
+  const assertInputs = async () => {
+    for (const { file: analyzed, analysis } of analyses) {
+      const expected = sourceHashes.get(await realpath(analyzed));
+      if (expected === undefined || analysis.identity.source.hash !== expected)
+        throw new Error("Analysis project inputs changed after candidate collection; retry checking.");
+    }
+    for (const [path, text] of inputs)
+      if (hash(await readFile(path, "utf8")) !== hash(text))
+        throw new Error("Analysis project inputs changed during checking; retry checking.");
+    if ((await loadConfigSource({ file: loaded.file })) !== loaded)
+      throw new Error("Analysis configuration changed during checking; retry checking.");
+    if ((await closure()) !== initialClosure)
+      throw new Error("Analysis contract closure changed during checking; retry checking.");
+  };
+  await assertInputs();
+  if (generating) {
+    if (process.exitCode === 1) return;
+    const digest = queryContractManifestDigest(generated);
+    if (options.check === "true") {
+      if (digest !== expectedManifestDigest) {
+        process.stderr.write("Query contract export differs from the durable manifest; regenerate and review it.\n");
+        process.exitCode = 1;
+      } else process.stdout.write(`Query contract export matches ${digest} (${generated.length} contract(s)).\n`);
+    } else {
+      await exportQueryContracts(directory, generated, {
+        expectedManifestDigest: expectedManifestDigest ?? null,
+        beforeCommit: assertInputs,
+      });
+      process.stdout.write(`Generated ${generated.length} query contract(s) at ${directory} (${digest}).\n`);
+    }
+    return;
   }
-  for (const [path, text] of inputs)
-    if (hash(await readFile(path, "utf8")) !== hash(text))
-      throw new Error("Analysis project inputs changed during checking; retry checking.");
-  if ((await loadConfigSource({ file: loaded.file })) !== loaded)
-    throw new Error("Analysis configuration changed during checking; retry checking.");
-  if ((await closure()) !== initialClosure)
-    throw new Error("Analysis contract closure changed during checking; retry checking.");
   if (process.exitCode !== 1)
     process.stdout.write(
       `${configuration.mode === "frozen" ? "Frozen" : configuration.mode === "live" ? "Live" : "Offline"} checked ${projects.length} project(s), ${analyses.reduce((count, item) => count + item.analysis.queries.length, 0)} query(s).\n`,

@@ -106,9 +106,9 @@ The installed interpreter supplies compatibility identities independently of the
 Use the same qualification policy when producing and consuming contracts. A native-required policy
 requires a qualified comparison proof even when its additional native-facet list is empty.
 
-Publish the durable closure with `exportQueryContracts()` from `@typed-sql/analysis` after acquiring
-and qualifying its contracts. Commit the manifest and every referenced object alongside the context
-and schema. The CLI consumes this explicit closure; ordinary schema generation does not create it.
+Publish the durable closure with `typed-sql generate --queries` or `exportQueryContracts()` from
+`@typed-sql/analysis` after acquiring and qualifying its contracts. Commit the manifest and every
+referenced object alongside the context and schema. Ordinary schema generation does not create it.
 Changing SQL requires matching contracts for the new statements.
 
 ```sh
@@ -224,8 +224,50 @@ contracts enter the disposable cache; live checking does not modify durable expo
 `--offline` invocation can reuse matching recorded evidence. `--offline` and `--frozen` leave the live
 factory unloaded, including when `analysis.mode` is `"live"`.
 
-The live registration is consumed by the CLI check host. Other build and editor hosts must implement
-analysis-mode handling explicitly; they do not inherit database access from this setting.
+The live registration is consumed by the CLI query checking and generation hosts. Other build and
+editor hosts must implement analysis-mode handling explicitly; they do not inherit database access
+from this setting.
+
+## Generating durable query inputs
+
+Query generation reads the configured schema and analysis context, prepares every candidate in the
+selected TypeScript projects, and checks the exact prospective contract view with TypeScript before
+publishing it. It does not invoke the schema provider; refresh schema/context inputs separately when
+the selected database changes.
+
+```sh
+pnpm exec typed-sql generate --queries --live
+pnpm exec typed-sql generate --queries --live --qualification native-required --check
+pnpm exec typed-sql check --frozen
+```
+
+`--live` independently acquires and qualifies every candidate. `--offline` reuses matching durable
+or cached contracts and, under hybrid qualification, materializes supported offline grammar rules.
+`--qualification native-required` requires qualified native evidence for all candidates; it cannot
+turn an ordinary offline result into native proof.
+
+Offline materialization checks that reloading a contract preserves the analyzer's ordered logical
+types and result kind. Unsupported refinements and partial native identities that cannot be
+represented safely produce an error instead of an optimistic artifact. Already qualified native
+contracts retain their native identity evidence when exported.
+
+```sh
+pnpm exec typed-sql generate --queries --offline
+pnpm exec typed-sql generate --queries --offline --check
+```
+
+`--check` compares the prospective export with the current durable manifest and fails when they
+differ. It writes no durable objects; a live pass can still refresh disposable evidence. `--out`
+selects a contract directory relative to the config, and `--project` selects a complete project.
+Single-file query generation is rejected because it would replace a project closure with a partial
+set of queries. The exported manifest contains exactly the selected projects' contracts.
+
+Publication serializes cooperating exporters and checks the original manifest identity. Source,
+config, schema and project inputs are checked again immediately before the atomic manifest update.
+A failed input fence leaves the old manifest available; immutable unreferenced objects may remain.
+Old objects are retained so readers that captured the previous manifest can finish loading it.
+Commit the manifest and referenced `contexts/` and `queries/` objects for frozen CI. Disposable cache
+refresh alone does not update those reviewed inputs.
 
 ## Production profile
 

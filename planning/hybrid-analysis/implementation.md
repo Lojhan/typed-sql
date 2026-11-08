@@ -305,6 +305,42 @@ Unrelated planning work is left unchanged.
   compact core/packs, root migration and bulk semantic catalog deletion remain required. The
   three-query native proof does not establish all-engine or full statement coverage.
 
+## Durable query generation checkpoint
+
+- Added `generate --queries --live/--offline`, optional qualification-mode override and `--check`
+  comparison without durable writes. Generation selects a complete project scope, prepares the
+  exact candidate closure and TypeScript-checks the prospective frozen view before export.
+  Single-file replacement is rejected; explicit output directories can scope separate projects.
+- Offline generation reuses validated available contracts or materializes supported grammar rules.
+  Materialization round-trips ordered row/parameter types and result kind through the portable
+  consumer. It rejects unrepresentable logical refinements and partial native identities instead
+  of silently dropping them or claiming completeness. Native-qualified partial facts continue to
+  travel through native evidence. General static-refinement/facet serialization remains required.
+- Added an optional recorded result kind and validation against native evidence/command shape.
+  Existing artifacts remain readable. Durable file reads share the bounded regular-file/UTF-8
+  reader, rejecting symbolic-link artifacts and oversized or invalid data.
+- Durable publication now serializes cooperating exporters, checks an expected manifest digest
+  and invokes a final project-input fence immediately before the atomic manifest replacement.
+  Old manifest objects remain available; failed publication may leave immutable unreferenced
+  objects, never a partially published closure. Check-only comparison constructs no durable objects.
+- Tests cover two independent exporter processes racing on one baseline, competing replacements,
+  final input-fence failure, direct noncooperating manifest replacement, unsafe artifact/lock files,
+  deterministic offline generation, SQL-asset sharing, check-only differences, TypeScript failure,
+  input changes during preparation, strict qualification and partial/unsupported type rejection.
+- The PostgreSQL 18.3 proof runs actual live generation for its three-query project, verifies a
+  fresh live `--check` comparison, deletes the isolated live cache and passes actual frozen CLI
+  consumption of the generated three-query closure with analyzer/adapter factories guarded.
+  The counter still proves candidate description/generation does not execute the user function.
+- Local analysis/CLI suites, full typechecking/build, quality, documentation/API/package boundaries
+  and the real native proof pass. Analysis coverage is 99.79% lines, 99.2% functions and 94.83%
+  branches. Packed consumers, documentation production build and the performance gate also pass;
+  exact-head CI remains separate evidence.
+- Automatic refreshed-context adoption/head selection, initial context acquisition ergonomics,
+  watch/editor regeneration, optional project catalogs/packs, inherited transport contributions,
+  all-engine qualification, lightweight root migration, bulk generated semantic catalog deletion
+  and the full specification acceptance audit remain required. These commands do not complete
+  those broader requirements.
+
 ## Required work still open
 
 1. Complete the contract/evidence model: native descriptors and provenance, reusable/facet-specific

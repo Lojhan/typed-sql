@@ -1480,6 +1480,8 @@ await describe("query contract public API", async () => {
         "exactSqlDigest",
         "exportQueryContracts",
         "loadQueryContracts",
+        "queryContractManifestDigest",
+        "readQueryContractManifestDigest",
         "parseQueryContract",
         "parseQueryContractContext",
         "queryContractDigest",

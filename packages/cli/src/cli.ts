@@ -45,7 +45,7 @@ import {
   writeArtifactFiles,
 } from "@typed-sql/schema";
 import { reportCheckedFiles } from "./check-report.js";
-import { runContractCheck } from "./contract-check.js";
+import { runContractCommand } from "./contract-check.js";
 import { runInit } from "./init.js";
 import { runMigrationCli } from "./migrate.js";
 import { runPlayground } from "./playground.js";
@@ -116,6 +116,8 @@ Examples:
   typed-sql check --frozen --project tsconfig.json
   typed-sql check --offline --project tsconfig.json
   typed-sql check --live --project tsconfig.json
+  typed-sql generate --queries --live
+  typed-sql generate --queries --offline --check
   typed-sql check --project tsconfig.json
   typed-sql check --file src/query.ts --project tsconfig.json --show-types
   typed-sql compat --before schema.before.json --after schema.after.json --before-manifest old.json --after-manifest new.json
@@ -140,6 +142,8 @@ function parseArguments(args: readonly string[]): ParsedArguments {
     if (
       argument === "--no-open" ||
       argument === "--show-types" ||
+      argument === "--queries" ||
+      argument === "--check" ||
       argument === "--live" ||
       argument === "--frozen" ||
       argument === "--offline" ||
@@ -400,20 +404,50 @@ async function main(): Promise<void> {
   if (parsed.options["dry-run"] !== undefined) throw new Error("--dry-run is only supported by init");
   for (const flag of ["apply", "install", "verify", "recover", "allow-scripts"])
     if (parsed.options[flag] !== undefined) throw new Error(`--${flag} is only supported by init`);
+  const queryGeneration = parsed.command === "generate" && parsed.options.queries === "true";
+  if (parsed.options.queries !== undefined && (!queryGeneration || parsed.options.queries !== "true"))
+    throw new Error("--queries is supported as a boolean generate option");
+  if (parsed.options.check !== undefined && (!queryGeneration || parsed.options.check !== "true"))
+    throw new Error("--check is supported as a boolean generate --queries option");
   for (const flag of ["frozen", "offline"])
-    if (parsed.options[flag] !== undefined && (parsed.options[flag] !== "true" || parsed.command !== "check"))
-      throw new Error(`--${flag} is supported as a boolean check option`);
-  if (parsed.command === "check" && parsed.options.live !== undefined && parsed.options.live !== "true")
-    throw new Error("--live is supported as a boolean check option");
+    if (
+      parsed.options[flag] !== undefined &&
+      (parsed.options[flag] !== "true" || !(parsed.command === "check" || (flag === "offline" && queryGeneration)))
+    )
+      throw new Error(
+        `--${flag} is supported as a boolean check option${flag === "offline" ? " or generate --queries option" : ""}`,
+      );
+  if (
+    (parsed.command === "check" || queryGeneration) &&
+    parsed.options.live !== undefined &&
+    parsed.options.live !== "true"
+  )
+    throw new Error("--live is supported as a boolean check option or generate --queries option");
+  if (
+    parsed.options.qualification !== undefined &&
+    (!(parsed.command === "check" || queryGeneration) ||
+      !["hybrid", "native-required"].includes(parsed.options.qualification))
+  )
+    throw new Error("--qualification must be hybrid or native-required for query checking/generation");
   if (["frozen", "offline", "live"].filter((flag) => parsed.options[flag] !== undefined).length > 1)
     throw new Error("--frozen, --offline and --live cannot be combined");
   const loaded = await loadConfigSource({
     ...(parsed.options.config === undefined ? {} : { file: parsed.options.config }),
   });
-  if (parsed.command === "check" && parsed.options.live !== undefined && loaded.config.analysis === undefined)
-    throw new Error("Live checking requires an explicit analysis configuration and native adapter registration.");
-  if (parsed.command === "check" && (parsed.options.frozen !== undefined || loaded.config.analysis !== undefined)) {
-    await runContractCheck(loaded, parsed.options);
+  if (
+    (queryGeneration ||
+      (parsed.command === "check" &&
+        (parsed.options.live !== undefined || parsed.options.qualification !== undefined))) &&
+    loaded.config.analysis === undefined
+  )
+    throw new Error(
+      "Query qualification/generation requires an explicit analysis configuration and native adapter registration for live operation",
+    );
+  if (
+    queryGeneration ||
+    (parsed.command === "check" && (parsed.options.frozen !== undefined || loaded.config.analysis !== undefined))
+  ) {
+    await runContractCommand(loaded, parsed.options);
     return;
   }
   const config = loaded.config;

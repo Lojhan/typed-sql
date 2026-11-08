@@ -121,5 +121,19 @@ factories throw if called. The function counter stays unchanged during descripti
 The live factory owns a dedicated pg pool and closes it before TypeScript checking. Native context
 inspection brackets the finite batch, and each acquisition retains its own consistency checks.
 This host currently requires matching selected recorded context inputs; it does not automatically
-adopt a changed database context. It is an explicit check operation, not watch/editor regeneration
-or durable export. The earlier bundle table remains a historical measurement.
+adopt a changed database context. This checkpoint covers explicit checking; the durable generation
+extension is described below. Watch/editor regeneration remains separate. The earlier bundle table
+remains a historical measurement.
+
+## Durable query generation update
+
+The same real-engine helper now invokes actual `generate --queries --live` for all three project
+candidates into a separate durable directory. A fresh live `--check` comparison matches the export
+without changing its manifest. The helper then deletes that live cache and invokes actual frozen
+CLI checking against the newly generated closure; analyzer/adapter construction remains guarded.
+The original programmatic one-query export and physically stripped consumer proof remain separate.
+
+Generation TypeScript-checks the exact prospective contract view before a guarded manifest commit.
+The selected recorded context must still match native observation. No claim is made here about
+automatic context adoption, editor/watch regeneration, additional PostgreSQL statement classes,
+other transports or the final all-engine frozen distribution gate.

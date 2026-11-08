@@ -13,16 +13,15 @@ export async function cacheDirectory(path: string): Promise<void> {
   const stat = await lstat(path);
   if (!stat.isDirectory() || stat.isSymbolicLink()) throw new TypeError("Unsafe analysis cache directory");
 }
-export async function readCacheFile(path: string, limit: number): Promise<string> {
+export async function readCacheFile(path: string, limit: number, label = "Analysis cache"): Promise<string> {
   const expected = await lstat(path);
-  if (!expected.isFile() || expected.isSymbolicLink())
-    throw new TypeError("Analysis cache objects must be regular files");
+  if (!expected.isFile() || expected.isSymbolicLink()) throw new TypeError(`${label} objects must be regular files`);
   const file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   try {
     const stat = await file.stat();
     if (!stat.isFile() || stat.ino !== expected.ino || stat.dev !== expected.dev)
-      throw new TypeError("Analysis cache file changed while opening");
-    if (stat.size > limit) throw new TypeError("Analysis cache object exceeds byte limit");
+      throw new TypeError(`${label} file changed while opening`);
+    if (stat.size > limit) throw new TypeError(`${label} object exceeds byte limit`);
     const buffer = Buffer.alloc(limit + 1);
     let length = 0;
     while (length < buffer.length) {
@@ -30,7 +29,7 @@ export async function readCacheFile(path: string, limit: number): Promise<string
       if (!bytesRead) break;
       length += bytesRead;
     }
-    if (length > limit) throw new TypeError("Analysis cache object exceeds byte limit");
+    if (length > limit) throw new TypeError(`${label} object exceeds byte limit`);
     return new TextDecoder("utf-8", { fatal: true }).decode(buffer.subarray(0, length));
   } finally {
     await file.close();

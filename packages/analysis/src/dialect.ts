@@ -104,7 +104,9 @@ export function createContractDialect<Snapshot extends SchemaSnapshot, Policy>(i
             ? { databaseTypeIsPartial: true as const }
             : {}),
         })),
-        ...(contract.nativeEvidence ? { resultKind: contract.nativeEvidence.resultKind } : {}),
+        ...(contract.resultKind !== undefined || contract.nativeEvidence
+          ? { resultKind: contract.resultKind ?? contract.nativeEvidence!.resultKind }
+          : {}),
         diagnostics: [],
         semantics: unknownQuerySemantics(range, "Query contract does not establish execution effects or cardinality"),
       };

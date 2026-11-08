@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { link, mkdir, open, rename, unlink } from "node:fs/promises";
+import { link, lstat, mkdir, open, rename, unlink } from "node:fs/promises";
 import { join } from "node:path";
+import { readCacheFile } from "./cache-files.js";
 import { canonicalContractData, queryContractDigest } from "./canonical.js";
 import {
   createQueryContractIndex,
@@ -12,6 +13,16 @@ import {
 
 const MAX_BYTES = 8 * 1024 * 1024;
 const digestPattern = /^[a-f0-9]{64}$/u;
+/** Pure identity for a complete prospective export; no files are created. */
+export function queryContractManifestDigest(inputs: readonly QueryContract[]): string {
+  const contracts = inputs.map(parseQueryContract);
+  createQueryContractIndex(contracts);
+  return queryContractDigest({
+    formatVersion: 1,
+    contexts: [...new Set(contracts.map((contract) => queryContractDigest(contract.context)))].sort(),
+    queries: [...new Set(contracts.map((contract) => contract.digest))].sort(),
+  });
+}
 interface ContractManifest {
   readonly formatVersion: 1;
   readonly digest: string;
@@ -43,23 +54,13 @@ function parseManifest(input: unknown): ContractManifest {
   if (queryContractDigest(body) !== digest) throw new TypeError("Query contract manifest digest differs");
   return value;
 }
-async function readBounded(path: string): Promise<string> {
-  const file = await open(path, "r");
-  try {
-    const buffer = Buffer.alloc(MAX_BYTES + 1);
-    let length = 0;
-    while (length < buffer.length) {
-      const { bytesRead } = await file.read(buffer, length, buffer.length - length, null);
-      if (!bytesRead) break;
-      length += bytesRead;
-    }
-    if (length > MAX_BYTES) throw new TypeError("Query contract artifact exceeds byte limit");
-    return buffer.toString("utf8", 0, length);
-  } finally {
-    await file.close();
-  }
-}
-async function publish(path: string, data: string, immutable: boolean): Promise<void> {
+const readBounded = (path: string) => readCacheFile(path, MAX_BYTES, "Query contract artifact");
+async function publish(
+  path: string,
+  data: string,
+  immutable: boolean,
+  beforePublish?: () => Promise<void>,
+): Promise<void> {
   if (Buffer.byteLength(data) > MAX_BYTES) throw new TypeError("Query contract artifact exceeds byte limit");
   const temporary = `${path}.${randomUUID()}.tmp`;
   const file = await open(temporary, "wx", 0o600);
@@ -70,6 +71,7 @@ async function publish(path: string, data: string, immutable: boolean): Promise<
     } finally {
       await file.close();
     }
+    await beforePublish?.();
     if (!immutable) await rename(temporary, path);
     else {
       try {
@@ -87,7 +89,22 @@ async function publish(path: string, data: string, immutable: boolean): Promise<
 }
 
 /** Explicit durable export. The manifest is the atomic commit point; old objects are retained. */
-export async function exportQueryContracts(directory: string, inputs: readonly QueryContract[]): Promise<string> {
+export async function exportQueryContracts(
+  directory: string,
+  inputs: readonly QueryContract[],
+  options: {
+    /** null requires no existing manifest; an omitted value permits replacement. */
+    readonly expectedManifestDigest?: string | null;
+    /** Revalidate project inputs immediately before manifest publication. */
+    readonly beforeCommit?: () => Promise<void>;
+  } = {},
+): Promise<string> {
+  if (
+    options.expectedManifestDigest !== undefined &&
+    options.expectedManifestDigest !== null &&
+    (typeof options.expectedManifestDigest !== "string" || !digestPattern.test(options.expectedManifestDigest))
+  )
+    throw new TypeError("Invalid expected query contract manifest digest");
   const contracts = inputs.map(parseQueryContract);
   createQueryContractIndex(contracts);
   const contexts = new Map(contracts.map((contract) => [queryContractDigest(contract.context), contract.context]));
@@ -96,12 +113,64 @@ export async function exportQueryContracts(directory: string, inputs: readonly Q
   const manifest = parseManifest({ ...body, digest: queryContractDigest(body) });
   await mkdir(join(directory, "contexts"), { recursive: true });
   await mkdir(join(directory, "queries"), { recursive: true });
-  for (const [digest, context] of contexts)
-    await publish(join(directory, "contexts", `${digest}.json`), `${canonicalContractData(context)}\n`, true);
-  for (const [digest, contract] of queries)
-    await publish(join(directory, "queries", `${digest}.json`), serializeQueryContract(contract), true);
-  await publish(join(directory, "manifest.json"), `${canonicalContractData(manifest)}\n`, false);
-  return manifest.digest;
+  const lockPath = join(directory, ".publication.lock");
+  const existing = await lstat(lockPath).catch((error: NodeJS.ErrnoException) => {
+    if (error.code !== "ENOENT") throw error;
+    return undefined;
+  });
+  if (existing && (!existing.isDirectory() || existing.isSymbolicLink()))
+    throw new TypeError("Unsafe query contract publication lock");
+  let compromised: Error | undefined;
+  const { lock } = await import("proper-lockfile");
+  const release = await lock(directory, {
+    realpath: false,
+    lockfilePath: lockPath,
+    stale: 10_000,
+    update: 2_000,
+    retries: { retries: 8, minTimeout: 10, maxTimeout: 100, factor: 1.5, randomize: true },
+    onCompromised: (error) => {
+      compromised = error;
+    },
+  });
+  try {
+    const leased = await lstat(lockPath);
+    const guard = async () => {
+      const current = await lstat(lockPath);
+      if (
+        compromised ||
+        !current.isDirectory() ||
+        current.isSymbolicLink() ||
+        current.ino !== leased.ino ||
+        current.dev !== leased.dev
+      )
+        throw new Error("Query contract publication lease lost");
+      if (options.expectedManifestDigest !== undefined) {
+        const digest = await readQueryContractManifestDigest(directory).catch((error: NodeJS.ErrnoException) => {
+          if (error.code !== "ENOENT") throw error;
+          return null;
+        });
+        if (digest !== options.expectedManifestDigest)
+          throw new Error("Query contract manifest changed; retry generation");
+      }
+    };
+    await guard();
+    for (const [digest, context] of contexts)
+      await publish(join(directory, "contexts", `${digest}.json`), `${canonicalContractData(context)}\n`, true);
+    for (const [digest, contract] of queries)
+      await publish(join(directory, "queries", `${digest}.json`), serializeQueryContract(contract), true);
+    await publish(join(directory, "manifest.json"), `${canonicalContractData(manifest)}\n`, false, async () => {
+      await options.beforeCommit?.();
+      await guard();
+    });
+    return manifest.digest;
+  } finally {
+    await release();
+  }
+}
+
+/** Exact manifest identity for guarded publication; this does not validate its referenced closure. */
+export async function readQueryContractManifestDigest(directory: string): Promise<string> {
+  return parseManifest(JSON.parse(await readBounded(join(directory, "manifest.json")))).digest;
 }
 
 /** Loads only the declared closure. Missing, corrupt or incompatible inputs never fall back to cache. */

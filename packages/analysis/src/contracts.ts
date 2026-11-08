@@ -25,6 +25,7 @@ export interface QueryContract {
   readonly sqlLength: number;
   readonly origin: "offline-rule" | "native-description" | "reconciled";
   readonly valuePlan: QueryValuePlan;
+  readonly resultKind?: "rows" | "command";
   readonly nativeEvidence?: NativeQueryContractEvidence;
   readonly qualification?: QueryContractQualification;
   /** SQL-relative ranges; source-file positions are never persisted. */
@@ -74,6 +75,7 @@ export function parseQueryContract(input: unknown): QueryContract {
     "columnSpans",
     ...(Object.hasOwn(value, "nativeEvidence") ? ["nativeEvidence"] : []),
     ...(Object.hasOwn(value, "qualification") ? ["qualification"] : []),
+    ...(Object.hasOwn(value, "resultKind") ? ["resultKind"] : []),
   ]);
   if (
     value.formatVersion !== 1 ||
@@ -91,8 +93,12 @@ export function parseQueryContract(input: unknown): QueryContract {
     throw new TypeError("Invalid query contract SQL length");
   if (!["offline-rule", "native-description", "reconciled"].includes(value.origin as string))
     throw new TypeError("Invalid query contract origin");
+  if (Object.hasOwn(value, "resultKind") && !["rows", "command"].includes(value.resultKind as string))
+    throw new TypeError("Invalid query contract result kind");
   const context = parseQueryContractContext(value.context);
   const plan = defineQueryValuePlan(object(value.valuePlan) as unknown as QueryValuePlan);
+  if (value.resultKind === "command" && plan.columns.length)
+    throw new TypeError("Command query contract result kind cannot contain columns");
   if (plan.dialect !== context.grammar.id || plan.typePolicyHash !== context.typePolicyHash)
     throw new TypeError("Query contract codec policy mismatch");
   if (!Array.isArray(value.columnSpans) || value.columnSpans.length !== plan.columns.length)
@@ -113,6 +119,7 @@ export function parseQueryContract(input: unknown): QueryContract {
     const evidence = parseNativeQueryContractEvidence(value.nativeEvidence, value.sqlLength as number);
     if (
       value.origin === "offline-rule" ||
+      (value.resultKind !== undefined && value.resultKind !== evidence.resultKind) ||
       canonicalContractData(nativeContractValuePlan(evidence, context)) !== canonicalContractData(plan)
     )
       throw new TypeError("Native contract evidence differs from its value plan or origin");
@@ -140,6 +147,7 @@ export function createQueryContract(input: {
   readonly context: QueryContractContext;
   readonly origin: QueryContract["origin"];
   readonly valuePlan: QueryValuePlan;
+  readonly resultKind?: "rows" | "command";
   readonly columnSpans?: QueryContract["columnSpans"];
   readonly nativeEvidence?: NativeQueryContractEvidence;
   readonly qualification?: QueryContractQualification;
@@ -153,6 +161,7 @@ export function createQueryContract(input: {
     sqlLength: input.sql.length,
     origin: input.origin,
     valuePlan: plan,
+    ...(input.resultKind === undefined ? {} : { resultKind: input.resultKind }),
     ...(input.nativeEvidence === undefined ? {} : { nativeEvidence: input.nativeEvidence }),
     ...(input.qualification === undefined ? {} : { qualification: input.qualification }),
     columnSpans: input.columnSpans ?? plan.columns.map(() => ({ start: 0, end: input.sql.length })),

@@ -291,7 +291,8 @@ export default defineConfig({
             contribution:createPostgresContractReconciler({schema}),inspectContext:signal=>adapter.inspectContext(signal),close:()=>pool.end()};
         }},`,
         );
-      await writeFile(join(temporary, "live-config.mjs"), liveConfig);
+      const scopedLiveConfig = liveConfig.replace("cache: {", 'cache: {"directory":"live-cache",');
+      await writeFile(join(temporary, "live-config.mjs"), scopedLiveConfig);
       await writeFile(join(temporary, "value.sql"), "SELECT :id::bigint AS asset_value");
       await writeFile(
         join(temporary, "application.ts"),
@@ -331,6 +332,53 @@ export default defineConfig({
         { cwd: temporary, maxBuffer: 8 * 1024 * 1024 },
       );
       strict.match(reused.stdout, /Offline checked 1 project\(s\), 3 query\(s\)/u);
+      const generationArgs = [
+        join(directory, "packages/cli/dist/packages/cli/src/cli.js"),
+        "generate",
+        "--queries",
+        "--live",
+        "--config",
+        "live-config.mjs",
+        "--out",
+        "live-contracts",
+      ];
+      const generationOptions = {
+        cwd: temporary,
+        maxBuffer: 8 * 1024 * 1024,
+        env: {
+          ...process.env,
+          TYPED_SQL_CONTRACT_LIVE_TEST: "1",
+          TYPED_SQL_CONTRACT_TEST_DATABASE_URL: connectionString,
+        },
+      };
+      strict.match(
+        (await promisify(callback)(process.execPath, generationArgs, generationOptions)).stdout,
+        /Generated 3 query contract/u,
+      );
+      strict.equal((await loadQueryContracts(join(temporary, "live-contracts"))).length, 3);
+      const before = await readFile(join(temporary, "live-contracts/manifest.json"), "utf8");
+      strict.match(
+        (await promisify(callback)(process.execPath, [...generationArgs, "--check"], generationOptions)).stdout,
+        /export matches/u,
+      );
+      strict.equal(await readFile(join(temporary, "live-contracts/manifest.json"), "utf8"), before);
+      await writeFile(
+        join(temporary, "live-config.mjs"),
+        scopedLiveConfig.replace('contractsDir: "contracts"', 'contractsDir: "live-contracts"'),
+      );
+      await rm(join(temporary, "live-cache"), { recursive: true, force: true });
+      const frozenGenerated = await promisify(callback)(
+        process.execPath,
+        [
+          join(directory, "packages/cli/dist/packages/cli/src/cli.js"),
+          "check",
+          "--frozen",
+          "--config",
+          "live-config.mjs",
+        ],
+        { cwd: temporary, maxBuffer: 8 * 1024 * 1024 },
+      );
+      strict.match(frozenGenerated.stdout, /Frozen checked 1 project\(s\), 3 query\(s\)/u);
       strict.equal(
         (await pool.query<{ count: number }>(`SELECT count FROM ${namespace}.calls`)).rows[0]!.count,
         1,
