@@ -18,6 +18,21 @@ export {
 export type { ContractGrammarProfile } from "./dialect.js";
 export { createContractDialect } from "./dialect.js";
 export type {
+  LiveAnalysisClock,
+  LiveAnalysisFailure,
+  LiveAnalysisGenerations,
+  LiveAnalysisOutcome,
+  LiveAnalysisRequest,
+  LiveAnalysisRunner,
+  LiveAnalysisScheduler,
+  LiveAnalysisSchedulerOptions,
+  LiveAnalysisState,
+  LiveAnalysisSubscription,
+  LiveAnalysisTicket,
+  LiveAnalysisView,
+} from "./live.js";
+export { createLiveAnalysisScheduler, createNativeLiveAnalysisRunner } from "./live.js";
+export type {
   NativeContractFact,
   NativeContractValueEvidence,
   NativeQueryContractEvidence,

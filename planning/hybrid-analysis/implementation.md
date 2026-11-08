@@ -109,6 +109,28 @@ Unrelated planning work is left unchanged.
   JSON and other refinements remains required, as do custom codec bindings and parameter authority
   from explicit SQL/static constraints when a transport has no meaningful native bind metadata.
 
+## Live scheduling checkpoint
+
+- Added an explicitly constructed native acquisition/reconciliation producer and a project scheduler.
+  Identical requests share work; document versions and input/context/policy generations fence results.
+  Immutable views invalidate synchronously, with coalesced notifications for synchronous consumers.
+- Added bounded debounce/queue/record/subscriber limits, per-context/global concurrency, deadlines,
+  transport retry backoff with jitter, explicit retry and shutdown draining. An adapter that ignores
+  abort keeps its lease until it settles. Known rejection/partial/conflict/staleness clears old support;
+  a matching last-good contract can survive a transport outage without claiming fresh verification.
+- Deterministic clock/deferred-adapter tests cover rapid edits, shared cancellation, obsolete late
+  results, queue eviction/recovery, noncooperative deadlines, backoff limits, malformed producer
+  output, callback reentrancy/errors, active conflicts and synchronous context invalidation.
+- The real PostgreSQL proof also runs acquisition/reconciliation through the scheduler, observes an
+  immutable usable view without executing the candidate function, and invalidates it on a context
+  generation change. This does not qualify additional PostgreSQL statement classes or other engines.
+- Local validation passes analysis coverage (100% lines/statements, 98.71% functions, 95.27%
+  branches), full typechecking, quality checks, public API/documentation contracts and package-graph/
+  packed-consumer checks. Native proof uses PostgreSQL 18.3 and pg 8.23.1. Exact-head CI remains
+  independent evidence; this checkpoint does not establish the final all-engine acceptance gates.
+- This is a programmatic in-memory scheduling layer. CLI/editor integration, independent context
+  freshness polling, disk cache/restart reuse and cross-process ownership remain required.
+
 ## Required work still open
 
 1. Complete the contract/evidence model: native descriptors and provenance, reusable/facet-specific

@@ -238,3 +238,49 @@ For PostgreSQL, `createPostgresContractReconciler` from `@typed-sql/postgres/rec
 provides pure comparison rules for the supported primitive representations, built-in aliases
 and nullability bounds. Unsupported structural, opaque or modifier comparisons remain explicit.
 Known static invalidity diagnostics stay blocking when the engine accepts the statement.
+
+### Schedule refresh in an explicit live host
+
+`createLiveAnalysisScheduler` coordinates asynchronous refresh for an explicitly enabled compiler
+or editor host. Construct its producer with `createNativeLiveAnalysisRunner({ adapter, contribution })`.
+Importing either API does not connect to a database. Ordinary synchronous analysis does not start
+refresh work.
+
+Subscribe with a document identity/version, query identity, three project generations, and a
+`LiveAnalysisRequest`. The request contains an opaque hashed connection-context identity, adapter
+revision, static candidate, independent static claim and qualification policy. Do not use connection
+strings as identities. The connection identity distinguishes authentication/session contexts; it does
+not replace the expected database-context hash in the static claim.
+
+The scheduler debounces requests, shares identical work across subscribers, limits active work per
+connection context and across the project, and bounds queued work and retained records. Canceling one
+subscriber leaves shared work running for others. Closing the last subscriber aborts the operation.
+An adapter that ignores cancellation retains its concurrency slot until it actually settles; late
+results cannot publish after cancellation or a deadline. `close()` aborts work and waits for sessions
+to drain, so adapters must honor cancellation and enforce their own transport deadlines.
+
+Every subscription captures `inputGeneration`, `contextGeneration` and `policyGeneration`. Call
+`advance` when project inputs, database context, or analysis/decoding policy changes. Generations
+must increase monotonically. Advancing invalidates all previous subscriptions and immediately
+removes their contracts from `view`. A newer document version similarly fences older subscriptions
+for that document. `closeDocument` releases its subscriptions and version history.
+
+Subscribers receive `pending`, `usable-recorded-context`, `partial`, `rejected`, `conflict`,
+`stale-context` or `unavailable` states. A superseded subscription's handle reports `stale-input`.
+The producer's qualified output is checked against the request's SQL, context, static claim, policy,
+adapter and parameter layout before publication. The immutable `view` supplies a coherent set of
+active contracts for a later synchronous compiler pass; conflicting contracts fail closed.
+A host must supply the expected context and configured qualification policy when consuming them.
+
+Transport failures use bounded exponential backoff with jitter. Matching previously usable evidence
+can remain in the view during a refresh or transient transport outage; its state does not claim a
+fresh database check. Rejection, conflict, partial evidence or a known stale context removes it.
+Authentication and other failures classified as requiring a change do not retry automatically.
+Use `classifyError` on the runner to distinguish transport outages from such failures, and `retry`
+for an explicit retry. Subscription callbacks are coalesced; replacing the same subscription after
+receiving a state does not trigger another delivery of that unchanged state.
+
+This scheduler holds an in-memory view only. It does not write the disposable cache, export durable
+contracts, or activate CLI/editor watching. The host owns context freshness checks, project query
+and variant enumeration, connection credentials, persistence and explicit publication of reviewed
+compiler inputs.

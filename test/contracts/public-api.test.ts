@@ -1447,6 +1447,8 @@ await describe("query contract public API", async () => {
       [
         "createStaticQueryClaim",
         "parseStaticQueryClaim",
+        "createLiveAnalysisScheduler",
+        "createNativeLiveAnalysisRunner",
         "reconcileQueryContract",
         "parseContractQualificationPolicy",
         "parseQueryContractQualification",

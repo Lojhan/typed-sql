@@ -1,4 +1,5 @@
-import { canonicalContractData, exactSqlDigest } from "./canonical.js";
+import { type NativeContractCandidate, parseNativeContractCandidate } from "./candidate.js";
+import { canonicalContractData } from "./canonical.js";
 import {
   createQueryContract,
   parseQueryContractContext,
@@ -10,14 +11,10 @@ import {
   nativeContractParametersAvailable,
   nativeContractValuePlan,
   parseNativeQueryContractEvidence,
-  validateNativeParameterOccurrences,
 } from "./native-evidence.js";
 
-export interface NativeContractCandidate {
-  readonly sql: string;
-  readonly parameterOccurrences: NativeQueryContractEvidence["parameterOccurrences"];
-  readonly columnSpans?: QueryContract["columnSpans"];
-}
+export type { NativeContractCandidate } from "./candidate.js";
+
 /** Grammar-owned session. Its consistency scope must cover description and both context reads. */
 export interface NativeContractSession {
   context(signal?: AbortSignal): Promise<QueryContractContext>;
@@ -57,40 +54,7 @@ export async function acquireNativeQueryContract(input: {
   const { adapter, signal } = input;
   signal?.throwIfAborted();
   const context = parseQueryContractContext(input.context);
-  // Snapshot caller data before any asynchronous boundary so edits cannot change an in-flight request.
-  const candidate: NativeContractCandidate = JSON.parse(canonicalContractData(input.candidate));
-  if (
-    !candidate ||
-    typeof candidate !== "object" ||
-    Array.isArray(candidate) ||
-    typeof candidate.sql !== "string" ||
-    !candidate.sql.length ||
-    Object.keys(candidate).sort().join(",") !==
-      (Object.hasOwn(candidate, "columnSpans") ? "columnSpans,parameterOccurrences,sql" : "parameterOccurrences,sql")
-  )
-    throw new TypeError("Invalid native contract candidate");
-  exactSqlDigest(candidate.sql);
-  validateNativeParameterOccurrences(candidate.parameterOccurrences, candidate.sql.length);
-  if (candidate.columnSpans !== undefined) {
-    if (!Array.isArray(candidate.columnSpans)) throw new TypeError("Invalid native candidate column spans");
-    for (const span of candidate.columnSpans) {
-      if (
-        !span ||
-        Object.keys(span).sort().join(",") !== "end,start" ||
-        !Number.isSafeInteger(span.start) ||
-        !Number.isSafeInteger(span.end) ||
-        span.start < 0 ||
-        span.end < span.start ||
-        span.end > candidate.sql.length
-      )
-        throw new TypeError("Invalid native candidate column span");
-      Object.freeze(span);
-    }
-    Object.freeze(candidate.columnSpans);
-  }
-  for (const occurrence of candidate.parameterOccurrences) Object.freeze(occurrence);
-  Object.freeze(candidate.parameterOccurrences);
-  Object.freeze(candidate);
+  const candidate = parseNativeContractCandidate(input.candidate);
   if (canonicalContractData(adapter.grammar) !== canonicalContractData(context.grammar))
     throw new TypeError("Native contract adapter grammar mismatch");
   const accepted = adapter.accept(candidate);

@@ -7,8 +7,11 @@ import { strict } from "poku";
 import {
   acquireNativeQueryContract,
   createContractDialect,
+  createLiveAnalysisScheduler,
+  createNativeLiveAnalysisRunner,
   createStaticQueryClaim,
   exportQueryContracts,
+  type LiveAnalysisState,
   loadQueryContracts,
   parseContractQualificationPolicy,
   queryContractDigest,
@@ -115,6 +118,44 @@ export async function assertPostgresNativeContracts(connectionString: string, di
     });
     strict.equal(reconciled.status, "qualified");
     if (reconciled.status !== "qualified") throw Error("Native/static qualification was incomplete");
+    const live = createLiveAnalysisScheduler({
+      debounceMs: 0,
+      run: createNativeLiveAnalysisRunner({ adapter: native, contribution }),
+    });
+    try {
+      const state = await new Promise<LiveAnalysisState>((resolve) => {
+        live.subscribe(
+          {
+            ticket: {
+              document: "file:///native-contract-proof.ts",
+              documentVersion: 1,
+              inputGeneration: 0,
+              contextGeneration: 0,
+              policyGeneration: 0,
+            },
+            queryId: "increment",
+            request: {
+              connectionContext: queryContractDigest("dedicated-native-proof-pool"),
+              adapter: { id: native.id, version: native.version },
+              candidate: { sql: text, parameterOccurrences },
+              staticClaim: createStaticQueryClaim({ sql: text, context, analysis: staticAnalysis }),
+              policy: qualification,
+            },
+          },
+          (value) => {
+            if (value.kind !== "pending") resolve(value);
+          },
+        );
+      });
+      strict.equal(state.kind, "usable-recorded-context");
+      strict.equal(live.view.contracts.length, 1);
+      strict.deepEqual(live.view.contracts[0]!.valuePlan, reconciled.contract.valuePlan);
+      strict.equal((await pool.query<{ count: number }>(`SELECT count FROM ${namespace}.calls`)).rows[0]!.count, 0);
+      live.advance({ inputGeneration: 0, contextGeneration: 1, policyGeneration: 0 });
+      strict.equal(live.view.contracts.length, 0);
+    } finally {
+      await live.close();
+    }
     const wrong = {
       ...staticAnalysis,
       columns: staticAnalysis.columns.map((column) => ({
