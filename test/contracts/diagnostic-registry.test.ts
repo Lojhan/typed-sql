@@ -1,46 +1,40 @@
-import { readFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { readdir, readFile } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it, strict } from "poku";
 import { diagnosticRegistry } from "../../packages/core/src/index.js";
 
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const sources = [
-  "packages/ast/src/compat/parser.ts",
-  "packages/ast/src/compat/tokenizer.ts",
-  "packages/ast/src/toolkit/cursor.ts",
-  "packages/ast/src/toolkit/tokenizer.ts",
-  "packages/ast/src/toolkit/types.ts",
-  "packages/compiler/src/compiler.ts",
-  "packages/compiler/src/repeated-fragments.ts",
-  "packages/compiler/src/scanner.ts",
-  "packages/compiler/src/analysis.ts",
-  "packages/compiler/src/manifest.ts",
-  "packages/compiler/src/verification.ts",
-  "packages/core/src/dialect-capabilities.ts",
-  "packages/postgres/src/resolver.ts",
-  "packages/postgres/src/capabilities.ts",
-  "packages/postgres/src/parser/parser.ts",
-  "packages/postgres/src/parser/tokenizer.ts",
-  "packages/mysql/src/resolver.ts",
-  "packages/mysql/src/capabilities.ts",
-  "packages/mysql/src/parser/parser.ts",
-  "packages/mysql/src/parser/tokenizer.ts",
-  "packages/sqlite/src/capabilities.ts",
-  "packages/sqlite/src/resolver.ts",
-  "packages/sqlite/src/parser/parser.ts",
-  "packages/sqlite/src/parser/tokenizer.ts",
-  "packages/cli/src/cli.ts",
-];
-const reserved = new Set(["TSQ210", "TSQ405"]);
+const registrySource = resolve(workspace, "packages/core/src/diagnostics.ts");
 
 await describe("stable diagnostic contract", async () => {
-  await it("registers every diagnostic code emitted by production sources", async () => {
+  await it("discovers production emitters across every package and registers their diagnostic codes", async () => {
     const emitted = new Set<string>();
-    for (const source of sources) {
-      const text = await readFile(resolve(workspace, source), "utf8");
-      for (const match of text.matchAll(/TSQ\d{3}/gu)) emitted.add(match[0]);
-    }
-    strict.deepStrictEqual([...new Set([...emitted, ...reserved])].sort(), Object.keys(diagnosticRegistry).sort());
+    let files = 0;
+    const visit = async (directory: string): Promise<void> => {
+      const entries = await readdir(directory, { withFileTypes: true }).catch((error: unknown) => {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+        throw error;
+      });
+      for (const entry of entries) {
+        const file = join(directory, entry.name);
+        if (entry.isDirectory()) await visit(file);
+        else if (entry.isFile() && /\.(?:[cm]?ts|tsx)$/u.test(entry.name) && file !== registrySource) {
+          files++;
+          for (const match of (await readFile(file, "utf8")).matchAll(/\bTSQ\d{3}\b/gu)) emitted.add(match[0]);
+        }
+      }
+    };
+    for (const entry of await readdir(join(workspace, "packages"), { withFileTypes: true }))
+      if (entry.isDirectory()) await visit(join(workspace, "packages", entry.name, "src"));
+    strict.ok(files > 0 && emitted.size > 0, "Production diagnostic discovery must not be empty");
+    strict.deepEqual([...emitted].filter((code) => !Object.hasOwn(diagnosticRegistry, code)).sort(), []);
+  });
+
+  await it("documents every stable code, including retained codes without current emitters", async () => {
+    const page = await readFile(join(workspace, "docs/reference/diagnostics.md"), "utf8");
+    const documented = [...page.matchAll(/^\|\s+`(TSQ\d{3})`\s+\|/gmu)].map((match) => match[1]!);
+    strict.equal(new Set(documented).size, documented.length, "Diagnostic reference contains duplicate code rows");
+    strict.deepEqual(documented.sort(), Object.keys(diagnosticRegistry).sort());
   });
 });

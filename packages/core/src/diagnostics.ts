@@ -24,10 +24,12 @@ export const diagnosticRegistry = Object.freeze({
   TSQ106: { category: "type", summary: "A cast target is invalid or unknown." },
   TSQ107: { category: "schema", summary: "An unqualified table name is ambiguous." },
   TSQ108: { category: "schema", summary: "A relation alias is duplicated." },
+  TSQ201: { category: "semantic", summary: "An expression or statement is invalid for its grammar context." },
   TSQ202: { category: "type", summary: "A function is unknown." },
   TSQ203: { category: "type", summary: "An operator cannot be inferred safely." },
   TSQ204: { category: "type", summary: "A function overload is ambiguous." },
   TSQ205: { category: "type", summary: "A composed parameter has incompatible structural contexts." },
+  TSQ207: { category: "result", summary: "A result projection needs an explicit or unique output name." },
   TSQ210: { category: "support", summary: "Recursive CTE inference is not supported safely." },
   TSQ211: { category: "schema", summary: "A CTE name is duplicated." },
   TSQ212: { category: "result", summary: "A CTE does not return rows." },
@@ -60,6 +62,7 @@ export const diagnosticRegistry = Object.freeze({
   TSQ500: { category: "verification", summary: "Live database metadata differs from compiler evidence." },
   TSQ501: { category: "verification", summary: "A query could not be verified safely or statically." },
   TSQ502: { category: "verification", summary: "Native live verification failed without persisting driver details." },
+  TSQ901: { category: "contract", summary: "SQL source or binding metadata cannot be prepared safely." },
 } as const);
 
 export type TypedSqlDiagnosticCode = keyof typeof diagnosticRegistry;
