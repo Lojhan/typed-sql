@@ -1,10 +1,11 @@
-import type { AnalysisCache } from "./cache.js";
+import type { AnalysisCache, AnalysisCacheToken } from "./cache.js";
 import { type LiveAnalysisRunner, parseLiveAnalysisOutcome, parseLiveAnalysisRequest } from "./live.js";
 
 /** An explicitly live producer always acquires evidence, even when matching bytes are cached. */
 export function createPersistentLiveAnalysisRunner(input: {
   readonly cache: AnalysisCache;
   readonly run: LiveAnalysisRunner;
+  readonly onCacheSnapshot?: (token: AnalysisCacheToken) => void;
 }): LiveAnalysisRunner {
   return async (source, signal) => {
     const request = parseLiveAnalysisRequest(source);
@@ -19,6 +20,11 @@ export function createPersistentLiveAnalysisRunner(input: {
     signal.throwIfAborted();
     if (published.status === "superseded")
       return Object.freeze({ kind: "unavailable", code: "cache-publication-superseded", retry: "change" });
+    input.onCacheSnapshot?.(
+      published.status === "published"
+        ? Object.freeze({ ...captured.token, entryRevision: published.revision })
+        : captured.token,
+    );
     // Capacity can prevent persistence, but cannot invalidate independently qualified fresh evidence.
     return outcome;
   };

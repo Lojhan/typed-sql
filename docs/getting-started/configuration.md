@@ -67,7 +67,8 @@ It requires an `analysis` configuration and a lightweight dialect profile. Missi
 changed schema or decoding policies, and incompatible qualification evidence fail checking.
 The command reads neither the disposable cache nor a database connection.
 
-For PostgreSQL, register the profile separately from its optional analyzer:
+For PostgreSQL, register the profile separately from its optional analyzer. This example pins a
+recorded context; automatic target selection is shown below:
 
 ```ts
 import { defineConfig } from "@typed-sql/core";
@@ -108,7 +109,7 @@ requires a qualified comparison proof even when its additional native-facet list
 
 Publish the durable closure with `typed-sql generate --queries` or `exportQueryContracts()` from
 `@typed-sql/analysis` after acquiring and qualifying its contracts. Commit the manifest and every
-referenced object alongside the context and schema. Ordinary schema generation does not create it.
+referenced object alongside the schema and any explicit context pin. Ordinary schema generation does not create it.
 Changing SQL requires matching contracts for the new statements.
 
 ```sh
@@ -145,6 +146,13 @@ database roundtrip. A hit establishes compatibility with the recorded context an
 remote freshness unverified. Known rejection, conflict or stale-context evidence blocks reuse;
 a transport outage does not overwrite a valid recorded result. Frozen checks ignore this cache.
 
+When `context` is omitted, the cache records a selection for the configured target, schema, profile
+and decoding policy. Offline checking prefers that recorded selection, then a compatible durable
+selection; known stale observations block fallback. If neither exists, hybrid mode can analyze
+ordinary offline rules without claiming a native observation. Native-required mode needs recorded
+qualified inputs. Frozen checking reads only the durable manifest's target/context selection and
+ignores disposable cache state. An explicit `context` keeps its pinned behavior.
+
 ## Explicit live query checking
 
 `typed-sql check --live` runs a finite native acquisition pass, then checks TypeScript against its
@@ -152,6 +160,8 @@ synchronous contract view. It requires `analysis.cache` target identities and an
 `analysis.live.adapter` factory. Register executable factories with `defineAnalysisRegistration()`;
 `defineAnalysisConfiguration()` accepts data only.
 
+Omit `context` to discover and refresh the database epoch automatically. The installed interpreter,
+schema, decoding policy and configured target identity still constrain every accepted observation.
 The following value can be assigned to the `analysis` field of the profile configuration above.
 The dialect registration also needs its lazy `loadAnalyzer`, because live qualification compares
 independent static claims even for queries that the analyzer already resolves.
@@ -164,7 +174,6 @@ import {
   postgresContractReconciliationOwner,
 } from "@typed-sql/postgres/contract-profile";
 import type { PostgresProfileSnapshot, PostgresTypePolicy } from "@typed-sql/postgres/profile";
-import recordedContext from "./generated/db/analysis-context.json" with { type: "json" };
 
 const connectionContext = queryContractDigest({
   target: "development-primary",
@@ -173,7 +182,6 @@ const connectionContext = queryContractDigest({
 
 export const analysis = defineAnalysisRegistration<PostgresProfileSnapshot, PostgresTypePolicy>({
   mode: "live",
-  context: recordedContext,
   identity: postgresContractIdentity(),
   qualification: {
     mode: "native-required",
@@ -215,8 +223,9 @@ PostgreSQL acquisition retains its [declared statement and server scope](../dial
 
 Every distinct candidate receives independent native qualification, including successful static
 results. Work is bounded by concurrency, per-query deadlines and an overall batch deadline. Context
-checks run before and after the batch; incompatible context observations retire recorded cache
-evidence and require refreshed context/schema inputs. A conflict, unavailable facet or acquisition
+checks run before and after the batch. A new compatible epoch replaces the target's recorded
+selection and retires older query evidence. A change during the batch rejects it. An incompatible
+schema/profile observation requires refreshed schema or configuration inputs. A conflict, unavailable facet or acquisition
 failure prevents a successful live check, even when older recorded contracts exist.
 
 The host closes its owned acquisition resources before TypeScript checking. Successful qualified
@@ -230,10 +239,11 @@ from this setting.
 
 ## Generating durable query inputs
 
-Query generation reads the configured schema and analysis context, prepares every candidate in the
-selected TypeScript projects, and checks the exact prospective contract view with TypeScript before
-publishing it. It does not invoke the schema provider; refresh schema/context inputs separately when
-the selected database changes.
+Query generation reads the configured schema and installed interpreter identity, prepares every
+candidate in the selected TypeScript projects, and checks the exact prospective contract view with
+TypeScript before publishing it. It does not invoke the schema provider; refresh the schema input
+separately when the database schema changes. Without an explicit context pin, live generation
+discovers the current compatible context and includes its target-bound selection in the manifest.
 
 ```sh
 pnpm exec typed-sql generate --queries --live

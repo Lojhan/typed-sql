@@ -4,30 +4,39 @@ import { join } from "node:path";
 import { readCacheFile } from "./cache-files.js";
 import { canonicalContractData, queryContractDigest } from "./canonical.js";
 import {
+  type AnalysisContextScope,
+  analysisContextScopeKey,
+  assertContextScope,
+  parseAnalysisContextScope,
+} from "./context-scope.js";
+import {
   createQueryContractIndex,
   parseQueryContract,
   parseQueryContractContext,
   type QueryContract,
+  type QueryContractContext,
   serializeQueryContract,
 } from "./contracts.js";
 
 const MAX_BYTES = 8 * 1024 * 1024;
 const digestPattern = /^[a-f0-9]{64}$/u;
+export interface QueryContractSelection {
+  readonly scope: AnalysisContextScope;
+  readonly context: QueryContractContext;
+}
 /** Pure identity for a complete prospective export; no files are created. */
-export function queryContractManifestDigest(inputs: readonly QueryContract[]): string {
-  const contracts = inputs.map(parseQueryContract);
-  createQueryContractIndex(contracts);
-  return queryContractDigest({
-    formatVersion: 1,
-    contexts: [...new Set(contracts.map((contract) => queryContractDigest(contract.context)))].sort(),
-    queries: [...new Set(contracts.map((contract) => contract.digest))].sort(),
-  });
+export function queryContractManifestDigest(
+  inputs: readonly QueryContract[],
+  options: { readonly selection?: QueryContractSelection } = {},
+): string {
+  return exportParts(inputs, options.selection).manifest.digest;
 }
 interface ContractManifest {
   readonly formatVersion: 1;
   readonly digest: string;
   readonly contexts: readonly string[];
   readonly queries: readonly string[];
+  readonly selection?: { readonly scopeHash: string; readonly contextHash: string; readonly targetHash: string };
 }
 function parseManifest(input: unknown): ContractManifest {
   const value = JSON.parse(canonicalContractData(input));
@@ -35,7 +44,10 @@ function parseManifest(input: unknown): ContractManifest {
     !value ||
     typeof value !== "object" ||
     Array.isArray(value) ||
-    Object.keys(value).sort().join(",") !== "contexts,digest,formatVersion,queries" ||
+    Object.keys(value).sort().join(",") !==
+      (Object.hasOwn(value, "selection")
+        ? "contexts,digest,formatVersion,queries,selection"
+        : "contexts,digest,formatVersion,queries") ||
     value.formatVersion !== 1 ||
     typeof value.digest !== "string" ||
     !digestPattern.test(value.digest)
@@ -50,9 +62,47 @@ function parseManifest(input: unknown): ContractManifest {
     )
       throw new TypeError("Contract manifest references must be sorted unique digests");
   }
+  if (
+    value.selection !== undefined &&
+    (!value.selection ||
+      typeof value.selection !== "object" ||
+      Array.isArray(value.selection) ||
+      Object.keys(value.selection).sort().join(",") !== "contextHash,scopeHash,targetHash" ||
+      typeof value.selection.targetHash !== "string" ||
+      !digestPattern.test(value.selection.targetHash) ||
+      typeof value.selection.scopeHash !== "string" ||
+      !digestPattern.test(value.selection.scopeHash) ||
+      typeof value.selection.contextHash !== "string" ||
+      !value.contexts.includes(value.selection.contextHash))
+  )
+    throw new TypeError("Invalid query contract context selection");
   const { digest, ...body } = value;
   if (queryContractDigest(body) !== digest) throw new TypeError("Query contract manifest digest differs");
   return value;
+}
+function exportParts(inputs: readonly QueryContract[], selected?: QueryContractSelection) {
+  const contracts = inputs.map(parseQueryContract);
+  createQueryContractIndex(contracts);
+  const contexts = new Map(contracts.map((contract) => [queryContractDigest(contract.context), contract.context]));
+  const queries = new Map(contracts.map((contract) => [contract.digest, contract]));
+  let selection: ContractManifest["selection"];
+  if (selected) {
+    const scope = parseAnalysisContextScope(selected.scope),
+      context = parseQueryContractContext(selected.context);
+    assertContextScope(context, scope);
+    const contextHash = queryContractDigest(context);
+    if (contracts.some((contract) => queryContractDigest(contract.context) !== contextHash))
+      throw new TypeError("Query contracts differ from the selected target context");
+    contexts.set(contextHash, context);
+    selection = { scopeHash: analysisContextScopeKey(scope), contextHash, targetHash: scope.connectionContext };
+  }
+  const body = {
+    formatVersion: 1,
+    contexts: [...contexts.keys()].sort(),
+    queries: [...queries.keys()].sort(),
+    ...(selection ? { selection } : {}),
+  };
+  return { contexts, queries, manifest: parseManifest({ ...body, digest: queryContractDigest(body) }) };
 }
 const readBounded = (path: string) => readCacheFile(path, MAX_BYTES, "Query contract artifact");
 async function publish(
@@ -97,6 +147,7 @@ export async function exportQueryContracts(
     readonly expectedManifestDigest?: string | null;
     /** Revalidate project inputs immediately before manifest publication. */
     readonly beforeCommit?: () => Promise<void>;
+    readonly selection?: QueryContractSelection;
   } = {},
 ): Promise<string> {
   if (
@@ -105,12 +156,7 @@ export async function exportQueryContracts(
     (typeof options.expectedManifestDigest !== "string" || !digestPattern.test(options.expectedManifestDigest))
   )
     throw new TypeError("Invalid expected query contract manifest digest");
-  const contracts = inputs.map(parseQueryContract);
-  createQueryContractIndex(contracts);
-  const contexts = new Map(contracts.map((contract) => [queryContractDigest(contract.context), contract.context]));
-  const queries = new Map(contracts.map((contract) => [contract.digest, contract]));
-  const body = { formatVersion: 1, contexts: [...contexts.keys()].sort(), queries: [...queries.keys()].sort() };
-  const manifest = parseManifest({ ...body, digest: queryContractDigest(body) });
+  const { contexts, queries, manifest } = exportParts(inputs, options.selection);
   await mkdir(join(directory, "contexts"), { recursive: true });
   await mkdir(join(directory, "queries"), { recursive: true });
   const lockPath = join(directory, ".publication.lock");
@@ -173,6 +219,26 @@ export async function readQueryContractManifestDigest(directory: string): Promis
   return parseManifest(JSON.parse(await readBounded(join(directory, "manifest.json")))).digest;
 }
 
+/** Selects only the target/context binding declared by a durable manifest. No cache or native access. */
+export async function loadQueryContractContext(
+  directory: string,
+  input: AnalysisContextScope,
+): Promise<QueryContractContext | undefined> {
+  const scope = parseAnalysisContextScope(input);
+  const manifest = parseManifest(JSON.parse(await readBounded(join(directory, "manifest.json"))));
+  if (!manifest.selection) return undefined;
+  if (manifest.selection.targetHash !== scope.connectionContext)
+    throw new TypeError("Durable contract manifest does not select the configured target scope");
+  if (manifest.selection.scopeHash !== analysisContextScopeKey(scope)) return undefined;
+  const context = parseQueryContractContext(
+    JSON.parse(await readBounded(join(directory, "contexts", `${manifest.selection.contextHash}.json`))),
+  );
+  if (queryContractDigest(context) !== manifest.selection.contextHash)
+    throw new TypeError("Durable selected context digest differs");
+  assertContextScope(context, scope);
+  return context;
+}
+
 /** Loads only the declared closure. Missing, corrupt or incompatible inputs never fall back to cache. */
 export async function loadQueryContracts(directory: string): Promise<readonly QueryContract[]> {
   const manifest = parseManifest(JSON.parse(await readBounded(join(directory, "manifest.json"))));
@@ -185,12 +251,15 @@ export async function loadQueryContracts(directory: string): Promise<readonly Qu
     contexts.set(digest, canonicalContractData(context));
   }
   const contracts: QueryContract[] = [];
-  const usedContexts = new Set<string>();
+  const usedContexts = new Set<string>(manifest.selection ? [manifest.selection.contextHash] : []);
   for (const digest of manifest.queries) {
     const contract = parseQueryContract(JSON.parse(await readBounded(join(directory, "queries", `${digest}.json`))));
     if (contract.digest !== digest) throw new TypeError("Query contract object digest differs");
     const contextDigest = queryContractDigest(contract.context);
-    if (contexts.get(contextDigest) !== canonicalContractData(contract.context))
+    if (
+      (manifest.selection && contextDigest !== manifest.selection.contextHash) ||
+      contexts.get(contextDigest) !== canonicalContractData(contract.context)
+    )
       throw new TypeError("Query contract context is outside the declared closure");
     usedContexts.add(contextDigest);
     contracts.push(contract);

@@ -291,7 +291,9 @@ export default defineConfig({
             contribution:createPostgresContractReconciler({schema}),inspectContext:signal=>adapter.inspectContext(signal),close:()=>pool.end()};
         }},`,
         );
-      const scopedLiveConfig = liveConfig.replace("cache: {", 'cache: {"directory":"live-cache",');
+      const scopedLiveConfig = liveConfig
+        .replace("cache: {", 'cache: {"directory":"live-cache",')
+        .replace(`context: ${JSON.stringify(context)},`, "");
       await writeFile(join(temporary, "live-config.mjs"), scopedLiveConfig);
       await writeFile(join(temporary, "value.sql"), "SELECT :id::bigint AS asset_value");
       await writeFile(
@@ -362,6 +364,27 @@ export default defineConfig({
         /export matches/u,
       );
       strict.equal(await readFile(join(temporary, "live-contracts/manifest.json"), "utf8"), before);
+      const firstEpoch = (await loadQueryContracts(join(temporary, "live-contracts")))[0]!.context.databaseContextHash;
+      await pool.query(
+        `CREATE OR REPLACE FUNCTION ${namespace}.increment(value bigint) RETURNS bigint LANGUAGE plpgsql AS $$BEGIN UPDATE ${namespace}.calls SET count = count + 1; RETURN value + 2; END$$`,
+      );
+      await strict.rejects(
+        promisify(callback)(process.execPath, [...generationArgs, "--check"], generationOptions),
+        (error: unknown) => {
+          strict.match((error as { stderr: string }).stderr, /export differs/u);
+          return true;
+        },
+      );
+      strict.equal(await readFile(join(temporary, "live-contracts/manifest.json"), "utf8"), before);
+      strict.match(
+        (await promisify(callback)(process.execPath, generationArgs, generationOptions)).stdout,
+        /Generated 3 query contract/u,
+      );
+      strict.notEqual(
+        (await loadQueryContracts(join(temporary, "live-contracts")))[0]!.context.databaseContextHash,
+        firstEpoch,
+        "Live generation must adopt a changed routine epoch without a pre-recorded context file",
+      );
       await writeFile(
         join(temporary, "live-config.mjs"),
         scopedLiveConfig.replace('contractsDir: "contracts"', 'contractsDir: "live-contracts"'),

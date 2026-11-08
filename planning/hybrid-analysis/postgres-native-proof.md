@@ -137,3 +137,17 @@ Generation TypeScript-checks the exact prospective contract view before a guarde
 The selected recorded context must still match native observation. No claim is made here about
 automatic context adoption, editor/watch regeneration, additional PostgreSQL statement classes,
 other transports or the final all-engine frozen distribution gate.
+
+## Automatic context refresh update
+
+The live CLI configuration now omits its pre-recorded context. Installed identities and the selected
+target constrain observed PostgreSQL context selection. After the first three-query export, the
+helper replaces the user function's body without changing its declared bigint signature. A live
+check-only generation observes the new epoch and reports a durable difference without replacing
+the manifest. Explicit regeneration adopts the changed epoch. A fresh frozen process consumes that
+target-bound export after the live cache is deleted; its analyzer/adapter factories remain guarded.
+
+The function counter remains unchanged by metadata work. Schema/profile compatibility, query
+qualification, context observations and current-remote freshness remain separate claims. This
+extends the explicit command proof; it does not establish long-lived watch/editor refresh cadence,
+additional PostgreSQL statement classes, other engines or final workload/bundle measurements.

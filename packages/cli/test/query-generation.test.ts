@@ -1,8 +1,8 @@
 import { lstat, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, it, strict } from "poku";
-import { loadQueryContracts, readQueryContractManifestDigest } from "../../analysis/src/index.js";
-import { execute, fixture } from "./helpers/contract-fixture.js";
+import { loadQueryContracts, queryContractDigest, readQueryContractManifestDigest } from "../../analysis/src/index.js";
+import { context, execute, fixture } from "./helpers/contract-fixture.js";
 
 async function allowOfflineOwner(directory: string): Promise<string> {
   const path = join(directory, "typed-sql.config.mjs"),
@@ -29,6 +29,46 @@ async function contents(directory: string): Promise<unknown> {
   return result;
 }
 await describe("durable query generation", async () => {
+  await it("bootstraps scoped offline inputs without a context file and rejects target/schema mismatch", async () => {
+    await fixture(async (directory) => {
+      await allowOfflineOwner(directory);
+      const path = join(directory, "typed-sql.config.mjs"),
+        target = queryContractDigest("automatic CLI target");
+      const config = (await readFile(path, "utf8"))
+        .replace(`context:${JSON.stringify(context)},`, "")
+        .replace(
+          'analysis:{mode:"offline",',
+          `analysis:{mode:"offline",cache:${JSON.stringify({ connectionContext: target, adapter: { id: "vendor/native", version: "1" } })},`,
+        );
+      await writeFile(path, config);
+      strict.match((await generate(directory)).stdout, /Generated 1 query/u);
+      const output = join(directory, "generated/contracts"),
+        first = (await loadQueryContracts(output))[0]!;
+      await rm(join(directory, ".typed-sql"), { recursive: true, force: true });
+      const cold = config.replace(
+        'loadAnalyzer:async()=>(await import("@typed-sql/postgres")).postgres()',
+        'loadAnalyzer(){throw Error("frozen analyzer must stay cold")}',
+      );
+      await writeFile(path, cold);
+      strict.match((await execute(directory, ["--frozen"])).stdout, /Frozen checked/u);
+      await writeFile(path, cold.replace(target, queryContractDigest("wrong target")));
+      await strict.rejects(execute(directory, ["--frozen"]), (error: unknown) => {
+        strict.match((error as { stderr: string }).stderr, /target scope/u);
+        return true;
+      });
+      await writeFile(path, config);
+      const snapshot = JSON.parse(await readFile(join(directory, "schema.json"), "utf8"));
+      await writeFile(join(directory, "schema.json"), JSON.stringify({ ...snapshot, version: "18" }));
+      await strict.rejects(execute(directory, ["--frozen"]), (error: unknown) => {
+        strict.match((error as { stderr: string }).stderr, /declared durable target/u);
+        return true;
+      });
+      strict.match((await generate(directory)).stdout, /Generated 1 query/u);
+      strict.notEqual((await loadQueryContracts(output))[0]!.context.schemaHash, first.context.schemaHash);
+      await writeFile(path, cold);
+      strict.match((await execute(directory, ["--frozen"])).stdout, /Frozen checked/u);
+    });
+  });
   await it("materializes offline rules, checks the prospective view and produces a frozen reusable closure", async () => {
     await fixture(async (directory) => {
       const original = await allowOfflineOwner(directory),

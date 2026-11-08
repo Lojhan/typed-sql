@@ -5,6 +5,7 @@ import { describe, it, strict } from "poku";
 import { unknownQuerySemantics } from "../../core/src/index.js";
 import {
   type AnalysisCache,
+  createAnalysisContextScope,
   type LiveAnalysisServices,
   openAnalysisCache,
   prepareLiveContractView,
@@ -50,6 +51,100 @@ const settings = { ...configuration, mode: "live" as const };
 const base = { profile, schema, configuration: settings, candidates: [request.candidate], loadAnalyzer: () => plugin };
 
 await describe("finite explicit live qualification", async () => {
+  await it("discovers and refreshes observed contexts without a pre-recorded epoch", async () => {
+    await temporary(async (cache) => {
+      const { context: _context, ...automatic } = settings;
+      let observed = context;
+      const live = {
+        adapter: () =>
+          services({
+            inspectContext: async () => observed,
+            adapter: adapter({
+              open: async () => ({
+                context: async () => observed,
+                describe: async () => evidence,
+                close: async () => {},
+              }),
+            }),
+          }),
+      };
+      const first = await prepareLiveContractView({ ...base, configuration: automatic, cache, live });
+      strict.deepEqual(first.context, context);
+      await first.assertCurrent();
+      observed = { ...context, databaseContextHash: queryContractDigest("new database epoch") };
+      const next = await prepareLiveContractView({ ...base, configuration: automatic, cache, live });
+      strict.deepEqual(next.context, observed);
+      await next.assertCurrent();
+      await strict.rejects(first.assertCurrent(), /selection changed/u);
+      const scope = createAnalysisContextScope({ ...base, configuration: automatic });
+      strict.deepEqual((await cache.lookupContext(scope)).recorded?.context, observed);
+      strict.equal((await cache.lookup(request)).cached?.outcome.kind, "stale-context");
+      const empty = await prepareLiveContractView({
+        ...base,
+        configuration: automatic,
+        cache,
+        live,
+        candidates: [],
+        loadAnalyzer() {
+          throw Error("empty discovery keeps analyzer cold");
+        },
+      });
+      strict.deepEqual(empty.context, observed);
+      strict.equal(empty.contracts.length, 0);
+    });
+  });
+  await it("fences a delayed observation that finishes after a newer selection", async () => {
+    await temporary(async (cache) => {
+      const { context: _context, ...automatic } = settings;
+      let resume!: () => void, ready!: () => void;
+      const waiting = new Promise<void>((resolve) => {
+          resume = resolve;
+        }),
+        started = new Promise<void>((resolve) => {
+          ready = resolve;
+        });
+      const old = prepareLiveContractView({
+        ...base,
+        configuration: automatic,
+        cache,
+        live: {
+          adapter: () =>
+            services({
+              inspectContext: async () => {
+                ready();
+                await waiting;
+                return context;
+              },
+            }),
+        },
+      });
+      await started;
+      const fresh = { ...context, databaseContextHash: queryContractDigest("newer selection") };
+      const next = await prepareLiveContractView({
+        ...base,
+        configuration: automatic,
+        cache,
+        live: {
+          adapter: () =>
+            services({
+              inspectContext: async () => fresh,
+              adapter: adapter({
+                open: async () => ({
+                  context: async () => fresh,
+                  describe: async () => evidence,
+                  close: async () => {},
+                }),
+              }),
+            }),
+        },
+      });
+      resume();
+      await strict.rejects(old, /selection superseded/u);
+      await next.assertCurrent();
+      const scope = createAnalysisContextScope({ ...base, configuration: automatic });
+      strict.deepEqual((await cache.lookupContext(scope)).recorded?.context, fresh);
+    });
+  });
   await it("qualifies successful static queries, feeds bounded work and closes resources before returning", async () => {
     await temporary(async (cache) => {
       let active = 0,

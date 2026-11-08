@@ -10,6 +10,12 @@ import {
   writeCacheFile,
 } from "./cache-files.js";
 import { canonicalContractData, queryContractDigest } from "./canonical.js";
+import {
+  type AnalysisContextScope,
+  analysisContextScopeKey,
+  assertContextScope,
+  parseAnalysisContextScope,
+} from "./context-scope.js";
 import { parseQueryContract, parseQueryContractContext, serializeQueryContract } from "./contracts.js";
 import {
   type LiveAnalysisFailure,
@@ -55,6 +61,17 @@ export interface AnalysisCacheLookup {
   };
 }
 export interface AnalysisCache {
+  areTokensCurrent(tokens: readonly AnalysisCacheToken[]): Promise<boolean>;
+  lookupContext(scope: AnalysisContextScope): Promise<AnalysisContextLookup>;
+  publishContext(input: {
+    readonly token: AnalysisCacheToken;
+    readonly scope: AnalysisContextScope;
+    readonly context: import("./contracts.js").QueryContractContext;
+    readonly previousContext?: import("./contracts.js").QueryContractContext;
+  }): Promise<
+    | { readonly status: "published"; readonly token: AnalysisCacheToken }
+    | { readonly status: "superseded" | "capacity" }
+  >;
   /** Contract-first lookup; no analyzer claim or database access is required. */
   lookupRecorded(query: RecordedAnalysisQuery): Promise<AnalysisCacheLookup>;
   lookup(request: LiveAnalysisRequest): Promise<AnalysisCacheLookup>;
@@ -74,6 +91,22 @@ export interface AnalysisCache {
     readonly retentionMs?: number;
   }): Promise<{ readonly removed: number; readonly bytes: number; readonly retainedBytes: number }>;
 }
+export interface AnalysisContextLookup {
+  readonly token: AnalysisCacheToken;
+  readonly recorded?: {
+    readonly context: import("./contracts.js").QueryContractContext;
+    readonly status: "usable" | "stale";
+    readonly observedAt: number;
+    readonly freshness: "unverified";
+  };
+}
+interface ContextHead {
+  readonly scopeHash: string;
+  readonly contextHash: string;
+  readonly revision: string;
+  readonly observedAt: number;
+  readonly status: "usable" | "stale";
+}
 type CacheResult = LiveAnalysisFailure | { readonly kind: "usable-recorded-context"; readonly contractDigest: string };
 interface Entry {
   readonly requestKey: string;
@@ -87,6 +120,7 @@ interface Index {
   readonly workspaceContext: string;
   readonly epoch: string;
   readonly entries: readonly Entry[];
+  readonly heads?: readonly ContextHead[];
   readonly digest: string;
 }
 interface Owner {
@@ -115,7 +149,12 @@ function owner(input: unknown): Owner {
   return Object.freeze(value) as unknown as Owner;
 }
 function index(input: unknown, expectedWorkspace: string, maxEntries: number): Index {
-  const value = shape(input, "digest,entries,epoch,formatVersion,workspaceContext");
+  const value = shape(
+    input,
+    input && typeof input === "object" && Object.hasOwn(input, "heads")
+      ? "digest,entries,epoch,formatVersion,heads,workspaceContext"
+      : "digest,entries,epoch,formatVersion,workspaceContext",
+  );
   if (
     value.formatVersion !== 1 ||
     value.workspaceContext !== expectedWorkspace ||
@@ -125,6 +164,21 @@ function index(input: unknown, expectedWorkspace: string, maxEntries: number): I
     throw new TypeError("Analysis cache index/version/limit differs");
   hash(value.epoch);
   hash(value.digest);
+  if (value.heads !== undefined) {
+    if (!Array.isArray(value.heads) || value.heads.length > maxEntries)
+      throw new TypeError("Analysis context head limit differs");
+    let previous = "";
+    for (const item of value.heads) {
+      const head = shape(item, "contextHash,observedAt,revision,scopeHash,status");
+      hash(head.scopeHash);
+      hash(head.contextHash);
+      hash(head.revision);
+      timestamp(head.observedAt);
+      if (!["usable", "stale"].includes(head.status as string) || head.scopeHash <= previous)
+        throw new TypeError("Invalid analysis context head order or status");
+      previous = head.scopeHash;
+    }
+  }
   let previous = "";
   for (const item of value.entries) {
     const entry = shape(item, "contextHash,recordedAt,requestKey,result,revision");
@@ -300,18 +354,24 @@ export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<
     if (stat && (!stat.isFile() || stat.isSymbolicLink())) throw new TypeError("Unsafe analysis cache object");
     return stat?.size ?? 0;
   };
-  const indexText = (epoch: string, entries: readonly Entry[]) => {
+  const indexText = (epoch: string, entries: readonly Entry[], heads: readonly ContextHead[] = []) => {
     const body = {
       formatVersion: 1,
       workspaceContext,
       epoch,
       entries: [...entries].sort((a, b) => a.requestKey.localeCompare(b.requestKey)),
+      ...(heads.length ? { heads: [...heads].sort((a, b) => a.scopeHash.localeCompare(b.scopeHash)) } : {}),
     };
     const parsed = index({ ...body, digest: queryContractDigest(body) }, workspaceContext, maxEntries);
     return `${canonicalContractData(parsed)}\n`;
   };
-  const writeIndex = async (epoch: string, entries: readonly Entry[], assertLock: () => Promise<void>) => {
-    const text = indexText(epoch, entries),
+  const writeIndex = async (
+    epoch: string,
+    entries: readonly Entry[],
+    assertLock: () => Promise<void>,
+    heads: readonly ContextHead[] = [],
+  ) => {
+    const text = indexText(epoch, entries, heads),
       before = await readUsage(),
       previousBytes = await fileSize(path.index);
     const delta = Buffer.byteLength(text) - previousBytes;
@@ -421,7 +481,7 @@ export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<
           throw new TypeError("Analysis cache context digest differs");
         const matched = parseRecordedQueryContract(contract, query);
         if (staticClaimHash !== undefined && matched.qualification!.staticClaimHash !== staticClaimHash) {
-          const epoch = nonce(),
+          const epoch = current.epoch,
             revision = nonce(),
             recordedAt = now();
           const result = { kind: "partial", code: "static-claim-changed" } as const;
@@ -430,6 +490,7 @@ export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<
             epoch,
             [...current.entries.filter((item) => item.requestKey !== requestKey), retired],
             assertLock,
+            current.heads,
           );
           return Object.freeze({
             token: token({ ...captured, epoch, entryRevision: revision }),
@@ -445,6 +506,131 @@ export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<
     });
   }
   return Object.freeze({
+    async areTokensCurrent(inputs) {
+      if (inputs.length > 65_535) throw new RangeError("Analysis cache snapshot token limit exceeded");
+      const expected = inputs.map(token);
+      return withLock(async () => {
+        await layout();
+        const current = await readIndex(),
+          revisions = new Map<string, string>([
+            ...current.entries.map((entry) => [entry.requestKey, entry.revision] as const),
+            ...(current.heads ?? []).map((head) => [head.scopeHash, head.revision] as const),
+          ]);
+        return expected.every(
+          (item) =>
+            item.ownerInstance === instance &&
+            item.workspaceContext === workspaceContext &&
+            item.epoch === current.epoch &&
+            (revisions.get(item.requestKey) ?? null) === item.entryRevision,
+        );
+      });
+    },
+    async lookupContext(input: AnalysisContextScope): Promise<AnalysisContextLookup> {
+      const scope = parseAnalysisContextScope(input),
+        key = analysisContextScopeKey(scope);
+      return withLock(async () => {
+        await layout();
+        await readUsage();
+        const current = await readIndex(),
+          head = current.heads?.find((item) => item.scopeHash === key);
+        const captured = token({
+          formatVersion: 1,
+          ownerInstance: instance!,
+          workspaceContext,
+          epoch: current.epoch,
+          requestKey: key,
+          entryRevision: head?.revision ?? null,
+        });
+        if (!head) return Object.freeze({ token: captured });
+        const context = parseQueryContractContext(
+          JSON.parse(await readCacheFile(join(path.contexts, `${head.contextHash}.json`), maxObjectBytes)),
+        );
+        if (queryContractDigest(context) !== head.contextHash)
+          throw new TypeError("Analysis context head digest differs");
+        assertContextScope(context, scope);
+        const stale =
+          head.status === "stale" ||
+          current.entries.some((item) => item.contextHash === head.contextHash && item.result.kind === "stale-context");
+        return Object.freeze({
+          token: captured,
+          recorded: Object.freeze({
+            context,
+            status: stale ? ("stale" as const) : ("usable" as const),
+            observedAt: head.observedAt,
+            freshness: "unverified" as const,
+          }),
+        });
+      });
+    },
+    async publishContext(input) {
+      const scope = parseAnalysisContextScope(input.scope),
+        context = parseQueryContractContext(input.context),
+        expected = token(input.token),
+        key = analysisContextScopeKey(scope);
+      assertContextScope(context, scope);
+      const previousContext =
+        input.previousContext === undefined ? undefined : parseQueryContractContext(input.previousContext);
+      if (previousContext) assertContextScope(previousContext, scope);
+      if (
+        expected.requestKey !== key ||
+        expected.workspaceContext !== workspaceContext ||
+        expected.ownerInstance !== instance
+      )
+        throw new TypeError("Analysis context publication token differs");
+      return withLock(async (assertLock) => {
+        await layout();
+        const current = await readIndex(),
+          previous = current.heads?.find((head) => head.scopeHash === key);
+        if (current.epoch !== expected.epoch || (previous?.revision ?? null) !== expected.entryRevision)
+          return { status: "superseded" as const };
+        const heads = current.heads ?? [];
+        const contextHash = queryContractDigest(context),
+          head: ContextHead = { scopeHash: key, contextHash, revision: nonce(), observedAt: now(), status: "usable" };
+        const priorHash = previous?.contextHash ?? (previousContext ? queryContractDigest(previousContext) : undefined);
+        const changed = priorHash !== undefined && priorHash !== contextHash;
+        const epoch = changed ? nonce() : current.epoch;
+        const retired: Entry | undefined = changed
+          ? {
+              requestKey: queryContractDigest({ kind: "retired-context", contextHash: priorHash }),
+              contextHash: priorHash!,
+              revision: nonce(),
+              recordedAt: now(),
+              result: { kind: "stale-context", code: "context-changed" },
+            }
+          : undefined;
+        const entries = current.entries.filter(
+          (item) =>
+            item.contextHash !== (changed ? priorHash : "") &&
+            (item.result.kind !== "stale-context" || item.contextHash !== contextHash),
+        );
+        if (retired) entries.push(retired);
+        const capacity = async () => {
+          if (retired) await writeIndex(nonce(), [retired], assertLock);
+          return { status: "capacity" as const };
+        };
+        if (!previous && heads.length >= maxEntries) return capacity();
+        const text = indexText(epoch, entries, [...heads.filter((item) => item.scopeHash !== key), head]);
+        const contextText = `${canonicalContractData(context)}\n`,
+          contextFile = join(path.contexts, `${contextHash}.json`);
+        const before = await readUsage(),
+          previousBytes = await fileSize(path.index),
+          added =
+            Math.max(0, Buffer.byteLength(text) - previousBytes) +
+            (!(await fileSize(contextFile)) ? Buffer.byteLength(contextText) : 0);
+        if (
+          Buffer.byteLength(text) > maxObjectBytes ||
+          Buffer.byteLength(contextText) > maxObjectBytes ||
+          before + added > maxBytes
+        )
+          return capacity();
+        if (added) await writeUsage(before + added, assertLock);
+        await write(contextFile, contextText, true, assertLock);
+        await write(path.index, text, false, assertLock);
+        if (previousBytes > Buffer.byteLength(text))
+          await writeUsage(Math.max(0, before + added - previousBytes + Buffer.byteLength(text)), assertLock);
+        return { status: "published" as const, token: token({ ...expected, epoch, entryRevision: head.revision }) };
+      });
+    },
     lookupRecorded(input: RecordedAnalysisQuery) {
       return lookupRecorded(parseRecordedAnalysisQuery(input));
     },
@@ -488,7 +674,7 @@ export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<
         const revision = nonce(),
           entry: Entry = { requestKey: expected.requestKey, revision, recordedAt, contextHash, result: stored };
         const entries = [...retainedEntries.filter((item) => item.requestKey !== entry.requestKey), entry];
-        const text = indexText(result.kind === "stale-context" ? nonce() : current.epoch, entries);
+        const text = indexText(result.kind === "stale-context" ? nonce() : current.epoch, entries, current.heads);
         const contextText =
           result.kind === "usable-recorded-context" ? `${canonicalContractData(result.contract.context)}\n` : "";
         const contractText = result.kind === "usable-recorded-context" ? serializeQueryContract(result.contract) : "";
@@ -509,7 +695,23 @@ export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<
           Buffer.byteLength(contextText) > maxObjectBytes
         ) {
           // Resource pressure cannot preserve a result that has just been disproved.
-          if (retiresKnownEvidence) await writeIndex(nonce(), [], assertLock);
+          if (retiresKnownEvidence)
+            await writeIndex(
+              nonce(),
+              [
+                {
+                  requestKey: queryContractDigest({ kind: "retired-context", contextHash }),
+                  contextHash,
+                  revision: nonce(),
+                  recordedAt,
+                  result: { kind: "stale-context", code: "context-changed" },
+                },
+              ],
+              assertLock,
+              current.heads?.map((head) =>
+                head.contextHash === contextHash ? { ...head, status: "stale", revision: nonce() } : head,
+              ),
+            );
           return { status: "capacity" as const };
         }
         if (!retiresKnownEvidence && before + added > maxBytes) return { status: "capacity" as const };
@@ -537,7 +739,7 @@ export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<
         contextHash = queryContractDigest(context);
       await withLock(async (assertLock) => {
         await layout();
-        await readIndex();
+        const current = await readIndex();
         const entry: Entry = {
           requestKey: queryContractDigest({ kind: "retired-context", contextHash }),
           revision: nonce(),
@@ -545,7 +747,14 @@ export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<
           recordedAt: now(),
           result: { kind: "stale-context", code: "context-changed" },
         };
-        await writeIndex(nonce(), [entry], assertLock);
+        await writeIndex(
+          nonce(),
+          [entry],
+          assertLock,
+          current.heads?.map((head) =>
+            head.contextHash === contextHash ? { ...head, status: "stale", revision: nonce() } : head,
+          ),
+        );
       });
     },
     async prune(pruneOptions = {}) {
@@ -568,6 +777,7 @@ export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<
               protectedQueries.add(entry.result.contractDigest);
               protectedContexts.add(entry.contextHash);
             }
+          for (const head of current.heads ?? []) protectedContexts.add(head.contextHash);
         }
         const files = await objects();
         let retainedBytes = files.reduce((sum, file) => sum + file.bytes, 0),

@@ -29,6 +29,55 @@ const owner = {
   }),
 };
 await describe("explicit grammar registration", async () => {
+  await it("discards resources when post-construction dependency tracking fails without hiding original failures", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "typed-sql-factory-discard-"));
+    const file = join(directory, "config.mjs");
+    try {
+      await writeFile(file, "// fixture");
+      let imported = (_url: string) => {};
+      const raw = await loadConfigSource({
+        file,
+        importer: async (_file, onImport) => {
+          imported = onImport;
+          return { default: defineConfig({ dialect: profile, schema: { file: "schema.json" }, outDir: "generated" }) };
+        },
+      });
+      let disposed = 0;
+      const construct = () => {
+        imported(pathToFileURL(join(directory, "missing.mjs")).href);
+        return {
+          close() {
+            disposed++;
+          },
+        };
+      };
+      await strict.rejects(runConfigFactory(raw, construct, { onDiscard: (value) => value.close() }), {
+        code: "ENOENT",
+      });
+      strict.equal(disposed, 1);
+      await strict.rejects(runConfigFactory(raw, construct), { code: "ENOENT" });
+      await strict.rejects(
+        runConfigFactory(raw, construct, {
+          onDiscard() {
+            throw Error("cleanup failed");
+          },
+        }),
+        AggregateError,
+      );
+      await strict.rejects(
+        runConfigFactory(raw, () => {
+          throw Error("construction failed");
+        }),
+        (error: unknown) => {
+          if (!(error instanceof AggregateError)) return false;
+          strict.match(String(error.errors[0]), /construction failed/u);
+          return true;
+        },
+      );
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
   await it("tracks explicit contribution factories even when construction fails", async () => {
     const directory = await mkdtemp(join(tmpdir(), "typed-sql-contribution-"));
     const file = join(directory, "config.mjs"),

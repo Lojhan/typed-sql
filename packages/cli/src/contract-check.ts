@@ -3,12 +3,14 @@ import { lstat, readFile, realpath } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import {
   type AnalysisRegistration,
+  createAnalysisContextScope,
   createContractDialect,
   createQueryContractIndex,
   defineAnalysisConfiguration,
   defineAnalysisRegistration,
   exportQueryContracts,
   loadFrozenContractView,
+  loadQueryContractContext,
   loadQueryContracts,
   openAnalysisCache,
   prepareLiveContractView,
@@ -17,6 +19,7 @@ import {
   queryContractDigest,
   queryContractManifestDigest,
   readQueryContractManifestDigest,
+  selectOfflineAnalysisContext,
 } from "@typed-sql/analysis";
 import {
   checkFile,
@@ -50,7 +53,7 @@ export async function runContractCommand(
     throw new Error("Query generation requires complete projects; use --project or config.projects");
   const { live, ...data } = defineAnalysisRegistration(loaded.config.analysis as AnalysisRegistration);
   const raw = defineAnalysisConfiguration(data);
-  const configuration = defineAnalysisConfiguration({
+  let configuration = defineAnalysisConfiguration({
     ...raw,
     ...(options.qualification === undefined
       ? {}
@@ -80,7 +83,8 @@ export async function runContractCommand(
       if (error.code !== "ENOENT") throw error;
       return null;
     });
-  const expectedManifestDigest = generating ? await manifestDigest() : undefined;
+  const baselineManifest = await manifestDigest();
+  const expectedManifestDigest = generating ? baselineManifest : undefined;
   const durable = async () => {
     if (configuration.mode !== "frozen") {
       try {
@@ -171,6 +175,40 @@ export async function runContractCommand(
           workspaceContext: queryContractDigest({ workspace: loaded.directory, config: loaded.file }),
         })
       : undefined;
+  const bindingScope = configuration.cache
+    ? createAnalysisContextScope({ profile, schema, typePolicy: policy, configuration })
+    : undefined;
+  const automaticScope = raw.context === undefined ? bindingScope! : undefined;
+  const recordedContext =
+    bindingScope && baselineManifest !== null ? await loadQueryContractContext(directory, bindingScope) : undefined;
+  if (
+    recordedContext &&
+    configuration.context &&
+    queryContractDigest(recordedContext) !== queryContractDigest(configuration.context)
+  )
+    throw new Error("Pinned context differs from the durable target selection");
+  let selectionToken: import("@typed-sql/analysis").AnalysisCacheToken | undefined;
+  if (automaticScope && configuration.mode === "offline") {
+    const context = await selectOfflineAnalysisContext({
+      profile,
+      schema,
+      typePolicy: policy,
+      configuration,
+      ...(cache ? { cache } : {}),
+      ...(baselineManifest !== null ? { directory } : {}),
+    });
+    configuration = defineAnalysisConfiguration({ ...configuration, context });
+    if (cache) {
+      const captured = await cache.lookupContext(automaticScope);
+      if (
+        captured.recorded &&
+        (captured.recorded.status === "stale" ||
+          queryContractDigest(captured.recorded.context) !== queryContractDigest(context))
+      )
+        throw new Error("Analysis target/context selection changed; retry current inputs");
+      selectionToken = captured.token;
+    }
+  }
   const view =
     configuration.mode === "frozen"
       ? await loadFrozenContractView({ profile, schema, typePolicy: policy, configuration, directory })
@@ -181,7 +219,12 @@ export async function runContractCommand(
             typePolicy: policy,
             configuration,
             cache: cache!,
-            live: { ...live!, adapter: (input) => runConfigFactory(loaded, () => live!.adapter(input)) },
+            ...(recordedContext ? { recordedContext } : {}),
+            live: {
+              ...live!,
+              adapter: (input) =>
+                runConfigFactory(loaded, () => live!.adapter(input), { onDiscard: (services) => services.close() }),
+            },
             candidates: collections.flatMap(({ collection }) =>
               collection.candidates.map(({ sql, parameterOccurrences }) => ({ sql, parameterOccurrences })),
             ),
@@ -192,7 +235,7 @@ export async function runContractCommand(
             schema,
             typePolicy: policy,
             configuration,
-            contracts: initialContracts,
+            contracts: automaticScope && !recordedContext ? [] : initialContracts,
             candidates: collections.flatMap(({ collection }) =>
               collection.candidates.map((candidate) => ({
                 sql: candidate.sql,
@@ -202,6 +245,8 @@ export async function runContractCommand(
             ...(cache ? { cache } : {}),
             loadAnalyzer: async () => (await resolveConfigDialect(loaded)).config.dialect,
           });
+  const context = view.context;
+  const selection = bindingScope ? { scope: bindingScope, context } : undefined;
   let dialect = view.dialect;
   const generated: QueryContract[] = [];
   if (generating) {
@@ -210,14 +255,14 @@ export async function runContractCommand(
     for (const { path, collection } of collections)
       for (const candidate of collection.candidates) {
         if (selected.has(candidate.sql)) continue;
-        let contract = index.resolve(configuration.context, candidate.sql);
+        let contract = index.resolve(context, candidate.sql);
         if (!contract) {
           if (configuration.qualification.mode !== "hybrid")
             throw new Error("Native-required query generation requires qualified contracts for every candidate");
           try {
             contract = materializeOfflineContract({
               sql: candidate.sql,
-              context: configuration.context,
+              context,
               dialect,
               schema,
               typePolicy: policy,
@@ -234,7 +279,7 @@ export async function runContractCommand(
     generated.push(...selected.values());
     dialect = createContractDialect({
       profile,
-      context: configuration.context,
+      context,
       contracts: generated,
       ...(configuration.qualification.mode === "native-required"
         ? { qualificationPolicyHash: queryContractDigest(configuration.qualification) }
@@ -290,6 +335,9 @@ export async function runContractCommand(
     });
   }
   const assertInputs = async () => {
+    if ("assertCurrent" in view) await view.assertCurrent();
+    if (selectionToken && cache && !(await cache.areTokensCurrent([selectionToken])))
+      throw new Error("Analysis target/context selection changed; retry current inputs");
     for (const { file: analyzed, analysis } of analyses) {
       const expected = sourceHashes.get(await realpath(analyzed));
       if (expected === undefined || analysis.identity.source.hash !== expected)
@@ -306,7 +354,7 @@ export async function runContractCommand(
   await assertInputs();
   if (generating) {
     if (process.exitCode === 1) return;
-    const digest = queryContractManifestDigest(generated);
+    const digest = queryContractManifestDigest(generated, selection ? { selection } : {});
     if (options.check === "true") {
       if (digest !== expectedManifestDigest) {
         process.stderr.write("Query contract export differs from the durable manifest; regenerate and review it.\n");
@@ -316,6 +364,7 @@ export async function runContractCommand(
       await exportQueryContracts(directory, generated, {
         expectedManifestDigest: expectedManifestDigest ?? null,
         beforeCommit: assertInputs,
+        ...(selection ? { selection } : {}),
       });
       process.stdout.write(`Generated ${generated.length} query contract(s) at ${directory} (${digest}).\n`);
     }

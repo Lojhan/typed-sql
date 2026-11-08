@@ -251,16 +251,33 @@ export async function loadConfig(options: LoadConfigOptions = {}): Promise<Loade
 export async function runConfigFactory<Output>(
   source: LoadedConfigSource,
   factory: () => Output | Promise<Output>,
+  options: { readonly onDiscard?: (value: Output) => void | Promise<void> } = {},
 ): Promise<Output> {
+  const [created] = await Promise.allSettled([Promise.resolve().then(factory)]);
+  let trackingFailure: { readonly reason: unknown } | undefined;
   try {
-    return await factory();
-  } finally {
     const tracked = dependencyHashes.get(source),
       paths = discoveredDependencies.get(source);
     if (tracked && paths)
       for (const path of paths)
         if (path !== source.file && !tracked.has(path)) tracked.set(path, await fingerprint(path));
+  } catch (reason) {
+    trackingFailure = { reason };
   }
+  if (trackingFailure) {
+    const errors = [...(created.status === "rejected" ? [created.reason] : []), trackingFailure.reason];
+    if (created.status === "fulfilled" && options.onDiscard) {
+      try {
+        await options.onDiscard(created.value);
+      } catch (error) {
+        errors.push(error);
+      }
+    }
+    if (errors.length === 1) throw errors[0];
+    throw new AggregateError(errors, "Configuration contribution and dependency tracking failed");
+  }
+  if (created.status === "rejected") throw created.reason;
+  return created.value;
 }
 
 export function fromConfig(directory: string, path: string): string {

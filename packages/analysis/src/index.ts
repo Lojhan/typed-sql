@@ -5,13 +5,21 @@ export type {
   NativeContractSession,
 } from "./acquisition.js";
 export { acquireNativeQueryContract } from "./acquisition.js";
+export type { QueryContractSelection } from "./artifacts.js";
 export {
   exportQueryContracts,
+  loadQueryContractContext,
   loadQueryContracts,
   queryContractManifestDigest,
   readQueryContractManifestDigest,
 } from "./artifacts.js";
-export type { AnalysisCache, AnalysisCacheLookup, AnalysisCacheOptions, AnalysisCacheToken } from "./cache.js";
+export type {
+  AnalysisCache,
+  AnalysisCacheLookup,
+  AnalysisCacheOptions,
+  AnalysisCacheToken,
+  AnalysisContextLookup,
+} from "./cache.js";
 export { openAnalysisCache } from "./cache.js";
 export { canonicalContractData, exactSqlDigest, queryContractDigest } from "./canonical.js";
 export type {
@@ -20,7 +28,13 @@ export type {
   ContractInterpreterIdentity,
   ResolvedAnalysisConfiguration,
 } from "./configuration.js";
-export { defineAnalysisConfiguration, loadFrozenContractView } from "./configuration.js";
+export {
+  createAnalysisContextScope,
+  defineAnalysisConfiguration,
+  loadFrozenContractView,
+  selectOfflineAnalysisContext,
+} from "./configuration.js";
+export type { AnalysisContextScope } from "./context-scope.js";
 export type { QueryContract, QueryContractContext } from "./contracts.js";
 export {
   createQueryContract,

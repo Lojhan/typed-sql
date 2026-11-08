@@ -341,6 +341,49 @@ Unrelated planning work is left unchanged.
   and the full specification acceptance audit remain required. These commands do not complete
   those broader requirements.
 
+## Observed context selection checkpoint
+
+- Made an explicit recorded context optional when a target/adapter identity is configured. Pure
+  installed profile/codec/interpreter identities, schema and decoding policy independently constrain
+  accepted native observations. Explicit context pins preserve the preceding behavior.
+- Added persisted, bounded context selections per workspace/target/semantic scope. Tokens fence
+  competing observations and invalidation; an older response cannot reselect a superseded epoch.
+  A changed selected epoch retires old query records and publication leases. Selection timestamps
+  remain local sidecars and never establish current remote freshness.
+- Live preparation observes and selects a compatible context before constructing static/native
+  claims, then checks it again after acquisition. Coherent selection feeds synchronous compilation.
+  Empty automatic-context discovery keeps the analyzer cold. Mid-batch context changes invalidate
+  support; unknown/failure paths retain their conservative diagnostics.
+- Scoped durable manifests bind the selected context to an independently configured target/scope.
+  Context-only empty closures are valid, referenced context objects remain bounded/validated, and
+  mismatched targets fail. A changed schema/profile/codec scope cannot reuse old facts and can be
+  regenerated under the same logical target. Legacy explicit-context artifacts remain readable.
+- Automatic offline selection prefers the scoped cache, then compatible durable selection; known
+  stale selection cannot fall back to an older durable epoch. With neither, hybrid rules can run
+  under an explicitly unobserved offline context. Native-required support still needs qualified
+  recorded inputs. Frozen selection reads durable inputs only and never initializes a native owner.
+- Added explicit cache snapshot validation for prepared live/offline views. The CLI checks query
+  and context publication revisions after TypeScript checking and before durable publication.
+  Changed static claims now fence their own record revision without unnecessarily rotating the
+  whole context epoch; explicit context changes still rotate the global epoch.
+- Factory construction has an explicit discard hook: dependency-tracking failure after native
+  resource construction closes the discarded services and preserves original/cleanup errors.
+- Tests cover restart/prune preservation, target/schema/codec isolation, competing and delayed
+  observations, stale fallback rejection, scoped empty closures, source/metadata snapshot fencing,
+  context-free offline generation/frozen reuse, target mismatch and schema regeneration.
+- The real PostgreSQL helper omits the context file, generates its three-query closure, changes a
+  routine body and observes an automatic epoch change. Live `--check` reports the difference while
+  preserving the reviewed manifest; regeneration adopts it. Frozen checks consume the refreshed
+  export after cache deletion, and the function counter proves descriptions never execute it.
+- Local analysis/CLI/config suites, the full build, typechecking, quality, package/API boundaries,
+  packed consumers, documentation checks/build, performance gate and PostgreSQL native proof pass.
+  Analysis coverage is 99.31% lines, 99.27% functions and 94.75% branches. Exact-head CI and the
+  complete repository acceptance audit remain separate gates.
+- Request-driven observation cadence in long-lived hosts, editor/watch integration, complete
+  static/native facet authority and refinements, project catalogs/packs, inherited and all-engine
+  transport qualification, lightweight root migration, bulk semantic catalog deletion and the
+  complete acceptance audit remain required. This is not a claim of full grammar/engine parity.
+
 ## Required work still open
 
 1. Complete the contract/evidence model: native descriptors and provenance, reusable/facet-specific

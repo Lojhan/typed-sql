@@ -5,12 +5,16 @@ import {
   type DialectProfile,
   type SchemaSnapshot,
 } from "@typed-sql/core";
-import { calculateSchemaHash, calculateTypePolicyHash } from "@typed-sql/schema";
-import type { AnalysisCache } from "./cache.js";
+import type { AnalysisCache, AnalysisCacheToken } from "./cache.js";
 import { type NativeContractCandidate, parseNativeContractCandidate } from "./candidate.js";
 import { canonicalContractData, exactSqlDigest, queryContractDigest } from "./canonical.js";
-import { type AnalysisConfiguration, defineAnalysisConfiguration } from "./configuration.js";
-import { parseQueryContractContext, type QueryContract } from "./contracts.js";
+import {
+  type AnalysisConfiguration,
+  createAnalysisContextScope,
+  defineAnalysisConfiguration,
+} from "./configuration.js";
+import { assertContextScope } from "./context-scope.js";
+import { parseQueryContractContext, type QueryContract, type QueryContractContext } from "./contracts.js";
 import { createContractDialect } from "./dialect.js";
 import {
   createLiveAnalysisScheduler,
@@ -32,6 +36,8 @@ import {
 export interface LiveContractView<Snapshot extends SchemaSnapshot, Policy> {
   readonly dialect: DialectPlugin<Snapshot, Policy>;
   readonly contracts: readonly QueryContract[];
+  readonly context: QueryContractContext;
+  assertCurrent(): Promise<void>;
   readonly outcomes: readonly { readonly sqlDigest: string; readonly outcome: LiveAnalysisOutcome }[];
 }
 
@@ -46,23 +52,25 @@ export async function prepareLiveContractView<Snapshot extends SchemaSnapshot, P
   readonly cache: AnalysisCache;
   readonly loadAnalyzer: AnalysisOwnerLoader<Snapshot, Policy>;
   readonly signal?: AbortSignal;
+  readonly recordedContext?: QueryContractContext;
 }): Promise<LiveContractView<Snapshot, Policy>> {
   const configuration = defineAnalysisConfiguration(input.configuration),
     profile = input.profile;
   const registration = defineAnalysisRegistration({ ...configuration, live: input.live }).live!;
   assertDialectProfile(profile);
-  const context = configuration.context,
-    typePolicy = input.typePolicy ?? profile.defaultTypePolicy;
+  const typePolicy = input.typePolicy ?? profile.defaultTypePolicy;
   if (configuration.mode !== "live" || !configuration.cache || "analyze" in profile)
     throw new TypeError("Live preparation requires live mode, cache target identity and a lightweight profile");
-  const target = configuration.cache;
-  if (
-    context.grammar.id !== profile.id ||
-    context.grammar.version !== profile.grammarVersion ||
-    context.schemaHash !== calculateSchemaHash(input.schema) ||
-    context.typePolicyHash !== calculateTypePolicyHash(typePolicy ?? {})
-  )
-    throw new TypeError("Live analysis profile, schema or decoding policy differs");
+  const target = configuration.cache,
+    scope = createAnalysisContextScope(input),
+    automatic = configuration.context === undefined;
+  let context = configuration.context,
+    observationToken: AnalysisCacheToken | undefined;
+  const cacheTokens = new Map<string, AnalysisCacheToken>();
+  const selectedContext = (): QueryContractContext => {
+    if (!context) throw new TypeError("Live context observation has not completed");
+    return context;
+  };
   if (input.candidates.length > 4096) throw new RangeError("Live analysis candidate limit exceeded");
   const candidates = input.candidates.map(parseNativeContractCandidate);
   if (candidates.reduce((bytes, candidate) => bytes + Buffer.byteLength(candidate.sql), 0) > 16 * 1024 * 1024)
@@ -80,27 +88,18 @@ export async function prepareLiveContractView<Snapshot extends SchemaSnapshot, P
   let services: LiveAnalysisServices | undefined, scheduler: LiveAnalysisScheduler | undefined;
   async function produce(): Promise<LiveContractView<Snapshot, Policy>> {
     const outcomes: { sqlDigest: string; outcome: LiveAnalysisOutcome }[] = [];
-    if (!unique.length) return view(outcomes);
-    const owner = await input.loadAnalyzer();
+    if (!unique.length && context) return view(outcomes);
+    const captured = automatic ? await input.cache.lookupContext(scope) : undefined;
+    const owner = unique.length ? await input.loadAnalyzer() : undefined;
     signal.throwIfAborted();
-    assertDialectPlugin(owner);
+    if (owner) assertDialectPlugin(owner);
     if (
-      owner.id !== profile.id ||
-      owner.grammarVersion !== profile.grammarVersion ||
-      owner.sqlModule !== profile.sqlModule
+      owner &&
+      (owner.id !== profile.id ||
+        owner.grammarVersion !== profile.grammarVersion ||
+        owner.sqlModule !== profile.sqlModule)
     )
       throw new TypeError("Live analyzer registration differs from the selected profile");
-    const requests: LiveAnalysisRequest[] = unique.map((candidate) => ({
-      candidate,
-      connectionContext: target.connectionContext,
-      adapter: target.adapter,
-      policy: configuration.qualification,
-      staticClaim: createStaticQueryClaim({
-        sql: candidate.sql,
-        context,
-        analysis: owner.analyze(candidate.sql, input.schema, typePolicy, { runtimeValidation: true }),
-      }),
-    }));
     services = await registration.adapter({ schema: input.schema, typePolicy, signal });
     signal.throwIfAborted();
     if (!services || typeof services.close !== "function") throw new TypeError("Live adapter requires owned cleanup");
@@ -108,16 +107,27 @@ export async function prepareLiveContractView<Snapshot extends SchemaSnapshot, P
       services.connectionContext !== target.connectionContext ||
       services.adapter?.id !== target.adapter.id ||
       services.adapter.version !== target.adapter.version ||
-      canonicalContractData(services.adapter.grammar) !== canonicalContractData(context.grammar) ||
+      canonicalContractData(services.adapter.grammar) !== canonicalContractData(scope.grammar) ||
       services.contribution?.id !== configuration.qualification.owner.id ||
       services.contribution.version !== configuration.qualification.owner.version ||
-      canonicalContractData(services.contribution.grammar) !== canonicalContractData(context.grammar) ||
+      canonicalContractData(services.contribution.grammar) !== canonicalContractData(scope.grammar) ||
       typeof services.inspectContext !== "function"
     )
       throw new TypeError(
         "Live service registration differs from the selected target, adapter or reconciliation owner",
       );
-    await inspect();
+    await inspect(true);
+    const requests: LiveAnalysisRequest[] = unique.map((candidate) => ({
+      candidate,
+      connectionContext: target.connectionContext,
+      adapter: target.adapter,
+      policy: configuration.qualification,
+      staticClaim: createStaticQueryClaim({
+        sql: candidate.sql,
+        context: selectedContext(),
+        analysis: owner!.analyze(candidate.sql, input.schema, typePolicy, { runtimeValidation: true }),
+      }),
+    }));
     const maxActive = registration.maxActive ?? 8;
     scheduler = createLiveAnalysisScheduler({
       debounceMs: 0,
@@ -129,6 +139,9 @@ export async function prepareLiveContractView<Snapshot extends SchemaSnapshot, P
       deadlineMs: registration.deadlineMs ?? 5000,
       run: createPersistentLiveAnalysisRunner({
         cache: input.cache,
+        onCacheSnapshot: (token) => {
+          cacheTokens.set(token.requestKey, token);
+        },
         run: createNativeLiveAnalysisRunner({
           adapter: services.adapter,
           contribution: services.contribution,
@@ -147,7 +160,7 @@ export async function prepareLiveContractView<Snapshot extends SchemaSnapshot, P
           const outcome = await acquire(request, position);
           outcomes[position] = Object.freeze({ sqlDigest: exactSqlDigest(request.candidate.sql), outcome });
           if (outcome.kind === "stale-context") {
-            await input.cache.retireContext(context);
+            await input.cache.retireContext(selectedContext());
             controller.abort(
               new Error("Live database context changed during acquisition; refresh the recorded context."),
             );
@@ -155,14 +168,44 @@ export async function prepareLiveContractView<Snapshot extends SchemaSnapshot, P
         }
       }),
     );
-    await inspect();
+    await inspect(false);
     signal.throwIfAborted();
+    if (automatic) {
+      const committed = await input.cache.publishContext({
+        token: observationToken!,
+        scope,
+        context: selectedContext(),
+      });
+      if (committed.status !== "published")
+        throw new Error(`Live context selection ${committed.status}; retry against current inputs`);
+      observationToken = committed.token;
+    }
     return view(outcomes);
-    async function inspect() {
+    async function inspect(initial: boolean) {
       const current = parseQueryContractContext(await services!.inspectContext(signal));
       signal.throwIfAborted();
-      if (canonicalContractData(current) !== canonicalContractData(context)) {
-        await input.cache.retireContext(context);
+      try {
+        assertContextScope(current, scope);
+      } catch (error) {
+        const previous = context ?? captured?.recorded?.context ?? input.recordedContext;
+        if (previous) await input.cache.retireContext(previous);
+        throw error;
+      }
+      if (initial && automatic) {
+        const observed = await input.cache.publishContext({
+          token: captured!.token,
+          scope,
+          context: current,
+          ...(input.recordedContext ? { previousContext: input.recordedContext } : {}),
+        });
+        if (observed.status !== "published")
+          throw new Error(`Live context selection ${observed.status}; retry against current inputs`);
+        context = current;
+        observationToken = observed.token;
+        return;
+      }
+      if (canonicalContractData(current) !== canonicalContractData(selectedContext())) {
+        await input.cache.retireContext(selectedContext());
         throw new Error(
           "Live database context differs from the selected recorded context; refresh its schema/context inputs.",
         );
@@ -214,7 +257,7 @@ export async function prepareLiveContractView<Snapshot extends SchemaSnapshot, P
       );
       const consumer = createContractDialect({
         profile,
-        context,
+        context: selectedContext(),
         contracts,
         qualificationPolicyHash: queryContractDigest(configuration.qualification),
       });
@@ -241,7 +284,21 @@ export async function prepareLiveContractView<Snapshot extends SchemaSnapshot, P
             : analysis;
         },
       });
-      return Object.freeze({ dialect, contracts: Object.freeze(contracts), outcomes: Object.freeze([...results]) });
+      return Object.freeze({
+        dialect,
+        context: selectedContext(),
+        async assertCurrent() {
+          if (
+            !(await input.cache.areTokensCurrent([
+              ...cacheTokens.values(),
+              ...(observationToken ? [observationToken] : []),
+            ]))
+          )
+            throw new Error("Live evidence/context selection changed; retry current analysis inputs");
+        },
+        contracts: Object.freeze(contracts),
+        outcomes: Object.freeze([...results]),
+      });
     }
   }
   const [result] = await Promise.allSettled([produce()]);

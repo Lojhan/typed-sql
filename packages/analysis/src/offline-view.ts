@@ -6,7 +6,7 @@ import {
   type SchemaSnapshot,
 } from "@typed-sql/core";
 import { calculateSchemaHash, calculateTypePolicyHash } from "@typed-sql/schema";
-import type { AnalysisCache } from "./cache.js";
+import type { AnalysisCache, AnalysisCacheToken } from "./cache.js";
 import { type NativeContractCandidate, parseNativeContractCandidate } from "./candidate.js";
 import { exactSqlDigest, queryContractDigest } from "./canonical.js";
 import { type AnalysisConfiguration, defineAnalysisConfiguration } from "./configuration.js";
@@ -24,7 +24,12 @@ export async function prepareOfflineContractView<Snapshot extends SchemaSnapshot
   readonly contracts: readonly QueryContract[];
   readonly cache?: AnalysisCache;
   readonly loadAnalyzer?: () => Promise<DialectPlugin<Snapshot, Policy>> | DialectPlugin<Snapshot, Policy>;
-}): Promise<{ readonly dialect: DialectPlugin<Snapshot, Policy>; readonly contracts: readonly QueryContract[] }> {
+}): Promise<{
+  readonly dialect: DialectPlugin<Snapshot, Policy>;
+  readonly contracts: readonly QueryContract[];
+  readonly context: import("./contracts.js").QueryContractContext;
+  assertCurrent(): Promise<void>;
+}> {
   const configuration = defineAnalysisConfiguration(input.configuration),
     profile = input.profile;
   assertDialectProfile(profile);
@@ -32,6 +37,7 @@ export async function prepareOfflineContractView<Snapshot extends SchemaSnapshot
     throw new TypeError("Offline preparation requires a lightweight profile and offline mode");
   const context = configuration.context,
     policy = input.typePolicy ?? profile.defaultTypePolicy;
+  if (!context) throw new TypeError("Offline preparation requires a selected recorded or offline-rule context");
   if (
     context.grammar.id !== profile.id ||
     context.grammar.version !== profile.grammarVersion ||
@@ -49,6 +55,7 @@ export async function prepareOfflineContractView<Snapshot extends SchemaSnapshot
     missing = new Set<string>(),
     prepared = new Set<string>();
   const policyHash = queryContractDigest(configuration.qualification);
+  const cacheTokens: AnalysisCacheToken[] = [];
   for (const candidate of candidates) {
     const key = exactSqlDigest(candidate.sql);
     if (prepared.has(key)) continue;
@@ -71,6 +78,7 @@ export async function prepareOfflineContractView<Snapshot extends SchemaSnapshot
         policy: configuration.qualification,
       });
       const outcome = lookup.cached?.outcome;
+      cacheTokens.push(lookup.token);
       if (outcome?.kind === "usable-recorded-context") cached = outcome.contract;
       else if (outcome) {
         blocked.set(key, outcome);
@@ -132,6 +140,11 @@ export async function prepareOfflineContractView<Snapshot extends SchemaSnapshot
   });
   return Object.freeze({
     dialect,
+    context,
+    async assertCurrent() {
+      if (input.cache && !(await input.cache.areTokensCurrent(cacheTokens)))
+        throw new Error("Offline evidence selection changed; retry current analysis inputs");
+    },
     contracts: Object.freeze([...new Map(contracts.map((item) => [item.digest, item])).values()]),
   });
 }

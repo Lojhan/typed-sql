@@ -97,7 +97,7 @@ await describe("owned disposable analysis cache", async () => {
         hit.token.requestKey,
         "Same candidate shares one publication fence across claims",
       );
-      strict.notEqual(fresh.token.epoch, hit.token.epoch);
+      strict.notEqual(fresh.token.entryRevision, hit.token.entryRevision);
       strict.equal((await cache.lookupRecorded(recorded(request))).cached?.outcome.kind, "partial");
       strict.equal(
         (await cache.publish({ token: fresh.token, request: changed, outcome: negative })).status,

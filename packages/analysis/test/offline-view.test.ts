@@ -107,6 +107,7 @@ await describe("offline contract-first preparation", async () => {
         },
       });
       strict.deepEqual(view.dialect.analyze(request.candidate.sql, schema).diagnostics, []);
+      await view.assertCurrent();
       await cache.publish({
         token: (await cache.lookup(request)).token,
         request,
@@ -119,6 +120,7 @@ await describe("offline contract-first preparation", async () => {
           throw Error("must not override conflict");
         },
       });
+      await strict.rejects(view.assertCurrent(), /selection changed/u);
       strict.equal(blocked.dialect.analyze(request.candidate.sql, schema).diagnostics[0]?.code, "TSQ406");
       strict.match(
         blocked.dialect.analyze(request.candidate.sql, schema).diagnostics[0]!.message,
