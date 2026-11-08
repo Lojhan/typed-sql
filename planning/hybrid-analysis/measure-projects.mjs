@@ -31,6 +31,16 @@ const root = fileURLToPath(new URL("../../", import.meta.url));
 const require = createRequire(join(root, "packages/build/package.json"));
 const esbuild = require("esbuild");
 const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
+function unresolvedType(type) {
+  if (type === "unknown") return true;
+  if (typeof type === "string" || "json" in type || "literal" in type) return false;
+  if ("array" in type) return unresolvedType(type.array);
+  if ("object" in type) return Object.values(type.object).some((field) => unresolvedType(field.type));
+  if ("tuple" in type) return type.tuple.some((field) => unresolvedType(field.type));
+  return type.union.some(unresolvedType);
+}
+// JSON descriptors choose their own codec even when the scalar fallback is unknown.
+const unresolvedCodec = (value) => value.json === undefined && unresolvedType(value.type);
 const sizes = (value) => {
   const bytes = Buffer.isBuffer(value) || value instanceof Uint8Array ? value : Buffer.from(value);
   return {
@@ -217,12 +227,12 @@ try {
                 );
                 return {
                   sqlDigest: hash(candidate.sql),
-                  unknownRuntimeDescriptors: [
+                  unresolvedCodecDescriptors: [
                     ...plan.columns
-                      .filter((value) => value.type === "unknown")
+                      .filter(unresolvedCodec)
                       .map(({ name, databaseType }) => ({ target: "column", name, databaseType })),
                     ...plan.parameters
-                      .filter((value) => value.type === "unknown")
+                      .filter(unresolvedCodec)
                       .map(({ index, databaseType }) => ({ target: "parameter", index, databaseType })),
                   ],
                 };
@@ -242,7 +252,7 @@ try {
               profile.defaultTypePolicy,
               candidate.logicalParameterCount,
             );
-            const unknown = [...plan.columns, ...plan.parameters].filter((value) => value.type === "unknown").length;
+            const unknown = [...plan.columns, ...plan.parameters].filter(unresolvedCodec).length;
             if (!unknown) knownCandidates++;
             contracts.push(
               createQueryContract({
@@ -269,7 +279,7 @@ try {
         copies,
         sourceQueryFiles: base.length * copies,
         collectedCandidates,
-        knownRuntimeCandidates: knownCandidates,
+        knownCodecCandidates: knownCandidates,
         uniqueContracts: unique,
         runtimeTemplateModules: Object.keys(compiled).length,
         durableFiles: artifacts.length,
