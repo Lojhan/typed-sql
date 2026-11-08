@@ -652,6 +652,21 @@ Unrelated planning work is left unchanged.
   exposes stale eager-root imports in crash-worker/UI fixtures and the runtime benchmark. Those
   failures also block the aggregate quality job; they require a separate compatibility follow-up.
 
+## Embedded eager-root consumer follow-up
+
+- The completed driver-head CI run found compressed/dynamic consumers missed by the root import
+  migration: the PostgreSQL crash worker, packed browser agent fixture and runtime benchmark
+  metadata/configuration/compiler setup. These now select `/analysis` explicitly; benchmark
+  application execution still imports `sql` from the runtime root.
+- The actual two-case PostgreSQL process-crash test passes with a separately created disposable
+  scratch database. The packed browser agent suite passes in Chromium. A MySQL 8.4.11 smoke run
+  exercises SQL-file, compiled-inline and ordinary-inline benchmark paths against an isolated
+  temporary database. Benchmark dependencies were first refreshed from their frozen lockfile;
+  its existing driver-version equality check correctly rejected stale local dependencies.
+- The smoke uses one warm sample and verifies execution/import compatibility, not statistically
+  useful performance evidence. The isolated macro performance gate passed at the watch checkpoint.
+  Full new-head CI and the broader architecture acceptance audit remain required.
+
 ## Required work still open
 
 1. Complete the contract/evidence model: native descriptors and provenance, reusable/facet-specific

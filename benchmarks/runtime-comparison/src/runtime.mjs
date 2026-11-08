@@ -259,7 +259,7 @@ async function worker(candidate, workload, concurrency) {
 }
 
 async function networkFixture() {
-  const grammar = await import(`@typed-sql/${driver}`);
+  const grammar = await import(`@typed-sql/${driver}/analysis`);
   let pool;
   let query;
   if (driver === "postgres") {
@@ -329,7 +329,7 @@ async function fixture(directory, workload, snapshot, candidate) {
     );
     await writeFile(
       join(directory, "typed-sql.config.mjs"),
-      `import {${driver}} from '@typed-sql/${driver}'; export default {dialect:${driver}(),schema:{file:'schema.json'},outDir:'.typed-sql'};`,
+      `import {${driver}} from '@typed-sql/${driver}/analysis'; export default {dialect:${driver}(),schema:{file:'schema.json'},outDir:'.typed-sql'};`,
     );
     await writeFile(join(directory, "schema.json"), JSON.stringify(snapshot));
     return;
@@ -383,7 +383,7 @@ async function fixture(directory, workload, snapshot, candidate) {
 
 async function compileFixture(directory, workload) {
   const { compileSource } = await import("@typed-sql/compiler");
-  const grammar = await import(`@typed-sql/${driver}`);
+  const grammar = await import(`@typed-sql/${driver}/analysis`);
   const dialect = grammar[driver](driver === "sqlite" ? { typePolicy: policy } : {});
   const text = workloads[workload].sql;
   const schema = JSON.parse(await readFile(join(directory, "schema.json"), "utf8"));

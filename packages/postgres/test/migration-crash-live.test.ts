@@ -107,7 +107,7 @@ select case when current_setting('application_name') = '${appName}' then pg_slee
     `
 import {readFile} from 'node:fs/promises';
 import {applyPlan} from ${JSON.stringify(moduleUrl("migrations", "index.js"))};
-import {postgres} from ${JSON.stringify(moduleUrl("postgres", "index.js"))};
+import {postgres} from ${JSON.stringify(moduleUrl("postgres", "analysis.js"))};
 import {createPgMigrationTarget} from ${JSON.stringify(moduleUrl("postgres", "migrations.js"))};
 const target=createPgMigrationTarget(${JSON.stringify({ connectionString: childUrl.href, namespaces: [namespace], historyNamespace: ledger, classification: "test", expected: { database } })});
 await applyPlan({root:${JSON.stringify(caseRoot)},config:{directory:'migrations',targets:{application:target}},target:'application',renderer:postgres(),plan:JSON.parse(await readFile(${JSON.stringify(planFile)},'utf8'))});

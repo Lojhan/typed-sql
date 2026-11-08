@@ -55,7 +55,7 @@ try {
   );
   await writeFile(
     join(root, "typed-sql.config.mjs"),
-    "import{postgres}from'@typed-sql/postgres';export default{dialect:postgres(),schema:{file:'schema.json'},outDir:'generated',projects:['tsconfig.json'],playground:{readRoots:['playground'],writeRoots:['playground']}};\n",
+    "import{postgres}from'@typed-sql/postgres/analysis';export default{dialect:postgres(),schema:{file:'schema.json'},outDir:'generated',projects:['tsconfig.json'],playground:{readRoots:['playground'],writeRoots:['playground']}};\n",
   );
   const original = "select 1 as original_value;\n";
   await writeFile(join(root, "playground/existing.sql"), original);
