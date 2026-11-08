@@ -584,6 +584,68 @@ export default defineConfig({
         firstEpoch,
         "Live generation must adopt a changed routine epoch without a pre-recorded context file",
       );
+      // Use the same config identity and cache as the successful generation. Only the rule changes.
+      await liveEditor.close();
+      liveEditor = undefined;
+      const qualifiedManifest = await readFile(join(temporary, "live-contracts/manifest.json"), "utf8");
+      const qualifiedContext = (await loadQueryContracts(join(temporary, "live-contracts")))[0]!.context;
+      const projectCache = await openAnalysisCache({
+        directory: join(temporary, "live-cache"),
+        workspaceContext: queryContractDigest({ workspace: temporary, config: join(temporary, "live-config.mjs") }),
+      });
+      const knownQuery = {
+        candidate: { sql: "SELECT 1 AS value", parameterOccurrences: [] },
+        context: qualifiedContext,
+        connectionContext: cacheRequest.connectionContext,
+        adapter: cacheRequest.adapter,
+        policy: qualification,
+      };
+      strict.equal((await projectCache.lookupRecorded(knownQuery)).cached?.outcome.kind, "usable-recorded-context");
+      const analyzerFactory = '(await import("@typed-sql/postgres/analysis")).postgres()';
+      strict.ok(scopedLiveConfig.includes(analyzerFactory));
+      const faultyFactory = `await (async () => {
+        const analyzer = ${analyzerFactory};
+        return {...analyzer, analyze(sql, ...args) {
+          const result = analyzer.analyze(sql, ...args);
+          if (sql !== "SELECT 1 AS value") return result;
+          if (result.diagnostics.length) throw Error("Expected a successful offline claim");
+          return {...result, columns: result.columns.map(column => ({
+            ...column, tsType: "string", databaseType: "text", runtimeType: "string"
+          }))};
+        }};
+      })()`;
+      await writeFile(join(temporary, "live-config.mjs"), scopedLiveConfig.replace(analyzerFactory, faultyFactory));
+      try {
+        for (const args of [generationArgs, [...generationArgs, "--check"]]) {
+          await strict.rejects(promisify(callback)(process.execPath, args, generationOptions), (error: unknown) => {
+            strict.equal((error as { code: number }).code, 1);
+            strict.match(
+              (error as { stderr: string }).stderr,
+              /Native-required query generation requires qualified contracts for every candidate/u,
+              "A valid existing export cannot hide an incorrect successful offline rule",
+            );
+            return true;
+          });
+          strict.equal(
+            (await projectCache.lookupRecorded(knownQuery)).cached?.outcome.kind,
+            "conflict",
+            "Project-wide qualification must persist the native/static conflict in the same cache namespace",
+          );
+          strict.equal(
+            await readFile(join(temporary, "live-contracts/manifest.json"), "utf8"),
+            qualifiedManifest,
+            "A native/static conflict cannot replace the previously committed durable export",
+          );
+        }
+      } finally {
+        await writeFile(join(temporary, "live-config.mjs"), scopedLiveConfig);
+      }
+      strict.match(
+        (await promisify(callback)(process.execPath, [...generationArgs, "--check"], generationOptions)).stdout,
+        /export matches/u,
+        "Restoring the correct analyzer must recover through fresh native reconciliation",
+      );
+      strict.equal((await projectCache.lookupRecorded(knownQuery)).cached?.outcome.kind, "usable-recorded-context");
       await writeFile(
         join(temporary, "live-config.mjs"),
         scopedLiveConfig.replace('contractsDir: "contracts"', 'contractsDir: "live-contracts"'),

@@ -36,3 +36,12 @@ live regeneration, watching, and disconnected packed consumption.
 
 Historical bundle measurements for the excluded catalog pipeline are removed because they do
 not describe this implementation.
+
+## Strict project generation evidence
+
+The real PostgreSQL helper also changes a successful built-in result rule after a complete
+three-query export. Using the same config identity, database context and cache namespace,
+generation and `--check` reject the wrong static claim, persist the conflict and preserve the
+durable manifest. Restoring the analyzer succeeds through fresh native reconciliation. This
+closes the project-level verification gap for acceptance scenario 20 in the supported expression
+profile; broader native engine and statement qualification remains incomplete.

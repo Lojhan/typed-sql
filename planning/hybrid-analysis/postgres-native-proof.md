@@ -54,7 +54,7 @@ A quiet migrations-derived qualification database is the intended strong environ
 
 Native arrays/custom representations and unavailable bind evidence remain unknown/unavailable.
 This checkpoint establishes neither arbitrary extension safety nor application statement effects,
-cardinality, JSON shape, whole-project native-required reconciliation or dependency precision.
+cardinality, JSON shape, arbitrary-project native qualification or dependency precision.
 
 ## Independent qualification update
 
@@ -72,8 +72,6 @@ refinements and supporting static/native parameter-authority alternatives remain
 Acquisition interpreter v2 qualifies built-in base representations using native namespace/kind
 metadata. A custom type's mapping in the supplied schema does not establish independent native
 representation evidence. Custom/opaque runtime types remain unavailable in this adapter.
-The bundle table above records the earlier source checkpoint; it is not a new size measurement
-of this additional qualification machinery.
 
 ## Offline CLI and persistent producer update
 
@@ -167,3 +165,14 @@ This proves triggered native refresh and failure recovery through the compiled w
 does not prove idle database notifications, other transport profiles or general project-graph
 watch coverage. Separate CLI tests cover new source discovery, external schema/config inputs,
 cache-parent creation without feedback loops and an active check that ignores graceful shutdown.
+
+## Project generation conflict boundary
+
+The real PostgreSQL fixture first generates a qualified three-query project, including a normal
+`SELECT 1 AS value` expression, and confirms its cache is usable. Keeping SQL, context, policy,
+configuration identity and cache namespace fixed, the helper injects a successful offline rule
+that incorrectly claims this integer result is text. Both generation and generation `--check`
+must fail, persist a native/static conflict in that same cache and preserve the committed durable
+manifest. Restoring the correct analyzer must reconcile freshly and match the original export.
+This checks the project generation boundary as well as the direct reconciliation API; it does
+not expand the transport's supported statement classes or native nullability evidence.
