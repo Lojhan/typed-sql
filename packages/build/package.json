@@ -64,7 +64,8 @@
     "@typed-sql/schema": "workspace:*",
     "magic-string": "1.4.5",
     "picomatch": "^4.0.3",
-    "@jridgewell/remapping": "2.3.5"
+    "@jridgewell/remapping": "2.3.5",
+    "@typed-sql/analysis": "workspace:*"
   },
   "peerDependencies": {
     "@rsbuild/core": ">=2 <3",

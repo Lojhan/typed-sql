@@ -8,7 +8,7 @@ import { Worker } from "node:worker_threads";
 import type { Diagnostic } from "typescript/unstable/async";
 import type { SourceAnalysisResult } from "./analysis.js";
 import { listProjectSourceFiles } from "./project.js";
-import { comparableSqlDeclaration } from "./sql-declaration.js";
+import { comparableSqlDeclaration, SQL_FILE_DECLARATION_HEADER } from "./sql-declaration.js";
 import { assertTypeScriptCompilerVersion } from "./typescript.js";
 
 export interface NativeCheckResult {
@@ -74,6 +74,7 @@ export async function runNativeCheck(options: {
   readonly timeout: number;
   readonly analyze: (file: string, source: string) => SourceAnalysisResult;
   readonly analyses: Map<string, SourceAnalysisResult>;
+  readonly refreshGeneratedSqlDeclarations?: boolean;
 }): Promise<NativeCheckResult> {
   const cwd = dirname(options.project);
   const require = createRequire(join(cwd, "package.json"));
@@ -105,6 +106,10 @@ export async function runNativeCheck(options: {
       const declaration = fileKey(file.replace(/\.sql$/iu, ".d.sql.ts"));
       if (
         Object.hasOwn(virtualFiles, declaration) &&
+        !(
+          options.refreshGeneratedSqlDeclarations &&
+          virtualFiles[declaration]!.replaceAll("\r\n", "\n").startsWith(SQL_FILE_DECLARATION_HEADER)
+        ) &&
         comparableSqlDeclaration(virtualFiles[declaration]!) !== comparableSqlDeclaration(analysis.transformedSource)
       )
         throw new Error(

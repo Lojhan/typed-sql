@@ -54,8 +54,35 @@ await describe("project-wide native checking", async () => {
         `${SQL_FILE_DECLARATION_HEADER}declare const stale: string; export default stale;`,
       );
       await strict.rejects(checkProject({ project, schema, dialect: postgres() }), /declaration conflicts/u);
+      const stale = await readFile(join(root, "lookup.d.sql.ts"), "utf8");
+      const prospective = await checkProject({
+        project,
+        schema,
+        dialect: postgres(),
+        refreshGeneratedSqlDeclarations: true,
+      });
+      strict.equal(prospective.ok, true, prospective.typeScript.output);
+      strict.equal(
+        await readFile(join(root, "lookup.d.sql.ts"), "utf8"),
+        stale,
+        "Prospective generation does not modify declarations",
+      );
+      await writeFile(consumer, source.replace("id: 1", 'id: "wrong"'));
+      const wrongProspective = await checkProject({
+        project,
+        schema,
+        dialect: postgres(),
+        refreshGeneratedSqlDeclarations: true,
+      });
+      strict.equal(wrongProspective.ok, false);
+      strict.match(wrongProspective.typeScript.output, /consumer\.ts.*not assignable/u);
+      await writeFile(consumer, source);
       await writeFile(join(root, "lookup.d.sql.ts"), "declare const stale: string; export default stale;");
       await strict.rejects(checkProject({ project, schema, dialect: postgres() }), /declaration conflicts/u);
+      await strict.rejects(
+        checkProject({ project, schema, dialect: postgres(), refreshGeneratedSqlDeclarations: true }),
+        /declaration conflicts/u,
+      );
     } finally {
       await rm(root, { recursive: true, force: true });
     }

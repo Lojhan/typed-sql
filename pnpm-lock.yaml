@@ -425,6 +425,9 @@ importers:
       '@rspack/core':
         specifier: '>=2 <3'
         version: 2.3.0(@swc/helpers@0.5.23)
+      '@typed-sql/analysis':
+        specifier: workspace:*
+        version: link:../analysis
       '@typed-sql/compiler':
         specifier: workspace:*
         version: link:../compiler

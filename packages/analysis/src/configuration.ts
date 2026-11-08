@@ -1,6 +1,6 @@
 import { assertDialectProfile, type DialectPlugin, type DialectProfile, type SchemaSnapshot } from "@typed-sql/core";
 import { calculateSchemaHash, calculateTypePolicyHash } from "@typed-sql/schema";
-import { loadQueryContractContext, loadQueryContracts } from "./artifacts.js";
+import { loadQueryContractContext, loadQueryContractInputs } from "./artifacts.js";
 import type { AnalysisCache } from "./cache.js";
 import { canonicalContractData, queryContractDigest } from "./canonical.js";
 import { type AnalysisContextScope, assertContextScope, parseAnalysisContextScope } from "./context-scope.js";
@@ -117,6 +117,8 @@ export async function loadFrozenContractView<Snapshot extends SchemaSnapshot, Po
   readonly contracts: readonly QueryContract[];
   readonly digest: string;
   readonly context: QueryContractContext;
+  readonly files: readonly string[];
+  readonly manifestDigest: string;
 }> {
   const configuration = defineAnalysisConfiguration(input.configuration),
     profile = input.profile;
@@ -124,9 +126,11 @@ export async function loadFrozenContractView<Snapshot extends SchemaSnapshot, Po
   if ("analyze" in profile)
     throw new TypeError("Frozen checking requires a profile registration, without an eager analyzer");
   const policy = input.typePolicy ?? profile.defaultTypePolicy;
-  const declared = configuration.cache
-    ? await loadQueryContractContext(input.directory, createAnalysisContextScope(input))
-    : undefined;
+  const inputs = await loadQueryContractInputs(
+    input.directory,
+    configuration.cache ? createAnalysisContextScope(input) : undefined,
+  );
+  const declared = inputs.context;
   if (declared && configuration.context && queryContractDigest(declared) !== queryContractDigest(configuration.context))
     throw new TypeError("Pinned context differs from the durable target selection");
   const context = configuration.context ?? declared;
@@ -138,7 +142,7 @@ export async function loadFrozenContractView<Snapshot extends SchemaSnapshot, Po
     context.typePolicyHash !== calculateTypePolicyHash(policy ?? {})
   )
     throw new TypeError("Frozen analysis profile, schema or decoding policy differs");
-  const contracts = await loadQueryContracts(input.directory),
+  const contracts = inputs.contracts,
     policyHash = queryContractDigest(configuration.qualification);
   for (const contract of contracts)
     if (contract.origin !== "offline-rule" || configuration.qualification.mode === "native-required") {
@@ -156,6 +160,8 @@ export async function loadFrozenContractView<Snapshot extends SchemaSnapshot, Po
     contracts,
     context,
     digest: queryContractDigest(contracts.map((item) => item.digest).sort()),
+    files: inputs.files,
+    manifestDigest: inputs.manifestDigest,
   });
 }
 

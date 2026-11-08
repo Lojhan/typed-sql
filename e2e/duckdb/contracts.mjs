@@ -62,13 +62,39 @@ export default defineConfig({
     return result.output;
   };
   await command(["typed-sql", "generate", "--queries", "--live"]);
+  await command(["typed-sql-build", "types"], true);
+  assert.match(await readFile(join(directory, "shape.d.sql.ts"), "utf8"), /"x": number/u);
   const initial = await command(["typed-sql", "check", "--project", "tsconfig.json", "--show-types"]);
   assert.match(initial, /"x": number/u);
   await writeFile(join(directory, "shape.sql"), `SELECT json_transform('{}', '{"x":"VARCHAR"}') AS value`);
   await command(["typed-sql", "generate", "--queries", "--live"]);
+  await command(["typed-sql-build", "types"], true);
+  assert.match(await readFile(join(directory, "shape.d.sql.ts"), "utf8"), /"x": string/u);
   const regenerated = await command(["typed-sql", "check", "--project", "tsconfig.json", "--show-types"]);
   assert.match(regenerated, /"x": string/u);
   assert.notEqual(initial, regenerated);
   await command(["typed-sql", "check", "--project", "tsconfig.json", "--show-types"], true);
+  await command(["typed-sql-build", "types", "--check"], true);
+  await command(["tsc", "--noEmit"], true);
+  await writeFile(
+    join(directory, "build.mjs"),
+    `
+import assert from "node:assert/strict";
+import {build} from "esbuild";
+import {typedSql} from "@typed-sql/build/esbuild";
+import {getQueryValuePlan} from "@typed-sql/core";
+import {createNodeDuckDBDatabase} from "@typed-sql/duckdb/node-api";
+await build({entryPoints:["entry.ts"],outfile:"bundle.mjs",bundle:true,format:"esm",platform:"node",external:["@typed-sql/*"],plugins:[typedSql()]});
+const {query}=await import("./bundle.mjs");
+assert.deepEqual(getQueryValuePlan(query()).columns[0].type,{object:{x:{type:"string",nullable:true}}});
+const db=await createNodeDuckDBDatabase({path:${JSON.stringify(join(application, "persistent.duckdb"))}});
+try {assert.deepEqual(await db.all(query()),[{value:{x:null}}]);}finally{await db.close();}
+console.log("Frozen bundled SQL retains the native nested decoder plan and executes correctly");
+`,
+  );
+  const bundled = await fixture.command(directory, process.execPath, ["build.mjs"], {
+    env: { TYPED_SQL_DUCKDB_CONTRACT_FROZEN: "1" },
+  });
+  transcript.push(bundled.output);
   await writeFile(join(artifacts, `${engine}-native-contracts.log`), transcript.join("\n"));
 }

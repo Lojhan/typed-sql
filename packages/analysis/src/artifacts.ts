@@ -241,6 +241,19 @@ export async function loadQueryContractContext(
 
 /** Loads only the declared closure. Missing, corrupt or incompatible inputs never fall back to cache. */
 export async function loadQueryContracts(directory: string): Promise<readonly QueryContract[]> {
+  return (await loadQueryContractInputs(directory)).contracts;
+}
+
+/** One manifest read binds the validated closure, target selection and watcher dependencies. */
+export async function loadQueryContractInputs(
+  directory: string,
+  input?: AnalysisContextScope,
+): Promise<{
+  readonly contracts: readonly QueryContract[];
+  readonly manifestDigest: string;
+  readonly files: readonly string[];
+  readonly context?: QueryContractContext;
+}> {
   const manifest = parseManifest(JSON.parse(await readBounded(join(directory, "manifest.json"))));
   const contexts = new Map<string, string>();
   for (const digest of manifest.contexts) {
@@ -266,5 +279,26 @@ export async function loadQueryContracts(directory: string): Promise<readonly Qu
   }
   if (usedContexts.size !== contexts.size) throw new TypeError("Unused query contract context in closure");
   createQueryContractIndex(contracts);
-  return Object.freeze(contracts);
+  let context: QueryContractContext | undefined;
+  if (input && manifest.selection) {
+    const scope = parseAnalysisContextScope(input);
+    if (manifest.selection.targetHash !== scope.connectionContext)
+      throw new TypeError("Durable contract manifest does not select the configured target scope");
+    if (manifest.selection.scopeHash === analysisContextScopeKey(scope)) {
+      context = parseQueryContractContext(JSON.parse(contexts.get(manifest.selection.contextHash)!));
+      assertContextScope(context, scope);
+    }
+  }
+  return Object.freeze({
+    contracts: Object.freeze(contracts),
+    manifestDigest: manifest.digest,
+    files: Object.freeze(
+      [
+        join(directory, "manifest.json"),
+        ...manifest.contexts.map((digest) => join(directory, "contexts", `${digest}.json`)),
+        ...manifest.queries.map((digest) => join(directory, "queries", `${digest}.json`)),
+      ].sort(),
+    ),
+    ...(context ? { context } : {}),
+  });
 }

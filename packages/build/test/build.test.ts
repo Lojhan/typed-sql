@@ -1,10 +1,14 @@
 import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { originalPositionFor, TraceMap } from "@jridgewell/trace-mapping";
 import { describe, it, strict } from "poku";
 import { buildInline, buildSnapshot, prepareBuildProject } from "../../../test/helpers/build-project.js";
+import { createQueryContract, exportQueryContracts, queryContractDigest } from "../../analysis/src/index.js";
+import { collectSqlFileQueryCandidates } from "../../compiler/src/index.js";
+import { calculateSchemaHash, calculateTypePolicyHash } from "../../schema/src/index.js";
+import { sqliteProfile, typePolicy } from "../../sqlite/src/profile.js";
 import { BuildError, BuildSession, generateSqlTypes, loadBuildProject } from "../src/index.js";
 import { createTransformer } from "../src/jest-transformer.js";
 
@@ -26,6 +30,130 @@ async function fixture(run: (directory: string) => Promise<void>): Promise<void>
 }
 
 await describe("stable build compiler", async () => {
+  await it("builds frozen SQL and declarations without initializing analysis or live services, and invalidates artifact changes", async () =>
+    fixture(async (cwd) => {
+      const policy = { ...typePolicy, integer: "number" as const };
+      const profile = sqliteProfile({ typePolicy: policy });
+      const snapshot = profile.validateSnapshot(buildSnapshot);
+      const identity = {
+        profileHash: queryContractDigest("fixture-profile"),
+        codecHash: queryContractDigest("fixture-codec"),
+        interpreterHash: queryContractDigest("fixture-interpreter"),
+      };
+      const context = {
+        grammar: { id: profile.id, version: profile.grammarVersion },
+        ...identity,
+        schemaHash: calculateSchemaHash(snapshot),
+        typePolicyHash: calculateTypePolicyHash(policy),
+        databaseContextHash: queryContractDigest("fixture-recorded-context"),
+      };
+      const source = await readFile(join(cwd, "query.sql"), "utf8");
+      const sql = collectSqlFileQueryCandidates({ source, profile, schema: snapshot, typePolicy: policy })
+        .candidates[0]!.sql;
+      const contract = (nullable: boolean) =>
+        createQueryContract({
+          sql,
+          context,
+          origin: "offline-rule",
+          valuePlan: {
+            dialect: "sqlite",
+            typePolicyHash: context.typePolicyHash,
+            columns: [
+              { name: "id", type: "number", nullable, databaseType: "INTEGER" },
+              { name: "email", type: "string", nullable: false, databaseType: "TEXT" },
+            ],
+            parameters: [{ index: 1, type: "number", nullable: true, databaseType: "INTEGER" }],
+          },
+        });
+      const artifacts = join(cwd, "contracts");
+      await exportQueryContracts(artifacts, [contract(false)]);
+      const configuration = {
+        mode: "frozen",
+        context,
+        identity,
+        qualification: {
+          mode: "hybrid",
+          owner: { id: "fixture/offline-owner", version: "1" },
+          requiredNativeFacets: [],
+        },
+        contractsDir: "contracts",
+      };
+      const config = `import {sqliteProfile,typePolicy} from "@typed-sql/sqlite/profile";
+export default {dialect:{...sqliteProfile({typePolicy:{...typePolicy,integer:"number"}}),loadAnalyzer(){throw Error("Recorded build initialized an analyzer");}},schema:{file:"schema.json",provider:{introspect(){throw Error("Build initialized a provider");}}},outDir:"generated",analysis:{...${JSON.stringify(configuration)},live:{adapter(){throw Error("Build initialized native services");}}}};`;
+      await writeFile(join(cwd, "typed-sql.config.mjs"), config);
+      const session = new BuildSession({ cwd });
+      const first = await session.transform(source, join(cwd, "query.sql"));
+      strict.ok(first?.dependencies.includes(join(await realpath(artifacts), "manifest.json")));
+      strict.ok(first?.dependencies.some((path) => path.includes(`${sep}queries${sep}`)));
+      await generateSqlTypes({ cwd });
+      strict.match(await readFile(join(cwd, "query.d.sql.ts"), "utf8"), /"id": number/u);
+      await exportQueryContracts(artifacts, [contract(true)]);
+      const second = await session.transform(source, join(cwd, "query.sql"));
+      strict.notEqual(first?.cacheKey, second?.cacheKey);
+      strict.notEqual(first?.code, second?.code);
+      await strict.rejects(generateSqlTypes({ cwd, check: true }), /TSQ_BUILD_TYPES_STALE/u);
+      await generateSqlTypes({ cwd });
+      strict.match(await readFile(join(cwd, "query.d.sql.ts"), "utf8"), /"id": number \| null/u);
+      await strict.rejects(session.transform("SELECT id FROM account", join(cwd, "unrecorded.sql")), /TSQ406/u);
+      const queryObject = second!.dependencies.find((path) => path.includes(`${sep}queries${sep}`))!;
+      await writeFile(queryObject, "{}");
+      await strict.rejects(session.transform(source, join(cwd, "query.sql")), /contract|fields/iu);
+    }));
+
+  await it("uses offline rules for unrecorded queries in live-configured builds and tracks lazy owner dependencies", async () =>
+    fixture(async (cwd) => {
+      const policy = { ...typePolicy, integer: "number" as const };
+      const profile = sqliteProfile({ typePolicy: policy });
+      const snapshot = profile.validateSnapshot(buildSnapshot);
+      const context = {
+        grammar: { id: profile.id, version: profile.grammarVersion },
+        profileHash: queryContractDigest("fixture-profile"),
+        codecHash: queryContractDigest("fixture-codec"),
+        interpreterHash: queryContractDigest("fixture-interpreter"),
+        schemaHash: calculateSchemaHash(snapshot),
+        typePolicyHash: calculateTypePolicyHash(policy),
+        databaseContextHash: queryContractDigest("fixture-context"),
+      };
+      await writeFile(
+        join(cwd, "owner.mjs"),
+        `import {sqlite} from "@typed-sql/sqlite/analysis"; export const owner=sqlite({typePolicy:${JSON.stringify(policy)}});`,
+      );
+      const configuration = {
+        mode: "live",
+        context,
+        identity: {
+          profileHash: context.profileHash,
+          codecHash: context.codecHash,
+          interpreterHash: context.interpreterHash,
+        },
+        qualification: {
+          mode: "hybrid",
+          owner: { id: "fixture/offline-owner", version: "1" },
+          requiredNativeFacets: [],
+        },
+      };
+      await writeFile(
+        join(cwd, "typed-sql.config.mjs"),
+        `import {sqliteProfile} from "@typed-sql/sqlite/profile";export default {dialect:{...sqliteProfile({typePolicy:${JSON.stringify(policy)}}),async loadAnalyzer(){return (await import("./owner.mjs")).owner;}},schema:{file:"schema.json"},outDir:"generated",analysis:{...${JSON.stringify(configuration)},live:{adapter(){throw Error("Build opened native services");}}}};`,
+      );
+      const session = new BuildSession({ cwd });
+      const source = await readFile(join(cwd, "query.sql"), "utf8"),
+        file = join(cwd, "query.sql");
+      const first = await session.transform(source, file);
+      strict.ok(first?.dependencies.includes(await realpath(join(cwd, "owner.mjs"))));
+      strict.ok(
+        first?.dependencies.includes(join(await realpath(cwd), "generated/contracts/manifest.json")),
+        "A missing manifest remains a watched input",
+      );
+      const identity = await session.identity(source, file);
+      await writeFile(
+        join(cwd, "owner.mjs"),
+        `${await readFile(join(cwd, "owner.mjs"), "utf8")}\n// owner source changed\n`,
+      );
+      strict.notEqual((await session.identity(source, file)).key, identity.key);
+      strict.notEqual((await session.transform(source, file))?.cacheKey, first?.cacheKey);
+      await generateSqlTypes({ cwd });
+    }));
   await it("maps original Unicode positions through executable metadata and reuses only matching inputs", async () =>
     fixture(async (cwd) => {
       const session = new BuildSession({ cwd, cacheSize: 1 });

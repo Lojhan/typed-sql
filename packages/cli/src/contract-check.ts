@@ -315,6 +315,7 @@ export async function runContractCommand(
   const common = {
     dialect,
     schema,
+    ...(generating ? { refreshGeneratedSqlDeclarations: true } : {}),
     typePolicy: policy,
     ...(loaded.config.compiler?.maxStructuralVariants === undefined
       ? {}

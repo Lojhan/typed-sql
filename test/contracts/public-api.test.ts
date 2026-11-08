@@ -1590,6 +1590,7 @@ await describe("query contract public API", async () => {
         "createAnalysisContextScope",
         "selectOfflineAnalysisContext",
         "queryContractManifestDigest",
+        "loadQueryContractInputs",
         "readQueryContractManifestDigest",
         "parseQueryContract",
         "parseQueryContractContext",

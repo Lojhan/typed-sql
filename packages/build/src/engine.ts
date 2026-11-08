@@ -4,7 +4,7 @@ import { basename, dirname, relative, resolve } from "node:path";
 import { compileSource, compileSqlFile } from "@typed-sql/compiler";
 import MagicString from "magic-string";
 import picomatch from "picomatch";
-import { type BuildOptions, type BuildProject, loadBuildProject } from "./project.js";
+import { type BuildOptions, type BuildProject, loadBuildProject, prepareBuildSource } from "./project.js";
 import version from "./version.cjs";
 
 export interface BuildSourceMap {
@@ -107,15 +107,20 @@ export class BuildSession {
       : Promise.resolve(this.#project);
   }
 
-  async identity(): Promise<{ key: string; dependencies: readonly string[] }> {
-    const project = await this.project();
+  async identity(source?: string, id?: string): Promise<{ key: string; dependencies: readonly string[] }> {
+    const initial = await this.project();
+    const prepared =
+      source !== undefined && id !== undefined ? await prepareBuildSource(initial, source, id) : undefined;
+    const project = prepared?.project ?? initial;
+    await prepared?.assertCurrent?.();
     return { key: `typed-sql-build:1:${version}:${project.configIdentity}`, dependencies: project.watchedFiles };
   }
 
   async transform(source: string, id: string): Promise<BuildResult | null> {
     if (!this.accepts(id) || (this.options.inline === false && !id.endsWith(".sql"))) return null;
     if (!id.endsWith(".sql") && !source.includes("`") && !/\.(?:append|where)\s*\(/u.test(source)) return null;
-    const project = await this.project();
+    const prepared = await prepareBuildSource(await this.project(), source, id);
+    const project = prepared.project;
     const key = createHash("sha256")
       .update(`typed-sql-build:1:${version}:${project.configIdentity}\0${id}\0`)
       .update(source)
@@ -124,9 +129,11 @@ export class BuildSession {
     if (cached !== undefined) {
       this.#cache.delete(key);
       this.#cache.set(key, cached);
+      await prepared.assertCurrent?.();
       return cached.result;
     }
-    const { dialect, typePolicy } = project.loaded.config;
+    const { typePolicy } = project.loaded.config;
+    const dialect = prepared.dialect;
     const mapped = new MagicString(source);
     let language: BuildResult["language"] = id.endsWith(".tsx") ? "tsx" : "ts";
     if (id.endsWith(".sql")) {
@@ -185,6 +192,7 @@ export class BuildSession {
       cacheKey: key,
       language,
     };
+    await prepared.assertCurrent?.();
     const bytes = Buffer.byteLength(result.code) + Buffer.byteLength(JSON.stringify(map));
     if (this.#cacheSize > 0 && bytes <= maximumCacheBytes) {
       while (this.#cache.size >= this.#cacheSize || this.#cacheBytes + bytes > maximumCacheBytes) {

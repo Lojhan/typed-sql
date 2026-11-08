@@ -28,8 +28,9 @@ its real-engine tests exercise the shared live runner, persistent cache, offline
 DuckDB packed CLI generation, changed-query regeneration and frozen checking pass on both SDKs;
 its editor qualification remains outstanding. MySQL, SQLite and SQL Server retain
 their existing offline support and contract-profile interfaces without native acquisition qualification.
-The `typed-sql-build types` host rejects analysis configurations; analysis-aware build integration
-remains required for the complete architecture. Frozen `typed-sql check` is a distinct supported host.
+Build transforms and `typed-sql-build types` consume durable query contracts. Frozen builds avoid
+analyzer/native initialization; offline and live-configured builds use offline rules for unrecorded
+queries without opening a database. Build inputs exclude the disposable development cache.
 Project routine catalog library APIs support PostgreSQL fixed scalar declarations. Automatic
 catalog generation/refresh in the CLI and editors, other grammar interpreters, custom type/rule
 qualification and workload-selected offline packs remain incomplete.
@@ -118,11 +119,30 @@ against public package entrypoints on both SDKs. Changing json_transform's const
 from INTEGER to VARCHAR changes the displayed nested field type. Frozen checking then succeeds
 with both analyzer loading and native registration configured to throw if initialized. The same
 matrix retains the existing runtime, offline build under a writer lock, no-SDK consumption,
-provider generation and bundled execution checks. These existing build tests use ordinary offline
-configuration; they do not establish analysis-configuration support in the build host.
+provider generation and bundled execution checks. With analysis configuration, the matrix also
+generates SQL declarations before and after native contract regeneration, checks them with tsc,
+bundles in frozen mode and executes the resulting query with its native nested decoder plan.
 
 The Linux x64 CI and local Darwin arm64 live inventories retain their previous inventory hashes
 and recognition counts. Reversing only TSQ408's code/message to the previous TSQ201 fallback
 reproduces every previous complete recognition fingerprint for both engines on both platforms.
 The reviewed live baselines and shared native findings record this diagnostic-only transition;
 no additional invocation is counted as recognized or semantically supported.
+
+## Durable contracts in build hosts
+
+The shared build project path loads a validated durable closure and includes its manifest,
+context files and query files in build identities and watcher dependencies. Frozen mode never
+loads an analyzer. Offline/live-configured builds prepare source candidates and load the offline
+owner only for missing contracts; no schema provider, live factory or development cache is used.
+Lazy local owner dependencies participate in source-aware Jest cache keys before cache lookup.
+Source preparation and declaration publication check that their config/schema/artifact inputs
+remain current. Batch declaration generation shares its guards instead of validating every
+source against every other source's guard.
+
+Frozen loading obtains contracts, selected context and dependency paths from one validated
+manifest read. Missing or corrupt referenced objects fail rather than being replaced with other
+evidence. Explicit query generation may overlay stale build-owned SQL declarations in memory
+while checking prospective types. It does not rewrite those declarations or waive application
+type errors, and application-owned declarations remain blocking. Ordinary checking still rejects
+stale declarations. This removes the generation/declaration cycle exposed by packed consumption.

@@ -3,7 +3,7 @@ import { readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { compileSqlFile, SQL_FILE_DECLARATION_HEADER as header } from "@typed-sql/compiler";
 import { BuildError, BuildSession } from "./engine.js";
-import type { BuildOptions } from "./project.js";
+import { type BuildOptions, prepareBuildSource } from "./project.js";
 
 const normalized = (text: string) => text.replaceAll("\r\n", "\n");
 const owned = (text: string) => normalized(text).startsWith(header);
@@ -14,7 +14,7 @@ export async function generateSqlTypes(
   options: BuildOptions & { readonly check?: boolean } = {},
 ): Promise<{ readonly files: readonly string[]; readonly removed: readonly string[] }> {
   const session = new BuildSession(options);
-  const project = await session.project();
+  let project = await session.project();
   const sources: string[] = [];
   const declarations: string[] = [];
   let visited = 0;
@@ -34,9 +34,14 @@ export async function generateSqlTypes(
   declarations.sort();
   const expected = new Map<string, string>();
   const diagnostics: import("./engine.js").BuildDiagnostic[] = [];
+  const guards = new Set<() => Promise<void>>();
   for (const file of sources) {
     const source = await readFile(file, "utf8");
-    const { dialect, typePolicy } = project.loaded.config;
+    const prepared = await prepareBuildSource(project, source, file, { deferInputChecks: true });
+    if (prepared.assertCurrent) guards.add(prepared.assertCurrent);
+    project = prepared.project;
+    const { typePolicy } = prepared.project.loaded.config;
+    const dialect = prepared.dialect;
     const result = compileSqlFile({
       source,
       dialect,
@@ -61,6 +66,10 @@ export async function generateSqlTypes(
       expected.set(output, `${header}${result.text}`);
     }
   }
+  const assertCurrent = async () => {
+    for (const guard of guards) await guard();
+  };
+  await assertCurrent();
   const removed: string[] = [];
   for (const file of declarations) {
     if (expected.has(file)) continue;
@@ -107,6 +116,7 @@ export async function generateSqlTypes(
       }
     }
   }
+  await assertCurrent();
   if (diagnostics.length > 0) throw new BuildError(diagnostics);
   return { files: [...expected.keys()], removed };
 }

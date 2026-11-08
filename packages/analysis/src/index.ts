@@ -9,6 +9,7 @@ export type { QueryContractSelection } from "./artifacts.js";
 export {
   exportQueryContracts,
   loadQueryContractContext,
+  loadQueryContractInputs,
   loadQueryContracts,
   queryContractManifestDigest,
   readQueryContractManifestDigest,

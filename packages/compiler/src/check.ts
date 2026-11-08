@@ -16,6 +16,8 @@ export interface CheckFileOptions<Snapshot extends SchemaSnapshot = SchemaSnapsh
   readonly maxQueries?: number;
   readonly maxGeneratedDeclarationBytes?: number;
   readonly typeScriptTimeoutMs?: number;
+  /** Explicit generation may check prospective types over build-owned declarations without changing files. */
+  readonly refreshGeneratedSqlDeclarations?: boolean;
 }
 
 export interface TypeScriptCheckResult extends NativeCheckResult {}
@@ -97,7 +99,16 @@ export async function checkFile<Snapshot extends SchemaSnapshot, Policy>(
     };
   const project = options.project === undefined ? await findConfig(dirname(file)) : resolve(options.project);
   if (project === undefined) throw new Error(`Could not find tsconfig.json from ${dirname(file)}`);
-  const typeScript = await runNativeCheck({ project, file, timeout: milliseconds, analyze, analyses });
+  const typeScript = await runNativeCheck({
+    project,
+    file,
+    timeout: milliseconds,
+    analyze,
+    analyses,
+    ...(options.refreshGeneratedSqlDeclarations === undefined
+      ? {}
+      : { refreshGeneratedSqlDeclarations: options.refreshGeneratedSqlDeclarations }),
+  });
   const sqlDiagnostics = [...analyses.values()].flatMap((result) => result.diagnostics);
   return {
     analysis,
@@ -120,6 +131,9 @@ export async function checkProject<Snapshot extends SchemaSnapshot, Policy>(
     timeout: timeout(options.typeScriptTimeoutMs),
     analyze,
     analyses,
+    ...(options.refreshGeneratedSqlDeclarations === undefined
+      ? {}
+      : { refreshGeneratedSqlDeclarations: options.refreshGeneratedSqlDeclarations }),
   });
   const files = [...analyses].sort(([a], [b]) => a.localeCompare(b)).map(([file, analysis]) => ({ file, analysis }));
   return {
