@@ -51,6 +51,78 @@ const settings = { ...configuration, mode: "live" as const };
 const base = { profile, schema, configuration: settings, candidates: [request.candidate], loadAnalyzer: () => plugin };
 
 await describe("finite explicit live qualification", async () => {
+  await it("refreshes classified observation drift only after cleanup and within the existing attempt bound", async () => {
+    const { context: _pin, ...automatic } = settings;
+    for (const when of ["initial", "final"] as const)
+      await temporary(async (cache) => {
+        let factories = 0,
+          closes = 0;
+        const view = await prepareLiveContractView({
+          ...base,
+          configuration: automatic,
+          cache,
+          live: {
+            adapter() {
+              strict.equal(closes, factories, "A fresh observation cannot overtake owned cleanup");
+              const attempt = ++factories;
+              let reads = 0;
+              return services({
+                inspectContext: async () => {
+                  if (attempt === 1 && ++reads === (when === "initial" ? 1 : 2))
+                    throw Error("native guard contradicted");
+                  return context;
+                },
+                classifyError: () => ({ kind: "stale-context", code: "native-guard-drift" }),
+                close: async () => {
+                  await Promise.resolve();
+                  closes++;
+                },
+              });
+            },
+          },
+        });
+        strict.equal(factories, 2);
+        strict.equal(closes, 2);
+        strict.equal(view.contracts.length, 1);
+        await view.assertCurrent();
+      });
+    for (const boundary of ["pinned", "unavailable", "cleanup", "repeated", "cancelled", "invalid-metadata"] as const)
+      await temporary(async (cache) => {
+        let factories = 0,
+          closes = 0;
+        const controller = new AbortController();
+        await strict.rejects(
+          prepareLiveContractView({
+            ...base,
+            configuration: boundary === "pinned" ? settings : automatic,
+            cache,
+            signal: controller.signal,
+            live: {
+              adapter() {
+                factories++;
+                return services({
+                  inspectContext: async () => {
+                    if (boundary === "invalid-metadata") return {} as typeof context;
+                    if (boundary === "cancelled") controller.abort(Error("caller cancelled"));
+                    throw Error("native guard contradicted");
+                  },
+                  classifyError: () =>
+                    boundary === "unavailable"
+                      ? { kind: "unavailable", code: "transport", retry: "transport" }
+                      : { kind: "stale-context", code: "guard-drift" },
+                  close: async () => {
+                    closes++;
+                    if (boundary === "cleanup") throw Error("cleanup failed");
+                  },
+                });
+              },
+            },
+          }),
+        );
+        strict.equal(factories, boundary === "repeated" ? 3 : 1);
+        strict.equal(closes, factories);
+      });
+  });
   await it("discovers and refreshes observed contexts without a pre-recorded epoch", async () => {
     await temporary(async (cache) => {
       const { context: _context, ...automatic } = settings;

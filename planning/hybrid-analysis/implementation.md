@@ -527,3 +527,12 @@ public API/package graph checks, the packed-consumer regression suite, quality a
 checks/build. The preceding complete native qualification run
 [42517605531](https://github.com/Lojhan/typed-sql/actions/runs/42517605531) passes all four jobs,
 including the reviewed inventory baselines; that run predates these public integration changes.
+
+The first installed native run reaches a `context-changed` failure during generation. The finite
+live host previously retried query-reported drift but propagated classified guard drift from
+initial/final observations. Observation now uses the same bounded refresh policy, after cleanup,
+within the existing batch deadline. Pinned contexts, cancellation, invalid metadata and cleanup
+failures still block. Borrowed catalog views propagate drift to their owning capture so the full
+catalog is recaptured after closing its owner. Regression tests cover both observation boundaries,
+attempt limits and cleanup ordering. The installed fixture labels generation phases for further
+diagnosis; real-engine requalification is still required.

@@ -15,7 +15,7 @@ import {
   defineAnalysisConfiguration,
 } from "./configuration.js";
 import { assertContextScope } from "./context-scope.js";
-import { parseQueryContractContext, type QueryContract, type QueryContractContext } from "./contracts.js";
+import type { QueryContract, QueryContractContext } from "./contracts.js";
 import { createContractDialect } from "./dialect.js";
 import {
   createLiveAnalysisScheduler,
@@ -26,6 +26,11 @@ import {
   type LiveAnalysisSubscription,
 } from "./live.js";
 import { prepareCapturedCatalogView } from "./live-catalog.js";
+import {
+  inspectNativeContext,
+  NativeContextChangedError,
+  NativeContextObservationChangedError,
+} from "./native-context.js";
 import { createPersistentLiveAnalysisRunner } from "./persistent-live.js";
 import type { ProjectCatalogClosure } from "./project-catalog.js";
 import { createStaticQueryClaim } from "./reconciliation.js";
@@ -62,7 +67,7 @@ export interface LiveContractPreparation<Snapshot extends SchemaSnapshot, Policy
   readonly recordedProjectCatalogs?: ProjectCatalogClosure;
   readonly projectCatalogs?: AnalysisRegistration<Snapshot, Policy>["projectCatalogs"];
 }
-class ObservedContextChangedError extends Error {}
+class ObservedContextChangedError extends NativeContextChangedError {}
 function snapshotCandidates(candidates: readonly NativeContractCandidate[]): readonly NativeContractCandidate[] {
   if (candidates.length > 4096) throw new RangeError("Live analysis candidate limit exceeded");
   const owned = candidates.map(parseNativeContractCandidate);
@@ -248,7 +253,17 @@ export async function prepareLiveContractViewWithScheduler<Snapshot extends Sche
     }
     return view(outcomes);
     async function inspect(initial: boolean) {
-      const current = parseQueryContractContext(await services!.inspectContext(signal));
+      let current: QueryContractContext;
+      try {
+        current = await inspectNativeContext(services!, signal);
+      } catch (error) {
+        if (error instanceof NativeContextObservationChangedError) {
+          const previous = context ?? captured?.recorded?.context ?? input.recordedContext;
+          if (previous) await input.cache.retireContext(previous);
+          throw new ObservedContextChangedError(error.message);
+        }
+        throw error;
+      }
       signal.throwIfAborted();
       try {
         assertContextScope(current, scope);

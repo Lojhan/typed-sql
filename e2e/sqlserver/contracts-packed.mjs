@@ -32,8 +32,14 @@ export async function qualifyPackedContracts(fixture) {
     TYPED_SQL_CONTRACT_MODE: mode,
     TYPED_SQL_CONTRACT_DSN: mode === "live" ? dsn(name) : "",
   });
-  const command = (args, mode = "live") =>
-    fixture.command(project, process.execPath, [cli, ...args], { env: environment(mode) });
+  let phase = "initial generation";
+  const command = async (args, mode = "live") => {
+    try {
+      return await fixture.command(project, process.execPath, [cli, ...args], { env: environment(mode) });
+    } catch (error) {
+      throw new Error(`SQL Server contract fixture (${phase}): ${String(error)}`);
+    }
+  };
   let created = false;
   try {
     await admin.queryable.all(`CREATE DATABASE [${name}]`);
@@ -98,6 +104,7 @@ export default {
     const original = await readFile(join(project, "contracts/manifest.json"), "utf8");
     await writeFile(join(project, "application.ts"), source(changed));
     await writeFile(join(project, "shape.sql"), changed);
+    phase = "changed-query generation";
     await command(["generate", "--queries", "--live"]);
     assert.match(await declarations(), /"value": bigint/u);
     assert.notEqual(await readFile(join(project, "contracts/manifest.json"), "utf8"), original);
@@ -197,6 +204,7 @@ try{assert.deepEqual(await db.one(statement),{value:1n});assert.deepEqual(await 
       }
     }
     // Fresh durable contracts must bind the latest observed context after the editor's DDL fixture.
+    phase = "post-editor context generation";
     await command(["generate", "--queries", "--live"]);
     await rm(join(project, ".typed-sql"), { recursive: true, force: true });
     await admin.queryable.all(`ALTER DATABASE [${name}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE`);

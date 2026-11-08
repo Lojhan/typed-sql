@@ -7,6 +7,11 @@ import { assertContextScope } from "./context-scope.js";
 import { parseQueryContractContext, type QueryContractContext } from "./contracts.js";
 import type { LiveContractPreparation, LiveContractView } from "./live-view.js";
 import {
+  inspectNativeContext,
+  NativeContextChangedError,
+  NativeContextObservationChangedError,
+} from "./native-context.js";
+import {
   createProjectCatalogClosure,
   materializeProjectCatalogClosure,
   type ProjectCatalogClosure,
@@ -14,7 +19,7 @@ import {
 import { acquireNativeProjectCatalog } from "./project-catalog-acquisition.js";
 import { defineAnalysisRegistration, type LiveAnalysisServices } from "./registration.js";
 
-class CatalogContextChangedError extends Error {}
+class CatalogContextChangedError extends NativeContextChangedError {}
 const equal = (a: unknown, b: unknown) => canonicalContractData(a) === canonicalContractData(b);
 /** Pure interpreter/factory work may finish late; owned transports receive the same abort signal. */
 function abortable<Value>(work: Promise<Value>, signal: AbortSignal): Promise<Value> {
@@ -93,7 +98,7 @@ export async function prepareCapturedCatalogView<Snapshot extends SchemaSnapshot
           )
             throw new TypeError("Live catalog services differ from the registered target or owner");
           const captured = await input.cache.lookupContext(scope);
-          base = parseQueryContractContext(await abortable(owned.inspectContext(signal), signal));
+          base = await abortable(inspectNativeContext(owned, signal), signal);
           assertContextScope(base, scope);
           if (configuration.context && !equal(configuration.context, base)) {
             base = configuration.context;
@@ -144,9 +149,15 @@ export async function prepareCapturedCatalogView<Snapshot extends SchemaSnapshot
           });
           const services = owned;
           const current = async (active?: AbortSignal): Promise<QueryContractContext> => {
-            const context = parseQueryContractContext(
-              await abortable(services.inspectContext(active ?? signal), active ?? signal),
-            );
+            let context: QueryContractContext;
+            try {
+              context = await abortable(inspectNativeContext(services, active ?? signal), active ?? signal);
+            } catch (error) {
+              // A borrowed query view must recapture its owning catalog instead of retrying locally.
+              if (error instanceof NativeContextObservationChangedError)
+                throw new CatalogContextChangedError(error.message);
+              throw error;
+            }
             assertContextScope(context, scope);
             if (!equal(context, base))
               throw new CatalogContextChangedError("Selected catalog context changed before query qualification");
@@ -266,8 +277,10 @@ export async function prepareCapturedCatalogView<Snapshot extends SchemaSnapshot
         throw cleanup.reason;
       }
       if (operation.status === "fulfilled") return operation.value;
-      if (operation.reason instanceof CatalogContextChangedError) {
-        if (base) await input.cache.retireContext(base);
+      if (operation.reason instanceof NativeContextChangedError) {
+        const previous =
+          base ?? configuration.context ?? input.recordedProjectCatalogs?.baseContext ?? input.recordedContext;
+        if (previous) await input.cache.retireContext(previous);
         if (closure) await input.cache.retireContext(closure.context);
         signal.throwIfAborted();
         if (!configuration.context && attempt < 2) continue;

@@ -148,6 +148,42 @@ function fixture() {
   };
 }
 await describe("selected live catalog capture", async () => {
+  await it("retries classified initial guard drift after cleanup and keeps a pinned observation blocking", async () => {
+    for (const boundary of ["initial", "post-capture", "pinned"] as const)
+      await temporary(async (cache) => {
+        const pinned = boundary === "pinned";
+        const f = fixture();
+        let reads = 0;
+        const input = {
+          ...f.base,
+          cache,
+          configuration: pinned ? { ...f.base.configuration, context } : f.base.configuration,
+          live: {
+            adapter() {
+              strict.equal(f.counts.factories, f.counts.closes);
+              const owned = f.services();
+              return {
+                ...owned,
+                inspectContext: async (signal: AbortSignal) => {
+                  if (f.counts.factories === 1 && ++reads === (boundary === "post-capture" ? 2 : 1))
+                    throw Error("guard changed");
+                  return owned.inspectContext(signal);
+                },
+                classifyError: () => ({ kind: "stale-context" as const, code: "native-context-drift" }),
+              };
+            },
+          },
+        };
+        if (pinned) await strict.rejects(prepareLiveContractView(input), /context changed/u);
+        else {
+          const view = await prepareLiveContractView(input);
+          strict.equal(view.contracts.length, 1);
+          await view.assertCurrent();
+        }
+        strict.equal(f.counts.factories, pinned ? 1 : 2);
+        strict.equal(f.counts.closes, f.counts.factories);
+      });
+  });
   await it("preserves contributed services and adapter members inherited from prototypes", async () =>
     temporary(async (cache) => {
       const f = fixture();
