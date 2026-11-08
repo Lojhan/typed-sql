@@ -1,5 +1,10 @@
 # Query contracts, hybrid analysis and live regeneration
 
+> Implementation scope: this PR retains the existing offline catalogs. Exhaustive upstream
+> inventories, vendor source extraction, global catalog generation and optional core/compatibility
+> pack distribution are excluded. Sections describing those later capabilities are architecture
+> targets, not claims about the current implementation.
+
 Status: final direction-change specification; implementation is in progress. This defines the
 target architecture and acceptance requirements, not an assertion that they are implemented.
 
@@ -633,7 +638,7 @@ duplicate existing compiler extraction or artifact serialization.
 
 ```text
 grammar/                                  retained full inventories, policies and profile/source locks
-tools/grammar-catalog/                    acquisition, reconciliation, generation and whole-engine auditing
+metadata tooling (separate future scope)  optional reusable catalog acquisition and auditing
 packages/core/src/                       neutral query/type/evidence contracts and runtime primitives
 packages/schema/src/                     schema snapshots and catalog envelope primitives
 packages/analysis/src/                   proposed stable orchestration package

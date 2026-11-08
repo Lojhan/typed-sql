@@ -1,8 +1,8 @@
 import type { SchemaSnapshot } from "@typed-sql/schema";
 import { MYSQL_SUPPORT_POLICY, parseMySqlVersion } from "../support.js";
-import { mySqlCodecTypes } from "./generated/types.js";
 import { normalizeMySqlType } from "./normalize.js";
 import type { MySqlCodecTypeMapping } from "./types.js";
+import { mySqlCodecTypes } from "./types-data.js";
 
 export function mySqlCodecTypeMapping(
   databaseType: string,

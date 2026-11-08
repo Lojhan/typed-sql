@@ -21,9 +21,3 @@ editors/zed/extension.wasm
 /website/.vitepress/dist/
 
 /packages/language-server/sdk/
-
-# Disposable projections owned by grammar/catalog/generation.json.
-/packages/*/src/catalog/generated/
-/packages/*/src/analysis/**/generated/
-/packages/*/src/codecs/generated/
-/packages/*/src/parser/*.generated.ts

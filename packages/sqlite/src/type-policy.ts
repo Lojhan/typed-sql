@@ -1,6 +1,5 @@
 import type { SchemaSnapshot } from "@typed-sql/schema";
 import { type SqliteAffinity, sqliteAffinity } from "./catalog/coercions.js";
-import { strictTypeMappings } from "./catalog/generated/types.js";
 import { sqliteAsciiFold, sqliteAsciiUpper } from "./identifier-case.js";
 
 export type { SqliteAffinity };
@@ -21,7 +20,7 @@ export const defaultSqliteTypePolicy: SqliteTypePolicy = Object.freeze({
 });
 
 export function isKnownStrictSqliteType(databaseType: string): boolean {
-  return Object.hasOwn(strictTypeMappings, sqliteAsciiUpper(databaseType.trim()));
+  return ["ANY", "BLOB", "INT", "INTEGER", "REAL", "TEXT"].includes(sqliteAsciiUpper(databaseType.trim()));
 }
 
 export function isKnownSqliteType(databaseType: string): boolean {
@@ -42,16 +41,17 @@ export function mapSqliteType(
   if (!options.strict) {
     return sqliteFlexibleType(policy);
   }
-  switch (strictTypeMappings[sqliteAsciiUpper(databaseType.trim())]) {
-    case "integer":
+  switch (sqliteAsciiUpper(databaseType.trim())) {
+    case "INT":
+    case "INTEGER":
       return policy.integer;
-    case "number":
+    case "REAL":
       return "number";
-    case "string":
+    case "TEXT":
       return "string";
-    case "bytes":
+    case "BLOB":
       return "Uint8Array";
-    case "flexible":
+    case "ANY":
       return sqliteFlexibleType(policy);
     default:
       return options.schema?.domains?.[sqliteAsciiFold(databaseType)]?.tsType ?? policy.unknown;

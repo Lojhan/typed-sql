@@ -1,6 +1,12 @@
-import type { PostgresCodecTypeMapping } from "../codecs/types.js";
-
-export type PostgresCatalogTypeMapping = PostgresCodecTypeMapping;
+export type PostgresCatalogTypeMapping =
+  | "bigint"
+  | "boolean"
+  | "bytes"
+  | "date"
+  | "json"
+  | "number"
+  | "numeric"
+  | "string";
 export type PostgresTypeCategory =
   | "array"
   | "bit-string"

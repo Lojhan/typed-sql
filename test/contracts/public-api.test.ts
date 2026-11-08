@@ -238,7 +238,6 @@ import * as duckdbRootApi from "../../packages/duckdb/src/index.js";
 import * as duckdbNodeApiApi from "../../packages/duckdb/src/node-api.js";
 import * as duckdbQueryApi from "../../packages/duckdb/src/query.js";
 import * as duckdbRuntimeApi from "../../packages/duckdb/src/runtime.js";
-import * as duckdbSelectedApi from "../../packages/duckdb/src/selected-analysis.js";
 import * as languageServerApi from "../../packages/language-server/src/index.js";
 import type {
   MySqlBulkCapability,
@@ -268,7 +267,6 @@ import type {
   PostgresRoutedDatabaseOptions,
 } from "../../packages/postgres/src/analysis.js";
 import * as postgresApi from "../../packages/postgres/src/analysis.js";
-import * as postgresCoreApi from "../../packages/postgres/src/core-analysis.js";
 import * as postgresRootApi from "../../packages/postgres/src/index.js";
 import * as pgApi from "../../packages/postgres/src/pg.js";
 import type {
@@ -277,7 +275,6 @@ import type {
   PostgresTransaction,
 } from "../../packages/postgres/src/runtime.js";
 import * as postgresRuntimeApi from "../../packages/postgres/src/runtime.js";
-import * as postgresSelectedApi from "../../packages/postgres/src/selected-analysis.js";
 import * as schemaApi from "../../packages/schema/src/index.js";
 import * as schemaSnapshotApi from "../../packages/schema/src/snapshot.js";
 import * as sqliteApi from "../../packages/sqlite/src/analysis.js";
@@ -970,7 +967,6 @@ const expectedRuntimeExports = {
     "validateSqlServerDecimal",
     "validateSqlServerTypePolicy",
   ],
-  duckdbSelected: ["loadDuckDBAnalyzer"],
   duckdbAnalysis: [
     "DUCKDB_CAPABILITIES",
     "DUCKDB_DIALECT_VERSION",
@@ -1312,8 +1308,6 @@ const expectedRuntimeExports = {
     "MySqlWarningInspectionError",
   ],
   opentelemetry: ["createOpenTelemetryObserver"],
-  postgresCore: ["postgres"],
-  postgresSelected: ["loadPostgresAnalyzer"],
   postgresAnalysis: [
     "POSTGRES_DIALECT_VERSION",
     "POSTGRES_EXTENSION_MANIFEST_FORMAT_VERSION",
@@ -1478,7 +1472,6 @@ await describe("stable public API", async () => {
       sqlServerOdbc: Object.keys(sqlServerOdbcApi).sort(),
       sqlServerMsnodesqlv8: Object.keys(sqlServerMsnodesqlv8Api).sort(),
       sqlServerBrowser: Object.keys(sqlServerBrowserApi).sort(),
-      duckdbSelected: Object.keys(duckdbSelectedApi).sort(),
       duckdbAnalysis: Object.keys(duckdbApi).sort(),
       duckdb: Object.keys(duckdbRootApi).sort(),
       duckdbQuery: Object.keys(duckdbQueryApi).sort(),
@@ -1500,8 +1493,6 @@ await describe("stable public API", async () => {
       mysqlRuntime: Object.keys(mysqlRuntimeApi).sort(),
       opentelemetry: Object.keys(openTelemetryApi).sort(),
       postgresAnalysis: Object.keys(postgresApi).sort(),
-      postgresCore: Object.keys(postgresCoreApi).sort(),
-      postgresSelected: Object.keys(postgresSelectedApi).sort(),
       postgres: Object.keys(postgresRootApi).sort(),
       pg: Object.keys(pgApi).sort(),
       postgresRuntime: Object.keys(postgresRuntimeApi).sort(),

@@ -6,7 +6,7 @@ import {
   type SchemaSnapshotV2,
 } from "@typed-sql/schema";
 import { assertPostgresServerEvidence } from "./capabilities.js";
-import { postgresCatalogRevisions } from "./codecs/generated/types.js";
+import { postgresCatalogRevisions } from "./codecs/types-data.js";
 import { parsePostgresMajor } from "./support.js";
 import type { PostgresTypePolicy } from "./type-policy.js";
 import { POSTGRES_DIALECT_VERSION } from "./version.js";

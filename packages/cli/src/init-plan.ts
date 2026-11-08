@@ -6,7 +6,7 @@ import { checkInitPath, readInitFile } from "./init-files.js";
 import { editInitJson, initJson } from "./init-json.js";
 
 const grammars = {
-  postgres: { package: "@typed-sql/postgres", factory: "postgres", analyzer: "analysis/core" },
+  postgres: { package: "@typed-sql/postgres", factory: "postgres", analyzer: "analysis" },
   mysql: { package: "@typed-sql/mysql", factory: "mysql", analyzer: "analysis" },
   sqlite: { package: "@typed-sql/sqlite", factory: "sqlite", analyzer: "analysis" },
   sqlserver: { package: "@typed-sql/sqlserver", factory: "sqlserver", analyzer: "analysis" },

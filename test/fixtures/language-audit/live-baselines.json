@@ -57,7 +57,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:189f712de955a2ffe7990750ce161a7283eb1c65822f886c6eb1b53e688c194e",
+        "fingerprint": "sha256:2b371e369e88e85907233850ad3fc0430e2468ac3f394f897df185ee6bcd5677",
         "counts": {
           "native-rejected-generated-invocation": 2027,
           "native-valid-grammar-diagnostic": 415,
@@ -86,7 +86,7 @@
         },
         "types": {
           "status": "observed",
-          "fingerprint": "sha256:126e93a4150e2e7896775d2e43593db4aa15b279dd796cd052c4ce39cf0f6c5a",
+          "fingerprint": "sha256:ed7d59dec2b5f52c012bb259b50db5d69e725f7713af8278950e72b0f87132e3",
           "count": 469,
           "scope": "engine"
         },
@@ -127,13 +127,13 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:94946af27c5384f6f445bfe816342ff30ea127914c30ce4c6df860be3bb1857f",
+        "fingerprint": "sha256:979b80f7f969efa388edf1caa93e8c7a77eaf46bc62d85e9baa30e307220ac18",
         "counts": {
           "native-invocation-unverified": 589,
-          "native-rejected-generated-invocation": 920,
-          "native-valid-grammar-diagnostic": 694,
-          "native-valid-grammar-unknown": 60,
-          "native-valid-recognition-only": 3285
+          "native-rejected-generated-invocation": 488,
+          "native-valid-grammar-diagnostic": 2151,
+          "native-valid-grammar-unknown": 8,
+          "native-valid-recognition-only": 83
         }
       }
     },
@@ -230,7 +230,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:df48f6f3d4f122f07dfc718e54ebfe3e3659fadaf26218130485541315a5155e",
+        "fingerprint": "sha256:ceadafeec9b23441ab801c2c803b2d5762bdc79026bb964e5852e3772e787867",
         "counts": {
           "native-invocation-unverified": 2,
           "native-rejected-generated-invocation": 11,
@@ -252,7 +252,7 @@
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:3b621ea200c8b63b9c96568858cf1669c234e22c68b880a6ab140c5d2f6020c7",
+          "fingerprint": "sha256:f12470edbbb60a3aa1bcce3a476ff5081911805627366ac141d23b31a532d0cd",
           "count": 196,
           "scope": "engine"
         },
@@ -297,7 +297,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:15b95cccb7fef0fb283478a97865fe2126d08a5b34b16eb02482e10d0dc8712b",
+        "fingerprint": "sha256:815c44d0024a0bcbee824584de5772dc98a84ddf261c7b900759a1a35d935523",
         "counts": {
           "native-invocation-unverified": 2,
           "native-rejected-generated-invocation": 15,
@@ -374,7 +374,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:462b9a487cbff45ebbd206d60adb8f85047a2a7f2c69e23871865ed18eed849f",
+        "fingerprint": "sha256:a6c2c7d630ac0e9f0dd0a8c0e7b21522e6071049d260c09b484ee30a71df90d1",
         "counts": {
           "native-invocation-unverified": 33,
           "native-rejected-generated-invocation": 1505,
@@ -404,7 +404,7 @@
         },
         "types": {
           "status": "observed",
-          "fingerprint": "sha256:27d66945f72cf6d143888f5b7283a9f97a56f1f01c8ba1b5d8536e08e3729e3e",
+          "fingerprint": "sha256:59322f40562ffc68507f7f54ffccd765190d63c3cdcd1c21d81405e4584bb2c4",
           "count": 473,
           "scope": "engine"
         },
@@ -445,13 +445,13 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:f625adc78f687b43b783f95a160d9f03781b7d3a0821388bdb0f4913df51ce50",
+        "fingerprint": "sha256:e00137b2f4e325ad4eae4e944d978ab632061ecd06d26bbb386bb81a29666bad",
         "counts": {
           "native-invocation-unverified": 623,
-          "native-rejected-generated-invocation": 923,
-          "native-valid-grammar-diagnostic": 712,
-          "native-valid-grammar-unknown": 60,
-          "native-valid-recognition-only": 3348
+          "native-rejected-generated-invocation": 488,
+          "native-valid-grammar-diagnostic": 2198,
+          "native-valid-grammar-unknown": 8,
+          "native-valid-recognition-only": 85
         }
       }
     },
@@ -522,7 +522,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:dd5626857b3b35f13859a10bde13826a52141a7848fd50950cccdc47564c3380",
+        "fingerprint": "sha256:df6f0c8ad1514286269304c61db9b7d15ffcf6083a3aba09bebcb2f99ed88898",
         "counts": {
           "native-invocation-unverified": 33,
           "native-rejected-generated-invocation": 1556,
@@ -552,7 +552,7 @@
         },
         "types": {
           "status": "observed",
-          "fingerprint": "sha256:d3d5a55f29f0152be4ed1512f761d6519daf2d59c6253b97623c583dcf03549a",
+          "fingerprint": "sha256:2f4448d4a6cb0b28a81d496c1e369e15e1dceabbdb5aafd1a4537e59ca1b0d2e",
           "count": 463,
           "scope": "engine"
         },
@@ -593,13 +593,13 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:70c1d1afe2dabdcecca74e1837e80cfdeb2778e960a98a8e1beb621cae80b4bc",
+        "fingerprint": "sha256:59ffe76a0754a2b7724d398dd6b39880c4496cd391902225c3c39b59a895019e",
         "counts": {
           "native-invocation-unverified": 551,
-          "native-rejected-generated-invocation": 892,
-          "native-valid-grammar-diagnostic": 685,
-          "native-valid-grammar-unknown": 59,
-          "native-valid-recognition-only": 3238
+          "native-rejected-generated-invocation": 483,
+          "native-valid-grammar-diagnostic": 2109,
+          "native-valid-grammar-unknown": 8,
+          "native-valid-recognition-only": 82
         }
       }
     },
@@ -623,7 +623,7 @@
         },
         "types": {
           "status": "observed",
-          "fingerprint": "sha256:09616652a32059f43bb778772e2fae461a6ef51bdca989d94a95144ddafcdc31",
+          "fingerprint": "sha256:e0ce112bcdcb11b521c4333caebdc50e7c06e8cbe41e86518223231649b7473b",
           "count": 501,
           "scope": "engine"
         },
@@ -664,13 +664,13 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:e32576485a1ec6b6f406c806fd1a061f4553ef42d3349bf862b37073f647f128",
+        "fingerprint": "sha256:df6c8c4896441182682a2b0993c132ca8f2f7d30ccd673ddbfb6f5e8a4fa20c7",
         "counts": {
           "native-invocation-unverified": 640,
-          "native-rejected-generated-invocation": 868,
-          "native-valid-grammar-diagnostic": 758,
-          "native-valid-grammar-unknown": 60,
-          "native-valid-recognition-only": 3364
+          "native-rejected-generated-invocation": 460,
+          "native-valid-grammar-diagnostic": 2233,
+          "native-valid-grammar-unknown": 8,
+          "native-valid-recognition-only": 85
         }
       }
     },
@@ -741,7 +741,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:094c7f6f9b6d36cde97d6bdee6acf3d99ab23d9b1e83cc8c8bdf475014f53ca8",
+        "fingerprint": "sha256:49974a4769291150bdc4d3678e77a7afefe5ae82036e5ccf01374fac5102c88d",
         "counts": {
           "native-invocation-unverified": 33,
           "native-rejected-generated-invocation": 1651,
@@ -818,7 +818,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:fffc52c3a3c32746b17f90f4a5acf69f9d9fb5bf27ed429052d768ce9d66e131",
+        "fingerprint": "sha256:a31162408a13350662bd3e63a8c4690d257134b365068afe461ead1cc41c6e67",
         "counts": {
           "native-invocation-unverified": 33,
           "native-rejected-generated-invocation": 1500,
@@ -905,13 +905,13 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:e1ecaed44b882b449bd9336fff1b5952297bf6e4faa4c47976b21be7661198ec",
+        "fingerprint": "sha256:e7adc3b419f26d9ab04c2179f136bf041979a1ad4e6fa6c5279b21c2101fbb26",
         "counts": {
           "native-invocation-unverified": 342,
           "native-rejected-generated-invocation": 486,
-          "native-valid-grammar-diagnostic": 261,
-          "native-valid-grammar-unknown": 6,
-          "native-valid-recognition-only": 1846
+          "native-valid-grammar-diagnostic": 219,
+          "native-valid-grammar-unknown": 7,
+          "native-valid-recognition-only": 1887
         }
       }
     },
@@ -990,13 +990,13 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:55be14f89436a62fc202b21fc518862123a546ab4e4c4985a5dffaeea82ed1dd",
+        "fingerprint": "sha256:41dd7fc6a3d7128dda50e1a2d6f373f409eabb9299f0b744fcfe14a18cbab532",
         "counts": {
           "native-invocation-unverified": 357,
-          "native-rejected-generated-invocation": 490,
-          "native-valid-grammar-diagnostic": 202,
+          "native-rejected-generated-invocation": 493,
+          "native-valid-grammar-diagnostic": 205,
           "native-valid-grammar-unknown": 11,
-          "native-valid-recognition-only": 2108
+          "native-valid-recognition-only": 2102
         }
       }
     },
@@ -1062,7 +1062,7 @@
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:22ac51edc3010ac4d035b3fc19aa426df95906b0265437cc58f9092e7b12904a",
+          "fingerprint": "sha256:1300488e77f55968aec6213841cd341b82cfeae076d5b49412ba51e9a7009d15",
           "count": 196,
           "scope": "engine"
         },
@@ -1105,7 +1105,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:3a811137adbf6c5c501e56b86e0d159452b2da1bb2787f682f48b7ae9193edd4",
+        "fingerprint": "sha256:7cca063171385fd0075bed248a970f764cf7dcf9d32b24e8d8bb123e2fdddccf",
         "counts": {
           "native-invocation-unverified": 2,
           "native-rejected-generated-invocation": 15,
@@ -1135,7 +1135,7 @@
         },
         "types": {
           "status": "observed",
-          "fingerprint": "sha256:30da1404ef8bfb04b8e59316e121269aae449eeb6dda69a0ec4d7a0702f89df6",
+          "fingerprint": "sha256:1e9fe078a2e7b5eb62296be5f8d005f632fbad37bf7112b91fb2d93d218a5ce2",
           "count": 453,
           "scope": "engine"
         },
@@ -1176,13 +1176,13 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:338704f3c5b1f4101b18fd52f403b9361578f4e310ef6e1623d7e89d4c5eba27",
+        "fingerprint": "sha256:dc171cd951aa22e2af8f1a10fcf60beae4296c170006c54ec71750f4318a616e",
         "counts": {
           "native-invocation-unverified": 528,
-          "native-rejected-generated-invocation": 891,
-          "native-valid-grammar-diagnostic": 680,
-          "native-valid-grammar-unknown": 59,
-          "native-valid-recognition-only": 3206
+          "native-rejected-generated-invocation": 483,
+          "native-valid-grammar-diagnostic": 2090,
+          "native-valid-grammar-unknown": 8,
+          "native-valid-recognition-only": 82
         }
       }
     },
@@ -1253,7 +1253,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:dd5626857b3b35f13859a10bde13826a52141a7848fd50950cccdc47564c3380",
+        "fingerprint": "sha256:df6f0c8ad1514286269304c61db9b7d15ffcf6083a3aba09bebcb2f99ed88898",
         "counts": {
           "native-invocation-unverified": 33,
           "native-rejected-generated-invocation": 1556,
@@ -1330,7 +1330,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:094c7f6f9b6d36cde97d6bdee6acf3d99ab23d9b1e83cc8c8bdf475014f53ca8",
+        "fingerprint": "sha256:49974a4769291150bdc4d3678e77a7afefe5ae82036e5ccf01374fac5102c88d",
         "counts": {
           "native-invocation-unverified": 33,
           "native-rejected-generated-invocation": 1651,
@@ -1396,7 +1396,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:7afeda816de69a4e144149c7bea26c89bf62c655faeb917d0a0ea095f063d00d",
+        "fingerprint": "sha256:b3435a8b5dd2dea8813658987a665a3f55da4908aac8a9ceffab32baa1389bef",
         "counts": {
           "native-rejected-generated-invocation": 2034,
           "native-valid-grammar-diagnostic": 417,
@@ -1466,7 +1466,7 @@
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:58b254462ed3fb2b8c47984f3d840522252f7a8986022776e4a982ef80ec6ce3",
+          "fingerprint": "sha256:c47476bbd842315cc1dd6a405d36f35142f915cdc1e39922524654968a6a67ae",
           "count": 196,
           "scope": "engine"
         },
@@ -1509,7 +1509,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:cb1096cc15dcc7b65f0f22b1a05fb7c88a78c1a05c2a04da7e072c3f27fb7720",
+        "fingerprint": "sha256:d3c1880b112566a268d588ee801ead15cc25788a1385ad4db02724b05c66bc9f",
         "counts": {
           "native-invocation-unverified": 2,
           "native-rejected-generated-invocation": 15,
@@ -1541,7 +1541,7 @@
         },
         "types": {
           "status": "observed",
-          "fingerprint": "sha256:27d66945f72cf6d143888f5b7283a9f97a56f1f01c8ba1b5d8536e08e3729e3e",
+          "fingerprint": "sha256:59322f40562ffc68507f7f54ffccd765190d63c3cdcd1c21d81405e4584bb2c4",
           "count": 473,
           "scope": "engine"
         },
@@ -1582,13 +1582,13 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:a082595bc7bbe81bbbe6454287ffc691b0c79853a2eff587c123b62248fe074d",
+        "fingerprint": "sha256:e00137b2f4e325ad4eae4e944d978ab632061ecd06d26bbb386bb81a29666bad",
         "counts": {
           "native-invocation-unverified": 623,
-          "native-rejected-generated-invocation": 923,
-          "native-valid-grammar-diagnostic": 712,
-          "native-valid-grammar-unknown": 60,
-          "native-valid-recognition-only": 3348
+          "native-rejected-generated-invocation": 488,
+          "native-valid-grammar-diagnostic": 2198,
+          "native-valid-grammar-unknown": 8,
+          "native-valid-recognition-only": 85
         }
       }
     },
@@ -1683,7 +1683,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:6ca23270457681c37017114af517eae532474700f88fc0f6494fe32284086cf8",
+        "fingerprint": "sha256:9978c10f7060e2518d4fb75e1025555a35c92c666f9908e3423705c8d91e026d",
         "counts": {
           "native-invocation-unverified": 2,
           "native-rejected-generated-invocation": 8,
@@ -1760,7 +1760,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:dd5626857b3b35f13859a10bde13826a52141a7848fd50950cccdc47564c3380",
+        "fingerprint": "sha256:df6f0c8ad1514286269304c61db9b7d15ffcf6083a3aba09bebcb2f99ed88898",
         "counts": {
           "native-invocation-unverified": 33,
           "native-rejected-generated-invocation": 1556,
@@ -1826,7 +1826,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:189f712de955a2ffe7990750ce161a7283eb1c65822f886c6eb1b53e688c194e",
+        "fingerprint": "sha256:2b371e369e88e85907233850ad3fc0430e2468ac3f394f897df185ee6bcd5677",
         "counts": {
           "native-rejected-generated-invocation": 2027,
           "native-valid-grammar-diagnostic": 415,
@@ -1912,13 +1912,13 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:e1ecaed44b882b449bd9336fff1b5952297bf6e4faa4c47976b21be7661198ec",
+        "fingerprint": "sha256:e7adc3b419f26d9ab04c2179f136bf041979a1ad4e6fa6c5279b21c2101fbb26",
         "counts": {
           "native-invocation-unverified": 342,
           "native-rejected-generated-invocation": 486,
-          "native-valid-grammar-diagnostic": 261,
-          "native-valid-grammar-unknown": 6,
-          "native-valid-recognition-only": 1846
+          "native-valid-grammar-diagnostic": 219,
+          "native-valid-grammar-unknown": 7,
+          "native-valid-recognition-only": 1887
         }
       }
     },
@@ -1978,7 +1978,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:ebe6dbe1fe97d2c384f38874512fcefc3178591a9f192af44a420babe1a44768",
+        "fingerprint": "sha256:b00737761a7fe7d947ef845ed7632fb797f4dd16f58f50bc027bcccb84c194ac",
         "counts": {
           "native-rejected-generated-invocation": 2040,
           "native-valid-grammar-diagnostic": 417,
@@ -2007,7 +2007,7 @@
         },
         "types": {
           "status": "observed",
-          "fingerprint": "sha256:7044eb06f04b5fefc895c269b426ea6ce33e94387605633be6bc7dae2043ee5c",
+          "fingerprint": "sha256:04668e90b1e3a2d9a55a82388142e2ab93276014987309f2976b7734bca7adb7",
           "count": 465,
           "scope": "engine"
         },
@@ -2048,13 +2048,13 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:0290a716913988b81aefad6a33ca3450b5d9fa3779bff5a17f13f89bfff058c4",
+        "fingerprint": "sha256:d38c2e40a9e629466f53d1627e9a89525d509b511ddb1a92b66f8e4c109be325",
         "counts": {
           "native-invocation-unverified": 576,
-          "native-rejected-generated-invocation": 908,
-          "native-valid-grammar-diagnostic": 691,
-          "native-valid-grammar-unknown": 60,
-          "native-valid-recognition-only": 3269
+          "native-rejected-generated-invocation": 488,
+          "native-valid-grammar-diagnostic": 2131,
+          "native-valid-grammar-unknown": 8,
+          "native-valid-recognition-only": 83
         }
       }
     },
@@ -2109,7 +2109,7 @@
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:d93776335fbd402aabc9135edec3551ae50a60ac67b332582b661de06eb35079",
+          "fingerprint": "sha256:fa717a3cca7b740dfa37103aee3734b822bf557e511b5fb07aec5b3f152fc087",
           "count": 221,
           "scope": "engine"
         },
@@ -2152,7 +2152,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:0abe77ee128107750922e0d38c10af2d1041410ea7ade59b43632dd7cf161254",
+        "fingerprint": "sha256:90278ffabe28572ff0046eb283845daa3c5aceeb45f9317482e1930d4d9454f6",
         "counts": {
           "native-invocation-unverified": 2,
           "native-rejected-generated-invocation": 15,
@@ -2229,7 +2229,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:094c7f6f9b6d36cde97d6bdee6acf3d99ab23d9b1e83cc8c8bdf475014f53ca8",
+        "fingerprint": "sha256:49974a4769291150bdc4d3678e77a7afefe5ae82036e5ccf01374fac5102c88d",
         "counts": {
           "native-invocation-unverified": 33,
           "native-rejected-generated-invocation": 1651,
@@ -2289,7 +2289,7 @@
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:937bc15828b38b89d97394959b012400f66968bf7b3780096cdb82e51f017683",
+          "fingerprint": "sha256:b23bc8368c4b917f2c7965bab6f2188271aa426cb544b900a9c1a4cc7220ca0d",
           "count": 215,
           "scope": "engine"
         },
@@ -2332,7 +2332,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:1521cad4c044c64efbf8ed19eee2733a6b8fbc4696d18706d1f214be84c757f5",
+        "fingerprint": "sha256:6c1f7d4cc1cf06d3d95209a705f969073a67d0bbac381ad3215b092368cd45e9",
         "counts": {
           "native-invocation-unverified": 2,
           "native-rejected-generated-invocation": 15,
@@ -2409,7 +2409,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:462b9a487cbff45ebbd206d60adb8f85047a2a7f2c69e23871865ed18eed849f",
+        "fingerprint": "sha256:a6c2c7d630ac0e9f0dd0a8c0e7b21522e6071049d260c09b484ee30a71df90d1",
         "counts": {
           "native-invocation-unverified": 33,
           "native-rejected-generated-invocation": 1505,
@@ -2479,7 +2479,7 @@
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:d2852f06b6351574f1ad9ab980d22e20bd67405000ae4c0ebc9ee3237f301c38",
+          "fingerprint": "sha256:4f01254b7f3d73181bdda12e12e2910812b8d113662d4e8460b2b140e64ed5f0",
           "count": 192,
           "scope": "engine"
         },
@@ -2522,7 +2522,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:d50d5d55c34d7895653e613ec428ab0038bca79d1d9f07dafb6378cda2a171d4",
+        "fingerprint": "sha256:4747fa8bcf8461933496fa09f21ee435c9a5a01cd87fa1480416b309da93a021",
         "counts": {
           "native-invocation-unverified": 2,
           "native-rejected-generated-invocation": 15,
@@ -2544,7 +2544,7 @@
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:3b621ea200c8b63b9c96568858cf1669c234e22c68b880a6ab140c5d2f6020c7",
+          "fingerprint": "sha256:f12470edbbb60a3aa1bcce3a476ff5081911805627366ac141d23b31a532d0cd",
           "count": 196,
           "scope": "engine"
         },
@@ -2589,7 +2589,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:15b95cccb7fef0fb283478a97865fe2126d08a5b34b16eb02482e10d0dc8712b",
+        "fingerprint": "sha256:815c44d0024a0bcbee824584de5772dc98a84ddf261c7b900759a1a35d935523",
         "counts": {
           "native-invocation-unverified": 2,
           "native-rejected-generated-invocation": 15,
@@ -2655,7 +2655,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:189f712de955a2ffe7990750ce161a7283eb1c65822f886c6eb1b53e688c194e",
+        "fingerprint": "sha256:2b371e369e88e85907233850ad3fc0430e2468ac3f394f897df185ee6bcd5677",
         "counts": {
           "native-rejected-generated-invocation": 2027,
           "native-valid-grammar-diagnostic": 415,
@@ -2720,7 +2720,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:ebe6dbe1fe97d2c384f38874512fcefc3178591a9f192af44a420babe1a44768",
+        "fingerprint": "sha256:b00737761a7fe7d947ef845ed7632fb797f4dd16f58f50bc027bcccb84c194ac",
         "counts": {
           "native-rejected-generated-invocation": 2040,
           "native-valid-grammar-diagnostic": 417,
@@ -2804,13 +2804,13 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:55be14f89436a62fc202b21fc518862123a546ab4e4c4985a5dffaeea82ed1dd",
+        "fingerprint": "sha256:41dd7fc6a3d7128dda50e1a2d6f373f409eabb9299f0b744fcfe14a18cbab532",
         "counts": {
           "native-invocation-unverified": 357,
-          "native-rejected-generated-invocation": 490,
-          "native-valid-grammar-diagnostic": 202,
+          "native-rejected-generated-invocation": 493,
+          "native-valid-grammar-diagnostic": 205,
           "native-valid-grammar-unknown": 11,
-          "native-valid-recognition-only": 2108
+          "native-valid-recognition-only": 2102
         }
       }
     },
@@ -2870,7 +2870,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:ebe6dbe1fe97d2c384f38874512fcefc3178591a9f192af44a420babe1a44768",
+        "fingerprint": "sha256:b00737761a7fe7d947ef845ed7632fb797f4dd16f58f50bc027bcccb84c194ac",
         "counts": {
           "native-rejected-generated-invocation": 2040,
           "native-valid-grammar-diagnostic": 417,
@@ -2940,7 +2940,7 @@
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:58b254462ed3fb2b8c47984f3d840522252f7a8986022776e4a982ef80ec6ce3",
+          "fingerprint": "sha256:c47476bbd842315cc1dd6a405d36f35142f915cdc1e39922524654968a6a67ae",
           "count": 196,
           "scope": "engine"
         },
@@ -2983,7 +2983,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:cb1096cc15dcc7b65f0f22b1a05fb7c88a78c1a05c2a04da7e072c3f27fb7720",
+        "fingerprint": "sha256:d3c1880b112566a268d588ee801ead15cc25788a1385ad4db02724b05c66bc9f",
         "counts": {
           "native-invocation-unverified": 2,
           "native-rejected-generated-invocation": 15,
@@ -3060,7 +3060,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:3ab423a366414f6f164ce106aa691ff06876dc2038ae2c51eab1d6eb3c581e4c",
+        "fingerprint": "sha256:54cd3fc66c33b2a4f8959b9902b07253eba0edac744df4b79ff38896ff996e83",
         "counts": {
           "native-invocation-unverified": 33,
           "native-rejected-generated-invocation": 1651,

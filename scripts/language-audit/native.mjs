@@ -1,77 +1,20 @@
+import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { attachNativeProvenance } from "./provenance.mjs";
-import { recognitionRows } from "./recognition-reference.mjs";
-
-const postgresTypeNames = new WeakMap();
 
 export async function preparePostgres(client, sql) {
-  let description;
   try {
-    description = await new Promise((resolve, reject) => {
-      let fields = [],
-        parameters = [];
-      const connection = client.connection;
-      const parameterDescription = (message) => {
-        parameters = message.dataTypeIDs;
-      };
-      const cleanup = () => connection.removeListener("parameterDescription", parameterDescription);
-      client.query({
-        submit(wire) {
-          wire.once("parameterDescription", parameterDescription);
-          // Parse + Describe + Sync deliberately omit Bind and Execute. In particular,
-          // this cannot call a volatile/destructive function discovered in pg_proc.
-          wire.parse({ text: sql, name: "" });
-          wire.describe({ type: "S", name: "" });
-          wire.sync();
-        },
-        handleRowDescription(message) {
-          fields = message.fields;
-        },
-        handleReadyForQuery() {
-          cleanup();
-          resolve({ fields, parameters });
-        },
-        handleError(error) {
-          cleanup();
-          reject(error);
-        },
-      });
-    });
+    await client.query(`PREPARE typed_sql_language_audit AS ${sql}`);
   } catch (error) {
     if (!/^(42|0A|22)/u.test(error.code ?? "") || error.code === "42501") throw error;
-    return { accepted: false, reason: error.code, detail: String(error.message) };
+    return { accepted: false, reason: error.code };
   }
-  const names = postgresTypeNames.get(client) ?? new Map();
-  postgresTypeNames.set(client, names);
-  const identities = [
-    ...new Set([...description.fields.map((field) => field.dataTypeID), ...description.parameters]),
-  ].filter((id) => !names.has(id));
-  const types = identities.length
-    ? (
-        await client.query(
-          "SELECT oid::text AS oid, format_type(oid,NULL) AS name FROM pg_type WHERE oid=ANY($1::oid[])",
-          [identities],
-        )
-      ).rows
-    : [];
-  for (const row of types) names.set(Number(row.oid), row.name);
+  await client.query("DEALLOCATE typed_sql_language_audit");
   return {
     accepted: true,
     metadata: {
-      status: "native Parse/Describe result and parameter types; no execution",
-      parameterCount: description.parameters.length,
-      parameters: description.parameters.map((id, index) => ({
-        index: index + 1,
-        engineType: id,
-        nativeType: names.get(id) ?? null,
-      })),
-      columns: description.fields.map((field) => ({
-        name: field.name,
-        engineType: field.dataTypeID,
-        nativeType: names.get(field.dataTypeID) ?? null,
-        typeModifier: field.dataTypeModifier,
-        nullable: null,
-      })),
+      status: "catalog-signature-preserved; result description unavailable through SQL PREPARE",
+      parameterCount: 0,
+      columns: null,
     },
   };
 }
@@ -104,7 +47,7 @@ export async function prepareMySql(client, sql) {
       [1037, 1038, 1040, 1041, 1053, 1205, 1213, 1317].includes(error.errno)
     )
       throw error;
-    return { accepted: false, reason: error.code ?? String(error.errno), detail: String(error.message) };
+    return { accepted: false, reason: error.code ?? String(error.errno) };
   }
 }
 
@@ -156,22 +99,28 @@ export function recognitionSummary(recognition) {
   return { ...metadata, counts };
 }
 
-export async function enrichRecognition(input, prepare, server, options = {}) {
-  await attachNativeProvenance(input);
+export async function enrichRecognition(input, prepare, server) {
   const { tsImport } = await import("tsx/esm/api");
   const { recognizeLive } = await tsImport("./recognition.ts", {
     parentURL: import.meta.url,
     tsconfig: fileURLToPath(new URL("tsconfig.json", import.meta.url)),
   });
-  const rows = await recognitionRows(input, options.references);
-  const recognition = await recognizeLive(
-    input.dialect,
-    input.target.version,
-    rows,
-    prepare,
-    server,
-    options.recognition,
-  );
+  const functions = input.categories.functions;
+  let rows = functions?.rows ?? [];
+  if (!rows.length || functions.scope === "system-objects-only") {
+    const version =
+      input.dialect === "mysql"
+        ? input.target.version.split(".").slice(0, 2).join(".")
+        : input.target.version.split(".")[0];
+    const reference = JSON.parse(
+      await readFile(
+        new URL(`../../test/fixtures/language-audit/${input.dialect}-${version}.json`, import.meta.url),
+        "utf8",
+      ),
+    );
+    rows = [...rows, ...reference.categories.functions.rows];
+  }
+  const recognition = await recognizeLive(input.dialect, input.target.version, rows, prepare, server);
   input.recognition = recognitionSummary(recognition);
   return recognition;
 }

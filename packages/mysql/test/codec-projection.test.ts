@@ -1,7 +1,7 @@
 import { describe, it, strict } from "poku";
 import { mySqlCatalogType, mySqlCoreCatalog } from "../src/catalog/index.js";
-import { mySqlCodecTypes } from "../src/codecs/generated/types.js";
 import { mySqlCodecTypeMapping } from "../src/codecs/index.js";
+import { mySqlCodecTypes } from "../src/codecs/types-data.js";
 import { MYSQL_SUPPORT_POLICY } from "../src/support.js";
 
 await describe("MySQL runtime codec projection", async () => {

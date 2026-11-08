@@ -1,8 +1,7 @@
 ---
 "@typed-sql/core": minor
-"@typed-sql/postgres": patch
 ---
 
-Expose grammar-neutral routine argument binding mechanics for generated catalogs and grammar
-contributions. PostgreSQL delegates positional, named, default and variadic slot assignment to
-the shared contract while retaining its own native type, coercion and overload rules.
+Expose grammar-neutral argument binding mechanics for grammar contributions, including
+positional, named, default and variadic slots. Type coercion and overload selection remain
+owned by the grammar.

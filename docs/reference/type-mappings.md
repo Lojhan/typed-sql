@@ -27,11 +27,9 @@ The inferred row type describes values returned by the typed-sql adapter under t
 
 The PostgreSQL adapter installs parsers per query and does not mutate global `pg.types`.
 
-Native function overloads and casts follow the selected PostgreSQL version. Their input and result
-types use the same decoding policy as columns: for example, `avg(bigint_column)` produces exact
-numeric text by default. An unsupported or ambiguous overload produces a diagnostic or `unknown`.
-Native signatures alone do not establish result nullability; inferred results remain nullable unless
-a semantic rule proves otherwise.
+PostgreSQL built-in semantics use the versioned offline catalog. Unknown signatures and
+unproven result types remain conservative. Native query contracts provide additional evidence
+for qualified queries during explicit generation or configured live analysis.
 Policy-controlled scalar and array OIDs use typed-sql codecs. Active extension manifests may add
 connection-local OID decoders; other OIDs delegate to the installed driver parser table.
 

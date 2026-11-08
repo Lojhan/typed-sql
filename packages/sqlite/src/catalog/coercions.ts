@@ -1,17 +1,32 @@
 import { sqliteAsciiFold, sqliteAsciiUpper } from "../identifier-case.js";
-import { affinityRules, defaultAffinity, numericTypeNames } from "./generated/types.js";
 
-const SQLITE_NUMERIC_DATABASE_TYPES: ReadonlySet<string> = new Set(numericTypeNames);
+const SQLITE_NUMERIC_DATABASE_TYPES = Object.freeze(
+  new Set([
+    "tinyint",
+    "smallint",
+    "mediumint",
+    "int",
+    "integer",
+    "bigint",
+    "decimal",
+    "numeric",
+    "float",
+    "double",
+    "real",
+    "bit",
+    "year",
+  ]),
+);
 
 export type SqliteAffinity = "integer" | "text" | "blob" | "real" | "numeric";
 
 export function sqliteAffinity(databaseType: string): SqliteAffinity {
   const type = sqliteAsciiUpper(databaseType.trim());
-  return (
-    affinityRules.find(
-      (rule) => rule.contains.some((pattern) => type.includes(pattern)) || (rule.empty && type.length === 0),
-    )?.affinity ?? defaultAffinity
-  );
+  if (type.includes("INT")) return "integer";
+  if (type.includes("CHAR") || type.includes("CLOB") || type.includes("TEXT")) return "text";
+  if (type.length === 0 || type.includes("BLOB")) return "blob";
+  if (type.includes("REAL") || type.includes("FLOA") || type.includes("DOUB")) return "real";
+  return "numeric";
 }
 
 export function normalizeSqliteDatabaseType(databaseType: string): string {

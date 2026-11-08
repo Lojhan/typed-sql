@@ -1,8 +1,8 @@
 import type { SchemaSnapshot } from "@typed-sql/schema";
 import { POSTGRES_SUPPORT_POLICY, parsePostgresMajor } from "../support.js";
-import { postgresCodecTypes } from "./generated/types.js";
 import { normalizePostgresDatabaseType } from "./normalize.js";
 import type { PostgresCodecTypeMapping } from "./types.js";
+import { postgresCodecTypes } from "./types-data.js";
 
 /** Mirrors semantic catalog selection without importing casts, operators or routine families. */
 export function postgresCodecTypeMapping(

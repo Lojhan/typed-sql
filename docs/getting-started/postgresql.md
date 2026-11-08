@@ -100,7 +100,7 @@ const connectionString = () => process.env.DATABASE_URL!;
 export default defineConfig({
   dialect: {
     ...postgresProfile({ typePolicy }),
-    loadAnalyzer: async () => (await import("@typed-sql/postgres/analysis/core")).postgres({ typePolicy }),
+    loadAnalyzer: async () => (await import("@typed-sql/postgres/analysis")).postgres({ typePolicy }),
   },
   schema: {
     file: "generated/db/schema.json",

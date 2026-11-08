@@ -371,7 +371,7 @@ export default defineConfig({
       const liveConfig = (await readFile(join(temporary, "typed-sql.config.mjs"), "utf8"))
         .replace(
           'loadAnalyzer(){throw Error("Frozen native proof initialized an analyzer");}',
-          'async loadAnalyzer(){if(!process.env.TYPED_SQL_CONTRACT_LIVE_TEST)throw Error("Offline check initialized an analyzer");return (await import("@typed-sql/postgres/analysis/core")).postgres();}',
+          'async loadAnalyzer(){if(!process.env.TYPED_SQL_CONTRACT_LIVE_TEST)throw Error("Offline check initialized an analyzer");return (await import("@typed-sql/postgres/analysis")).postgres();}',
         )
         .replace(
           'analysis: {mode: "frozen",',

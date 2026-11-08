@@ -348,7 +348,7 @@ await describe("PostgreSQL dialect plugin", async () => {
       parseStatement("SELECT pg_catalog.count(*) AS row_count FROM missing_table"),
       routineSchema,
     );
-    strict.strictEqual(syntactic.volatility.value, "stable");
+    strict.strictEqual(syntactic.volatility.value, "unknown");
     strict.ok(
       syntactic.dependencies.some(
         ({ kind, name, certainty }) => kind === "relation" && name === "missing_table" && certainty === "syntactic",

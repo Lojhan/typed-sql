@@ -74,11 +74,12 @@ await describe("PostgreSQL versioned core catalogs", async () => {
 
   await it("selects cast evidence and removals by PostgreSQL major", () => {
     const schema = (version: string) => ({ formatVersion: 1, dialect: "postgres", version, tables: {} }) as const;
-    for (const major of [...POSTGRES_SUPPORT_POLICY.stableMajors, POSTGRES_SUPPORT_POLICY.canary.major]) {
-      const casts = postgresCoreCatalog(major)!.casts;
-      strict.ok(casts.length > 0);
-      strict.equal(new Set(casts.map((cast) => `${cast.source}>${cast.target}`)).size, casts.length);
-    }
+    strict.strictEqual(postgresCoreCatalog(14)?.casts.length, 198);
+    strict.strictEqual(postgresCoreCatalog(15)?.casts.length, 197);
+    strict.strictEqual(postgresCoreCatalog(16)?.casts.length, 197);
+    strict.strictEqual(postgresCoreCatalog(17)?.casts.length, 197);
+    strict.strictEqual(postgresCoreCatalog(18)?.casts.length, 203);
+    strict.strictEqual(postgresCoreCatalog(19)?.casts.length, 203);
     strict.strictEqual(postgresCatalogCast("path", "point", schema("14.24"))?.context, "explicit");
     strict.strictEqual(postgresCatalogCast("path", "point", schema("15.19")), undefined);
     strict.strictEqual(postgresCatalogCanCast("integer", "bytea", "explicit", schema("17.11")), false);
@@ -90,13 +91,7 @@ await describe("PostgreSQL versioned core catalogs", async () => {
       new URL("../../../scripts/generate-postgres-catalog.mjs", import.meta.url).pathname,
       "--check",
     ]);
-    const resolver = (
-      await Promise.all(
-        ["resolver.ts", "resolver-engine.ts"].map((file) =>
-          readFile(new URL(`../src/${file}`, import.meta.url), "utf8"),
-        ),
-      )
-    ).join("\n");
+    const resolver = await readFile(new URL("../src/resolver.ts", import.meta.url), "utf8");
     const typePolicy = await readFile(new URL("../src/type-policy.ts", import.meta.url), "utf8");
     strict.ok(!resolver.includes("const booleanOperators"));
     strict.ok(!resolver.includes("const numericTypes"));

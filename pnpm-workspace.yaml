@@ -4,7 +4,6 @@ packages:
   - e2e/*
   - examples/*
   - website
-  - tools/grammar-catalog
 
 overrides:
   # Latest stable Miniflare pins vulnerable patches (GHSA-wq5f-xc86-pv6w / GHSA-xjj6-f33q-929c).

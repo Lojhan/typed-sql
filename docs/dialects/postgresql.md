@@ -19,49 +19,9 @@ description: PostgreSQL grammar coverage, catalog introspection, application-own
 
 - `@typed-sql/postgres` — `sql`, runtime plan primitives, renderer and type policy.
 - `@typed-sql/postgres/analysis` — explicit eager analyzer and compatibility exports, including schema introspection and semantic routing.
-- `@typed-sql/postgres/analysis/selected` — asynchronous `loadPostgresAnalyzer({ major })` for one retained function, type, and cast profile.
-- `@typed-sql/postgres/analysis/profiles/14`, `@typed-sql/postgres/analysis/profiles/15`, `@typed-sql/postgres/analysis/profiles/16`, `@typed-sql/postgres/analysis/profiles/17`, `@typed-sql/postgres/analysis/profiles/18` and `@typed-sql/postgres/analysis/profiles/19` — fixed-major `postgres()` factories for bundlers and explicit analyzer registration.
 - `@typed-sql/postgres/runtime` — driver-neutral rendering and codec utilities.
 - `@typed-sql/postgres/pg` — schema provider, executable database adapter, lazy live verifier, and structured-plan inspector for application-owned `pg`.
 - `@typed-sql/postgres/migrations` — lazy migration targets, pinned PostgreSQL catalog/history operations, script validation and qualified catalog keys; requires the application-owned `pg` driver and optional `@typed-sql/migrations` package.
-
-## Compact offline analysis and optional packs
-
-`@typed-sql/postgres/analysis/core` exports a compact `postgres()` analyzer. New PostgreSQL
-scaffolds load this module lazily. Its initial reviewed policy selects 200 native function names
-(197 on PostgreSQL 14) and retains every projected overload for each selected name. Shared
-semantic families, native scalar types and codecs remain available. The policy covers synthetic
-application query scenarios; these counts are not a measured popularity ranking.
-
-Fixed-major core entrypoints are `@typed-sql/postgres/analysis/core/profiles/14`,
-`@typed-sql/postgres/analysis/core/profiles/15`, `@typed-sql/postgres/analysis/core/profiles/16`,
-`@typed-sql/postgres/analysis/core/profiles/17`, `@typed-sql/postgres/analysis/core/profiles/18`
-and `@typed-sql/postgres/analysis/core/profiles/19`. They require matching snapshot version evidence.
-
-Unresolved routines retain `unknown` types and diagnostics. Use live query-contract generation
-with a qualified native transport for query-specific evidence, or add an explicit offline compatibility pack:
-
-```ts
-import { postgres } from '@typed-sql/postgres/analysis/core/profiles/18'
-import { compatibilityPack } from '@typed-sql/postgres/analysis/packs/compatibility/18'
-
-const compact = postgres()
-const extended = postgres({ packs: [compatibilityPack] })
-```
-
-Packs are available at `@typed-sql/postgres/analysis/packs/compatibility/14`,
-`@typed-sql/postgres/analysis/packs/compatibility/15`,
-`@typed-sql/postgres/analysis/packs/compatibility/16`,
-`@typed-sql/postgres/analysis/packs/compatibility/17`,
-`@typed-sql/postgres/analysis/packs/compatibility/18` and
-`@typed-sql/postgres/analysis/packs/compatibility/19`. Each contains the projected signatures
-outside the selected core. The analyzer validates the pack's engine major, grammar revision,
-type/cast catalog revision and core digest, and rejects conflicting signature evidence.
-
-Pack metadata records source digests and projected facets. Native query contracts supply
-independent evidence for particular queries. Application `sql` imports remain at the grammar
-root. Existing full `/analysis` and `/analysis/profiles/<major>` analyzers retain their behavior;
-compact-core selection does not remove compatibility data from the installed package.
 
 ## Supported versions
 
@@ -308,37 +268,10 @@ occurrences, snapshot validation and policy information to `createContractDialec
 compatibility exports and the `query` entrypoint remain available. These programmatic APIs do not enable
 background refresh or database access during ordinary builds.
 
-## Selecting analyzer metadata
+## Loading the analyzer
 
-Register a fixed-major analyzer when the project targets a known PostgreSQL major:
-
-```ts
-import { defineConfig } from "@typed-sql/core";
-import { postgresProfile } from "@typed-sql/postgres/profile";
-
-export default defineConfig({
-  dialect: {
-    ...postgresProfile(),
-    loadAnalyzer: async () =>
-      (await import("@typed-sql/postgres/analysis/profiles/18")).postgres(),
-  },
-  schema: { file: "schema/catalog.snapshot.json" },
-  outDir: "generated",
-  projects: ["tsconfig.json"],
-});
-```
-
-The fixed import lets bundlers include the requested function, type, and cast profile. For a major chosen
-by configuration, `loadPostgresAnalyzer({ major: 18 })` from
-`@typed-sql/postgres/analysis/selected` loads the corresponding profile asynchronously. A bundler
-can emit chunks for the loader's other potential targets; use a fixed-major import when those
-chunks should be excluded.
-
-Selected analyzers require matching server-version evidence in the snapshot. Missing or mismatched
-evidence produces `TSQ402`, and unsupported requested majors reject loading. Canary majors retain
-the explicit `versionPolicy: "canary"` requirement. Application `sql` imports stay at
-`@typed-sql/postgres`.
-
-Selection retains the projected native signatures, types, casts, and operator and routine rules
-for that major. Other majors are absent from a fixed-profile analyzer’s import graph. Selection
-does not choose a smaller common-function core or remove compatibility catalogs from the installed package.
+Use `postgresProfile()` from `@typed-sql/postgres/profile` for lightweight contract consumption.
+Configure `loadAnalyzer: async () => (await import("@typed-sql/postgres/analysis")).postgres()`
+when offline inference or live reconciliation needs the full analyzer. Its versioned offline
+catalog is selected using snapshot server evidence. Canary versions require the explicit
+`versionPolicy: "canary"` option.

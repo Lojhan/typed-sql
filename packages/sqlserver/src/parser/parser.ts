@@ -1,5 +1,5 @@
 import type { SourceRange } from "@typed-sql/core";
-import { requireSqlServerNativeType, type SqlServerTypeContext } from "../native-types.js";
+import { requireSqlServerNativeType } from "../native-types.js";
 import { type TokenizeOptions, tokenize } from "./tokenizer.js";
 import {
   type Assignment,
@@ -714,14 +714,14 @@ class Parser {
     if (["CAST", "TRY_CAST", "CONVERT", "TRY_CONVERT"].includes(upper) && this.take("(")) {
       let argument: Expression, databaseType: string, style: Expression | undefined;
       if (upper.endsWith("CONVERT")) {
-        databaseType = this.nativeType("cast");
+        databaseType = this.nativeType();
         this.need(",");
         argument = this.expression();
         if (this.take(",")) style = this.expression();
       } else {
         argument = this.expression();
         this.need("AS");
-        databaseType = this.nativeType("cast");
+        databaseType = this.nativeType();
       }
       this.need(")");
       return {
@@ -865,7 +865,7 @@ class Parser {
       range: span(start, this.previous.range),
     };
   }
-  nativeType(context: SqlServerTypeContext = "declaration"): string {
+  nativeType(): string {
     const start = this.token.range;
     const name = this.identifier().value;
     let source = name;
@@ -883,7 +883,7 @@ class Parser {
       source += ")";
     }
     try {
-      return requireSqlServerNativeType(source, context).text;
+      return requireSqlServerNativeType(source).text;
     } catch {
       this.fail("Unsupported or invalid native SQL Server type", span(start, this.previous.range));
     }

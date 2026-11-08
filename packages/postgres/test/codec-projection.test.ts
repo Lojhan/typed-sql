@@ -1,7 +1,7 @@
 import { describe, it, strict } from "poku";
 import { postgresCatalogTypeMapping, postgresCoreCatalog } from "../src/catalog/index.js";
-import { postgresCatalogRevisions, postgresCodecTypes } from "../src/codecs/generated/types.js";
 import { postgresCodecTypeMapping } from "../src/codecs/index.js";
+import { postgresCatalogRevisions, postgresCodecTypes } from "../src/codecs/types-data.js";
 import { POSTGRES_SUPPORT_POLICY } from "../src/support.js";
 
 await describe("PostgreSQL runtime codec projection", async () => {

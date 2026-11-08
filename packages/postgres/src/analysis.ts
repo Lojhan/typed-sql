@@ -1,11 +1,21 @@
-import type { DialectPlugin } from "@typed-sql/core";
-import { createPostgresAnalyzer } from "./analysis-factory.js";
-import type { PostgresDialectOptions, PostgresSchemaSnapshot } from "./analysis-options.js";
-import { nativeSignatures } from "./catalog/generated/native.js";
-import { postgresCoreCatalogForSchema } from "./catalog/index.js";
-import type { PostgresTypePolicy } from "./type-policy.js";
+import {
+  applyDialectCapabilityStates,
+  DIALECT_CONTRACT_VERSION,
+  type DialectAnalysisContext,
+  type DialectPlugin,
+  unknownQuerySemantics,
+} from "@typed-sql/core";
+import { parseSchemaSnapshot, type SchemaSnapshot } from "@typed-sql/schema";
+import { assertPostgresServerEvidence, POSTGRES_CAPABILITIES, resolvePostgresCapabilities } from "./capabilities.js";
+import { type PostgresExtensionManifest, resolvePostgresExtensionManifests } from "./extensions.js";
+import { parseStatement, SqlParseError, tokenize } from "./parser/index.js";
+import { postgresRuntimeValueType } from "./query.js";
+import { hasStableRepeatedResult } from "./repeated-inputs.js";
+import { resolveStatement } from "./resolver.js";
+import { analyzePostgresSemantics } from "./semantics.js";
+import { defaultPostgresTypePolicy, type PostgresTypePolicy } from "./type-policy.js";
+import { POSTGRES_DIALECT_VERSION } from "./version.js";
 
-export type { PostgresDialectOptions, PostgresSchemaSnapshot } from "./analysis-options.js";
 export type {
   PostgresCopyCapability,
   PostgresCopyFromOptions,
@@ -40,10 +50,125 @@ export {
   validatePostgresRuntimeCompatibility,
 } from "./runtime-compatibility.js";
 export { POSTGRES_DIALECT_VERSION } from "./version.js";
+
+export type PostgresSchemaSnapshot = SchemaSnapshot & { readonly dialect: "postgres" };
+export interface PostgresDialectOptions {
+  readonly typePolicy?: PostgresTypePolicy;
+  readonly versionPolicy?: import("./capabilities.js").PostgresVersionPolicy;
+  readonly extensions?: readonly PostgresExtensionManifest[];
+}
+
+function validatePostgresSnapshot(value: unknown): PostgresSchemaSnapshot {
+  const snapshot = parseSchemaSnapshot(value);
+  if (snapshot.dialect !== "postgres") {
+    throw new TypeError(`@typed-sql/postgres cannot use a ${snapshot.dialect} schema snapshot`);
+  }
+  if (snapshot.dialectVersion !== undefined && snapshot.dialectVersion !== POSTGRES_DIALECT_VERSION) {
+    throw new TypeError(
+      `@typed-sql/postgres grammar ${POSTGRES_DIALECT_VERSION} cannot use snapshot dialectVersion ${snapshot.dialectVersion}`,
+    );
+  }
+  if (snapshot.server !== undefined && snapshot.server.product !== "postgres") {
+    throw new TypeError(`@typed-sql/postgres cannot use ${snapshot.server.product} server evidence`);
+  }
+  if (snapshot.server !== undefined) assertPostgresServerEvidence(snapshot.server);
+  return snapshot as PostgresSchemaSnapshot;
+}
+
 export function postgres(
   options: PostgresDialectOptions = {},
 ): DialectPlugin<PostgresSchemaSnapshot, PostgresTypePolicy> {
-  return createPostgresAnalyzer(options, nativeSignatures, postgresCoreCatalogForSchema);
+  const defaultTypePolicy = options.typePolicy ?? defaultPostgresTypePolicy;
+  const versionPolicy = options.versionPolicy ?? "stable";
+  const capabilityCache = new WeakMap<PostgresSchemaSnapshot, ReturnType<typeof resolvePostgresCapabilities>>();
+  const extensionCache = new WeakMap<PostgresSchemaSnapshot, ReturnType<typeof resolvePostgresExtensionManifests>>();
+  const capabilitiesFor = (snapshot: PostgresSchemaSnapshot): ReturnType<typeof resolvePostgresCapabilities> => {
+    const cached = capabilityCache.get(snapshot);
+    if (cached !== undefined) return cached;
+    const resolved = resolvePostgresCapabilities(snapshot, versionPolicy);
+    capabilityCache.set(snapshot, resolved);
+    return resolved;
+  };
+  return Object.freeze({
+    contractVersion: DIALECT_CONTRACT_VERSION,
+    id: "postgres",
+    grammarVersion: POSTGRES_DIALECT_VERSION,
+    sqlModule: "@typed-sql/postgres",
+    runtimeSqlModule: "@typed-sql/postgres/query",
+    capabilities: POSTGRES_CAPABILITIES,
+    resolveCapabilities: capabilitiesFor,
+    defaultTypePolicy,
+    runtimeValueType: postgresRuntimeValueType,
+    placeholder(index: number): string {
+      if (!Number.isInteger(index) || index < 1) throw new RangeError("PostgreSQL parameter indexes start at 1");
+      return `$${index}`;
+    },
+    quoteIdentifier(identifier: string): string {
+      return `"${identifier.replaceAll('"', '""')}"`;
+    },
+    parameterOccurrences(sql: string) {
+      return tokenize(sql, { sqlFileParameters: true })
+        .filter((token) => token.kind === "parameter")
+        .map((token) => ({
+          index: token.text.startsWith(":") ? 0 : Number(token.value),
+          ...(token.text.startsWith(":") ? { name: token.value } : {}),
+          range: token.range,
+        }));
+    },
+    analyze(
+      sql: string,
+      snapshot: PostgresSchemaSnapshot,
+      policy = defaultTypePolicy,
+      context: DialectAnalysisContext = {},
+    ) {
+      try {
+        const statement = parseStatement(sql);
+        let extensions: ReturnType<typeof resolvePostgresExtensionManifests> | undefined;
+        if ((options.extensions?.length ?? 0) > 0) {
+          extensions = extensionCache.get(snapshot);
+          if (extensions === undefined) {
+            extensions = resolvePostgresExtensionManifests(snapshot, options.extensions ?? []);
+            extensionCache.set(snapshot, extensions);
+          }
+        }
+        const analysisSnapshot = extensions?.snapshot ?? snapshot;
+        const extensionIssues = extensions?.issues ?? [];
+        const resolved = resolveStatement(statement, analysisSnapshot, {
+          typePolicy: policy,
+          runtimeValidation: context.runtimeValidation === true,
+        });
+        const analysis = {
+          ...resolved,
+          ...(hasStableRepeatedResult(sql, statement, context.repeatedFragmentRanges)
+            ? { repeatedResultShapeStable: true as const }
+            : {}),
+          diagnostics: [
+            ...resolved.diagnostics,
+            ...extensionIssues.map(({ code, message }) => ({
+              code,
+              message,
+              severity: "error" as const,
+              range: statement.range,
+            })),
+          ],
+          semantics:
+            resolved.diagnostics.some(({ severity }) => severity === "error") || extensionIssues.length > 0
+              ? unknownQuerySemantics(statement.range, "PostgreSQL semantic analysis reported an error.")
+              : analyzePostgresSemantics(statement, analysisSnapshot),
+        };
+        return applyDialectCapabilityStates(analysis, capabilitiesFor(snapshot), statement.range);
+      } catch (error) {
+        if (!(error instanceof SqlParseError)) throw error;
+        return {
+          columns: [],
+          parameters: [],
+          diagnostics: [{ code: error.code, message: error.message, severity: "error" as const, range: error.range }],
+          semantics: unknownQuerySemantics(error.range, "The SQL could not be parsed by the PostgreSQL grammar."),
+        };
+      }
+    },
+    validateSnapshot: validatePostgresSnapshot,
+  });
 }
 
 export { sql } from "@typed-sql/core";

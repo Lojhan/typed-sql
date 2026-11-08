@@ -1,7 +1,9 @@
 name: Language audit
 
 on:
-  workflow_call:
+  pull_request:
+  schedule:
+    - cron: '41 5 * * 2'
   workflow_dispatch:
 
 permissions:
@@ -44,21 +46,6 @@ jobs:
           else
             pnpm audit:language live --dialect "$AUDIT_DIALECT" --require-reviewed --output "artifacts/language-audit/$AUDIT_DIALECT-$AUDIT_VERSION.json"
           fi
-      - name: Audit generated native invocation shapes
-        env:
-          AUDIT_DIALECT: ${{ matrix.dialect }}
-          AUDIT_VERSION: ${{ matrix.version }}
-        run: pnpm audit:language shapes --dialect "$AUDIT_DIALECT" --version "$AUDIT_VERSION" --output "artifacts/language-audit/$AUDIT_DIALECT-$AUDIT_VERSION.shapes.json"
-      - name: Verify generated catalog inputs against the native capture
-        env:
-          AUDIT_DIALECT: ${{ matrix.dialect }}
-          AUDIT_VERSION: ${{ matrix.version }}
-        run: pnpm catalog:check-input "artifacts/language-audit/$AUDIT_DIALECT-$AUDIT_VERSION.json"
-      - name: Verify generated common types against native preparation
-        if: matrix.dialect == 'duckdb'
-        env:
-          AUDIT_VERSION: ${{ matrix.version }}
-        run: node scripts/catalog-generation/duckdb-native.mjs check "$AUDIT_VERSION" "grammar/duckdb/catalog/combinations-$AUDIT_VERSION.json"
       - if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

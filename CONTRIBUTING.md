@@ -76,26 +76,6 @@ Neutral packages must not branch on a dialect id, package name, server, or drive
 [Author a custom SQL grammar](https://github.com/Lojhan/typed-sql/blob/main/docs/extending/custom-grammars.md)
 for the public contract and `AGENTS.md` for repository invariants.
 
-Repository language audits compose registered discovery, analysis, native-description and connection
-owners under `scripts/language-audit/`. Driver imports and connection metadata belong in
-`connections/<owner>.ts`; the shared CLI dispatches through the registry. A contribution can inherit
-its engine connection, add inventory metadata through `completeInventory`, and register its own
-discovery and analysis owners. Inventory augmentation runs before provenance is attached and cannot
-change the captured engine identity. Native SDK capture targets run in separate processes.
-
-Documentation reference owners live under `reference-sources/` and register their version lists,
-capture-file versions, collection rules, minimum inventory size and evidence scope. Contributions
-can inherit an owner and supply a matching mapper; `refreshReferences` and `loadReferences` accept
-the composed registry. Keep upstream URL and markup rules in the owner. The shared downloader
-rejects HTTP failures and redirects to a different manual. Documentation inventories retain their
-recognition-only scope and do not qualify native signatures or semantics.
-
-Use `pnpm audit:language shapes --dialect <owner> --version <version> --output <path>` to derive live
-binding probes from discovered routine metadata. Reports retain source records, controls, native
-rejections and explicit qualification gaps. A zero-failure result does not qualify return types,
-nullability or decoding. Review changed native evidence before accepting a baseline; the baseline
-gate rejects observed type disagreements.
-
 ## Verify the packaged VS Code client
 
 Build the VSIX before running the isolated editor host suite:
@@ -368,27 +348,3 @@ extension ID, version, and prerelease manifest with `assertMarketplaceManifest` 
 `scripts/editor-marketplace.mjs`. After uploading, verify the public `lojhan.typed-sql` listing
 and its prerelease version before reporting publication. This manual route does not configure
 automated trusted publishing, and does not use a stored PAT.
-
-
-## Catalog source and disposable projections
-
-Review and commit native facts, source locks, grammar policies, the normalized inventory and
-`grammar/catalog/generation.json`. Package source projections recorded by that manifest are
-ignored build outputs. Do not hand-edit them or add them to Git.
-
-`pnpm install --frozen-lockfile` materializes missing projections through the private workspace
-postinstall hook. `pnpm catalog:check` does the same while checking the recorded provenance:
-all durable outputs and existing projections must match before any missing file is created.
-It does not rewrite stale provenance or overwrite a changed projection. Ordinary package
-consumers receive built artifacts and do not run the repository generator.
-
-Run `pnpm catalog:generate` after intentionally changing facts, locks or policies, then review
-the source changes, normalized audit reports and manifest digests. Generation removes retired,
-previously owned projections only when their bytes still match the old ownership manifest.
-`pnpm clean` removes unchanged owned projections and compiled output; `pnpm build` regenerates
-projections before compiling. Cleanup preserves authored neighbors and refuses changed owned files.
-
-For installs with lifecycle scripts disabled, run `pnpm catalog:materialize` before focused
-source tests. A missing or stale durable manifest requires explicit generation and review.
-Bundle evidence checks ignored projections against their committed ownership digests rather
-than treating their absence from Git as missing provenance.

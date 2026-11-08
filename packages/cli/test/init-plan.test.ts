@@ -48,7 +48,7 @@ await describe("nonexecuting init planner", async () => {
         );
         strict.deepEqual(compilerConfig.compilerOptions.types, ["node"]);
         const config = plan.files.find((file) => file.path === join(root, "typed-sql.config.ts"))!.content;
-        strict.ok(config.includes(`@typed-sql/${grammar}/${grammar === "postgres" ? "analysis/core" : "analysis"}`));
+        strict.ok(config.includes(`@typed-sql/${grammar}/${grammar === "postgres" ? "analysis" : "analysis"}`));
         strict.ok(plan.pending.some((item) => item.includes("separate approval")));
         strict.deepEqual(await readdir(root), []);
       }

@@ -56,27 +56,6 @@ Native arrays/custom representations and unavailable bind evidence remain unknow
 This checkpoint establishes neither arbitrary extension safety nor application statement effects,
 cardinality, JSON shape, whole-project native-required reconciliation or dependency precision.
 
-## Profile size evidence
-
-Run `node planning/hybrid-analysis/measure-profile-bundles.mjs` from the repository root after
-installing workspace dependencies. The tool reads working-tree source, records input/tool digests
-and writes its report under `artifacts/grammar-catalog`. The checked-in
-[measurement](./postgres-profile-measurements.json) records this checkpoint's input hashes.
-
-The synthetic minified ESM/Node ES2022 samples are:
-
-| Entry | Minified bytes | Gzip bytes | Global catalog inputs |
-| --- | ---: | ---: | ---: |
-| Lightweight tag and plan helpers | 17,767 | 5,646 | 0 |
-| Lightweight PostgreSQL profile | 44,739 | 12,404 | 0 |
-| Neutral compiler/contract loader plus PostgreSQL profile | 114,149 | 33,309 | 0 |
-
-Compression uses gzip level 9 and Brotli quality 11 with esbuild 0.28.2. Small generated lexical
-vocabulary remains in the profile. These entrypoints differ from the original full analyzer
-baseline: do not turn their difference into a claimed application savings percentage. They do
-not measure installed package size, a realistic query corpus, all five grammars or final core/packs.
-The complete old catalogs are still shipped until their consumers are migrated.
-
 ## Independent qualification update
 
 The real-engine helper now runs the pure PostgreSQL reconciliation owner against a separately

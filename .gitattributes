@@ -1,19 +1,1 @@
 test/fixtures/language-audit/*.json linguist-generated=true
-grammar/catalog/upstream.json linguist-generated=true
-grammar/duckdb/catalog/combinations-*.json linguist-generated=true
-grammar/catalog/generation.json linguist-generated=true
-grammar/catalog/format.schema.json linguist-generated=true
-planning/grammar-completeness/loc-baseline.json linguist-generated=true
-grammar/sqlite/facts/*.json linguist-generated=true
-grammar/postgres/facts/*.json linguist-generated=true
-grammar/mysql/facts/*.json linguist-generated=true
-grammar/sqlserver/facts/*.json linguist-generated=true
-planning/grammar-completeness/sqlite-keyword-coverage.json linguist-generated=true
-planning/grammar-completeness/sqlite-function-coverage.json linguist-generated=true
-# Extractor revisions pin exact source bytes across checkouts.
-tools/grammar-catalog/src/sources/** text eol=lf
-planning/grammar-completeness/duckdb-routine-projection.json linguist-generated=true
-planning/grammar-completeness/postgres-source-coverage.json linguist-generated=true
-planning/grammar-completeness/mysql-source-coverage.json linguist-generated=true
-planning/grammar-completeness/mysql-routine-projection.json linguist-generated=true
-planning/grammar-completeness/sqlserver-source-coverage.json linguist-generated=true

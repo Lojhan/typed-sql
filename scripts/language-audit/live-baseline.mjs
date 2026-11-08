@@ -5,8 +5,7 @@ const path = new URL("../../test/fixtures/language-audit/live-baselines.json", i
 
 export const liveTarget = reviewTarget;
 
-/** @param {ReturnType<typeof import('../../tools/grammar-catalog/src/registry.mjs').createMapperRegistry> | undefined} [registry] */
-export function summarizeLive(input, registry = undefined) {
+export function summarizeLive(input) {
   const categories = Object.fromEntries(
     CATEGORIES.map((name) => {
       const category = input.categories[name];
@@ -30,7 +29,7 @@ export function summarizeLive(input, registry = undefined) {
   );
   return {
     dialect: input.dialect,
-    target: liveTarget(input, registry),
+    target: liveTarget(input),
     categories,
     recognition: input.recognition ?? {
       status: "unavailable",
@@ -39,12 +38,9 @@ export function summarizeLive(input, registry = undefined) {
   };
 }
 
-/** @param {ReturnType<typeof import('../../tools/grammar-catalog/src/registry.mjs').createMapperRegistry> | undefined} [registry] */
-export function reviewLive(input, baseline, registry = undefined) {
-  const summary = summarizeLive(input, registry);
+export function reviewLive(input, baseline) {
+  const summary = summarizeLive(input);
   const key = hash({ dialect: summary.dialect, target: summary.target });
-  if (input.recognition?.counts?.["native-valid-type-mismatch"] > 0)
-    return { status: "invalid-inference", key, reason: "Grammar and native type descriptions disagree", summary };
   const previous = baseline.targets[key];
   if (!previous)
     return { status: "review-required", key, reason: "No reviewed inventory for this exact engine/context", summary };
@@ -63,17 +59,13 @@ export function reviewLive(input, baseline, registry = undefined) {
   return { status: changes.length ? "review-required" : "match", key, changedCategories: changes, summary };
 }
 
-/** @param {ReturnType<typeof import('../../tools/grammar-catalog/src/registry.mjs').createMapperRegistry> | undefined} [registry] */
-export async function reviewLiveBaseline(input, registry = undefined) {
-  return reviewLive(input, JSON.parse(await readFile(path, "utf8")), registry);
+export async function reviewLiveBaseline(input) {
+  return reviewLive(input, JSON.parse(await readFile(path, "utf8")));
 }
 
-/** @param {ReturnType<typeof import('../../tools/grammar-catalog/src/registry.mjs').createMapperRegistry> | undefined} [registry] */
-export async function acceptLiveBaseline(input, registry = undefined) {
+export async function acceptLiveBaseline(input) {
   const baseline = JSON.parse(await readFile(path, "utf8"));
-  const review = reviewLive(input, baseline, registry);
-  if (review.status === "invalid-inference")
-    throw new Error("Native type disagreements cannot be accepted as a baseline");
+  const review = reviewLive(input, baseline);
   baseline.targets[review.key] = review.summary;
   baseline.targets = Object.fromEntries(
     Object.entries(baseline.targets).sort(([left], [right]) => left.localeCompare(right)),
@@ -82,14 +74,13 @@ export async function acceptLiveBaseline(input, registry = undefined) {
   console.log(`${input.dialect} ${input.target.version}: recorded live inventory ${review.key}`);
 }
 
-/** @param {ReturnType<typeof import('../../tools/grammar-catalog/src/registry.mjs').createMapperRegistry> | undefined} [registry] */
-export async function recordNativeFindings(input, recognition, registry = undefined) {
+export async function recordNativeFindings(input, recognition) {
   if (!recognition?.observations) return;
   if (hash(recognition.observations) !== input.recognition?.fingerprint)
     throw new Error("Native recognition fingerprint does not match the capture");
   const file = new URL("../../test/fixtures/language-audit/native-findings.json", import.meta.url);
   const data = expandFindings(JSON.parse(await readFile(file, "utf8")));
-  const target = liveTarget(input, registry);
+  const target = liveTarget(input);
   const key = hash({ dialect: input.dialect, target });
   const observations = recognition.observations.filter((row) =>
     ["native-valid-grammar-diagnostic", "native-valid-grammar-unknown"].includes(row.status),

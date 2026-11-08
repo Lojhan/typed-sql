@@ -25,7 +25,7 @@ const connectionString = () => process.env.DATABASE_URL!;
 export default defineConfig({
   dialect: {
     ...postgresProfile({ typePolicy }),
-    loadAnalyzer: async () => (await import("@typed-sql/postgres/analysis/core")).postgres({ typePolicy }),
+    loadAnalyzer: async () => (await import("@typed-sql/postgres/analysis")).postgres({ typePolicy }),
   },
   schema: {
     file: "generated/db/schema.json",
@@ -74,7 +74,7 @@ The previous full grammar exports live at explicit `/analysis` entrypoints:
 
 | Grammar | Profile factory (`/profile`) | Eager analyzer import |
 | --- | --- | --- |
-| PostgreSQL | `postgresProfile()` | `postgres` from `@typed-sql/postgres/analysis/core` |
+| PostgreSQL | `postgresProfile()` | `postgres` from `@typed-sql/postgres/analysis` |
 | MySQL | `mysqlProfile()` | `mysql` from `@typed-sql/mysql/analysis` |
 | SQLite | `sqliteProfile()` | `sqlite` from `@typed-sql/sqlite/analysis` |
 | SQL Server | `sqlserverProfile()` | `sqlserver` from `@typed-sql/sqlserver/analysis` |
@@ -353,7 +353,7 @@ const connectionString = () => process.env.DATABASE_URL!;
 export default defineConfig({
   dialect: {
     ...postgresProfile({ typePolicy }),
-    loadAnalyzer: async () => (await import("@typed-sql/postgres/analysis/core")).postgres({ typePolicy }),
+    loadAnalyzer: async () => (await import("@typed-sql/postgres/analysis")).postgres({ typePolicy }),
   },
   schema: {
     file: "generated/db/schema.json",
