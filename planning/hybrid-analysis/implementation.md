@@ -266,6 +266,45 @@ Unrelated planning work is left unchanged.
   project catalog storage, all-engine qualification, compact packs/root migration and generated
   semantic catalog deletion remain required. This checkpoint does not complete that scope.
 
+## Explicit live CLI checkpoint
+
+- Added explicit executable live registration separately from data-only configuration. Registration
+  validates factory boundaries and bounded scheduling settings without calling a factory. Offline
+  and frozen CLI overrides leave the live factory unloaded; structurally unavailable source fails
+  before an analyzer or native adapter is constructed.
+- Added finite live preparation over exact candidates. It loads an independent static owner and
+  qualifies every distinct candidate, including successful static inference. Bounded workers feed
+  the persistent scheduler rather than enqueueing an entire project and evicting earlier queries.
+  Per-query and overall deadlines, external cancellation and draining retain owned leases until
+  acquisition settles. Native transport cleanup runs before the synchronous compiler view returns.
+- Configured target/adapter/reconciliation-owner identities must match the loaded services. Native
+  context is inspected before and after the batch. A mismatch retires the recorded context for all
+  queries, even without an active query-specific cache record. Live failures cannot fall back to an
+  older cached/durable result and report fresh qualification; recorded evidence can still support
+  a separately selected offline pass after transport failure.
+- The actual `check --live` CLI consumes the resulting synchronous qualified view. Factory-local
+  imports are tracked for subsequent config invalidation, including failed construction. Existing
+  `verify --live` retains its independent verifier behavior; it is not used as an inference API.
+- Synthetic tests cover a batch larger than the scheduler's retained-record bound, duplicates,
+  per-context concurrency, successful-static qualification, conflicts/outages, pre/post context
+  drift, query-reported context drift, cancellation/deadlines, cleanup failures, incompatible
+  services, cold empty projects and source/profile/policy/resource rejection.
+- The real PostgreSQL 18.3 helper runs the actual compiled live CLI over an unresolved user-function
+  invocation, a statically resolved literal query and a named-parameter SQL-file factory. Durable
+  contracts are hidden. A separate offline CLI process reuses all three cached native contracts
+  while its analyzer/adapter factories throw if invoked. The database counter proves that native
+  qualification does not execute the candidate function. Existing disconnected durable and
+  physically stripped programmatic checks remain separate proofs.
+- Local analysis/config/CLI suites, full typechecking/build, quality, documentation/API/package
+  boundaries, packed consumers and real native proof pass. Analysis coverage is 99.85% lines,
+  99.19% functions and 94.96% branches; config coverage is 100% lines/functions and 96.84% branches.
+  The performance gate passes locally; exact-head CI remains separate evidence.
+- Live checking currently requires the selected recorded context to match the observed context;
+  adopting a refreshed context automatically, persisted context-head selection, watch/editor
+  regeneration, durable query generation/export, project catalogs, additional transport profiles,
+  compact core/packs, root migration and bulk semantic catalog deletion remain required. The
+  three-query native proof does not establish all-engine or full statement coverage.
+
 ## Required work still open
 
 1. Complete the contract/evidence model: native descriptors and provenance, reusable/facet-specific

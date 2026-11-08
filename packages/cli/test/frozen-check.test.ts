@@ -74,6 +74,32 @@ const execute = (directory: string, args: string[] = []) =>
     maxBuffer: 8 * 1024 * 1024,
   });
 await describe("frozen CLI project checking", async () => {
+  await it("keeps registered live factories cold for offline/frozen overrides and invalid source", async () => {
+    await fixture(async (directory) => {
+      const path = join(directory, "typed-sql.config.mjs");
+      const original = await readFile(path, "utf8");
+      await writeFile(
+        path,
+        original.replace(
+          'analysis:{mode:"frozen",',
+          `analysis:{mode:"live",live:{adapter(){throw Error("native factory must remain cold")}},cache:${JSON.stringify({ connectionContext: context.databaseContextHash, adapter: { id: "vendor/native", version: "1" } })},`,
+        ),
+      );
+      strict.match((await execute(directory, ["--offline"])).stdout, /Offline checked/u);
+      strict.match((await execute(directory, ["--frozen"])).stdout, /Frozen checked/u);
+      await writeFile(
+        join(directory, "src/query.ts"),
+        'import {sql} from "@typed-sql/postgres/tag";sql.dynamic(input);',
+      );
+      await strict.rejects(execute(directory, ["--live"]), (error: unknown) => {
+        const stderr = (error as { stderr: string }).stderr;
+        strict.match(stderr, /TSQ005/u);
+        strict.ok(!stderr.includes("factory must remain cold"));
+        strict.ok(!stderr.includes("analyzer must remain cold"));
+        return true;
+      });
+    });
+  });
   await it("preserves ordinary offline checking for configurations without query-contract settings", async () => {
     await fixture(async (directory) => {
       const path = join(directory, "typed-sql.config.mjs");
@@ -94,7 +120,7 @@ await describe("frozen CLI project checking", async () => {
       await writeFile(configPath, original.replace('mode:"frozen"', 'mode:"live"'));
       strict.match((await execute(directory, ["--offline"])).stdout, /Offline checked 1 project/u);
       await strict.rejects(execute(directory, ["--live"]), (error: unknown) => {
-        strict.match((error as { stderr: string }).stderr, /live orchestration is not enabled/u);
+        strict.match((error as { stderr: string }).stderr, /analysis.live.adapter/u);
         return true;
       });
       await writeFile(
@@ -186,13 +212,14 @@ await describe("frozen CLI project checking", async () => {
           return true;
         },
       );
-      await strict.rejects(
-        () => execute(directory, ["--frozen=false"]),
-        (error: unknown) => {
-          strict.match((error as { stderr: string }).stderr, /boolean check option/u);
-          return true;
-        },
-      );
+      for (const flag of ["--frozen=false", "--live=false"])
+        await strict.rejects(
+          () => execute(directory, [flag]),
+          (error: unknown) => {
+            strict.match((error as { stderr: string }).stderr, /boolean check option/u);
+            return true;
+          },
+        );
     });
   });
 });

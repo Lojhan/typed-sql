@@ -115,6 +115,7 @@ Examples:
   typed-sql capabilities --config typed-sql.config.ts
   typed-sql check --frozen --project tsconfig.json
   typed-sql check --offline --project tsconfig.json
+  typed-sql check --live --project tsconfig.json
   typed-sql check --project tsconfig.json
   typed-sql check --file src/query.ts --project tsconfig.json --show-types
   typed-sql compat --before schema.before.json --after schema.after.json --before-manifest old.json --after-manifest new.json
@@ -402,11 +403,15 @@ async function main(): Promise<void> {
   for (const flag of ["frozen", "offline"])
     if (parsed.options[flag] !== undefined && (parsed.options[flag] !== "true" || parsed.command !== "check"))
       throw new Error(`--${flag} is supported as a boolean check option`);
+  if (parsed.command === "check" && parsed.options.live !== undefined && parsed.options.live !== "true")
+    throw new Error("--live is supported as a boolean check option");
   if (["frozen", "offline", "live"].filter((flag) => parsed.options[flag] !== undefined).length > 1)
     throw new Error("--frozen, --offline and --live cannot be combined");
   const loaded = await loadConfigSource({
     ...(parsed.options.config === undefined ? {} : { file: parsed.options.config }),
   });
+  if (parsed.command === "check" && parsed.options.live !== undefined && loaded.config.analysis === undefined)
+    throw new Error("Live checking requires an explicit analysis configuration and native adapter registration.");
   if (parsed.command === "check" && (parsed.options.frozen !== undefined || loaded.config.analysis !== undefined)) {
     await runContractCheck(loaded, parsed.options);
     return;

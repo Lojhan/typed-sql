@@ -67,6 +67,8 @@ export interface AnalysisCache {
   >;
   /** Rotate this workspace/config epoch; old in-flight producers cannot repopulate it. */
   invalidate(): Promise<void>;
+  /** Remember a disproved recorded context even when no query is currently open. */
+  retireContext(context: import("./contracts.js").QueryContractContext): Promise<void>;
   /** Preserve all indexed objects, other namespaces and unrelated files. */
   prune(options?: {
     readonly retentionMs?: number;
@@ -528,6 +530,22 @@ export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<
         await layout();
         await readIndex();
         await writeIndex(nonce(), [], assertLock);
+      });
+    },
+    async retireContext(input) {
+      const context = parseQueryContractContext(input),
+        contextHash = queryContractDigest(context);
+      await withLock(async (assertLock) => {
+        await layout();
+        await readIndex();
+        const entry: Entry = {
+          requestKey: queryContractDigest({ kind: "retired-context", contextHash }),
+          revision: nonce(),
+          contextHash,
+          recordedAt: now(),
+          result: { kind: "stale-context", code: "context-changed" },
+        };
+        await writeIndex(nonce(), [entry], assertLock);
       });
     },
     async prune(pruneOptions = {}) {

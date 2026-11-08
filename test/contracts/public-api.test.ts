@@ -1081,6 +1081,7 @@ const expectedRuntimeExports = {
     "loadConfig",
     "loadConfigSource",
     "resolveConfigDialect",
+    "runConfigFactory",
   ],
   core: [
     "brandBaseType",
@@ -1462,6 +1463,8 @@ await describe("query contract public API", async () => {
         "defineAnalysisConfiguration",
         "loadFrozenContractView",
         "prepareOfflineContractView",
+        "prepareLiveContractView",
+        "defineAnalysisRegistration",
         "createLiveAnalysisScheduler",
         "createNativeLiveAnalysisRunner",
         "createPersistentLiveAnalysisRunner",

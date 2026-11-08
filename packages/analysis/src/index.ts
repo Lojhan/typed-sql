@@ -41,6 +41,8 @@ export type {
   LiveAnalysisView,
 } from "./live.js";
 export { createLiveAnalysisScheduler, createNativeLiveAnalysisRunner } from "./live.js";
+export type { LiveContractView } from "./live-view.js";
+export { prepareLiveContractView } from "./live-view.js";
 export type {
   NativeContractFact,
   NativeContractValueEvidence,
@@ -65,3 +67,5 @@ export type {
 } from "./reconciliation.js";
 export { createStaticQueryClaim, parseStaticQueryClaim, reconcileQueryContract } from "./reconciliation.js";
 export type { RecordedAnalysisQuery } from "./recorded-query.js";
+export type { AnalysisRegistration, LiveAnalysisRegistration, LiveAnalysisServices } from "./registration.js";
+export { defineAnalysisRegistration } from "./registration.js";

@@ -109,3 +109,17 @@ closure. A fresh distribution-only process also uses the high-level frozen loade
 catalog and driver files removed and JavaScript network traps installed. The CLI itself has not
 yet been qualified inside that physically stripped installation. These remain expression-query
 proofs for the declared PostgreSQL transport scope, not all-engine or whole-grammar qualification.
+
+## Explicit live CLI update
+
+The compiled CLI now performs its own explicitly registered live prepass. With durable contracts
+hidden, the helper qualifies three candidates: the otherwise unknown user-function invocation,
+an already resolved literal query, and an imported SQL-file factory with a named bigint argument.
+A fresh offline CLI invocation consumes their persisted contracts while analyzer and adapter
+factories throw if called. The function counter stays unchanged during description.
+
+The live factory owns a dedicated pg pool and closes it before TypeScript checking. Native context
+inspection brackets the finite batch, and each acquisition retains its own consistency checks.
+This host currently requires matching selected recorded context inputs; it does not automatically
+adopt a changed database context. It is an explicit check operation, not watch/editor regeneration
+or durable export. The earlier bundle table remains a historical measurement.

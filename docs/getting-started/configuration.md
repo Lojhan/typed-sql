@@ -145,6 +145,88 @@ database roundtrip. A hit establishes compatibility with the recorded context an
 remote freshness unverified. Known rejection, conflict or stale-context evidence blocks reuse;
 a transport outage does not overwrite a valid recorded result. Frozen checks ignore this cache.
 
+## Explicit live query checking
+
+`typed-sql check --live` runs a finite native acquisition pass, then checks TypeScript against its
+synchronous contract view. It requires `analysis.cache` target identities and an
+`analysis.live.adapter` factory. Register executable factories with `defineAnalysisRegistration()`;
+`defineAnalysisConfiguration()` accepts data only.
+
+The following value can be assigned to the `analysis` field of the profile configuration above.
+The dialect registration also needs its lazy `loadAnalyzer`, because live qualification compares
+independent static claims even for queries that the analyzer already resolves.
+
+```ts
+import { defineAnalysisRegistration, queryContractDigest } from "@typed-sql/analysis";
+import {
+  postgresContractAdapterVersion,
+  postgresContractIdentity,
+  postgresContractReconciliationOwner,
+} from "@typed-sql/postgres/contract-profile";
+import type { PostgresProfileSnapshot, PostgresTypePolicy } from "@typed-sql/postgres/profile";
+import recordedContext from "./generated/db/analysis-context.json" with { type: "json" };
+
+const connectionContext = queryContractDigest({
+  target: "development-primary",
+  authorization: "application-role",
+});
+
+export const analysis = defineAnalysisRegistration<PostgresProfileSnapshot, PostgresTypePolicy>({
+  mode: "live",
+  context: recordedContext,
+  identity: postgresContractIdentity(),
+  qualification: {
+    mode: "native-required",
+    owner: postgresContractReconciliationOwner,
+    requiredNativeFacets: ["runtime-type"],
+  },
+  cache: {
+    connectionContext,
+    adapter: { id: "@typed-sql/postgres/pg-contracts", version: postgresContractAdapterVersion },
+  },
+  live: {
+    async adapter({ schema, typePolicy }) {
+      const { Pool } = await import("pg");
+      const { createPgNativeContractAdapter } = await import("@typed-sql/postgres/pg-contracts");
+      const { createPostgresContractReconciler } = await import("@typed-sql/postgres/reconciliation");
+      const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 2 });
+      try {
+        const adapter = createPgNativeContractAdapter({ pool, schema, typePolicy });
+        return {
+          connectionContext,
+          adapter,
+          contribution: createPostgresContractReconciler({ schema, typePolicy }),
+          inspectContext: (signal) => adapter.inspectContext(signal),
+          close: () => pool.end(),
+        };
+      } catch (error) {
+        await pool.end();
+        throw error;
+      }
+    },
+  },
+});
+```
+
+Install the optional driver only in projects using that native adapter. Use a dedicated acquisition
+pool and a target identity that distinguishes the actual endpoint and authorization scope. The
+factory obtains credentials at invocation time; they do not enter persisted query evidence.
+PostgreSQL acquisition retains its [declared statement and server scope](../dialects/postgresql.md#native-query-contracts).
+
+Every distinct candidate receives independent native qualification, including successful static
+results. Work is bounded by concurrency, per-query deadlines and an overall batch deadline. Context
+checks run before and after the batch; incompatible context observations retire recorded cache
+evidence and require refreshed context/schema inputs. A conflict, unavailable facet or acquisition
+failure prevents a successful live check, even when older recorded contracts exist.
+
+The host closes its owned acquisition resources before TypeScript checking. Successful qualified
+contracts enter the disposable cache; live checking does not modify durable exports. A later
+`--offline` invocation can reuse matching recorded evidence. `--offline` and `--frozen` leave the live
+factory unloaded, including when `analysis.mode` is `"live"`.
+
+The live registration is consumed by the CLI check host. Other build and editor hosts must implement
+analysis-mode handling explicitly; they do not inherit database access from this setting.
+
 ## Production profile
 
 The following complete PostgreSQL profile starts from the same minimum and enables each artifact

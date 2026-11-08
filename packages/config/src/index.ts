@@ -247,6 +247,22 @@ export async function loadConfig(options: LoadConfigOptions = {}): Promise<Loade
   return resolveConfigDialect(source);
 }
 
+/** Explicit contribution construction, tracking newly imported local modules for future invalidation. */
+export async function runConfigFactory<Output>(
+  source: LoadedConfigSource,
+  factory: () => Output | Promise<Output>,
+): Promise<Output> {
+  try {
+    return await factory();
+  } finally {
+    const tracked = dependencyHashes.get(source),
+      paths = discoveredDependencies.get(source);
+    if (tracked && paths)
+      for (const path of paths)
+        if (path !== source.file && !tracked.has(path)) tracked.set(path, await fingerprint(path));
+  }
+}
+
 export function fromConfig(directory: string, path: string): string {
   return resolve(directory, path);
 }

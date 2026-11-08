@@ -1,0 +1,354 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { describe, it, strict } from "poku";
+import { unknownQuerySemantics } from "../../core/src/index.js";
+import {
+  type AnalysisCache,
+  type LiveAnalysisServices,
+  openAnalysisCache,
+  prepareLiveContractView,
+  queryContractDigest,
+} from "../src/index.js";
+import { configuration, context, profile, request, result, schema } from "./helpers/host-fixture.js";
+import { adapter, evidence, hash, owner } from "./helpers/live-fixture.js";
+
+const plugin = {
+  ...profile,
+  analyze(sql: string) {
+    const range = { start: 0, end: sql.length, line: 1, column: 1 };
+    return {
+      columns: request.staticClaim.columns.map((column) => ({ ...column, range })),
+      parameters: [],
+      diagnostics: [],
+      resultKind: "rows" as const,
+      semantics: unknownQuerySemantics(range, "fixture"),
+    };
+  },
+};
+function services(patch: Partial<LiveAnalysisServices> = {}): LiveAnalysisServices {
+  return {
+    connectionContext: hash,
+    adapter: adapter({
+      open: async () => ({ context: async () => context, describe: async () => evidence, close: async () => {} }),
+    }),
+    contribution: owner,
+    inspectContext: async () => context,
+    close: async () => {},
+    ...patch,
+  };
+}
+async function temporary(test: (cache: AnalysisCache) => Promise<void>) {
+  const directory = await mkdtemp(join(tmpdir(), "typed-sql-live-view-"));
+  try {
+    await test(await openAnalysisCache({ directory, workspaceContext: hash }));
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+}
+const settings = { ...configuration, mode: "live" as const };
+const base = { profile, schema, configuration: settings, candidates: [request.candidate], loadAnalyzer: () => plugin };
+
+await describe("finite explicit live qualification", async () => {
+  await it("qualifies successful static queries, feeds bounded work and closes resources before returning", async () => {
+    await temporary(async (cache) => {
+      let active = 0,
+        peak = 0,
+        descriptions = 0,
+        closed = 0,
+        inspections = 0;
+      const native = services({
+        inspectContext: async () => {
+          inspections++;
+          return context;
+        },
+        close: async () => {
+          closed++;
+        },
+        adapter: adapter({
+          open: async () => {
+            active++;
+            peak = Math.max(peak, active);
+            return {
+              context: async () => context,
+              describe: async () => {
+                descriptions++;
+                await new Promise((resolve) => setTimeout(resolve, 1));
+                return evidence;
+              },
+              close: async () => {
+                active--;
+              },
+            };
+          },
+        }),
+      });
+      const candidates = Array.from({ length: 35 }, (_, i) => ({
+        sql: `SELECT ${i} AS value`,
+        parameterOccurrences: [],
+      }));
+      const view = await prepareLiveContractView({
+        ...base,
+        cache,
+        candidates: [...candidates, candidates[0]!],
+        live: { adapter: () => native, maxActive: 3, concurrencyPerContext: 1 },
+      });
+      strict.equal(descriptions, 35);
+      strict.equal(peak, 1);
+      strict.equal(active, 0);
+      strict.equal(closed, 1);
+      strict.equal(inspections, 2);
+      strict.equal(view.contracts.length, 35);
+      strict.ok(Object.isFrozen(view));
+      strict.ok(Object.isFrozen(view.outcomes));
+      strict.deepEqual(view.dialect.analyze(candidates[0]!.sql, schema).diagnostics, []);
+      strict.equal(view.dialect.analyze("SELECT unprepared()", schema).diagnostics[0]?.code, "TSQ406");
+      const again = await prepareLiveContractView({
+        ...base,
+        cache,
+        candidates: [candidates[0]!],
+        live: { adapter: () => native },
+      });
+      strict.equal(
+        descriptions,
+        36,
+        "Explicit live checking cannot substitute recorded evidence for fresh acquisition",
+      );
+      strict.equal(again.contracts.length, 1);
+    });
+  });
+  await it("reports conflicts and outages without optimistic live fallback", async () => {
+    await temporary(async (cache) => {
+      await cache.publish({ token: (await cache.lookup(request)).token, request, outcome: result });
+      const outage = await prepareLiveContractView({
+        ...base,
+        cache,
+        live: {
+          adapter: () =>
+            services({
+              adapter: adapter({
+                open: async () => {
+                  throw Error("transport down");
+                },
+              }),
+              classifyError: () => ({ kind: "unavailable", code: "transport-down", retry: "transport" }),
+            }),
+        },
+      });
+      strict.match(outage.dialect.analyze(request.candidate.sql, schema).diagnostics[0]!.message, /transport-down/u);
+      strict.equal((await cache.lookup(request)).cached?.outcome.kind, "usable-recorded-context");
+      const conflict = await prepareLiveContractView({
+        ...base,
+        cache,
+        live: {
+          adapter: () =>
+            services({
+              contribution: {
+                ...owner,
+                compare: () => ({
+                  status: "conflict",
+                  staticStatus: "known",
+                  rule: "fixture-conflict",
+                  reason: "Independent facts disagree",
+                }),
+              },
+            }),
+        },
+      });
+      strict.equal(conflict.contracts.length, 0);
+      strict.match(conflict.dialect.analyze(request.candidate.sql, schema).diagnostics[0]!.message, /conflict/u);
+      strict.equal((await cache.lookup(request)).cached?.outcome.kind, "conflict");
+    });
+  });
+  await it("retires mismatching contexts before or after acquisition and always closes services", async () => {
+    await temporary(async (cache) => {
+      for (const changeAfter of [0, 1]) {
+        let inspected = 0,
+          closed = 0;
+        await strict.rejects(
+          prepareLiveContractView({
+            ...base,
+            cache,
+            live: {
+              adapter: () =>
+                services({
+                  inspectContext: async () =>
+                    inspected++ === changeAfter
+                      ? { ...context, databaseContextHash: queryContractDigest("changed") }
+                      : context,
+                  close: async () => {
+                    closed++;
+                  },
+                }),
+            },
+          }),
+          /context differs/u,
+        );
+        strict.equal(closed, 1);
+        strict.equal((await cache.lookup(request)).cached?.outcome.kind, "stale-context");
+      }
+    });
+  });
+  await it("handles context drift reported by a query and returns no stale batch view", async () => {
+    await temporary(async (cache) => {
+      await strict.rejects(
+        prepareLiveContractView({
+          ...base,
+          cache,
+          live: {
+            adapter: () =>
+              services({
+                adapter: adapter({
+                  open: async () => ({
+                    context: async () => ({ ...context, databaseContextHash: queryContractDigest("changed") }),
+                    describe: async () => evidence,
+                    close: async () => {},
+                  }),
+                }),
+              }),
+          },
+        }),
+        /context changed/u,
+      );
+      strict.equal((await cache.lookup(request)).cached?.outcome.kind, "stale-context");
+    });
+  });
+  await it("bounds native deadlines and batch cancellation while draining owned work", async () => {
+    await temporary(async (cache) => {
+      let closed = 0;
+      const hanging = () =>
+        services({
+          close: async () => {
+            closed++;
+          },
+          adapter: adapter({
+            open: async () => ({
+              context: async () => context,
+              close: async () => {},
+              describe: async (_candidate, signal) =>
+                new Promise((_resolve, reject) => {
+                  signal!.addEventListener("abort", () => reject(signal!.reason), { once: true });
+                }),
+            }),
+          }),
+        });
+      const deadline = await prepareLiveContractView({ ...base, cache, live: { adapter: hanging, deadlineMs: 5 } });
+      strict.match(deadline.dialect.analyze(request.candidate.sql, schema).diagnostics[0]!.message, /native-deadline/u);
+      strict.equal(closed, 1);
+      await strict.rejects(
+        prepareLiveContractView({ ...base, cache, live: { adapter: hanging, batchDeadlineMs: 5 } }),
+        /batch deadline/u,
+      );
+      strict.equal(closed, 2);
+      const control = new AbortController();
+      const external = prepareLiveContractView({
+        ...base,
+        cache,
+        signal: control.signal,
+        live: {
+          adapter: async () => {
+            control.abort(new Error("external cancellation"));
+            return services({
+              close: async () => {
+                closed++;
+              },
+            });
+          },
+        },
+      });
+      await strict.rejects(external, /external cancellation/u);
+      strict.equal(closed, 3);
+      await strict.rejects(
+        prepareLiveContractView({ ...base, cache, signal: control.signal, live: { adapter: hanging } }),
+        /external cancellation/u,
+      );
+    });
+  });
+  await it("keeps empty projects cold and rejects incompatible profiles, owners and service registrations", async () => {
+    await temporary(async (cache) => {
+      const empty = await prepareLiveContractView({
+        ...base,
+        cache,
+        candidates: [],
+        loadAnalyzer: () => {
+          throw Error("cold");
+        },
+        live: {
+          adapter: () => {
+            throw Error("cold");
+          },
+        },
+      });
+      strict.equal(empty.outcomes.length, 0);
+      for (const patch of [
+        { configuration: { ...configuration } },
+        { profile: plugin },
+        { profile: { ...profile, grammarVersion: "2" } },
+        { schema: { ...schema, version: "changed" } },
+        { typePolicy: { changed: true } },
+        { loadAnalyzer: () => ({ ...plugin, grammarVersion: "2" }) },
+        { candidates: Array.from({ length: 4097 }, () => request.candidate) },
+        { candidates: Array.from({ length: 17 }, () => ({ sql: "x".repeat(1024 * 1024), parameterOccurrences: [] })) },
+      ])
+        await strict.rejects(
+          prepareLiveContractView({ ...base, cache, live: { adapter: () => services() }, ...patch }),
+        );
+      for (const patch of [
+        { connectionContext: queryContractDigest("wrong") },
+        { adapter: { ...services().adapter, version: "2" } },
+        { contribution: { ...owner, version: "2" } },
+        { inspectContext: undefined },
+      ]) {
+        let closed = 0;
+        await strict.rejects(
+          prepareLiveContractView({
+            ...base,
+            cache,
+            live: {
+              adapter: () =>
+                ({
+                  ...services(),
+                  ...patch,
+                  close: async () => {
+                    closed++;
+                  },
+                }) as LiveAnalysisServices,
+            },
+          }),
+          /registration differs/u,
+        );
+        strict.equal(closed, 1);
+      }
+      await strict.rejects(
+        prepareLiveContractView({
+          ...base,
+          cache,
+          live: { adapter: () => ({ ...services(), close: undefined }) as unknown as LiveAnalysisServices },
+        }),
+        /owned cleanup/u,
+      );
+      for (const inspectContext of [
+        async () => context,
+        async () => {
+          throw Error("inspection failed");
+        },
+      ])
+        await strict.rejects(
+          prepareLiveContractView({
+            ...base,
+            cache,
+            live: {
+              adapter: () =>
+                services({
+                  inspectContext,
+                  close: async () => {
+                    throw Error("cleanup failed");
+                  },
+                }),
+            },
+          }),
+          AggregateError,
+        );
+    });
+  });
+});

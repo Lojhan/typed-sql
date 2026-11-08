@@ -1,5 +1,5 @@
 import { execFile as callback } from "node:child_process";
-import { mkdtemp, rename, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
@@ -25,7 +25,7 @@ import {
 import { collectSourceQueryCandidates, compileSource } from "../../packages/compiler/src/index.js";
 import { postgresContractIdentity } from "../../packages/postgres/src/contract-profile.js";
 import { postgres } from "../../packages/postgres/src/index.js";
-import { adaptPgPool, type PgLiveVerifierPool } from "../../packages/postgres/src/pg.js";
+import { adaptPgPool } from "../../packages/postgres/src/pg.js";
 import {
   createPgNativeContractAdapter,
   PostgresContractAcquisitionError,
@@ -39,7 +39,7 @@ import { assertIsolatedPostgresContractConsumer } from "./frozen-contract-consum
 export async function assertPostgresNativeContracts(connectionString: string, directory: string): Promise<void> {
   const pool = new Pool({ connectionString, max: 2 });
   const schema = { formatVersion: 1, dialect: "postgres", tables: {}, functions: {} } as const;
-  const native = createPgNativeContractAdapter({ pool: pool as unknown as PgLiveVerifierPool, schema });
+  const native = createPgNativeContractAdapter({ pool, schema });
   let temporary: string | undefined;
   const namespace = `typed_sql_contract_${process.pid}`;
   let created = false;
@@ -243,6 +243,7 @@ export async function assertPostgresNativeContracts(connectionString: string, di
           module: "NodeNext",
           moduleResolution: "NodeNext",
           noEmit: true,
+          allowArbitraryExtensions: true,
         },
         files: ["application.ts"],
       }),
@@ -272,7 +273,74 @@ export default defineConfig({
       );
       strict.match(cachedCheck.stdout, /Offline checked 1 project\(s\), 1 query\(s\)/u);
       strict.match(cachedCheck.stdout, /bigint/u);
+      const liveConfig = (await readFile(join(temporary, "typed-sql.config.mjs"), "utf8"))
+        .replace(
+          'loadAnalyzer(){throw Error("Frozen native proof initialized an analyzer");}',
+          'async loadAnalyzer(){if(!process.env.TYPED_SQL_CONTRACT_LIVE_TEST)throw Error("Offline check initialized an analyzer");return (await import("@typed-sql/postgres")).postgres();}',
+        )
+        .replace(
+          'analysis: {mode: "frozen",',
+          `analysis: {mode: "live", live: {adapter: async ({schema}) => {
+          if(!process.env.TYPED_SQL_CONTRACT_LIVE_TEST)throw Error("Offline check initialized a native adapter");
+          const {Pool}=await import("pg");
+          const {createPgNativeContractAdapter}=await import("@typed-sql/postgres/pg-contracts");
+          const {createPostgresContractReconciler}=await import("@typed-sql/postgres/reconciliation");
+          const pool=new Pool({connectionString:process.env.TYPED_SQL_CONTRACT_TEST_DATABASE_URL,max:2});
+          const adapter=createPgNativeContractAdapter({pool,schema});
+          return {connectionContext:${JSON.stringify(cacheRequest.connectionContext)},adapter,
+            contribution:createPostgresContractReconciler({schema}),inspectContext:signal=>adapter.inspectContext(signal),close:()=>pool.end()};
+        }},`,
+        );
+      await writeFile(join(temporary, "live-config.mjs"), liveConfig);
+      await writeFile(join(temporary, "value.sql"), "SELECT :id::bigint AS asset_value");
+      await writeFile(
+        join(temporary, "application.ts"),
+        `${application.replace('"@typed-sql/postgres"', '"@typed-sql/postgres/tag"')}\nexport const known=sql\`SELECT 1 AS value\`;\nimport asset from "./value.sql"; export const fromAsset=asset({id:1n});`,
+      );
+      const liveCheck = await promisify(callback)(
+        process.execPath,
+        [
+          join(directory, "packages/cli/dist/packages/cli/src/cli.js"),
+          "check",
+          "--live",
+          "--config",
+          "live-config.mjs",
+          "--show-types",
+        ],
+        {
+          cwd: temporary,
+          maxBuffer: 8 * 1024 * 1024,
+          env: {
+            ...process.env,
+            TYPED_SQL_CONTRACT_LIVE_TEST: "1",
+            TYPED_SQL_CONTRACT_TEST_DATABASE_URL: connectionString,
+          },
+        },
+      );
+      strict.match(liveCheck.stdout, /Live checked 1 project\(s\), 3 query\(s\)/u);
+      const reused = await promisify(callback)(
+        process.execPath,
+        [
+          join(directory, "packages/cli/dist/packages/cli/src/cli.js"),
+          "check",
+          "--offline",
+          "--config",
+          "live-config.mjs",
+          "--show-types",
+        ],
+        { cwd: temporary, maxBuffer: 8 * 1024 * 1024 },
+      );
+      strict.match(reused.stdout, /Offline checked 1 project\(s\), 3 query\(s\)/u);
+      strict.equal(
+        (await pool.query<{ count: number }>(`SELECT count FROM ${namespace}.calls`)).rows[0]!.count,
+        1,
+        "Live CLI qualification must describe rather than execute the candidate function",
+      );
     } finally {
+      await writeFile(
+        join(temporary, "application.ts"),
+        application.replace('"@typed-sql/postgres"', '"@typed-sql/postgres/tag"'),
+      );
       await rename(`${durable}-held`, durable);
     }
     // Inject real DDL between description and final context inspection. No contract may escape.

@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, it, strict } from "poku";
 import { DIALECT_CONTRACT_VERSION, defineConfig, unknownQuerySemantics } from "../../core/src/index.js";
-import { loadConfig, loadConfigSource, resolveConfigDialect } from "../src/index.js";
+import { loadConfig, loadConfigSource, resolveConfigDialect, runConfigFactory } from "../src/index.js";
 
 const profile = {
   contractVersion: DIALECT_CONTRACT_VERSION,
@@ -29,6 +29,35 @@ const owner = {
   }),
 };
 await describe("explicit grammar registration", async () => {
+  await it("tracks explicit contribution factories even when construction fails", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "typed-sql-contribution-"));
+    const file = join(directory, "config.mjs"),
+      helper = join(directory, "adapter.mjs");
+    try {
+      await writeFile(file, "// fixture");
+      await writeFile(helper, "export const revision = 1;");
+      let imported = (_url: string) => {};
+      const importer = async (_file: string, onImport: (url: string) => void) => {
+        imported = onImport;
+        return { default: defineConfig({ dialect: profile, schema: { file: "schema.json" }, outDir: "generated" }) };
+      };
+      const raw = await loadConfigSource({ file, importer });
+      strict.equal(await runConfigFactory(raw, () => 42), 42);
+      await strict.rejects(
+        runConfigFactory(raw, async () => {
+          imported(pathToFileURL(helper).href);
+          throw Error("adapter failed");
+        }),
+        /adapter failed/u,
+      );
+      strict.ok(raw.dependencies?.includes(helper));
+      await writeFile(helper, "export const revision = 2;");
+      strict.notEqual(await loadConfigSource({ file, importer }), raw);
+      strict.equal(await runConfigFactory({ file, directory, config: raw.config }, () => 7), 7);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
   await it("rejects analysis configurations in legacy hosts before loading an analyzer", async () => {
     const directory = await mkdtemp(join(tmpdir(), "typed-sql-legacy-host-"));
     const file = join(directory, "config.mjs");

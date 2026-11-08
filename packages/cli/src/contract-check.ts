@@ -2,10 +2,13 @@ import { createHash } from "node:crypto";
 import { lstat, readFile, realpath } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import {
+  type AnalysisRegistration,
   defineAnalysisConfiguration,
+  defineAnalysisRegistration,
   loadFrozenContractView,
   loadQueryContracts,
   openAnalysisCache,
+  prepareLiveContractView,
   prepareOfflineContractView,
   queryContractDigest,
 } from "@typed-sql/analysis";
@@ -19,7 +22,13 @@ import {
   mapSqlRange,
   type SourceAnalysisResult,
 } from "@typed-sql/compiler";
-import { fromConfig, type LoadedConfigSource, loadConfigSource, resolveConfigDialect } from "@typed-sql/config";
+import {
+  fromConfig,
+  type LoadedConfigSource,
+  loadConfigSource,
+  resolveConfigDialect,
+  runConfigFactory,
+} from "@typed-sql/config";
 import type { SqlDiagnostic } from "@typed-sql/core";
 import { reportCheckedFiles } from "./check-report.js";
 
@@ -29,7 +38,8 @@ export async function runContractCheck(
   loaded: LoadedConfigSource,
   options: Readonly<Record<string, string>>,
 ): Promise<void> {
-  const raw = defineAnalysisConfiguration(loaded.config.analysis);
+  const { live, ...data } = defineAnalysisRegistration(loaded.config.analysis as AnalysisRegistration);
+  const raw = defineAnalysisConfiguration(data);
   const configuration = defineAnalysisConfiguration({
     ...raw,
     mode:
@@ -41,8 +51,8 @@ export async function runContractCheck(
             ? "live"
             : raw.mode,
   });
-  if (configuration.mode === "live")
-    throw new Error("Live checking requires a configured native host; live orchestration is not enabled.");
+  if (configuration.mode === "live" && (!live || !configuration.cache))
+    throw new Error("Live checking requires analysis.live.adapter and an explicit analysis.cache target identity.");
   const profile = loaded.config.dialect,
     policy = loaded.config.typePolicy ?? profile.defaultTypePolicy;
   const schemaFile = fromConfig(loaded.directory, options.schema ?? loaded.config.schema.file);
@@ -119,8 +129,19 @@ export async function runContractCheck(
     });
     return { path, source, collection };
   });
+  if (
+    collections.some(({ collection }) => collection.diagnostics.some((diagnostic) => diagnostic.severity === "error"))
+  ) {
+    for (const { path, collection } of collections)
+      for (const diagnostic of collection.diagnostics)
+        process.stderr.write(
+          `${path}:${diagnostic.range.line}:${diagnostic.range.column} - ${diagnostic.severity} ${diagnostic.code}: ${diagnostic.message}\n`,
+        );
+    process.exitCode = 1;
+    return;
+  }
   const cache =
-    configuration.mode === "offline" && configuration.cache
+    configuration.mode !== "frozen" && configuration.cache
       ? await openAnalysisCache({
           directory: fromConfig(loaded.directory, configuration.cache.directory ?? ".typed-sql/cache/analysis/v1"),
           workspaceContext: queryContractDigest({ workspace: loaded.directory, config: loaded.file }),
@@ -129,21 +150,34 @@ export async function runContractCheck(
   const view =
     configuration.mode === "frozen"
       ? await loadFrozenContractView({ profile, schema, typePolicy: policy, configuration, directory })
-      : await prepareOfflineContractView({
-          profile,
-          schema,
-          typePolicy: policy,
-          configuration,
-          contracts: initialContracts,
-          candidates: collections.flatMap(({ collection }) =>
-            collection.candidates.map((candidate) => ({
-              sql: candidate.sql,
-              parameterOccurrences: candidate.parameterOccurrences,
-            })),
-          ),
-          ...(cache ? { cache } : {}),
-          loadAnalyzer: async () => (await resolveConfigDialect(loaded)).config.dialect,
-        });
+      : configuration.mode === "live"
+        ? await prepareLiveContractView({
+            profile,
+            schema,
+            typePolicy: policy,
+            configuration,
+            cache: cache!,
+            live: { ...live!, adapter: (input) => runConfigFactory(loaded, () => live!.adapter(input)) },
+            candidates: collections.flatMap(({ collection }) =>
+              collection.candidates.map(({ sql, parameterOccurrences }) => ({ sql, parameterOccurrences })),
+            ),
+            loadAnalyzer: async () => (await resolveConfigDialect(loaded)).config.dialect,
+          })
+        : await prepareOfflineContractView({
+            profile,
+            schema,
+            typePolicy: policy,
+            configuration,
+            contracts: initialContracts,
+            candidates: collections.flatMap(({ collection }) =>
+              collection.candidates.map((candidate) => ({
+                sql: candidate.sql,
+                parameterOccurrences: candidate.parameterOccurrences,
+              })),
+            ),
+            ...(cache ? { cache } : {}),
+            loadAnalyzer: async () => (await resolveConfigDialect(loaded)).config.dialect,
+          });
   const dialect = view.dialect;
   for (const path of loaded.dependencies ?? [])
     if (!inputs.has(resolve(path))) inputs.set(resolve(path), await readFile(path, "utf8"));
@@ -207,6 +241,6 @@ export async function runContractCheck(
     throw new Error("Analysis contract closure changed during checking; retry checking.");
   if (process.exitCode !== 1)
     process.stdout.write(
-      `${configuration.mode === "frozen" ? "Frozen" : "Offline"} checked ${projects.length} project(s), ${analyses.reduce((count, item) => count + item.analysis.queries.length, 0)} query(s).\n`,
+      `${configuration.mode === "frozen" ? "Frozen" : configuration.mode === "live" ? "Live" : "Offline"} checked ${projects.length} project(s), ${analyses.reduce((count, item) => count + item.analysis.queries.length, 0)} query(s).\n`,
     );
 }
