@@ -7,6 +7,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { describe, it, strict } from "poku";
 import { assertFirstUseConsumer } from "../helpers/first-use-consumer.js";
+import { assertFrozenContractConsumer } from "../helpers/frozen-contract-consumer.js";
 import { assertMinimalGrammarConsumer } from "../helpers/minimal-grammar-consumer.js";
 import { packedConsumerOverrides } from "../helpers/packed-editor-consumer.js";
 import { ensurePackedEditorSdk } from "../helpers/packed-editor-sdk.js";
@@ -25,6 +26,7 @@ const publicPackages = [
   "core",
   "opentelemetry",
   "config",
+  "analysis",
   "schema",
   "postgres",
   "mysql",
@@ -46,6 +48,7 @@ const declarationCheckedPackages = new Set([
   "core",
   "opentelemetry",
   "config",
+  "analysis",
   "schema",
   "postgres",
   "mysql",
@@ -498,6 +501,7 @@ await describe("packed public packages", async () => {
           createRequire(join(workspace, "packages/adapters/package.json")).resolve("miniflare"),
         ).href,
       });
+      await assertFrozenContractConsumer(consumer, isolatedEnvironment);
     } finally {
       await rm(temporary, { recursive: true, force: true });
     }

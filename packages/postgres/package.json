@@ -42,13 +42,17 @@
     "./runtime": "./dist/packages/postgres/src/runtime.js",
     "./pg": "./dist/packages/postgres/src/pg.js",
     "./query": "./dist/packages/postgres/src/query.js",
-    "./migrations": "./dist/packages/postgres/src/migrations.js"
+    "./migrations": "./dist/packages/postgres/src/migrations.js",
+    "./profile": "./dist/packages/postgres/src/profile.js",
+    "./tag": "./dist/packages/postgres/src/tag.js",
+    "./pg-contracts": "./dist/packages/postgres/src/pg-contracts.js"
   },
   "dependencies": {
     "@typed-sql/ast": "workspace:*",
     "@typed-sql/core": "workspace:*",
     "@typed-sql/schema": "workspace:*",
-    "@types/pg": "8.23.1"
+    "@types/pg": "8.23.1",
+    "@typed-sql/analysis": "workspace:*"
   },
   "devDependencies": {
     "@typed-sql/conformance": "workspace:*",

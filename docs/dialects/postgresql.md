@@ -10,6 +10,9 @@ description: PostgreSQL grammar coverage, catalog introspection, application-own
 
 ## Public entrypoints
 
+- `@typed-sql/postgres/profile` — lightweight grammar profile for exact query-contract consumption, without the SQL analyzer or global routine catalogs.
+- `@typed-sql/postgres/tag` — `sql`, renderer and runtime plan primitives without analyzer imports.
+- `@typed-sql/postgres/pg-contracts` — explicit native query-contract acquisition over a dedicated application-owned pool.
 - `@typed-sql/postgres/query` — portable `sql`, renderer, and runtime value descriptors for buffered adapters.
 
 - `@typed-sql/postgres` — `sql`, dialect factory, default type policy, analysis, type mapping, semantic routing, and transaction retry classification.
@@ -221,3 +224,43 @@ tagged queries and `jsonValue(value)` in positional query factories. SQL-standar
 `FORMAT JSON` document positions accept explicit JSON bindings too. Ordinary
 constructor values retain their SQL scalar behavior; cast an encoded document to
 `json` or `jsonb` when it must be embedded as JSON.
+
+
+## Native query contracts
+
+`createPgNativeContractAdapter` from `@typed-sql/postgres/pg-contracts` supplies the session interface
+used by `acquireNativeQueryContract` in `@typed-sql/analysis`. Construct it with a dedicated
+application-owned `pg` pool and the compiler's schema input. `inspectContext()` captures the expected
+context. Acquisition describes SQL using Parse/Describe and catalog reads; it sends no Bind or
+Execute message for the application statement. Close the pool when generation finishes.
+See [durable query contracts](../guides/query-manifests.md#consume-durable-query-contracts-in-a-compiler-host)
+for storage and compiler-host consumption.
+
+The adapter supports PostgreSQL 18 expression-only `SELECT` statements with ordinary calls,
+parameters, numeric/boolean literals and supported built-in casts. String and null literals need
+an explicit supported built-in cast. It rejects relation/view binding, subqueries, compounds,
+custom type-input casts and unsupported expressions before opening a session. The native
+round-trip and disconnected-consumption test runs against PostgreSQL 18.3; other PostgreSQL
+major versions are unavailable through this acquisition adapter. This scope is separate from
+the full grammar's supported version range.
+
+The session requires a primary server, UTF-8 client encoding, standard-conforming strings,
+`pg_catalog` first in effective name resolution, no temporary schema and no extensions except
+`plpgsql`. It pins relevant session settings and uses a read-only transaction with bounded
+statement/lock timeouts. SHA-256 catalog/context fingerprints and a WAL insertion-position guard
+cover metadata capture and description. Any WAL advance rejects the acquisition, including
+unrelated writes. Use a quiet development or migrations-derived qualification database.
+Context inspection retries a bounded number of unstable captures; description never relaxes
+its consistency guard.
+
+RowDescription does not attest expression nullability: results remain nullable unless separate
+qualified evidence establishes more. Native array dimensions and opaque/custom representations
+remain unknown; unresolved parameter representations prevent acquisition. Exact native type
+modifiers are retained when reported. PostgreSQL errors and consistency failures do not publish
+a replacement contract.
+
+`postgresProfile()` from `@typed-sql/postgres/profile` supplies rendering, lexical parameter
+occurrences, snapshot validation and policy information to `createContractDialect`. It has no
+`analyze` function. Its runtime metadata uses `@typed-sql/postgres/tag`. Existing root analyzer
+exports and the `query` entrypoint remain available. These programmatic APIs do not enable
+background refresh or database access during ordinary builds.

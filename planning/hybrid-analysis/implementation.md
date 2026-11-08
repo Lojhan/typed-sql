@@ -59,6 +59,34 @@ Unrelated planning work is left unchanged.
   focused package/API/documentation boundaries and quality pass for the acquisition foundation.
 - Real adapter ownership, strict native/static reconciliation and the native vertical remain open.
 
+## PostgreSQL native vertical and distribution proof
+
+- Added explicit `postgres/profile` and `postgres/tag` entrypoints without full analyzer/catalog
+  imports. Existing root/query analyzer compatibility remains; this is one grammar's additive
+  profile boundary, not the completed breaking root-entrypoint migration.
+- Added `postgres/pg-contracts` as a separate explicit native producer. Its declared PostgreSQL 18
+  expression-query scope rejects unqualified binding/input contexts. The producer uses unnamed
+  Parse/Describe, complete row modifiers where available, OID parameter metadata and conservative
+  representation/nullability facts; it executes no candidate statement and grows no pg named cache.
+- The dedicated read-only session pins semantic settings, hashes catalog/context metadata inside
+  the server with SHA-256, and rejects WAL advances across acquisition. This is deliberately
+  conservative: unrelated writes can reject generation. Relations/views/extensions, custom input
+  coercions, native array shape and other majors remain outside this adapter's qualified scope.
+- Real PostgreSQL 18.3 / pg 8.23.1 proof acquires an otherwise unknown user-function invocation,
+  preserves bigint parameter/result descriptors, exports/reloads contracts, compiles real runtime
+  plans and executes/decodes them. A counter verifies no execution during description. Injected DDL
+  rejects acquisition. Native clients are closed before disconnected compilation.
+- The actual native closure also recompiles identically in a fresh process outside the workspace,
+  with copied distribution-only packages, no installed driver, full analyzer/parser/catalog files
+  physically removed and JavaScript network traps. Deleting a required object fails loading.
+  This is not an OS network sandbox or the final whole-project frozen TypeScript/CLI host gate.
+- Packed tarball consumers separately exercise the same profile/contract/decoding path after heavy
+  files are removed. PostgreSQL package coverage and package graph/documentation/API checks pass;
+  the native proof is integrated into the existing PostgreSQL E2E lifecycle.
+- The [native proof notes](./postgres-native-proof.md) record limitations and the reproducible
+  [profile bundle measurement](./postgres-profile-measurements.json). No global catalogs are
+  reachable in the measured tag/profile/frozen-host entries; old analyzer packages remain shipped.
+
 ## Required work still open
 
 1. Complete the contract/evidence model: native descriptors and provenance, reusable/facet-specific
@@ -67,8 +95,9 @@ Unrelated planning work is left unchanged.
    project-wide native qualification, including disagreement handling.
 3. Real database vertical proof with compiled decoding and disconnected reuse; qualify the five
    engine/transport profiles and explicit limitations.
-4. Durable contract closure export/import and a clean frozen consumer with analyzer modules and
-   global catalogs physically absent. The initial in-memory consumer alone does not prove this.
+4. Complete frozen configuration/CLI and whole-project TypeScript checking with the durable
+   closure, native qualification policy and physically absent heavy modules. Durable storage and
+   the isolated programmatic/packed consumer proofs above do not finish the full host workflow.
 5. Disposable cache persistence, ownership, atomic publication, corruption/limit handling,
    cross-process locking, pruning and context-aware invalidation.
 6. Explicit offline/frozen/live configuration and CLI generation/check/watch operations.

@@ -37,6 +37,7 @@ import {
   assertLegacyValuePlans,
   assertPostgresRawJsonValuePlans,
 } from "../../../test/helpers/legacy-value-plans.js";
+import { assertPostgresNativeContracts } from "../../../test/helpers/postgres-native-contracts.js";
 import { postgresCodecFidelity } from "../src/codec-query.js";
 import { postgresJsonEmptyAggregate, postgresJsonNonfinite, postgresJsonProjection } from "../src/json-query.js";
 import { postgresAccountStream, postgresAccountsAtOrAbove } from "../src/stream-query.js";
@@ -199,6 +200,9 @@ try {
   }
 
   await describe("developer PostgreSQL flow", async () => {
+    await it("qualifies native query contracts within the adapter's declared version scope", async () => {
+      await assertPostgresNativeContracts(connectionString, process.cwd());
+    });
     await it("enforces attached value plans through actual pg buffered, prepared, pipeline and cursor paths", async () => {
       const database = await createPgDatabase({
         connectionString,

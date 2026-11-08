@@ -5,10 +5,11 @@ import {
   type DialectPlugin,
   unknownQuerySemantics,
 } from "@typed-sql/core";
-import { parseSchemaSnapshot, type SchemaSnapshot } from "@typed-sql/schema";
-import { assertPostgresServerEvidence, POSTGRES_CAPABILITIES, resolvePostgresCapabilities } from "./capabilities.js";
+import type { SchemaSnapshot } from "@typed-sql/schema";
+import { POSTGRES_CAPABILITIES, resolvePostgresCapabilities } from "./capabilities.js";
 import { type PostgresExtensionManifest, resolvePostgresExtensionManifests } from "./extensions.js";
 import { parseStatement, SqlParseError, tokenize } from "./parser/index.js";
+import { validatePostgresSnapshot } from "./profile-snapshot.js";
 import { postgresRuntimeValueType } from "./query.js";
 import { hasStableRepeatedResult } from "./repeated-inputs.js";
 import { resolveStatement } from "./resolver.js";
@@ -56,23 +57,6 @@ export interface PostgresDialectOptions {
   readonly typePolicy?: PostgresTypePolicy;
   readonly versionPolicy?: import("./capabilities.js").PostgresVersionPolicy;
   readonly extensions?: readonly PostgresExtensionManifest[];
-}
-
-function validatePostgresSnapshot(value: unknown): PostgresSchemaSnapshot {
-  const snapshot = parseSchemaSnapshot(value);
-  if (snapshot.dialect !== "postgres") {
-    throw new TypeError(`@typed-sql/postgres cannot use a ${snapshot.dialect} schema snapshot`);
-  }
-  if (snapshot.dialectVersion !== undefined && snapshot.dialectVersion !== POSTGRES_DIALECT_VERSION) {
-    throw new TypeError(
-      `@typed-sql/postgres grammar ${POSTGRES_DIALECT_VERSION} cannot use snapshot dialectVersion ${snapshot.dialectVersion}`,
-    );
-  }
-  if (snapshot.server !== undefined && snapshot.server.product !== "postgres") {
-    throw new TypeError(`@typed-sql/postgres cannot use ${snapshot.server.product} server evidence`);
-  }
-  if (snapshot.server !== undefined) assertPostgresServerEvidence(snapshot.server);
-  return snapshot as PostgresSchemaSnapshot;
 }
 
 export function postgres(

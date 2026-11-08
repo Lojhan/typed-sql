@@ -115,7 +115,7 @@ const expectedEntrypoints: Readonly<Record<(typeof publicPackages)[number], read
   config: ["."],
   analysis: ["."],
   schema: [".", "./snapshot"],
-  postgres: [".", "./runtime", "./pg", "./query", "./migrations"],
+  postgres: [".", "./runtime", "./pg", "./query", "./migrations", "./profile", "./tag", "./pg-contracts"],
   mysql: [".", "./runtime", "./mysql2", "./query"],
   compiler: ["."],
   conformance: [".", "./v2"],

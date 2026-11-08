@@ -1,13 +1,10 @@
-import type { RuntimeValueType, SqlRenderer } from "@typed-sql/core";
+import type { RuntimeValueType } from "@typed-sql/core";
 import { brandBaseType } from "@typed-sql/core";
 import { defaultPostgresTypePolicy, mapPostgresType, type PostgresTypePolicy } from "./type-policy.js";
 
 export { sql } from "@typed-sql/core";
 
-export const postgresRenderer: SqlRenderer = Object.freeze({
-  placeholder: (index: number) => `$${index}`,
-  quoteIdentifier: (name: string) => `"${name.replaceAll('"', '""')}"`,
-});
+export { postgresRenderer, postgresRenderer as renderer } from "./rendering.js";
 
 /** PostgreSQL owns its physical wire syntax; neutral runtime decoders receive normalized values. */
 export function normalizePostgresValue(value: unknown, type: RuntimeValueType): unknown {
@@ -123,5 +120,3 @@ export function postgresRuntimeValueType(
 export type { JsonInput, Query, QueryValuePlan } from "@typed-sql/core";
 
 export { defineQueryValuePlan, defineQueryValuePlanSelector, withQueryValuePlan } from "@typed-sql/core";
-/** Standard portable renderer export for compiler-generated runtime selectors. */
-export { postgresRenderer as renderer };

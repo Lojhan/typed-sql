@@ -1,23 +1,9 @@
 import type { SchemaSnapshot } from "@typed-sql/schema";
 import { postgresCatalogTypeMapping } from "./catalog/index.js";
 
-export interface PostgresTypePolicy {
-  readonly bigint: "bigint" | "string" | "number";
-  readonly numeric: "string" | "number" | "Decimal";
-  readonly date: "Date" | "string";
-  readonly json: "unknown" | "JsonValue" | "string";
-  readonly enums: "string-union" | "string";
-  readonly unknown: "unknown" | "never";
-}
+import type { PostgresTypePolicy } from "./policy.js";
 
-export const defaultPostgresTypePolicy: PostgresTypePolicy = Object.freeze({
-  bigint: "bigint",
-  numeric: "string",
-  date: "Date",
-  json: "unknown",
-  enums: "string-union",
-  unknown: "unknown",
-});
+export { defaultPostgresTypePolicy, type PostgresTypePolicy } from "./policy.js";
 
 const normalized = (databaseType: string): string => databaseType.trim().toLowerCase().replace(/\s+/g, " ");
 const withoutModifiers = (databaseType: string): string => databaseType.replace(/\(\d+(?:,\s*\d+)?\)/g, "");
