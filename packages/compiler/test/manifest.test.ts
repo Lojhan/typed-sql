@@ -49,15 +49,29 @@ const source = [
 await describe("deterministic query manifests", async () => {
   await it("retains partial SQL type descriptions across manifest serialization", () => {
     const rootDir = "/partial-types";
+    const base = mysql();
     const manifest = buildQueryManifest({
       rootDir,
       sources: [
         {
           file: `${rootDir}/query.ts`,
-          source: 'import {sql} from "@typed-sql/mysql"; export const query=sql`SELECT SUM(1) AS total`;',
+          source: 'import {sql} from "@typed-sql/mysql"; export const query=sql`SELECT users.id FROM users`;',
         },
       ],
-      dialect: mysql(),
+      dialect: {
+        ...base,
+        analyze(...args: Parameters<typeof base.analyze>) {
+          const resolved = base.analyze(...args);
+          return {
+            ...resolved,
+            columns: resolved.columns.map((column) => ({
+              ...column,
+              databaseType: "decimal",
+              databaseTypeIsPartial: true as const,
+            })),
+          };
+        },
+      },
       schema: snapshot("mysql") as MySqlSchemaSnapshot,
       compilerVersion: "test",
     }).manifest;
