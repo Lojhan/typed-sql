@@ -368,3 +368,27 @@ extension ID, version, and prerelease manifest with `assertMarketplaceManifest` 
 `scripts/editor-marketplace.mjs`. After uploading, verify the public `lojhan.typed-sql` listing
 and its prerelease version before reporting publication. This manual route does not configure
 automated trusted publishing, and does not use a stored PAT.
+
+
+## Catalog source and disposable projections
+
+Review and commit native facts, source locks, grammar policies, the normalized inventory and
+`grammar/catalog/generation.json`. Package source projections recorded by that manifest are
+ignored build outputs. Do not hand-edit them or add them to Git.
+
+`pnpm install --frozen-lockfile` materializes missing projections through the private workspace
+postinstall hook. `pnpm catalog:check` does the same while checking the recorded provenance:
+all durable outputs and existing projections must match before any missing file is created.
+It does not rewrite stale provenance or overwrite a changed projection. Ordinary package
+consumers receive built artifacts and do not run the repository generator.
+
+Run `pnpm catalog:generate` after intentionally changing facts, locks or policies, then review
+the source changes, normalized audit reports and manifest digests. Generation removes retired,
+previously owned projections only when their bytes still match the old ownership manifest.
+`pnpm clean` removes unchanged owned projections and compiled output; `pnpm build` regenerates
+projections before compiling. Cleanup preserves authored neighbors and refuses changed owned files.
+
+For installs with lifecycle scripts disabled, run `pnpm catalog:materialize` before focused
+source tests. A missing or stale durable manifest requires explicit generation and review.
+Bundle evidence checks ignored projections against their committed ownership digests rather
+than treating their absence from Git as missing provenance.

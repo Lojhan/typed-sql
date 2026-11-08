@@ -27,7 +27,7 @@ export async function runCatalogCommand(mode, paths = []) {
     if (!paths.length) throw new Error("catalog:import requires reviewed capture paths");
     const corpus = await importCaptureFiles(paths);
     console.log(`${Object.keys(corpus.targets).length} reviewed native contexts retained`);
-  } else if (mode === "generate" || mode === "check") {
+  } else if (mode === "generate" || mode === "check" || mode === "materialize") {
     if (paths.length) throw new Error("Unexpected catalog generation options");
     const ledger = JSON.parse(await readFile(resolve(root, "grammar/features/ledger.json"), "utf8"));
     const requiredTargets = [];
@@ -36,11 +36,16 @@ export async function runCatalogCommand(mode, paths = []) {
       const versions = new Set([...policy.stable, ...policy.canary].flatMap((range) => [range.minimum, range.maximum]));
       for (const version of versions) requiredTargets.push({ dialect, version });
     }
-    const result = await generateCatalogs(await readCorpus(), { check: mode === "check", requiredTargets });
+    const result = await generateCatalogs(await readCorpus(), {
+      check: mode !== "generate",
+      materialize: mode === "materialize",
+      requiredTargets,
+    });
     console.log(
-      `${result.groups.length} native version bands; ${result.changed.length} generated files ${mode === "check" ? "stale" : "updated"}`,
+      `${result.groups.length} native version bands; ${result.changed.length} generated files ${mode === "check" ? "stale" : mode === "materialize" ? "materialized" : "updated"}; ${result.retired.length} retired`,
     );
-  } else throw new Error("Usage: catalog:generate|catalog:check|catalog:import|catalog:check-input");
+  } else
+    throw new Error("Usage: catalog:generate|catalog:check|catalog:materialize|catalog:import|catalog:check-input");
 }
 
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url)

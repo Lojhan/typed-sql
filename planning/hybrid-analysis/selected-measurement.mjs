@@ -5,6 +5,7 @@ import { createRequire } from "node:module";
 import { relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { brotliCompressSync, constants, gzipSync } from "node:zlib";
+import { isCatalogProjection } from "../../scripts/catalog-generation/lifecycle.mjs";
 
 /** Shared provenance and bundle settings for selected-analyzer measurements. */
 export function selectedMeasurement(scriptUrl) {
@@ -45,6 +46,7 @@ export function selectedMeasurement(scriptUrl) {
   };
   read(new URL(import.meta.url));
   read(new URL(scriptUrl));
+  read(new URL("../../scripts/catalog-generation/lifecycle.mjs", import.meta.url));
   return {
     read,
     hash,
@@ -77,16 +79,25 @@ export function selectedMeasurement(scriptUrl) {
     },
     finish(output, details, rows) {
       const baseRevision = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+      const projectionManifestBytes = gitSource(baseRevision, "grammar/catalog/generation.json");
+      const projectionManifest = JSON.parse(projectionManifestBytes.toString("utf8"));
+      const generatedInputs = {};
       const committedInputs = Object.entries(digests).every(([path, expected]) => {
         try {
           return hash(gitSource(baseRevision, path)) === expected;
         } catch {
+          if (isCatalogProjection(path) && projectionManifest.outputDigests[path] === `sha256:${expected}`) {
+            generatedInputs[path] = expected;
+            return true;
+          }
           return false;
         }
       });
       const report = {
         status: committedInputs ? "committed-inputs" : "provisional-worktree-measurement",
         baseRevision,
+        projectionManifest: { path: "grammar/catalog/generation.json", digest: hash(projectionManifestBytes) },
+        generatedInputs,
         ...details,
         tool: { name: "esbuild", version: esbuildVersion, digest: hash(readFileSync(new URL(scriptUrl))) },
         nodeVersion: process.version,

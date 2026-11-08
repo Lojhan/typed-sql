@@ -821,6 +821,41 @@ Unrelated planning work is left unchanged.
   across every host and bulk generated-code removal. This does not qualify additional native
   transports or close the complete architecture acceptance audit.
 
+## Disposable package projections and source-tree removal
+
+- Remove all 105 generator-owned package TypeScript projections from Git: 36,467 previously
+  tracked lines and approximately 4 MB of source. This includes native catalogs, core/pack/profile
+  projections, type policies and generated vocabularies across all five grammars. Retain reviewed
+  facts, locks, policies, normalized inventories and ownership/digest reports in Git. This changes
+  repository ownership; published packages still contain their compiled selected/compatibility data.
+- Derive projection ownership from registered emitter outputs, without enumerating grammars or
+  versions. The private workspace postinstall and `catalog:check` materialize missing projections
+  only after durable provenance and every existing output match. They do not bless stale reports
+  or overwrite changed source. Missing-only publication uses complete temporary files and atomic
+  no-overwrite links, accepting another writer only when its bytes match.
+- Explicit generation removes retired package projections only when their ownership header and
+  old recorded byte digest match. Cleanup validates every candidate first, refuses symbolic-link
+  paths or changed owned files and leaves authored neighbors alone. Clean builds remove owned
+  projections and regenerate before compilation. Materialization compares bytes, not lossy UTF-8
+  decoding. Tests cover stale durable inputs, changed outputs, concurrent materialization,
+  retirement, altered retirement candidates, ignored/untracked ownership and symbolic links.
+- A source tree exported from the staged index started with all 105 projections absent. A real
+  `pnpm install --frozen-lockfile` materialized every file with the committed manifest's digest,
+  and its full clean build passed. The primary workspace clean build also passed and reproduced
+  all 105 original working-file hashes exactly, including the pending MySQL generated outputs.
+  The MySQL projections remain locally present but become ignored; their maintained policy and
+  resolver changes remain pending and are not included in this commit.
+- All 68 repository contract files, production documentation, TypeScript project checks, quality
+  and the isolated performance gate pass. A formatting issue and an unused test import found by
+  quality were corrected; the affected emitter suite and targeted quality checks pass again.
+- Bundle measurement provenance now accepts ignored projections only when their exact bytes match
+  the committed ownership manifest, recording that manifest digest and every such input separately.
+  Fresh committed-input measurements are separate evidence; installed-size and native qualification
+  claims do not follow from deleting generated source from Git.
+- Remaining architecture work includes other compact cores/packs, all-engine native contract
+  qualification, project catalogs and complete cross-host contribution/facet acceptance. Removing
+  tracked projections does not finish those requirements.
+
 ## Required work still open
 
 1. Complete the contract/evidence model: native descriptors and provenance, reusable/facet-specific

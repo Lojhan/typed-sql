@@ -2,7 +2,11 @@ import { readdir, rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { cleanCatalogProjections } from "./catalog-generation/lifecycle.mjs";
+
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
+await cleanCatalogProjections(workspace);
 const packagesDirectory = join(workspace, "packages");
 const packages = (await readdir(packagesDirectory, { withFileTypes: true }))
   .filter((entry) => entry.isDirectory())
