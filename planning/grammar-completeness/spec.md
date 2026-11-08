@@ -1,7 +1,10 @@
 # Generated grammar catalogs and complete engine auditing
 
-Status: implementation in progress. Current evidence and remaining requirements are tracked in
-[the implementation ledger](./implementation.md).
+Status: preceding design; implementation paused. The final target
+[hybrid analysis direction](../hybrid-analysis/spec.md) supersedes universal offline semantic
+parity as the product completion requirement. Its research, new acceptance criteria and explicit
+disposition of retained work govern the direction change. The material below preserves the
+original design and baseline; [the implementation ledger](./implementation.md) retains evidence.
 
 Baseline: `f9b7371581911b20fc46d74b82394d813edb4d0e`, measured on 2026-11-07.
 

@@ -1,5 +1,12 @@
 # Grammar generation implementation evidence
 
+Direction change: implementation is paused. The final target
+[hybrid analysis specification](../hybrid-analysis/spec.md) replaces the universal offline parity
+target with contract-first compilation, a declared offline core, optional project catalogs,
+project-wide native qualification and opted-in live regeneration. The evidence and original
+remaining-requirement list below are preserved; they are
+not marked complete or silently reinterpreted as the new design's acceptance results.
+
 The objective is the full specification in [spec.md](./spec.md), with a merge-ready PR. Partial
 checkpoints below do not establish completion. Shared infrastructure must use registrations,
 never grammar-name branches. Engine and extension meanings belong to their contributions.
