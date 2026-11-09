@@ -23,6 +23,7 @@ export function createMySqlDialect(
   catalog: MySqlCatalogProvider,
   options: MySqlDialectOptions = {},
   selectedSeries?: string,
+  core = false,
 ): DialectPlugin<MySqlSchemaSnapshot, MySqlTypePolicy> {
   const profile = mysqlProfile(options);
   const defaultTypePolicy = profile.defaultTypePolicy;
@@ -83,6 +84,7 @@ export function createMySqlDialect(
           {
             typePolicy: policy,
             runtimeValidation: context.runtimeValidation === true,
+            unknownRoutineRequiresContract: core,
           },
           catalog,
         );

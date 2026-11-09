@@ -8,7 +8,6 @@ description: MySQL grammar coverage, catalog introspection, application-owned my
 
 `@typed-sql/mysql` contains the MySQL grammar, catalog model, resolver, type policy, and runtime codecs. The optional `@typed-sql/mysql/mysql2` entrypoint loads the `mysql2` driver installed by your application.
 
-
 ## Selected-series offline analysis
 
 Use an explicit series analyzer to retain that series' existing offline rules:
@@ -31,9 +30,6 @@ and SQL-mode/edition checks follow the existing support policy. The general
 | `@typed-sql/mysql/analysis/core/8.4` | Bounded offline 8.4 core |
 | `@typed-sql/mysql/analysis/core/9.7` | Bounded offline 9.7 core |
 | `@typed-sql/mysql/analysis/core/26.7` | Bounded offline canary core; requires the canary policy |
-| `@typed-sql/mysql/analysis/packs/8.4/compatibility` | Complementary 8.4 routine families |
-| `@typed-sql/mysql/analysis/packs/9.7/compatibility` | Complementary 9.7 routine families |
-| `@typed-sql/mysql/analysis/packs/26.7/compatibility` | Complementary canary routine families |
 
 For common SQL and [generated query contracts](../guides/query-manifests.md), select a core:
 
@@ -43,27 +39,22 @@ import { mysql } from "@typed-sql/mysql/analysis/core/9.7";
 export const dialect = mysql();
 ```
 
-The core retains complete selected routine families plus type, coercion, collation, operator,
-JSON and structural-expression rules. This is an explicit maintained scope, not a production
-popularity ranking. An omitted function produces `TSQ408` with guidance to add a matching pack
-or generate a qualified query contract. Argument analysis retains casts and parameter order;
-unsupported versions, SQL modes and editions remain errors. Native generation needs explicit
-configuration and does not occur on import.
+The core retains all existing maintained routine families plus type, coercion, collation,
+operator, JSON and structural-expression rules. This set already fits the compact-core scope;
+there is no separate MySQL compatibility data pack. Selecting one series excludes other full
+catalogs. Shared compact runtime codec/type metadata and cross-series availability vocabulary
+remain available.
 
-To restore the selected series' full offline function support:
+An unmapped function produces `TSQ408` with guidance to
+[generate a qualified query contract](../guides/query-manifests.md). Argument analysis retains
+casts and parameter order. Unsupported versions, SQL modes, editions and ambiguous calls remain
+blocking. Native generation needs explicit configuration and does not occur on import.
 
-```ts
-import { mysql } from "@typed-sql/mysql/analysis/core/9.7";
-import { mysqlCompatibilityPack } from "@typed-sql/mysql/analysis/packs/9.7/compatibility";
+The full analyzer entrypoints retain their existing diagnostic behavior, including a warning
+and unknown result for unrecognized functions. Core entrypoints request a qualified contract for
+that case. Neither import installs or initializes a driver. Application queries continue to
+import `sql` from `@typed-sql/mysql`.
 
-export const dialect = mysql({ packs: [mysqlCompatibilityPack] });
-```
-
-Packs must be installed grammar exports for the same series. Cloned descriptors, duplicates and
-other-series packs are rejected. Core imports exclude the optional routine partition, other
-series' full catalogs and introspection services. Shared compact runtime codec/type metadata and
-cross-series availability vocabulary remain available. No driver is installed or initialized by
-these imports. Application queries continue to import `sql` from `@typed-sql/mysql`.
 
 ## Public entrypoints
 

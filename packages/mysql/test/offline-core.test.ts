@@ -10,16 +10,16 @@ import { MYSQL_SUPPORT_POLICY, mySqlCoreCatalog, mysql } from "../src/analysis.j
 import { mySqlServerEvidence } from "../src/capabilities.js";
 import { createMySqlCatalogProvider } from "../src/catalog/provider.js";
 import { mySqlContractIdentity } from "../src/contract-profile.js";
-import type { MySqlCoreOptions, MySqlOfflinePack } from "../src/offline-packs.js";
+import type { MySqlProfileOptions } from "../src/profile.js";
 import { createMySqlContractReconciler } from "../src/reconciliation.js";
 
-type Factory = (options?: MySqlCoreOptions) => ReturnType<typeof mysql>;
+type Factory = (options?: MySqlProfileOptions) => ReturnType<typeof mysql>;
 const targets = [
   ...MYSQL_SUPPORT_POLICY.stable.map((target) => ({ ...target, canary: false })),
   { ...MYSQL_SUPPORT_POLICY.canary, canary: true },
 ];
 const esbuild = createRequire(new URL("../../build/package.json", import.meta.url))("esbuild");
-await describe("MySQL selected-series core and installed compatibility packs", async () => {
+await describe("MySQL selected-series core and full offline compatibility", async () => {
   await it("regenerates every partition and runtime projection from maintained policy", () => {
     execFileSync(
       process.execPath,
@@ -32,24 +32,16 @@ await describe("MySQL selected-series core and installed compatibility packs", a
     const options = target.canary ? { versionPolicy: "canary" as const } : {};
     const { mysql: createCore } = (await import(`../src/analysis/core/${series}.js`)) as { mysql: Factory };
     const { mysql: createSelected } = (await import(`../src/analysis/${series}.js`)) as { mysql: Factory };
-    const { mysqlCompatibilityPack: pack } = (await import(`../src/analysis/packs/${series}/compatibility.js`)) as {
-      mysqlCompatibilityPack: MySqlOfflinePack;
-    };
-    const { selection, prefixes } = (await import(`../src/catalog/generated/core/${series}.js`)) as {
-      selection: readonly string[];
-      prefixes: readonly string[];
-    };
     const core = createCore(options),
       full = mysql(options),
-      selected = createSelected(options),
-      expanded = createCore({ ...options, packs: [pack] });
+      selected = createSelected(options);
     const schema = core.validateSnapshot({
       formatVersion: 1,
       dialect: "mysql",
       server: mySqlServerEvidence(matrixVersion),
       tables: {},
     });
-    await it(`${series} preserves selected outcomes and restores the full independently captured invocation inventory`, async () => {
+    await it(`${series} preserves every existing rule across the independently captured invocation inventory`, async () => {
       const inventory = JSON.parse(
         await readFile(new URL(`../../../test/fixtures/language-audit/mysql-${series}.json`, import.meta.url), "utf8"),
       );
@@ -59,10 +51,16 @@ await describe("MySQL selected-series core and installed compatibility packs", a
         for (const sql of recognitionQueries(row)) {
           const expected = full.analyze(sql, schema);
           strict.deepEqual(selected.analyze(sql, schema), expected, sql);
-          strict.deepEqual(expanded.analyze(sql, schema), expected, sql);
+
           all++;
-          const name = row.name.toUpperCase();
-          if (selection.includes(name) || prefixes.some((prefix) => name.startsWith(prefix))) {
+          if (expected.diagnostics.some((item) => item.code === "TSQ202")) {
+            const result = core.analyze(sql, schema);
+            strict.ok(
+              result.diagnostics.some((item) => item.code === "TSQ408"),
+              sql,
+            );
+            strict.deepEqual(result.parameters, expected.parameters, sql);
+          } else {
             strict.deepEqual(core.analyze(sql, schema), expected, sql);
             included++;
           }
@@ -79,18 +77,18 @@ await describe("MySQL selected-series core and installed compatibility packs", a
       strict.deepEqual(core.analyze("SELECT UPPER(CAST(? AS CHAR)) AS label", schema).diagnostics, []);
     });
     await it(`${series} preserves unavailable-version and SQL-mode guards while diagnosing omitted rules`, () => {
-      const sql = "SELECT SQRT(CAST(? AS DECIMAL(12,3))) AS value";
-      strict.deepEqual(full.analyze(sql, schema).diagnostics, []);
+      const sql = "SELECT DEGREES(CAST(? AS DECIMAL(12,3))) AS value";
+      strict.ok(full.analyze(sql, schema).diagnostics.some((item) => item.code === "TSQ202"));
       const result = core.analyze(sql, schema);
       strict.equal(result.diagnostics[0]?.code, "TSQ408");
-      strict.match(result.diagnostics[0]!.message, /compatibility pack or generate a qualified query contract/u);
+      strict.match(result.diagnostics[0]!.message, /generate a qualified query contract/u);
       strict.deepEqual(result.parameters, full.analyze(sql, schema).parameters);
       strict.ok(result.columns.every((column) => column.tsType === "unknown"));
-      strict.deepEqual(expanded.analyze(sql, schema), full.analyze(sql, schema));
+
       const unavailable = core.analyze("SELECT VECTOR_DIM(?) AS value", schema);
       strict.equal(
         unavailable.diagnostics[0]?.code,
-        series === MYSQL_SUPPORT_POLICY.stable[0].series ? "TSQ403" : "TSQ408",
+        series === MYSQL_SUPPORT_POLICY.stable[0].series ? "TSQ403" : undefined,
       );
       const modes = { ...schema, server: mySqlServerEvidence(matrixVersion, { sqlMode: "HIGH_NOT_PRECEDENCE" }) };
       strict.deepEqual(core.analyze("SELECT 1 AS value", modes), full.analyze("SELECT 1 AS value", modes));
@@ -115,12 +113,8 @@ await describe("MySQL selected-series core and installed compatibility packs", a
         );
       }
     });
-    await it(`${series} refuses wrong-series snapshots, forged packs and duplicate packs`, async () => {
+    await it(`${series} refuses wrong-series and missing-evidence snapshots`, () => {
       const other = targets.find((value) => value.series !== series)!;
-      const { mysqlCompatibilityPack: otherPack } = await import(
-        `../src/analysis/packs/${other.series}/compatibility.js`
-      );
-      strict.throws(() => createCore({ ...options, packs: [otherPack] }), /offline pack requires series/u);
       strict.throws(
         () => core.validateSnapshot({ ...schema, server: mySqlServerEvidence(other.matrixVersion) }),
         /selected MySQL analyzer requires series/u,
@@ -134,12 +128,8 @@ await describe("MySQL selected-series core and installed compatibility packs", a
           .diagnostics[0]?.code,
         "TSQ402",
       );
-      strict.throws(() => createCore({ ...options, packs: [{ ...pack }] }), /installed grammar pack export/u);
-      strict.throws(() => createCore({ ...options, packs: [pack, pack] }), /Duplicate MySQL offline pack/u);
-      strict.equal(pack.sourceRevision, mySqlCoreCatalog(series)?.revision);
-      strict.ok(Object.isFrozen(pack));
     });
-    await it(`${series} excludes other full catalogs and the optional routine partition from its core graph`, async () => {
+    await it(`${series} excludes other full catalogs and introspection services from its core graph`, async () => {
       const path = (part: string) => JSON.stringify(fileURLToPath(new URL(`../src/${part}.ts`, import.meta.url)));
       const build = (entry: string) =>
         esbuild.build({
@@ -158,16 +148,10 @@ await describe("MySQL selected-series core and installed compatibility packs", a
       const built = await build(`analysis/core/${series}`),
         compat = await build("analysis");
       const inputs = Object.keys(built.metafile.inputs);
-      strict.ok(inputs.some((input) => input.endsWith(`/catalog/generated/core/${series}.ts`)));
+      strict.ok(inputs.some((input) => input.endsWith(`/catalog/generated/${series}.ts`)));
       for (const other of targets)
-        strict.ok(
-          !inputs.some(
-            (input) =>
-              input.endsWith(`/catalog/generated/${other.series}.ts`) ||
-              input.includes("/catalog/generated/packs/") ||
-              (other.series !== series && input.endsWith(`/catalog/generated/core/${other.series}.ts`)),
-          ),
-        );
+        if (other.series !== series)
+          strict.ok(!inputs.some((input) => input.endsWith(`/catalog/generated/${other.series}.ts`)));
       strict.ok(
         !inputs.some(
           (input) =>
@@ -208,23 +192,15 @@ await describe("MySQL selected-series core and installed compatibility packs", a
       "invalid",
     );
   });
-  await it("owns catalog, selection and availability inputs without exposing mutable backing data", () => {
+  await it("owns catalog and availability inputs without exposing mutable backing data", () => {
     const source = structuredClone(mySqlCoreCatalog(MYSQL_SUPPORT_POLICY.stable[0].series)!);
-    const selection = ["COUNT"],
-      availability = { COUNT: [source.series] };
-    const provider = createMySqlCatalogProvider([source], { selection, routineSeries: availability });
-    selection.push("SQRT");
+    const availability = { COUNT: [source.series] };
+    const provider = createMySqlCatalogProvider([source], { routineSeries: availability });
     availability.COUNT.length = 0;
-    strict.equal(provider.permitsBuiltin("sqrt"), false);
-    strict.equal(
-      provider.isRoutineAvailable("COUNT", {
-        formatVersion: 1,
-        dialect: "mysql",
-        version: MYSQL_SUPPORT_POLICY.stable[0].matrixVersion,
-        tables: {},
-      }),
-      true,
-    );
+    strict.equal(provider.hasRoutineInAnotherSeries("COUNT"), true);
+    const original = source.types[0]!.name;
+    Reflect.set(source.types[0]!, "name", "mutated");
+    strict.equal(provider.type(original)?.name, original);
     strict.ok(Object.isFrozen(provider.catalog(source.series)?.routines));
     strict.throws(() => createMySqlCatalogProvider([source, source]), /Duplicate MySQL catalog/u);
   });

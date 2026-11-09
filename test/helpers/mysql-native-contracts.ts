@@ -63,7 +63,7 @@ export async function assertMySqlNativeContracts(connectionUri: string): Promise
     const { mysql: createCore } = await import(`../../packages/mysql/src/analysis/core/${series}.js`);
     const core = createCore();
     const coreRunner = createNativeLiveAnalysisRunner({ adapter, contribution: createMySqlContractReconciler() });
-    for (const sql of ["SELECT SQRT(4.0) AS value", "SELECT SQRT(CAST(? AS DECIMAL(12,3))) AS value"]) {
+    for (const sql of ["SELECT DEGREES(4.0) AS value", "SELECT DEGREES(CAST(? AS DECIMAL(12,3))) AS value"]) {
       const claim = createStaticQueryClaim({ sql, context, analysis: core.analyze(sql, schema) });
       strict.deepEqual(
         claim.diagnostics.map((item) => item.code),
@@ -84,7 +84,7 @@ export async function assertMySqlNativeContracts(connectionUri: string): Promise
       if (qualified.kind !== "usable-recorded-context") throw Error("Omitted MySQL core rule was not qualified");
       strict.deepEqual(
         qualified.contract.valuePlan.columns.map((column) => [column.name, column.type, column.nullable]),
-        [["value", "number", true]],
+        [["value", "number", query.parameterOccurrences.length > 0]],
       );
       strict.deepEqual(
         qualified.contract.valuePlan.parameters.map((parameter) => [

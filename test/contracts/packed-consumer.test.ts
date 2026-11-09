@@ -349,9 +349,8 @@ await describe("packed public packages", async () => {
         for(const target of [...MYSQL_SUPPORT_POLICY.stable,MYSQL_SUPPORT_POLICY.canary]) {
           const selected=await import("@typed-sql/mysql/analysis/"+target.series);
           const core=await import("@typed-sql/mysql/analysis/core/"+target.series);
-          const pack=await import("@typed-sql/mysql/analysis/packs/"+target.series+"/compatibility");
-          if(Object.keys(selected).join(",")!=="mysql"||Object.keys(core).join(",")!=="mysql"||Object.keys(pack).join(",")!=="mysqlCompatibilityPack")throw Error("MySQL selected/core/pack exports changed");
-          assertDialectPlugin(selected.mysql());assertDialectPlugin(core.mysql());assertDialectPlugin(core.mysql({packs:[pack.mysqlCompatibilityPack]}));
+          if(Object.keys(selected).join(",")!=="mysql"||Object.keys(core).join(",")!=="mysql")throw Error("MySQL selected/core exports changed");
+          assertDialectPlugin(selected.mysql());assertDialectPlugin(core.mysql());
           const schema={formatVersion:1,dialect:"mysql",server:mySqlServerEvidence(target.matrixVersion),tables:{}};
           if(selected.mysql().validateSnapshot(schema).server.versionKey!==target.matrixVersion)throw Error("Selected MySQL series changed");
           let refused=false;try{core.mysql().validateSnapshot({...schema,server:undefined});}catch{refused=true;}

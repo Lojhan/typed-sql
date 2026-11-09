@@ -1,11 +1,12 @@
+import { createMySqlDialect } from "../../analysis-factory.js";
+import catalog from "../../catalog/generated/26.7.js";
 import { routineSeries } from "../../catalog/generated/availability.js";
-import catalog, { prefixes, selection } from "../../catalog/generated/core/26.7.js";
 import { createMySqlCatalogProvider } from "../../catalog/provider.js";
-import { createMySqlCoreDialect, type MySqlCoreOptions } from "../../offline-packs.js";
+import type { MySqlProfileOptions } from "../../profile.js";
 
-export type { MySqlCoreOptions, MySqlOfflinePack } from "../../offline-packs.js";
+export type { MySqlProfileOptions as MySqlCoreOptions } from "../../profile.js";
 
-const owner = createMySqlCatalogProvider([catalog], { routineSeries, selection, prefixes });
-export function mysql(options: MySqlCoreOptions = {}) {
-  return createMySqlCoreDialect(owner, "26.7", options);
+const owner = createMySqlCatalogProvider([catalog], { routineSeries });
+export function mysql(options: MySqlProfileOptions = {}) {
+  return createMySqlDialect(owner, options, "26.7", true);
 }

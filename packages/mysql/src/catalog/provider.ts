@@ -109,16 +109,11 @@ export interface MySqlCatalogProvider {
   routine(value: string, schema?: SchemaSnapshot): MySqlCatalogRoutineFamily | undefined;
   collation(value: string, schema?: SchemaSnapshot): MySqlCatalogCollation | undefined;
   hasRoutineInAnotherSeries(value: string, schema?: SchemaSnapshot): boolean;
-  isKnownBuiltin(value: string): boolean;
-  isRoutineAvailable(value: string, schema?: SchemaSnapshot): boolean;
-  permitsBuiltin(value: string): boolean;
 }
 export function createMySqlCatalogProvider(
   input: readonly MySqlCoreCatalog[],
   options: {
     readonly routineSeries?: Readonly<Record<string, readonly string[]>>;
-    readonly selection?: readonly string[];
-    readonly prefixes?: readonly string[];
   } = {},
 ): MySqlCatalogProvider {
   const catalogs = new Map<string, MySqlCoreCatalog>();
@@ -133,9 +128,6 @@ export function createMySqlCatalogProvider(
     for (const catalog of catalogs.values())
       for (const family of catalog.routines)
         for (const name of family.routines) availability.set(name, [...(availability.get(name) ?? []), catalog.series]);
-  const selection =
-    options.selection === undefined ? undefined : new Set(options.selection.map((name) => name.toUpperCase()));
-  const prefixes = (options.prefixes ?? []).map((prefix) => prefix.toUpperCase());
   function mySqlCoreCatalog(series: string): MySqlCoreCatalog | undefined {
     return catalogs.get(series);
   }
@@ -200,19 +192,6 @@ export function createMySqlCatalogProvider(
     const current = mySqlCoreCatalogForSchema(schema)?.series;
     return availability.get(routine.toUpperCase())?.some((series) => series !== current) ?? false;
   }
-  function isKnownBuiltin(routine: string): boolean {
-    return availability.has(routine.toUpperCase());
-  }
-  function isRoutineAvailable(routine: string, schema?: SchemaSnapshot): boolean {
-    const current = selected(schema)?.series;
-    return current !== undefined && (availability.get(routine.toUpperCase())?.includes(current) ?? false);
-  }
-  function permitsBuiltin(routine: string): boolean {
-    const normalized = routine.toUpperCase();
-    return (
-      selection === undefined || selection.has(normalized) || prefixes.some((prefix) => normalized.startsWith(prefix))
-    );
-  }
   return Object.freeze({
     catalog: mySqlCoreCatalog,
     forSchema: mySqlCoreCatalogForSchema,
@@ -223,8 +202,5 @@ export function createMySqlCatalogProvider(
     routine: mySqlCatalogRoutine,
     collation: mySqlCatalogCollation,
     hasRoutineInAnotherSeries: mySqlCatalogHasRoutineInAnotherSeries,
-    isKnownBuiltin,
-    isRoutineAvailable,
-    permitsBuiltin,
   });
 }

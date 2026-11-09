@@ -96,6 +96,7 @@ export interface ResolveMySqlOptions {
   readonly typePolicy?: MySqlTypePolicy;
   readonly runtimeValidation?: boolean;
   readonly strictExpressions?: boolean;
+  readonly unknownRoutineRequiresContract?: boolean;
 }
 
 const comparisonOperators = new Set([
@@ -330,6 +331,7 @@ class Resolver {
   readonly #policy: MySqlTypePolicy;
   readonly #strict: boolean;
   readonly #runtimeValidation: boolean;
+  readonly #unknownRoutineRequiresContract: boolean;
   #requiresJsonValidation = false;
   #jsonOperations = 0;
   readonly #diagnostics: SqlDiagnostic[] = [];
@@ -346,6 +348,7 @@ class Resolver {
   ) {
     this.#schema = schema;
     this.#runtimeValidation = options.runtimeValidation === true;
+    this.#unknownRoutineRequiresContract = options.unknownRoutineRequiresContract === true;
     this.#index = ResolverSchemaIndex.for(schema);
     this.#policy = options.typePolicy ?? defaultMySqlTypePolicy;
     this.#strict = options.strictExpressions ?? true;
@@ -772,7 +775,15 @@ class Resolver {
   ): readonly ResolvedMySqlColumn[] {
     const merged: ResolvedMySqlColumn[] = [];
     for (const statement of statements) {
-      const probe = new Resolver(this.#schema, { typePolicy: this.#policy, strictExpressions: false }, this.catalog);
+      const probe = new Resolver(
+        this.#schema,
+        {
+          typePolicy: this.#policy,
+          strictExpressions: false,
+          unknownRoutineRequiresContract: this.#unknownRoutineRequiresContract,
+        },
+        this.catalog,
+      );
       const columns = probe.#select(statement, outer, inherited);
       if (merged.length === 0) {
         merged.push(...columns);
@@ -1761,24 +1772,6 @@ class Resolver {
       this.#diagnostic("TSQ227", `${functionName} has an invalid argument count`, expression.range);
     }
     if (values.some((value) => value.json?.requiresRuntimeValidation)) this.#requiresJsonValidation = true;
-    if (
-      expression.schema === undefined &&
-      !this.catalog.permitsBuiltin(functionName) &&
-      (this.catalog.isKnownBuiltin(functionName) ||
-        this.#index.functions(name(expression.name), values.length).length === 0)
-    ) {
-      const unavailable =
-        !this.catalog.isRoutineAvailable(functionName, this.#schema) &&
-        this.catalog.hasRoutineInAnotherSeries(functionName, this.#schema);
-      this.#diagnostic(
-        unavailable ? "TSQ403" : "TSQ408",
-        unavailable
-          ? `${functionName} is not available in MySQL ${this.#schema.server?.versionKey ?? this.#schema.version}`
-          : `The selected MySQL offline core does not include ${functionName}; add the matching compatibility pack or generate a qualified query contract`,
-        expression.range,
-      );
-      return { tsType: "unknown", nullable: true };
-    }
     const json = expression.schema === undefined ? this.#jsonCall(functionName, expression, values) : undefined;
     if (json !== undefined) return json;
     const builtin = expression.schema === undefined ? this.catalog.routine(functionName, this.#schema) : undefined;
@@ -1833,11 +1826,15 @@ class Resolver {
       return this.#function(selected);
     }
     this.#diagnostic(
-      candidates.length > 1 ? "TSQ204" : "TSQ202",
-      candidates.length > 1 ? `Ambiguous function ${expression.name.name}` : `Unknown function ${expression.name.name}`,
+      candidates.length > 1 ? "TSQ204" : this.#unknownRoutineRequiresContract ? "TSQ408" : "TSQ202",
+      candidates.length > 1
+        ? `Ambiguous function ${expression.name.name}`
+        : this.#unknownRoutineRequiresContract
+          ? `The MySQL offline core has no qualified rule for ${expression.name.name}; generate a qualified query contract`
+          : `Unknown function ${expression.name.name}`,
       expression.range,
       undefined,
-      candidates.length > 1 ? "error" : "warning",
+      candidates.length > 1 || this.#unknownRoutineRequiresContract ? "error" : "warning",
     );
     return { tsType: "unknown", nullable: true };
   }
