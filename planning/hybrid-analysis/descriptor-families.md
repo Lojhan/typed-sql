@@ -270,6 +270,12 @@ on every engine. Unit regressions reject missing/duplicated targets, incomplete 
 failures and inconsistent accounting, and prove that a partial-to-acquired change requires review.
 The gate passes all ten fresh hosted captures in [run 42637006229](https://github.com/Lojhan/typed-sql/actions/runs/42637006229), with successful case and database-cleanup status. That aggregate separately fails PostgreSQL watch regeneration and SQL Server 17's later packed editor check; these descriptor results do not make the aggregate green.
 
+The native statement probe additionally creates a typed XML collection/table and a builtin CLR
+`hierarchyid` table beside its existing alias/computed/RLS controls. Both must be rejected by
+relation admission on every declared compatibility pair. Local syntax and descriptor/native
+unit suites pass; actual hosted execution of these new class controls is pending. This tests
+unavailability at the relation boundary and does not promote typed XML or CLR runtime codecs.
+
 ## Capability boundaries used for acceptance
 
 The common evidence format has three independently qualified facets: native identity (including

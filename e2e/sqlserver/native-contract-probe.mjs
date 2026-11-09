@@ -120,6 +120,9 @@ try {
       "CREATE TABLE dbo.computed_records (id bigint NOT NULL, computed AS id+1)",
       "CREATE TYPE dbo.contract_id FROM bigint NOT NULL",
       "CREATE TABLE dbo.alias_records (id dbo.contract_id)",
+      `CREATE XML SCHEMA COLLECTION dbo.contract_xml AS '<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="value" type="xs:string"/></xs:schema>'`,
+      "CREATE TABLE dbo.typed_xml_records (id xml(dbo.contract_xml))",
+      "CREATE TABLE dbo.clr_records (id hierarchyid)",
       "CREATE TABLE dbo.protected_records (id bigint NOT NULL)",
       "CREATE FUNCTION dbo.contract_filter(@id bigint) RETURNS TABLE WITH SCHEMABINDING AS RETURN SELECT 1 AS allowed WHERE @id>=0",
       "CREATE SECURITY POLICY dbo.contract_policy ADD FILTER PREDICATE dbo.contract_filter(id) ON dbo.protected_records WITH (STATE=ON)",
@@ -452,7 +455,14 @@ try {
         });
       evidence.cases.push({ compatibility, id, status: "pass", contract: qualified.contract });
     }
-    for (const relation of ["record_view", "computed_records", "alias_records", "protected_records"]) {
+    for (const relation of [
+      "record_view",
+      "computed_records",
+      "alias_records",
+      "typed_xml_records",
+      "clr_records",
+      "protected_records",
+    ]) {
       const session = await adapter.open();
       try {
         await assert.rejects(
