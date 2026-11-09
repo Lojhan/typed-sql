@@ -14,7 +14,13 @@ const facts = {
   ],
 };
 const cases = sqlServerVocabularyCases(facts.common);
-const expectedRows = (ids: number[]) =>
+interface NativeVocabularyRow {
+  probe_id: number;
+  column_ordinal: number | null;
+  error_number: number | null;
+  name: string | null;
+}
+const expectedRows = (ids: number[]): NativeVocabularyRow[] =>
   ids.map((id) => ({
     probe_id: id,
     column_ordinal: 1,
@@ -44,7 +50,7 @@ await describe("source vocabulary extraction and native audit boundaries", async
       parseSqlServerVocabulary(common, parser.replace("tId:Identifier", "tId:NewKeyword"), constants, 17),
     );
     strict.throws(() =>
-      parseSqlServerVocabulary(common, parser, constants + "\ninternal const string Dynamic=GetValue();", 17),
+      parseSqlServerVocabulary(common, parser, `${constants}\ninternal const string Dynamic=GetValue();`, 17),
     );
   });
   await it("covers every declared word/context and preserves native permission masks", async () => {
@@ -127,10 +133,14 @@ await describe("source vocabulary extraction and native audit boundaries", async
         ),
       );
     await strict.rejects(auditSqlServerVocabulary({ all: async () => [] }, 17, 160, { facts }), /Missing native/u);
-    await strict.rejects(
-      auditSqlServerVocabulary({ all: async () => expectedRows([0, 0]) }, 17, 160, { facts }),
-      /Duplicate native/u,
+    const duplicate = await auditSqlServerVocabulary(
+      { all: async () => expectedRows([0, ...cases.map((item: { id: number }) => item.id)]) },
+      17,
+      160,
+      { facts },
     );
+    strict.equal(duplicate.status, "native-unavailable");
+    strict.equal(duplicate.descriptorFallbacks, 1);
     await strict.rejects(
       auditSqlServerVocabulary(
         {
@@ -144,6 +154,27 @@ await describe("source vocabulary extraction and native audit boundaries", async
       ),
       /Unqualified/u,
     );
+  });
+  await it("re-describes an ambiguous batch response individually before using its evidence", async () => {
+    const report = await auditSqlServerVocabulary(
+      {
+        all: async (sql: string) => {
+          if (sql.startsWith("SELECT candidate")) {
+            const ids = [...sql.matchAll(/\((\d+),N'/gu)].map((match) => Number(match[1]));
+            return [...expectedRows(ids), ...expectedRows([0])];
+          }
+          const text = /describe_first_result_set\(N'((?:''|[^'])*)',NULL,0\)/u.exec(sql)?.[1]?.replaceAll("''", "'");
+          const item = cases.find((item: { sql: string }) => item.sql === text)!;
+          return expectedRows([item.id]);
+        },
+      },
+      17,
+      160,
+      { facts },
+    );
+    strict.equal(report.status, "matched");
+    strict.equal(report.descriptorFallbacks, 1);
+    strict.equal(report.individualDescriptions, 1);
   });
   await it("does not turn unavailable native metadata into proof that a reserved spelling is rejected", async () => {
     const report = await auditSqlServerVocabulary(
@@ -161,6 +192,26 @@ await describe("source vocabulary extraction and native audit boundaries", async
     );
     strict.equal(report.status, "native-unavailable");
     strict.equal(report.mismatches[0]?.accepted, null);
+  });
+  await it("preserves multiple native error records without treating denied metadata as keyword rejection", async () => {
+    const client = (denied: boolean) => ({
+      all: async (sql: string) => {
+        const ids = [...sql.matchAll(/\((\d+),N'/gu)].map((match) => Number(match[1]));
+        return expectedRows(ids).flatMap((row) =>
+          row.probe_id === 8
+            ? [
+                { ...row, error_number: denied ? 229 : 102, column_ordinal: null },
+                { ...row, error_number: 8180, column_ordinal: null },
+              ]
+            : [row],
+        );
+      },
+    });
+    const described = await auditSqlServerVocabulary(client(false), 17, 160, { facts });
+    strict.equal(described.status, "matched");
+    const denied = await auditSqlServerVocabulary(client(true), 17, 160, { facts });
+    strict.equal(denied.status, "native-unavailable");
+    strict.equal(denied.mismatches[0]?.accepted, null);
   });
   await it("discovers every supported engine and compatibility pair in pinned SQL Server evidence", async () => {
     const { SQLSERVER_LANGUAGE_SUPPORT } = await import("../../packages/sqlserver/src/support.js");

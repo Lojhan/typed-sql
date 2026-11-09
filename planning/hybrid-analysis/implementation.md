@@ -1494,3 +1494,25 @@ SQL Server runtime/parser consumption and any source/native reservation differen
 unfinished until that native evidence is reviewed. This phase changes audit tooling and license
 metadata, not production grammar inference. Final per-profile context/facet/workload evidence and
 refreshed final measurements remain outstanding.
+
+
+## SQL Server native response-shape follow-up
+
+The initial SQL Server source-audit [run at `af2ac81c`](https://github.com/Lojhan/typed-sql/actions/runs/42587556126)
+reaches the real native catalog step but stops at duplicate descriptor identities. The first
+completed 14/140 artifact therefore contains no vocabulary qualification; it is not accepted
+as word/context evidence. All four native jobs fail in that run.
+
+The audit now groups a candidate's native response rows. Multiple explicit error records are
+preserved as rejection evidence; authorization-denied records remain unavailable. Ambiguous
+column metadata is independently re-described through a separate single-candidate request.
+Only a complete single-column descriptor with the exact expected result name can qualify that
+request. Repeated successful metadata, mixed error/column data or absent descriptors cannot
+become success. Unexpected native probe identities and missing batched identities still fail.
+The artifact separately counts batched errors, individual descriptions and ambiguous-descriptor
+fallbacks, and includes its producer digest and explicit context-bit ordering.
+
+Focused fault controls now cover multiple errors, denied metadata, successful individual
+re-description and an ambiguous response that remains unavailable after re-description. Root
+types and quality pass. Production grammar behavior is unchanged; native source reconciliation
+and SQL Server parser integration still require actual completed matrix evidence.

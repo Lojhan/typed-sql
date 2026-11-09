@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { describeSqlServer } from "../language-audit/native.mjs";
 
 /** Identifier contexts are test inputs, not instructions to execute candidate statements. */
 export function sqlServerVocabularyCases(words) {
@@ -38,6 +38,25 @@ const expectedSqlError = (error) =>
   error?.diagnostics?.length > 0 &&
   error.diagnostics.every((row) => /^42/u.test(row.state) && ![229, 230].includes(row.native));
 const literal = (value) => `N'${value.replaceAll("'", "''")}'`;
+function described(rows, item) {
+  if (rows.length && rows.every((row) => row.error_number != null)) {
+    const errors = [...new Set(rows.map((row) => Number(row.error_number)))];
+    assert.ok(
+      errors.every((value) => Number.isSafeInteger(value) && value > 0),
+      "Invalid native error identity",
+    );
+    return {
+      accepted: errors.some((value) => [229, 230].includes(value)) ? null : false,
+      reason: errors.sort((a, b) => a - b).join(","),
+    };
+  }
+  if (rows.length === 1 && rows[0].error_number == null && Number(rows[0].column_ordinal) === 1)
+    return {
+      accepted: rows[0].name === item.name,
+      reason: rows[0].name === item.name ? "native-accepted" : "name-mismatch",
+    };
+  return { accepted: null, reason: "metadata-unavailable-or-ambiguous" };
+}
 
 /** Explicit owned-session audit. Only native description calls run; candidates never execute. */
 export async function auditSqlServerVocabulary(client, major, compatibilityLevel, options = {}) {
@@ -48,12 +67,29 @@ export async function auditSqlServerVocabulary(client, major, compatibilityLevel
   const profile = facts.profiles.find((profile) => profile.major === major);
   assert.ok(profile?.compatibilityLevels.includes(compatibilityLevel), "Unqualified SQL Server vocabulary profile");
   const words = [...facts.common, ...profile.words].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  assert.ok(words.length, "Empty SQL Server vocabulary inventory");
   assert.equal(new Set(words.map(([name]) => name)).size, words.length);
   const cases = sqlServerVocabularyCases(words),
     results = new Map();
   const ordered = [...cases].sort((a, b) => Number(b.expected) - Number(a.expected) || a.id - b.id);
   let batches = 0,
-    fallbackBatches = 0;
+    fallbackBatches = 0,
+    individualDescriptions = 0,
+    descriptorFallbacks = 0;
+  const individually = async (item) => {
+    individualDescriptions++;
+    try {
+      return described(
+        await client.all(
+          `SELECT error_number,column_ordinal,name FROM sys.dm_exec_describe_first_result_set(${literal(item.sql)},NULL,0)`,
+        ),
+        item,
+      );
+    } catch (error) {
+      if (!expectedSqlError(error)) throw error;
+      return { accepted: false, reason: error.diagnostics.map((row) => `${row.state}:${row.native}`).join(",") };
+    }
+  };
   for (let start = 0; start < ordered.length; start += 64) {
     const batch = ordered.slice(start, start + 64),
       ids = new Set(batch.map((item) => item.id));
@@ -66,50 +102,25 @@ export async function auditSqlServerVocabulary(client, major, compatibilityLevel
     } catch (error) {
       if (!expectedSqlError(error)) throw error;
       fallbackBatches++;
-      for (const item of batch) {
-        const result = await describeSqlServer(client, item.sql);
-        const column = result.metadata?.columns?.[0];
-        const accepted =
-          result.accepted && Number(column?.ordinal) === 1
-            ? column.name === item.name
-            : !result.accepted && result.reason !== "metadata unavailable"
-              ? false
-              : null;
-        results.set(item.id, {
-          accepted,
-          reason:
-            accepted === null
-              ? "metadata-unavailable"
-              : accepted
-                ? "native-accepted"
-                : result.accepted
-                  ? "name-mismatch"
-                  : result.reason,
-        });
-      }
+      for (const item of batch) results.set(item.id, await individually(item));
       continue;
     }
     const byId = new Map();
     for (const row of rows) {
       const id = Number(row.probe_id);
       assert.ok(Number.isSafeInteger(id) && ids.has(id), "Unexpected native vocabulary probe identity");
-      assert.ok(!byId.has(id), "Duplicate native vocabulary descriptor");
-      byId.set(id, row);
+      const descriptors = byId.get(id) ?? [];
+      descriptors.push(row);
+      byId.set(id, descriptors);
     }
     assert.equal(byId.size, batch.length, "Missing native vocabulary descriptors");
     for (const item of batch) {
-      const row = byId.get(item.id);
-      const accepted =
-        row.error_number != null ? false : Number(row.column_ordinal) === 1 ? row.name === item.name : null;
-      results.set(item.id, {
-        accepted,
-        reason:
-          accepted === null
-            ? "metadata-unavailable"
-            : row.error_number == null
-              ? "name-mismatch"
-              : String(row.error_number),
-      });
+      const descriptors = byId.get(item.id);
+      const result = described(descriptors, item);
+      if (result.accepted === null && result.reason === "metadata-unavailable-or-ambiguous" && descriptors.length > 1) {
+        descriptorFallbacks++;
+        results.set(item.id, await individually(item));
+      } else results.set(item.id, result);
     }
   }
   assert.equal(results.size, cases.length);
@@ -130,6 +141,10 @@ export async function auditSqlServerVocabulary(client, major, compatibilityLevel
   return {
     formatVersion: 1,
     profile: "sqlserver-source-vocabulary-context-v1",
+    toolDigest: `sha256:${createHash("sha256")
+      .update(await readFile(new URL(import.meta.url)))
+      .digest("hex")}`,
+    contexts: cases.slice(0, 8).map((item) => item.role),
     major,
     compatibilityLevel,
     sourceDigest: profile.sourceDigest,
@@ -138,6 +153,8 @@ export async function auditSqlServerVocabulary(client, major, compatibilityLevel
     probes: cases.length,
     batches,
     fallbackBatches,
+    individualDescriptions,
+    descriptorFallbacks,
     status: mismatches.some((row) => row.accepted === null)
       ? "native-unavailable"
       : mismatches.length
