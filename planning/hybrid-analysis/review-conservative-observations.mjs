@@ -46,15 +46,11 @@ for (const file of files) {
       assert.ok(left.diagnosticDetails.some((item) => item.code === "TSQ202" && item.severity === "error"));
       assert.equal(right.columns.length, left.columns.length);
       assert.ok(right.columns.length > 0);
-      assert.ok(
-        right.columns.every(
-          (column) =>
-            column.tsType === "unknown" &&
-            column.runtimeType === "unknown" &&
-            column.nullable === true &&
-            column.databaseType === undefined,
-        ),
-      );
+      const weakened = left.columns.map((column) => {
+        const { databaseType: _databaseType, ...retained } = column;
+        return { ...retained, tsType: "unknown", runtimeType: "unknown", nullable: true };
+      });
+      assert.deepEqual(right.columns, weakened, "Result labels, spans and other fields must remain identical");
       assert.equal(
         hash({ ...right, columns: left.columns }),
         hash(left),

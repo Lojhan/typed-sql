@@ -1081,7 +1081,7 @@ paths, but its aggregate fails reviewed catalog fingerprints. The [narrow baseli
 review](./sqlserver-core-baseline-review.md) proves that all 14 captures / ten compatibility targets
 change only the result columns of already-diagnosed GROUPING_ID(). Restoring those columns
 reproduces each entire previous observation fingerprint. Categories, native metadata, diagnostics,
-parameters and coverage counts are unchanged. Six adversarial mutations are rejected by the new
+parameters and coverage counts are unchanged. Eight adversarial mutations, including changed result labels/spans, are rejected by the new
 read-only comparison tool. The ten corresponding baseline/finding fingerprints are reviewed and
 updated; no recognition coverage is added. A regression keeps the diagnosed row unknown/nullable.
 All 70 native qualified contracts and 40 unsafe relation rejections pass across exact engines

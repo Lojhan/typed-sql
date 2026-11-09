@@ -47,8 +47,8 @@ node planning/hybrid-analysis/review-conservative-observations.mjs \
 ```
 
 The comparison passes all 14 captures, representing 10 unique compatibility targets. Exactly
-one invocation changes per capture. Six negative controls separately mutate native metadata,
-result optimism, diagnostics, recognition counts, a successful observation and an inventory row;
+one invocation changes per capture. Eight negative controls separately mutate result labels/spans, native metadata, result optimism,
+diagnostics, recognition counts, a successful observation and an inventory row;
 every control is rejected. Only the ten reviewed recognition/finding fingerprints are accepted.
 The shared finding dictionary replaces one observation; no captured vendor corpus is added.
 
