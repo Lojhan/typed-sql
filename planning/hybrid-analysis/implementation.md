@@ -2162,9 +2162,8 @@ run; the temporary diagnostic patch used during investigation is absent.
 The PostgreSQL endpoint audit now acquires contexts on actual 18.3 and 18.6 engines while keeping
 one empty compiler schema and the same type policy/codec. Both directed old-context acquisitions
 return context-mismatch; own-context acquisitions still succeed. Repeated actual engine versions
-fail coverage, and owned connections close on both paths. A local committed capture at `966a18f0`
-records 18.3 Debian 13 and 18.6 Debian 12; its collector hash matches Git. The helper now also
-bounds initial connection and metadata-query deadlines. This is endpoint/catalog evidence,
+fail coverage, and owned connections close on both paths. A local committed capture at `19f0ebda`
+records 18.3 Debian 13 and 18.6 Debian 12; its collector hash matches Git. The capture includes bounded initial connection and metadata-query deadlines. This is endpoint/catalog evidence,
 not an in-place upgrade or version-only isolation claim. Required packed-database CI includes
 both service versions and uploads a report; fresh hosted execution remains pending.
 
