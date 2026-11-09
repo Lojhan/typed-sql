@@ -33,7 +33,7 @@ interface Observation {
 }
 
 /** Source-derived constructors; owned empty tables; COM_STMT_PREPARE without candidate execution. */
-export async function captureMySqlDescriptorInventory(connectionUri: string) {
+export async function captureMySqlDescriptorInventory(connectionUri: string, options: { reviewed?: boolean } = {}) {
   const facts = JSON.parse(
     await readFile(new URL("../../grammar/mysql/qualification/descriptor-types.json", import.meta.url), "utf8"),
   ) as {
@@ -233,6 +233,22 @@ export async function captureMySqlDescriptorInventory(connectionUri: string) {
       );
     }
     strict.equal(observations.length, profile.cases.length * 2);
+    if (options.reviewed) {
+      const approved = JSON.parse(
+        await readFile(new URL("../../grammar/mysql/qualification/native-descriptors.json", import.meta.url), "utf8"),
+      );
+      strict.equal(approved.formatVersion, 1);
+      const expected = approved.profiles[`${engine}:${queryContractDigest(sqlMode)}`];
+      strict.ok(expected, "Review the exact MySQL engine/SQL-mode descriptor capture before qualification");
+      strict.equal(expected.constructors, profile.cases.length);
+      strict.equal(expected.adapterQualified, qualifiedAdapter);
+      strict.deepEqual(expected.counts, counts);
+      strict.equal(
+        expected.observationDigest,
+        report.observationDigest,
+        "Native MySQL descriptor facts changed; review the capture without accepting new gaps",
+      );
+    }
     strict.ok(observations.some(({ adapter }) => adapter.status === "acquired") || !qualifiedAdapter);
     return report;
   } finally {
@@ -247,7 +263,9 @@ export async function captureMySqlDescriptorInventory(connectionUri: string) {
 if (process.argv[1] && (await realpath(process.argv[1])) === (await realpath(fileURLToPath(import.meta.url)))) {
   strict.ok(process.env.TYPED_SQL_MYSQL_URL, "Set an explicit owned MySQL audit URL");
   strict.ok(process.env.TYPED_SQL_NATIVE_DESCRIPTOR_DIRECTORY, "Set an explicit descriptor capture directory");
-  const report = await captureMySqlDescriptorInventory(process.env.TYPED_SQL_MYSQL_URL!);
+  const report = await captureMySqlDescriptorInventory(process.env.TYPED_SQL_MYSQL_URL!, {
+    reviewed: process.argv.includes("--check"),
+  });
   console.log(
     JSON.stringify({
       engine: report.engine,

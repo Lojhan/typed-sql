@@ -6,7 +6,7 @@ const fixture = await startMySqlFixture();
 try {
   await describe("MySQL source-driven descriptor inventory", async () => {
     await it("accounts for every generated constructor and preserves independent parameter/result facts", async () => {
-      const report = await captureMySqlDescriptorInventory(fixture.rootUri);
+      const report = await captureMySqlDescriptorInventory(fixture.rootUri, { reviewed: true });
       strict.equal(report.observations.length, report.cases.length * 2);
     });
   });
