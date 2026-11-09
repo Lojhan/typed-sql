@@ -3,15 +3,16 @@
 > Implementation scope: this PR retains existing offline support without shipping an exhaustive
 > upstream semantic catalog or vendor source-extraction pipeline. DuckDB has exact-engine cores
 > and complementary compatibility packs; MySQL and PostgreSQL have selected-series/major cores;
-> SQLite and SQL Server retain their small maintained catalogs in portable cores. Representative
-> workload selection, complete vocabulary verification and the remaining acceptance evidence are
-> still architecture targets. Native capabilities below require their own qualification evidence;
-> this specification is not a completeness claim.
+> SQLite and SQL Server retain their small maintained catalogs in portable cores. The maintained finite
+> workload, pinned vocabulary/context audits and native qualification have separate evidence
+> reports. Native capabilities below retain their declared profile and facet limits; this
+> specification is not a universal SQL completeness claim.
 
-Status: final direction-change specification; implementation is in progress. This defines the
-target architecture and acceptance requirements, not an assertion that they are implemented.
+Status: implemented and qualified within the declared profile boundaries. The complete required
+[aggregate at `9dfd9a19`](https://github.com/Lojhan/typed-sql/actions/runs/42682805299) passes.
+This specification defines requirements; the linked audits provide direct evidence and limitations.
 
-The [acceptance audit](./acceptance-audit.md) records scoped proof, open checks and current
+The [acceptance audit](./acceptance-audit.md) records scoped proof and current
 qualification evidence against the unchanged requirements below.
 
 This document supersedes the requirement to reproduce every engine's complete semantics offline
@@ -20,8 +21,10 @@ provenance, registry, generation and independent-auditing requirements remain us
 implementation evidence is historical evidence, not proof that this design is implemented.
 
 The source investigation and engine-specific limitations are in [research.md](./research.md).
-Measured source-graph bundle sizes and their remaining workload/installation gaps are in
+Measured source-graph bundles and installation costs are in
 [bundle-size.md](./bundle-size.md), with [machine-readable evidence](./bundle-measurements.json).
+Offline and independently qualified native workload costs are reported separately in
+[project-size.md](./project-size.md) and [native-projects.md](./native-projects.md).
 The sections below define required behavior. Current availability and declared profile limits are
 documented under `docs/`; the acceptance and [completion audit](./completion-audit.md) record evidence
 and remaining work. Example interfaces are architectural contracts rather than exact API declarations.
@@ -211,12 +214,12 @@ build. A disconnected job can validate existing durable inputs, but cannot claim
 the current remote database. Migration/source snapshot digests and target configuration belong
 to the declared qualification input so changes cannot bypass refresh.
 
-## 5. Proposed developer workflow and commands
+## 5. Developer workflow and commands
 
 The existing schema generation flow remains available. Query acquisition extends it rather than
 changing live verification into an inference API by implication.
 
-| Proposed operation | Behavior | Writes |
+| Operation | Behavior | Writes |
 | --- | --- | --- |
 | `typed-sql check` | Offline analysis; consume matching available evidence | Disposable local indexes only if needed |
 | `typed-sql check --frozen` | Ignore disposable cache; require declared reproducible inputs | No semantic inputs |
@@ -224,11 +227,13 @@ changing live verification into an inference API by implication.
 | `typed-sql generate --queries --live` | Acquire project metadata and query contracts, reconcile and emit compiler inputs | Configured durable contract directory plus cache |
 | `typed-sql generate --queries --offline` | Emit from validated existing evidence or qualified core rules; fail when the selected policy requires missing native evidence | Durable contracts |
 | `typed-sql check --watch --live` | Request-driven refresh as source/context changes | Disposable cache; no tracked-file churn |
-| `typed-sql cache status` | Explain hits, context, pending requests, invalidation and pending durable export | None |
+| `typed-sql cache status` | Inspect indexed outcomes, recorded contexts, invalidation and pending durable export; another process's active requests are unobserved | None |
 | `typed-sql cache prune` | Remove unreachable/expired disposable entries, respecting active writers | Disposable cache only |
 
-These are proposed extensions to existing commands, including new flags/subcommands. They need
-CLI/config validation and tests before documentation can present them as available behavior.
+CLI/config validation and tests cover these extensions. Exact configuration and supported flags
+are documented in the [public configuration reference](../../docs/getting-started/configuration.md).
+Cache inspection reports local index evidence, not current remote validity or project-wide coverage.
+In-flight progress belongs to the active host; the read-only disk report cannot certify it.
 Existing `verify --live` keeps its purpose: independent comparison with a compiler claim.
 Provide `--qualification native-required` for project-wide native qualification and
 `generate --queries --live --check` for comparing reacquired semantic contracts with the durable
@@ -245,7 +250,7 @@ The user-facing sequence is:
 6. Source/context changes invalidate only what can safely be isolated; uncertain dependency
    scope invalidates the whole affected context.
 
-Proposed configuration groups are `analysis.mode`, `analysis.contractsDir`, `analysis.packs`,
+Configuration groups include `analysis.mode`, `analysis.contractsDir`, `analysis.packs`,
 `analysis.qualification`, `analysis.live.adapter`, scheduler limits and cache limits. The default
 contract directory is
 `<outDir>/contracts`; all paths resolve relative to the existing configuration file. Adapter
@@ -528,10 +533,12 @@ The host owns an asynchronous state machine:
 | `unavailable` | Use matching recorded evidence if still valid; otherwise unknown | Back off transport attempts |
 | `conflict` | Blocking diagnostic with evidence references | Require corrected analysis/context; no winner by recency |
 
-Default starting limits: 300 ms debounce for source edits, two description jobs per connection
+Scheduler defaults: 300 ms debounce for source edits, two description jobs per connection
 context, sixteen queued interactive requests per project, a five-second native request deadline,
-and transport retry delays of 1/2/4/8/16/30 seconds with jitter. These are proposed tunable budgets,
-not measured performance claims. Batch generation uses a separate bounded queue, not the
+and transport retry delays of 1/2/4/8/16/30 seconds with jitter. These are bounded implementation defaults,
+not measured performance claims. Shared sessions additionally cap active requests at eight and
+retained request/subscriber records at 256. Request-driven retries do not imply idle remote polling.
+Batch generation uses a separate bounded queue, not the
 interactive queue limit. Queue eviction preserves pending diagnostics and can reschedule on
 the next request. Authentication/configuration failures wait for a relevant change or explicit
 retry; they do not produce an endless connection loop.
@@ -647,17 +654,18 @@ contracts are not evicted by that policy.
 
 ## 19. Repository ownership and expected topology
 
-The proposed new neutral analysis package avoids a dependency on TypeScript or a built-in
-driver. Its input is the compiler's neutral candidate/parameter/source-map representation.
-This is a package-boundary decision to validate before implementation, not an instruction to
-duplicate existing compiler extraction or artifact serialization.
+The neutral analysis package avoids a dependency on TypeScript or a built-in driver. Its input
+is the compiler's neutral candidate/parameter/source-map representation. Compiler extraction and
+canonical artifact serialization remain shared rather than duplicated. The following is an ownership
+map; the implementation uses flat neutral modules such as `contracts.ts`, `artifacts.ts`, `cache.ts`,
+`live.ts` and `context-scope.ts` instead of requiring one directory per concept.
 
 ```text
 grammar/                                  retained full inventories, policies and profile/source locks
 metadata tooling (separate future scope)  optional reusable catalog acquisition and auditing
 packages/core/src/                       neutral query/type/evidence contracts and runtime primitives
 packages/schema/src/                     schema snapshots and catalog envelope primitives
-packages/analysis/src/                   proposed stable orchestration package
+packages/analysis/src/                   stable orchestration package
   contracts/                             validated catalog/query evidence and reconciliation mechanics
   artifacts/                             canonical serialization, import/export and compatibility
   cache/                                 immutable objects, indexes, locks and pruning
@@ -748,8 +756,8 @@ coverage. SQLite's unknown expression facets cannot count as inferred because pr
 
 No numerical LOC reduction is promised from the preceding baseline. The expected mechanism is
 less maintained global long-tail semantics, with new maintained cache/orchestration logic and
-more generated project inputs. Measure the net delta after a vertical prototype; stop treating
-moving rows from TypeScript into JSON as a maintenance reduction.
+more generated project inputs. The [repository report](./repository-size.md) records the measured
+net delta; moving rows from TypeScript into JSON does not itself establish a maintenance reduction.
 
 ### 21.1 Measured bundle baseline and removal boundary
 
@@ -769,11 +777,10 @@ pending working-tree implementation. Values below are KiB (1,024 bytes).
 These generated contributions describe that historical exhaustive pipeline, not the current
 implementation. The current [machine-readable report](./bundle-measurements.json) remeasures
 the same four source scenarios and adds profile/frozen-host scenarios for all five grammars.
-The analyzer-only current minified sizes at `c9e4a793` are 383.8 KiB PostgreSQL, 185.4 KiB MySQL,
-148.6 KiB SQLite, 121.1 KiB SQL Server and 627.8 KiB DuckDB. DuckDB core samples are
-234.3/246.0 KiB for 1.5.6/2.0.0, with matching full per-engine samples at 360.0/385.0 KiB.
-MySQL selected full/core samples are 163.1–163.8 KiB and retain its full maintained routine set;
-measured small-family pack overhead exceeds the metadata saving, so no extra pack is introduced. These net changes include pipeline removal,
+Current exact-revision sizes, selected-core and optional-pack scenarios live in the generated
+[bundle report](./bundle-size.md), avoiding a second hand-maintained copy of its numbers. MySQL
+selected cores retain its full maintained routine set; measured small-family pack overhead exceeds
+the metadata saving, so no extra pack is introduced. Net changes include pipeline removal,
 semantic corrections and API separation; they do not isolate the effect of query contracts.
 Some compact generated vocabulary/type/codec metadata remains. Do not multiply the gzip column
 by the historical minified generated share.
@@ -787,7 +794,9 @@ benefit unique to query contracts. Current frozen hosts contain zero global gram
 inputs but include contract loading and compilation machinery; SQL Server's helper sample is
 slightly larger than its analyzer-only sample. The current report measures DuckDB core/pack
 distribution. The separate commerce workload measures offline-rule artifact, schema and value-plan
-growth; native-qualified payload/latency and representative production selection remain open.
+growth. The [native project report](./native-projects.md) measures actual qualified subsets and
+payload/latency separately. Representative production popularity remains unmeasured and is not
+a distribution or correctness guarantee.
 Fresh installed package payloads
 are reported separately, including their maps/declarations and mandatory dependencies; they do
 not represent filesystem/store usage or complete application toolchains.
@@ -865,7 +874,7 @@ the shared interface. Profile/driver selection remains explicit implementation w
     corpus, reporting minified/gzip/Brotli, input attribution, installation size and schema/plan
     growth separately. No projected percentage substitutes for measured after-results.
 
-## 24. Decisions fixed here and remaining investigation
+## 24. Decisions and qualification boundaries
 
 Fixed: query contracts as primary compiler inputs; three evidence layers; project-wide strict
 native qualification; comprehensive audit accounting; bounded offline semantics; explicit
@@ -873,8 +882,17 @@ live activation; synchronous pure analysis; `.typed-sql/cache/analysis` as dispo
 separate durable exports; contract-first lazy loading; no universal rules from sampled
 invocations; registered capability owners; facet-level uncertainty; no runtime regeneration.
 
-To establish during the prototype: the exact core selection per grammar, reusable metadata
-qualification depth, owner-specific fingerprint costs and consistency scope, package API
-surface, initial storage/latency budgets, and the supported statement/parameter matrix for each
-native transport. These are bounded research/measurement tasks. They do not authorize an
-optimistic fallback or postpone documenting a known limitation.
+The implementation resolves the initial investigation through the following evidence. These
+choices retain explicit limits rather than generalizing a measured fixture into engine-wide support.
+
+| Decision | Implemented boundary and evidence |
+| --- | --- |
+| Core selection | Selected PostgreSQL majors/MySQL series, exact-engine DuckDB cores with optional compatibility packs, and maintained SQLite/SQL Server catalogs. All 37 finite maintained commerce candidates match compatibility analyses; this is not production popularity. [Distribution and sizes](./bundle-size.md). |
+| Reusable metadata | PostgreSQL selected fixed scalar declarations have explicit permission; dependent, polymorphic and table-output semantics are not generated from sampled invocations. Other owners retain unavailable permissions. [Native scope](./implementation.md#qualified-native-scope). |
+| Fingerprints and consistency | Owner-controlled whole-context guards where narrower dependencies cannot be proven. Actual mutations and declared limits are in the [context matrix](./context-invalidation.md); timing and byte costs are separate [native observations](./native-costs.md). |
+| Package API | Stable neutral `@typed-sql/analysis`, explicit grammar `/profile`, `/analysis`, selected cores/packs and driver entrypoints; immutable host views. Public-API, package graph and physically disconnected packed consumers verify the boundary. |
+| Storage and scheduling | Owned cache defaults are 4,096 index entries and 256 MiB; immutable objects, fenced publication and 30-day default orphan retention. Scheduler limits above are tested resource bounds, not latency promises. Durable export is separate from cache maintenance. |
+| Native statements and parameters | Per-owner static-rendering, table/type and parameter admission remains explicit in [native scope](./implementation.md#qualified-native-scope), descriptor reports and public configuration. Insufficient facets are diagnosed. A native adapter's presence does not imply arbitrary SQL support. |
+
+Future engines, extensions, reusable rule families and broader statement admission need their own
+qualification. They are not authorization for optimistic fallback or reasons to hide known limits.

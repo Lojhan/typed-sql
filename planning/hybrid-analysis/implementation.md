@@ -70,7 +70,7 @@ with no durable contracts and an analyzer-loading trap. A second regression sett
 preparations when their scheduler generation is replaced, without waiting for their deadline.
 The packed SQL Server editor fixture revisits its original query live after the changed-query
 check before testing that same query offline; an intervening observed drift can legitimately
-retire its earlier proof. Hosted qualification remains required.
+retire its earlier proof. Hosted qualification passes in the complete required aggregate at `9dfd9a19`.
 
 ## Evidence review and cache maintenance
 
@@ -96,8 +96,8 @@ in preload and preserve their unsaved source. Unit tests cover subscribers, stal
 cancellation and closed transports; four controlled stdio flows cover both languages/modes, an edit
 during pending work, source ranges, ordinary TypeScript errors and slow context observation counts.
 Shared qualification fixtures explicitly wait for settled diagnostics rather than accepting pending
-information as successful verification. The [full completion audit](./completion-audit.md) retains
-fresh packaged/native qualification as an open requirement.
+information as successful verification. The [full completion audit](./completion-audit.md) records the passing complete hosted qualification
+and reconciles requirements outside the scenario checklist.
 
 ## Measurements and workload limits
 
@@ -121,7 +121,7 @@ performance gate also passes with unchanged budgets. Each report identifies its 
 before its results can be called the final after-results. Root quality checks rendered tables
 against their JSON. Measured example coverage is not a production-popularity estimate.
 
-## Verification and remaining gate
+## Verification
 
 The required [aggregate at `933dae4a`](https://github.com/Lojhan/typed-sql/actions/runs/42675018288)
 passes every required gate, including SQL Server 17's packed editor and unchanged performance
@@ -133,7 +133,10 @@ statements, 91.44% branches, 97.85% functions), all eighteen language-server fil
 repository contract files, documentation build, quality and the isolated unchanged performance gate.
 The slow-context stdio test verifies no extra observation during completion, and prepared snapshot
 checks reject a changed durable manifest. The complete PostgreSQL 18.6 E2E command passes its standalone typecheck and both native/developer
-files in 120.12 seconds on committed source `c3eeb1cf`. Fresh hosted qualification remains necessary.
+files in 120.12 seconds on committed source `c3eeb1cf`. The complete required [aggregate at `9dfd9a19`](https://github.com/Lojhan/typed-sql/actions/runs/42682805299)
+also passes, including all supported native profiles, packaged native editors, platform SDKs, build
+integrations and source verification. The optional MySQL 26.7 canary rejects an unsupported context
+and remains unqualified. Final planning reconciliation changes no production or test-helper bytes.
 The editor suite runs after PostgreSQL finishes because both use its generated schema. No timeout
 or performance budget increase substitutes for a fix.
 
