@@ -1,6 +1,6 @@
 {
   "formatVersion": 1,
-  "sourceRevision": "c6d71ccff0827ae915900e6ac474e81ec965ce14",
+  "sourceRevision": "eab41d13786c985ed5b5afeeb078e9041adcab2e",
   "nodeVersion": "v24.22.2",
   "esbuildVersion": "0.28.2",
   "toolDigest": "ab3abb097c057b711415e2f32269d6a95908f09e1c200935e548377dc4b17ec6",
@@ -251,9 +251,9 @@
           "durableFileBytes": 14801,
           "durableClosure": {
             "bytes": 15566,
-            "gzipBytes": 2491,
-            "brotliBytes": 2069,
-            "digest": "73b6e5837185b8dca41690aa279c6214fa95a2f54159d7015c2205ea26c7aae4"
+            "gzipBytes": 2486,
+            "brotliBytes": 2045,
+            "digest": "a15b3b8388665474112be3fcfaf552ebdb271174a4881cfc1f341ea7ddd0a6a7"
           },
           "valuePlans": {
             "bytes": 6476,
@@ -300,9 +300,9 @@
           "durableFileBytes": 141422,
           "durableClosure": {
             "bytes": 148164,
-            "gzipBytes": 12259,
-            "brotliBytes": 7844,
-            "digest": "0403d9574fbe1b35ba34f59fb51b07b8ea7269e22b9110ef2147528508c9e5a1"
+            "gzipBytes": 12262,
+            "brotliBytes": 7811,
+            "digest": "52b911cc236c27d0c172782ae89e068916d14f18afad4dbd0b3b4459dd605df6"
           },
           "valuePlans": {
             "bytes": 64751,
@@ -349,9 +349,9 @@
           "durableFileBytes": 704182,
           "durableClosure": {
             "bytes": 737485,
-            "gzipBytes": 58199,
-            "brotliBytes": 32580,
-            "digest": "6dadfdd516e2a4a1cce6dfab941d1ff5018c5df4921a0f61ea9252c0e018c604"
+            "gzipBytes": 58593,
+            "brotliBytes": 33017,
+            "digest": "445ce3b9f67d2d6abe4c2d698d2232b2345d6d53bf2b3434d5099b0df262b09f"
           },
           "valuePlans": {
             "bytes": 323751,

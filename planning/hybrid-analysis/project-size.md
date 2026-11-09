@@ -1,6 +1,6 @@
 # Commerce project size and growth
 
-The [JSON report](./project-measurements.json) measures `c6d71ccff0827ae915900e6ac474e81ec965ce14` with Node v24.22.2 and esbuild 0.28.2. It discovers every ledger grammar, maintained commerce query file and matching public core export. There is no benchmark function-name list or copied vendor corpus. Schema inputs come from the example DDL parser, not live introspection.
+The [JSON report](./project-measurements.json) measures `eab41d13786c985ed5b5afeeb078e9041adcab2e` with Node v24.22.2 and esbuild 0.28.2. It discovers every ledger grammar, maintained commerce query file and matching public core export. There is no benchmark function-name list or copied vendor corpus. Schema inputs come from the example DDL parser, not live introspection.
 
 ## Selected-core coverage
 
@@ -34,7 +34,7 @@ Copies add SQL comments to create distinct exact identities; they do not add bus
 
 | Grammar | Copies | Contracts | Durable file KiB | Framed closure gzip KiB | Standalone plan KiB |
 | --- | --- | --- | --- | --- | --- |
-| duckdb | 50 | 400 | 687.7 | 56.8 | 316.2 |
+| duckdb | 50 | 400 | 687.7 | 57.2 | 316.2 |
 | mysql | 50 | 350 | 531.0 | 46.8 | 216.9 |
 | postgres | 50 | 350 | 569.9 | 47.6 | 246.3 |
 | sqlite | 50 | 350 | 557.5 | 47.3 | 234.6 |

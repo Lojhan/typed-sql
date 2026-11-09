@@ -1946,3 +1946,16 @@ findings are dismissed as false positives after inspecting each owner's exact ve
 path checks and the cache's validated digest-only destination plus exact length/content checks.
 No file data or arbitrary application value is added to a request; verified source bytes are
 intentionally cached without execution. No scanning rule or package-wide exception is disabled.
+
+The complete required aggregate at `182fa25d` passes
+[run 42619970385](https://github.com/Lojhan/typed-sql/actions/runs/42619970385), qualifying the
+DuckDB audit/aliases/drift gate with unchanged performance budgets. The optional MySQL canary
+remains unqualified. All four size collectors are rerun at `eab41d13` after the production change:
+the same-tool bundle baseline, fresh isolated package installation, tracked repository inventory
+and all five offline commerce workloads share that source pin. Rendered tables pass the root
+quality check; native cost/project reports retain their separate measured revisions. The updated
+repository has 336,469 fewer tracked text lines than the discarded proposal, with 15,279 added
+maintained package lines and 5,724 added generated package lines against base. These refreshed
+measurements do not close the remaining native class/policy/invalidation gaps. Root quality and
+the native fixture/project measurement plus vocabulary contract tests pass. The PostgreSQL
+collector remains subject to its own required hosted aggregate after publication.

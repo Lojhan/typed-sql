@@ -1,6 +1,6 @@
 {
   "formatVersion": 2,
-  "sourceRevision": "c6d71ccff0827ae915900e6ac474e81ec965ce14",
+  "sourceRevision": "eab41d13786c985ed5b5afeeb078e9041adcab2e",
   "nodeVersion": "v24.22.2",
   "esbuildVersion": "0.28.2",
   "measurementToolDigest": "dc40a67dc6020756ad046212866c23512282904af1aba29c572d93170931ef5e",
@@ -242,25 +242,25 @@
     {
       "grammar": "duckdb",
       "scenario": "execution",
-      "minifiedBytes": 104242,
-      "gzipBytes": 32598,
-      "brotliBytes": 28806,
+      "minifiedBytes": 104344,
+      "gzipBytes": 32630,
+      "brotliBytes": 28821,
       "generatedInputBytes": 0,
       "globalCatalogInputs": [],
       "attribution": {
-        "duckdb/other": 45270,
+        "duckdb/other": 45372,
         "core/other": 35302,
         "schema/other": 399,
         "duckdb/parser": 23231
       },
-      "outputDigest": "31f70215fc61f28e8533af9fedea1b0bc507d843d4870cc3ce34949a30bac99b"
+      "outputDigest": "d7e5af708a39c5b6f94fee6836e2a0094d75c75f6b6344dc2cd2c025b04350a5"
     },
     {
       "grammar": "duckdb",
       "scenario": "analyzer",
-      "minifiedBytes": 656123,
-      "gzipBytes": 83755,
-      "brotliBytes": 51388,
+      "minifiedBytes": 656225,
+      "gzipBytes": 83789,
+      "brotliBytes": 51497,
       "generatedInputBytes": 533398,
       "globalCatalogInputs": [
         "packages/duckdb/src/catalog/resolution.ts",
@@ -279,35 +279,35 @@
       ],
       "attribution": {
         "core/other": 10552,
-        "duckdb/other": 70217,
+        "duckdb/other": 70319,
         "duckdb/parser": 25821,
         "schema/other": 23069,
         "duckdb/catalog": 526435
       },
-      "outputDigest": "cad48d727dd75c0670088371bcdf27b37502e5eb5310c95b40ac1ef9bbef66e4"
+      "outputDigest": "ef4b512ed04efa4a250c5070f4e0c671ba0eb3aeda3de327d8bd13f7cb1ffb2b"
     },
     {
       "grammar": "duckdb",
       "scenario": "profile",
-      "minifiedBytes": 65587,
-      "gzipBytes": 18549,
-      "brotliBytes": 16248,
+      "minifiedBytes": 65689,
+      "gzipBytes": 18585,
+      "brotliBytes": 16236,
       "generatedInputBytes": 0,
       "globalCatalogInputs": [],
       "attribution": {
         "core/other": 8670,
-        "duckdb/other": 10619,
+        "duckdb/other": 10721,
         "duckdb/parser": 23227,
         "schema/other": 23042
       },
-      "outputDigest": "e45bb15c2aaaf3a0fc0bb6a6c677ffc08b6f1d290c2770868e69d5bb63bc17ab"
+      "outputDigest": "86ade95e2f75ff2357f6d0dd44764064188b968eba0c040346115b5eaca08c52"
     },
     {
       "grammar": "duckdb",
       "scenario": "frozenHost",
-      "minifiedBytes": 152741,
-      "gzipBytes": 43928,
-      "brotliBytes": 38343,
+      "minifiedBytes": 152843,
+      "gzipBytes": 43964,
+      "brotliBytes": 38453,
       "generatedInputBytes": 0,
       "globalCatalogInputs": [],
       "attribution": {
@@ -315,17 +315,17 @@
         "core/other": 31883,
         "schema/other": 24086,
         "compiler/other": 39807,
-        "duckdb/other": 10660,
+        "duckdb/other": 10762,
         "duckdb/parser": 23236
       },
-      "outputDigest": "10acce76c4a27fb9935bb8ba954d5eae810dc50086d1739e7cba69c388f5c305"
+      "outputDigest": "999bdccaa3da7c2a5c6e89ced7f8b7752a498b61ba9307d2866780f3602d893f"
     },
     {
       "grammar": "duckdb",
       "scenario": "analyzer:1.5.6",
-      "minifiedBytes": 377838,
-      "gzipBytes": 59256,
-      "brotliBytes": 47436,
+      "minifiedBytes": 377940,
+      "gzipBytes": 59290,
+      "brotliBytes": 47338,
       "generatedInputBytes": 255833,
       "globalCatalogInputs": [
         "packages/duckdb/src/catalog/resolution.ts",
@@ -338,19 +338,19 @@
       ],
       "attribution": {
         "core/other": 10552,
-        "duckdb/other": 66211,
+        "duckdb/other": 66313,
         "duckdb/parser": 25821,
         "schema/other": 23069,
         "duckdb/catalog": 252156
       },
-      "outputDigest": "19a71836068ff075fcdf2e16eaac2b2da1c2e4bb3d6ca90b4a9a6c7cb09bf4de"
+      "outputDigest": "7ba71e26fe936b65044985aa7dae07508c3ba65bf054d99774f7e3636ace7da5"
     },
     {
       "grammar": "duckdb",
       "scenario": "analyzer:2.0.0",
-      "minifiedBytes": 407115,
-      "gzipBytes": 62390,
-      "brotliBytes": 49879,
+      "minifiedBytes": 407217,
+      "gzipBytes": 62432,
+      "brotliBytes": 49836,
       "generatedInputBytes": 285110,
       "globalCatalogInputs": [
         "packages/duckdb/src/catalog/resolution.ts",
@@ -363,19 +363,19 @@
       ],
       "attribution": {
         "core/other": 10552,
-        "duckdb/other": 69908,
+        "duckdb/other": 70010,
         "duckdb/parser": 25821,
         "schema/other": 23069,
         "duckdb/catalog": 277736
       },
-      "outputDigest": "79d124bf515178cd85c599605fd9efd78e8f8b34302827e0b4698d0a8eba30f9"
+      "outputDigest": "f2864f8ed0b1ee45fa67e6591d85d639f6e8f0a2d24c17983babd3ec36ee6c7c"
     },
     {
       "grammar": "duckdb",
       "scenario": "analyzer:core:1.5.6",
-      "minifiedBytes": 249180,
-      "gzipBytes": 51833,
-      "brotliBytes": 43415,
+      "minifiedBytes": 249282,
+      "gzipBytes": 51869,
+      "brotliBytes": 43355,
       "generatedInputBytes": 126089,
       "globalCatalogInputs": [
         "packages/duckdb/src/catalog/common-1.5.6.ts",
@@ -386,18 +386,18 @@
       "attribution": {
         "duckdb/catalog": 122949,
         "core/other": 10552,
-        "duckdb/other": 66760,
+        "duckdb/other": 66862,
         "duckdb/parser": 25821,
         "schema/other": 23069
       },
-      "outputDigest": "61b6740cdc43412dc783cebfaed25e6d89c43b64859fc02ef5943ac89e73387f"
+      "outputDigest": "4e39d1e97757fb6b4778cfbb347523eccf0ff2fb78e5d5abd293a0e9cea9da7d"
     },
     {
       "grammar": "duckdb",
       "scenario": "analyzer:core:2.0.0",
-      "minifiedBytes": 264795,
-      "gzipBytes": 54406,
-      "brotliBytes": 45389,
+      "minifiedBytes": 264897,
+      "gzipBytes": 54438,
+      "brotliBytes": 45391,
       "generatedInputBytes": 141704,
       "globalCatalogInputs": [
         "packages/duckdb/src/catalog/common-2.0.0.ts",
@@ -408,18 +408,18 @@
       "attribution": {
         "duckdb/catalog": 134867,
         "core/other": 10552,
-        "duckdb/other": 70457,
+        "duckdb/other": 70559,
         "duckdb/parser": 25821,
         "schema/other": 23069
       },
-      "outputDigest": "1ffb8a916ea645b0e3d88a66697f383a49b94f6cafa840d6fe1a7ad1031c4f5e"
+      "outputDigest": "06274515b2815b33613815a86ba223a48e396e88ae18a75395d62da3d92f953e"
     },
     {
       "grammar": "duckdb",
       "scenario": "analyzer:core:1.5.6:compatibility",
-      "minifiedBytes": 391476,
-      "gzipBytes": 62624,
-      "brotliBytes": 50136,
+      "minifiedBytes": 391578,
+      "gzipBytes": 62660,
+      "brotliBytes": 50204,
       "generatedInputBytes": 268112,
       "globalCatalogInputs": [
         "packages/duckdb/src/catalog/common-1.5.6.ts",
@@ -431,19 +431,19 @@
       "attribution": {
         "duckdb/catalog": 264972,
         "core/other": 10552,
-        "duckdb/other": 66996,
+        "duckdb/other": 67098,
         "duckdb/parser": 25821,
         "schema/other": 23069,
         "external/entry": 37
       },
-      "outputDigest": "934ecd7970e52e10359c4dc8cd7d3e610781a3e5245fc1665d7c9600753f9c27"
+      "outputDigest": "84cdb7a45795ef4777f6cdec210ca15b388be7c4036b24e7ed042864da4e73e6"
     },
     {
       "grammar": "duckdb",
       "scenario": "analyzer:core:2.0.0:compatibility",
-      "minifiedBytes": 423988,
-      "gzipBytes": 66821,
-      "brotliBytes": 53017,
+      "minifiedBytes": 424090,
+      "gzipBytes": 66856,
+      "brotliBytes": 52976,
       "generatedInputBytes": 300624,
       "globalCatalogInputs": [
         "packages/duckdb/src/catalog/common-2.0.0.ts",
@@ -455,12 +455,12 @@
       "attribution": {
         "duckdb/catalog": 293787,
         "core/other": 10552,
-        "duckdb/other": 70693,
+        "duckdb/other": 70795,
         "duckdb/parser": 25821,
         "schema/other": 23069,
         "external/entry": 37
       },
-      "outputDigest": "4330fcb269e3e17a2692310c9de01a43784c8ef49dfb1321a1fcafe3a028d323"
+      "outputDigest": "4757618dc86a785d146b0abdc93d20efc9eb6405e5674ede28c3d8114f3c81c2"
     },
     {
       "grammar": "mysql",
@@ -1413,7 +1413,7 @@
     "packages/duckdb/src/catalog/resolution.ts": "cc62633eb560de82a1f5313ea963d6c27dc86af3be5d29e9472e308e934c3597",
     "packages/duckdb/src/codecs.ts": "7af6db6bb16967d12bd86af97a1bd455f330db92527d0362f75e8ce2721364b6",
     "packages/duckdb/src/index.ts": "0229705d087b13d37de72bbda8f8ed976f89b3dde8f7e0be66bc686c43434274",
-    "packages/duckdb/src/native-types.ts": "ddf9366790a4e317e94bb00f8426e2e34231922472ed38de9a91f82ec5ab97f0",
+    "packages/duckdb/src/native-types.ts": "dfe18333c591f390dcbe9e4d3b4da3ea23dc014d43f739aeed1ac2ee8a7117e0",
     "packages/duckdb/src/offline-packs.ts": "794d3b11a3d959e50b4871f1ca40960d8258b920af36ac6d4142cc363a6897c9",
     "packages/duckdb/src/parameter-transport.ts": "ef3a2546530fb1ab7b703c2e526c7f0ce71a12a1cf335b3a44e50acb14114098",
     "packages/duckdb/src/parser/labels.ts": "bec610dc46141daa1680f838b1b40206c71fde334dd5b5a3a1dc1872c55892d0",

@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
-  "sourceRevision": "c6d71ccff0827ae915900e6ac474e81ec965ce14",
-  "measurementToolDigest": "c27499d03028167c2343415f3addf6cd83fd5fd88f32dc11581252c780744d94",
+  "sourceRevision": "eab41d13786c985ed5b5afeeb078e9041adcab2e",
+  "measurementToolDigest": "f17df587bd2d41a1906a1695dde0ee3b0a150442a143a5b79ada281b18c653e4",
   "method": {
     "scope": "All Git-tracked files at exact revisions; no working-tree, build-output or installed-package files.",
     "lines": "Physical UTF-8 text lines, including blank lines and comments. Not semantic statements or changed-line counts.",
@@ -701,12 +701,12 @@
       ]
     },
     "current": {
-      "revision": "c6d71ccff0827ae915900e6ac474e81ec965ce14",
+      "revision": "eab41d13786c985ed5b5afeeb078e9041adcab2e",
       "totals": {
-        "files": 2086,
-        "bytes": 52568390,
-        "lines": 538788,
-        "maintainedCodeLines": 260116,
+        "files": 2092,
+        "bytes": 52619061,
+        "lines": 539640,
+        "maintainedCodeLines": 260970,
         "generatedCodeLines": 33245
       },
       "categories": {
@@ -718,9 +718,9 @@
           "generatedCodeLines": 4082
         },
         "auditFixtureAndReportData": {
-          "files": 45,
-          "bytes": 24794943,
-          "lines": 131127,
+          "files": 46,
+          "bytes": 24800780,
+          "lines": 131218,
           "maintainedCodeLines": 0,
           "generatedCodeLines": 0
         },
@@ -733,23 +733,23 @@
         },
         "configurationAndOtherData": {
           "files": 198,
-          "bytes": 2729675,
-          "lines": 83648,
+          "bytes": 2730598,
+          "lines": 83664,
           "maintainedCodeLines": 0,
           "generatedCodeLines": 0
         },
         "documentation": {
-          "files": 260,
-          "bytes": 1986797,
-          "lines": 27985,
+          "files": 262,
+          "bytes": 1987498,
+          "lines": 27876,
           "maintainedCodeLines": 0,
           "generatedCodeLines": 0
         },
         "otherSource": {
-          "files": 83,
-          "bytes": 670711,
-          "lines": 18757,
-          "maintainedCodeLines": 18757,
+          "files": 84,
+          "bytes": 688752,
+          "lines": 19063,
+          "maintainedCodeLines": 19063,
           "generatedCodeLines": 0
         },
         "otherText": {
@@ -761,16 +761,16 @@
         },
         "packageSource": {
           "files": 533,
-          "bytes": 5420279,
-          "lines": 136380,
-          "maintainedCodeLines": 107217,
+          "bytes": 5420405,
+          "lines": 136386,
+          "maintainedCodeLines": 107223,
           "generatedCodeLines": 29163
         },
         "testSource": {
-          "files": 561,
-          "bytes": 4779946,
-          "lines": 110529,
-          "maintainedCodeLines": 110529,
+          "files": 563,
+          "bytes": 4804989,
+          "lines": 111071,
+          "maintainedCodeLines": 111071,
           "generatedCodeLines": 0
         },
         "toolingSource": {
@@ -847,9 +847,9 @@
         },
         "duckdb": {
           "files": 58,
-          "bytes": 1032248,
-          "lines": 23067,
-          "maintainedCodeLines": 8825,
+          "bytes": 1032374,
+          "lines": 23073,
+          "maintainedCodeLines": 8831,
           "generatedCodeLines": 14242
         },
         "language-server": {
@@ -990,7 +990,7 @@
         {
           "path": "test/fixtures/language-audit/baseline.json",
           "lines": 31071,
-          "bytes": 2266539
+          "bytes": 2266743
         },
         {
           "path": "test/fixtures/language-audit/native-findings.json",
@@ -1010,7 +1010,7 @@
         {
           "path": "planning/hybrid-analysis/native-project-measurements.json",
           "lines": 7756,
-          "bytes": 273311
+          "bytes": 273347
         },
         {
           "path": "grammar/features/ledger.json",
@@ -1019,8 +1019,8 @@
         },
         {
           "path": "planning/hybrid-analysis/native-measurements.json",
-          "lines": 4749,
-          "bytes": 205214
+          "lines": 4754,
+          "bytes": 205300
         },
         {
           "path": "test/fixtures/language-audit/live-baselines.json",
@@ -1062,22 +1062,22 @@
       "physicalLineDeltaMatchesGitDiff": true
     },
     "currentProposal": {
-      "netTrackedLines": 81530,
-      "netMaintainedCodeLines": 42472,
+      "netTrackedLines": 82382,
+      "netMaintainedCodeLines": 43326,
       "netGeneratedCodeLines": 5724,
-      "shortstat": "792 files changed, 98702 insertions(+), 17172 deletions(-)",
-      "additions": 98702,
-      "deletions": 17172,
+      "shortstat": "798 files changed, 99566 insertions(+), 17184 deletions(-)",
+      "additions": 99566,
+      "deletions": 17184,
       "binaryChanges": 0,
       "physicalLineDeltaMatchesGitDiff": true
     },
     "directionChange": {
-      "netTrackedLines": -337321,
-      "netMaintainedCodeLines": 12411,
+      "netTrackedLines": -336469,
+      "netMaintainedCodeLines": 13265,
       "netGeneratedCodeLines": 29163,
-      "shortstat": "777 files changed, 133446 insertions(+), 470767 deletions(-)",
-      "additions": 133446,
-      "deletions": 470767,
+      "shortstat": "783 files changed, 134291 insertions(+), 470760 deletions(-)",
+      "additions": 134291,
+      "deletions": 470760,
       "binaryChanges": 0,
       "physicalLineDeltaMatchesGitDiff": true
     }

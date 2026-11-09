@@ -1,6 +1,6 @@
 # Bundle and installation measurements
 
-The [bundle JSON](./bundle-measurements.json) and [installation JSON](./installation-measurements.json) measure committed source `c6d71ccff0827ae915900e6ac474e81ec965ce14`. Bundles compare against `a1f27fc894e48021e91ce4c9a4b98929890f233d` using the same tool, Node v24.22.2, esbuild 0.28.2, minified ESM, Node platform, ES2022, tree-shaking, gzip level 9 and Brotli quality 11. Sizes below use KiB (1,024 bytes) or MiB (1,048,576 bytes).
+The [bundle JSON](./bundle-measurements.json) and [installation JSON](./installation-measurements.json) measure committed source `eab41d13786c985ed5b5afeeb078e9041adcab2e`. Bundles compare against `a1f27fc894e48021e91ce4c9a4b98929890f233d` using the same tool, Node v24.22.2, esbuild 0.28.2, minified ESM, Node platform, ES2022, tree-shaking, gzip level 9 and Brotli quality 11. Sizes below use KiB (1,024 bytes) or MiB (1,048,576 bytes).
 
 ## Compatibility analyzers
 
@@ -8,7 +8,7 @@ These factory exports retain dynamic version selection and all existing maintain
 
 | Grammar | Earlier minified / gzip KiB | Current minified / gzip KiB |
 | --- | --- | --- |
-| duckdb | 1340.3 / 101.4 | 640.7 / 81.8 |
+| duckdb | 1340.3 / 101.4 | 640.8 / 81.8 |
 | mysql | 180.6 / 43.2 | 201.0 / 49.3 |
 | postgres | 1649.9 / 131.8 | 415.8 / 74.7 |
 | sqlite | 154.7 / 39.5 | 161.4 / 42.5 |
@@ -20,12 +20,12 @@ Selected cores request exact native query evidence for unmapped routines. Postgr
 
 | Grammar | Import scenario | Minified KiB | Gzip KiB | Generated retained input KiB |
 | --- | --- | --- | --- | --- |
-| duckdb | `analyzer:1.5.6` | 369.0 | 57.9 | 249.8 |
-| duckdb | `analyzer:2.0.0` | 397.6 | 60.9 | 278.4 |
-| duckdb | `analyzer:core:1.5.6` | 243.3 | 50.6 | 123.1 |
-| duckdb | `analyzer:core:2.0.0` | 258.6 | 53.1 | 138.4 |
-| duckdb | `analyzer:core:1.5.6:compatibility` | 382.3 | 61.2 | 261.8 |
-| duckdb | `analyzer:core:2.0.0:compatibility` | 414.1 | 65.3 | 293.6 |
+| duckdb | `analyzer:1.5.6` | 369.1 | 57.9 | 249.8 |
+| duckdb | `analyzer:2.0.0` | 397.7 | 61.0 | 278.4 |
+| duckdb | `analyzer:core:1.5.6` | 243.4 | 50.7 | 123.1 |
+| duckdb | `analyzer:core:2.0.0` | 258.7 | 53.2 | 138.4 |
+| duckdb | `analyzer:core:1.5.6:compatibility` | 382.4 | 61.2 | 261.8 |
+| duckdb | `analyzer:core:2.0.0:compatibility` | 414.2 | 65.3 | 293.6 |
 | mysql | `analyzer:26.7` | 178.7 | 49.0 | 29.1 |
 | mysql | `analyzer:8.4` | 177.5 | 48.7 | 27.9 |
 | mysql | `analyzer:9.7` | 178.6 | 48.9 | 29.0 |
@@ -53,7 +53,7 @@ Generated input counts uncompressed attributed input bytes, not compressed savin
 
 | Grammar | Root tag minified / gzip KiB | Profile minified / gzip KiB | Frozen host minified / gzip KiB |
 | --- | --- | --- | --- |
-| duckdb | 17.1 / 5.4 | 64.0 / 18.1 | 149.2 / 42.9 |
+| duckdb | 17.1 / 5.4 | 64.1 / 18.1 | 149.3 / 42.9 |
 | mysql | 17.1 / 5.4 | 47.3 / 13.3 | 132.4 / 38.5 |
 | postgres | 17.1 / 5.4 | 43.8 / 12.2 | 129.0 / 37.4 |
 | sqlite | 17.1 / 5.4 | 50.2 / 13.5 | 135.3 / 38.9 |
@@ -65,7 +65,7 @@ Root/query tags, profiles and frozen hosts retain zero global catalog inputs. Fr
 
 | Grammar | Grammar files MiB | Grammar dependency closure MiB | With compiler/contracts MiB | Grammar tarball KiB |
 | --- | --- | --- | --- | --- |
-| duckdb | 2.11 | 3.66 | 4.38 | 256.9 |
+| duckdb | 2.11 | 3.66 | 4.38 | 257.0 |
 | mysql | 1.07 | 2.61 | 3.34 | 206.9 |
 | postgres | 2.19 | 6.61 | 7.34 | 341.9 |
 | sqlite | 0.76 | 2.30 | 3.03 | 142.7 |
