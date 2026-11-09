@@ -32,6 +32,57 @@ Reproduce captures explicitly; capture mode never updates the reviewed baseline:
 pnpm --filter @typed-sql/duckdb test:native --capture-descriptors /tmp/typed-sql-native-descriptors
 ```
 
+## PostgreSQL catalog-driven observations
+
+The [PostgreSQL collector](../../test/helpers/postgres-descriptor-inventory.ts) discovers defined
+bootstrap `pg_catalog` types below the normal-object OID boundary, excluding relation row types.
+Each name receives independent protocol Parse/Describe output and parameter probes in a read-only
+transaction. Candidate statements are never bound or executed. Array, pseudo, range and multirange
+names remain in the inventory even when the qualified native adapter declines them. Pseudo-type
+resolution is retained as observed; a polymorphic spelling is not assumed to retain its input OID.
+
+At committed producer `745a48a0c13ad214ff96907436f70aa491c28ec6`, PostgreSQL 18.3 discovers 329
+types: 291 base types (including arrays), 26 pseudo types, six ranges and six multiranges.
+There are 658 catalog probes and 12 concrete modifier probes:
+
+| Independent protocol outcome | Native adapter outcome | Probes |
+| --- | --- | ---: |
+| Described | Acquired | 46 |
+| Described | Declined by statement scope | 612 |
+| Rejected by engine | Declined by statement scope | 10 |
+| Described | Parameter runtime evidence unavailable | 2 |
+
+The two unavailable cases are JSON/JSONB parameters. Their protocol OIDs are present; this does
+not imply a qualified runtime representation. Engine rejections include `anyenum` casts and
+handler/trigger/internal pseudo types. A declined array or range probe records an adapter
+restriction, not missing engine support. Counts include internal names and do not measure
+application popularity or universal family coverage.
+
+Numeric precision/scale, character length and timestamp precision controls compare acquired
+OID/modifier facts with independent protocol descriptions. Positive controls require acquisition,
+known runtime representations and complete column identity. Parameter identity must remain
+incomplete for modifier-bearing types; PostgreSQL's parameter descriptions provide no typmod.
+Unknown nullability remains unknown. The interval-field control is described by the engine but
+declined by the current statement scope.
+
+The capture records exact server/client/runtime identities and collector content hash. Its local
+semantic fingerprint is `894ece5afb201c2e76aa829c3b949d2e1fc7ce46cc6f6cfffc96045c551fc97a`;
+the collector hash matches its committed Git blob. Typechecking and root quality pass. Every
+PostgreSQL CI profile now captures the inventory before adapter qualification; unsupported
+transport versions retain protocol facts with explicit adapter unavailability. Always-uploaded
+artifacts retain full fields factored by digest. Hosted results and reviewed per-engine drift
+fingerprints remain pending; the local capture does not qualify those profiles.
+
+```sh
+TYPED_SQL_POSTGRES_URL=postgres://localhost/owned_audit_database \
+TYPED_SQL_NATIVE_DESCRIPTOR_DIRECTORY=/tmp/typed-sql-native-descriptors \
+pnpm exec tsx test/helpers/postgres-descriptor-inventory.ts
+```
+
+User/extension types, relation row types, nondefault policies and additional modifier/composition
+boundaries still need separate evidence. This stage neither widens adapter admission nor ships
+catalog captures in package bundles.
+
 ## Remaining owners
 
-PostgreSQL, MySQL, SQLite and SQL Server still need a reconciled descriptor-family availability review beyond the representative [16-profile facet report](./native-costs.md). Existing real/native unit and packed tests remain evidence for their declared invocations. They do not substitute for independent inventory-driven family accounting. In particular, SQLite storage domains are not arbitrary-expression result types, MySQL modifiers/parameter authority can be partial, PostgreSQL custom/domain/polymorphic bindings need separate rules, and SQL Server opaque/custom/XML/collation facets can be unavailable. Acceptance scenario 17 remains open.
+MySQL, SQLite and SQL Server still need a reconciled descriptor-family availability review beyond the representative [16-profile facet report](./native-costs.md). PostgreSQL's initial catalog capture still requires hosted review and additional class/policy controls. Existing real/native unit and packed tests remain evidence for their declared invocations. They do not substitute for independent inventory-driven family accounting. In particular, SQLite storage domains are not arbitrary-expression result types, MySQL modifiers/parameter authority can be partial, PostgreSQL custom/domain/polymorphic bindings need separate rules, and SQL Server opaque/custom/XML/collation facets can be unavailable. Acceptance scenario 17 remains open.

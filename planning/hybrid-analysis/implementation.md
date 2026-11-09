@@ -1919,3 +1919,30 @@ hashes are retained. Native suites compare fresh facts with the reviewed fingerp
 than silently accepting drift. Root types, both native suites, full DuckDB coverage, all 53
 repository contracts and local quality pass. Other owners and descriptor-policy/class gaps
 remain open; this is not a complete five-grammar capability certificate.
+
+## PostgreSQL descriptor inventory capture
+
+Committed collector `745a48a0c13ad214ff96907436f70aa491c28ec6` independently discovers 329
+bootstrap non-relation types on PostgreSQL 18.3 and runs output/parameter Parse/Describe probes,
+plus 12 modifier controls. No candidate is bound or executed. The 670 observations distinguish
+46 acquisitions, 612 engine-described adapter declines, ten engine rejections and two JSON
+parameter-runtime unavailability cases. Known column typmods remain complete while parameter
+modifier identity remains incomplete. Counts and boundaries are in the
+[descriptor-family review](./descriptor-families.md#postgresql-catalog-driven-observations).
+Root typechecking and quality pass, and a committed-source recapture reproduces the semantic
+fingerprint. All six PostgreSQL CI profiles now capture their own protocol observations and
+upload detailed JSON, including explicit unavailable adapter status outside its qualified major.
+Hosted qualification and reviewed drift fingerprints remain pending. Scenario 17 stays partial;
+this initial catalog review does not qualify custom types, policies or arbitrary compositions.
+
+The same committed source refreshes both DuckDB native fixture costs and commerce measurements
+after its adapter/owner epoch changes. Three observations per fixture and 1/10/50-copy application
+captures retain the previous byte sizes and qualified subsets, with zero disconnected native calls.
+Other profile observations retain their original source identities rather than acquiring a new pin.
+
+Review findings are checked separately: the repository classifier now expresses its anchored
+root-directory test and nested-directory test as distinct alternatives. The source-refresh network
+findings are dismissed as false positives after inspecting each owner's exact vendor URL/revision/
+path checks and the cache's validated digest-only destination plus exact length/content checks.
+No file data or arbitrary application value is added to a request; verified source bytes are
+intentionally cached without execution. No scanning rule or package-wide exception is disabled.

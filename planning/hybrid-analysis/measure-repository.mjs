@@ -87,7 +87,8 @@ if (offset !== batch.length) throw Error("Unconsumed Git batch data");
 function classify(path) {
   if (sourceExtensions.has(extname(path)) || /(?:^|\/)(?:Containerfile|Dockerfile|Makefile)$/u.test(path)) {
     if (/^packages\/[^/]+\/src\//u.test(path)) return { category: "packageSource", code: true };
-    if (/^(?:test|e2e)\/|\/(?:test|tests)\//u.test(path)) return { category: "testSource", code: true };
+    if (/^(?:test|e2e)\//u.test(path) || /\/(?:test|tests)\//u.test(path))
+      return { category: "testSource", code: true };
     if (/^(?:scripts|tools)\//u.test(path)) return { category: "toolingSource", code: true };
     if (/^(?:examples|editors|website)\//u.test(path))
       return { category: "applicationEditorWebsiteSource", code: true };

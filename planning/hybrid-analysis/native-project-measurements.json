@@ -2634,11 +2634,11 @@
         "staticClaimHash": "5e54a81ab5c358e44c200c260c734b0362959f7ffb78ac39f381b4613173670a"
       }
     },
-    "eb7088a3342f5cf44dd9b0c1fc6a5f8983dc2fda3d0da0ca37fe6a43ce4d08cd": {
+    "01f9fb33c2dd9a4e5a079da54f9617c65bced3f56183f07addd57b6684393be7": {
       "nativeEvidence": {
         "adapter": {
           "id": "@typed-sql/duckdb/node-api-contracts",
-          "version": "duckdb-native-prepare-v3"
+          "version": "duckdb-native-prepare-v4"
         },
         "columns": [
           {
@@ -3143,25 +3143,25 @@
             "target": "parameter"
           }
         ],
-        "nativeEvidenceHash": "1ff6fdcf908033958d5a2198b55a87ad6e940d01c56c83b962c81a7537c04178",
+        "nativeEvidenceHash": "d6fc54b424db33cc26f9d8cc80b6de5d7368a662e5023666ae3ba143524bea98",
         "policy": {
           "mode": "native-required",
           "owner": {
             "id": "@typed-sql/duckdb/reconciliation",
-            "version": "duckdb-contract-reconciliation-v2"
+            "version": "duckdb-contract-reconciliation-v3"
           },
           "requiredNativeFacets": ["runtime-type"]
         },
-        "policyHash": "ad4cbabe54cdeba43b4f99da8430079ea506888176230df1f121f78ecd6766c4",
-        "sourceContractHash": "f962d4604be2818f1b80a8677ce20e9a8ae228f0d9b42262f94a83cdfe69f6f8",
-        "staticClaimHash": "1509f2eb9c0b4a61a4ad384d7d746da4d3eb2b46b57279d6d561a1dffca8997d"
+        "policyHash": "f02091e61bcee10cc936941d82bb6102f84d47c7a304a626fe98762e15d678c0",
+        "sourceContractHash": "831bcc220094e05ba86eb471d0376eb6c187d94499fb640ef7623ea1ee722fdb",
+        "staticClaimHash": "4c3e2d7ddbae5f7aaea7cd034ae2c756e14efd912f5ba7fa98b079ed85fb62b4"
       }
     },
-    "38b93fdba365c8bcd9374c57998ca3557ae92fc671954eac7854eceff6adba9e": {
+    "d9deee2ad6fa5508360def5079eb3d1af197c80a94e139e61aae3012ba3fa3a5": {
       "nativeEvidence": {
         "adapter": {
           "id": "@typed-sql/duckdb/node-api-contracts",
-          "version": "duckdb-native-prepare-v3"
+          "version": "duckdb-native-prepare-v4"
         },
         "columns": [
           {
@@ -3666,18 +3666,18 @@
             "target": "parameter"
           }
         ],
-        "nativeEvidenceHash": "1ff6fdcf908033958d5a2198b55a87ad6e940d01c56c83b962c81a7537c04178",
+        "nativeEvidenceHash": "d6fc54b424db33cc26f9d8cc80b6de5d7368a662e5023666ae3ba143524bea98",
         "policy": {
           "mode": "native-required",
           "owner": {
             "id": "@typed-sql/duckdb/reconciliation",
-            "version": "duckdb-contract-reconciliation-v2"
+            "version": "duckdb-contract-reconciliation-v3"
           },
           "requiredNativeFacets": ["runtime-type"]
         },
-        "policyHash": "ad4cbabe54cdeba43b4f99da8430079ea506888176230df1f121f78ecd6766c4",
-        "sourceContractHash": "7a45263075cf7f460642b5603d2beaded6bdcfa415c4b0f5c152ee6f19e8bfc6",
-        "staticClaimHash": "e628b8c2d9e63720a521afadb97fccdb76cc71af6288a5e8da3aca1a62fd9b63"
+        "policyHash": "f02091e61bcee10cc936941d82bb6102f84d47c7a304a626fe98762e15d678c0",
+        "sourceContractHash": "cc3d5a24d9f3f7aa32266302edd0905f23f476e625a8a21b5095b6d665c090af",
+        "staticClaimHash": "2d800eb34723cb21501d5b41d4ca1e186807227a414accacb61e56c5d7fee0f4"
       }
     }
   },
@@ -3766,92 +3766,6 @@
         },
         "status": "qualified",
         "evidenceDigest": "4bbedbf45144d83aeaff5598e96e95127210d04eb8fa3cde91f4bbb657553545"
-      }
-    ],
-    "dfda5707d89fd2620669ce99ee6f608b383f73ccb8e6bbcfbcfda0dd22662b7d": [
-      {
-        "file": "queries/account.ts",
-        "index": 0,
-        "sqlDigest": "ed21d8923fb54061176c9c8ccb21e793166ebdbb4eded957a1be218f2194fc90",
-        "logicalBindings": [0],
-        "logicalParameterCount": 1,
-        "admission": {
-          "accepted": true
-        },
-        "status": "partial",
-        "failureCode": "postgres-unsupported-context"
-      },
-      {
-        "file": "queries/audit.ts",
-        "index": 0,
-        "sqlDigest": "1b01d7f68b04ace4e20130a6b15ff228ba8ec98845af89c840e86b55b7f13932",
-        "logicalBindings": [0, 1, 2, 3],
-        "logicalParameterCount": 4,
-        "admission": {
-          "accepted": false,
-          "reason": "postgres-guarded-select-scope"
-        },
-        "status": "declined"
-      },
-      {
-        "file": "queries/catalog.ts",
-        "index": 0,
-        "sqlDigest": "18afec7b91a04192e2d207fa6dbe54d1fb701405f5665cf4a2db7195fae64f48",
-        "logicalBindings": [0, 1],
-        "logicalParameterCount": 2,
-        "admission": {
-          "accepted": false,
-          "reason": "postgres-guarded-select-scope"
-        },
-        "status": "declined"
-      },
-      {
-        "file": "queries/catalog.ts",
-        "index": 1,
-        "sqlDigest": "5fdb0b27095544b34ea92a78e6e2ff23ebd99beb34f38ca88eabcbc471bf2edf",
-        "logicalBindings": [0, 1],
-        "logicalParameterCount": 2,
-        "admission": {
-          "accepted": false,
-          "reason": "postgres-guarded-select-scope"
-        },
-        "status": "declined"
-      },
-      {
-        "file": "queries/insert-pair.ts",
-        "index": 0,
-        "sqlDigest": "1c92601e7095b6a8d0647fd0f2193b17e78bc5799ff54ec2e50f519ae94f05db",
-        "logicalBindings": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-        "logicalParameterCount": 10,
-        "admission": {
-          "accepted": false,
-          "reason": "postgres-guarded-select-scope"
-        },
-        "status": "declined"
-      },
-      {
-        "file": "queries/order-json.ts",
-        "index": 0,
-        "sqlDigest": "0ddff0cd316bad4bf4393eb1dcfa16b18d09df6ade69bbd35cc0151f426cd9ea",
-        "logicalBindings": [0],
-        "logicalParameterCount": 1,
-        "admission": {
-          "accepted": false,
-          "reason": "postgres-guarded-select-scope"
-        },
-        "status": "declined"
-      },
-      {
-        "file": "queries/revenue.sql",
-        "index": 0,
-        "sqlDigest": "4d27fedf94f9bbd1893b7eddb57fb5ca180db2a2c7c67fd14d150056e721c7e8",
-        "logicalBindings": [0],
-        "logicalParameterCount": 1,
-        "admission": {
-          "accepted": false,
-          "reason": "postgres-guarded-select-scope"
-        },
-        "status": "declined"
       }
     ],
     "71c334c7c719e469aefbc261f00c8a5f70c1a78269a6271c8d34459103f8bed7": [
@@ -4026,7 +3940,93 @@
         "status": "declined"
       }
     ],
-    "4bccb7e627f241d6dac5c47111f9f4d86826143367c0f6a69960b93080d836c1": [
+    "dfda5707d89fd2620669ce99ee6f608b383f73ccb8e6bbcfbcfda0dd22662b7d": [
+      {
+        "file": "queries/account.ts",
+        "index": 0,
+        "sqlDigest": "ed21d8923fb54061176c9c8ccb21e793166ebdbb4eded957a1be218f2194fc90",
+        "logicalBindings": [0],
+        "logicalParameterCount": 1,
+        "admission": {
+          "accepted": true
+        },
+        "status": "partial",
+        "failureCode": "postgres-unsupported-context"
+      },
+      {
+        "file": "queries/audit.ts",
+        "index": 0,
+        "sqlDigest": "1b01d7f68b04ace4e20130a6b15ff228ba8ec98845af89c840e86b55b7f13932",
+        "logicalBindings": [0, 1, 2, 3],
+        "logicalParameterCount": 4,
+        "admission": {
+          "accepted": false,
+          "reason": "postgres-guarded-select-scope"
+        },
+        "status": "declined"
+      },
+      {
+        "file": "queries/catalog.ts",
+        "index": 0,
+        "sqlDigest": "18afec7b91a04192e2d207fa6dbe54d1fb701405f5665cf4a2db7195fae64f48",
+        "logicalBindings": [0, 1],
+        "logicalParameterCount": 2,
+        "admission": {
+          "accepted": false,
+          "reason": "postgres-guarded-select-scope"
+        },
+        "status": "declined"
+      },
+      {
+        "file": "queries/catalog.ts",
+        "index": 1,
+        "sqlDigest": "5fdb0b27095544b34ea92a78e6e2ff23ebd99beb34f38ca88eabcbc471bf2edf",
+        "logicalBindings": [0, 1],
+        "logicalParameterCount": 2,
+        "admission": {
+          "accepted": false,
+          "reason": "postgres-guarded-select-scope"
+        },
+        "status": "declined"
+      },
+      {
+        "file": "queries/insert-pair.ts",
+        "index": 0,
+        "sqlDigest": "1c92601e7095b6a8d0647fd0f2193b17e78bc5799ff54ec2e50f519ae94f05db",
+        "logicalBindings": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+        "logicalParameterCount": 10,
+        "admission": {
+          "accepted": false,
+          "reason": "postgres-guarded-select-scope"
+        },
+        "status": "declined"
+      },
+      {
+        "file": "queries/order-json.ts",
+        "index": 0,
+        "sqlDigest": "0ddff0cd316bad4bf4393eb1dcfa16b18d09df6ade69bbd35cc0151f426cd9ea",
+        "logicalBindings": [0],
+        "logicalParameterCount": 1,
+        "admission": {
+          "accepted": false,
+          "reason": "postgres-guarded-select-scope"
+        },
+        "status": "declined"
+      },
+      {
+        "file": "queries/revenue.sql",
+        "index": 0,
+        "sqlDigest": "4d27fedf94f9bbd1893b7eddb57fb5ca180db2a2c7c67fd14d150056e721c7e8",
+        "logicalBindings": [0],
+        "logicalParameterCount": 1,
+        "admission": {
+          "accepted": false,
+          "reason": "postgres-guarded-select-scope"
+        },
+        "status": "declined"
+      }
+    ],
+    "c1c4e88b2c29a9c934ab6f8ab2eef08d309443fcbd93d7cc3b4daac9142d0a9b": [
       {
         "file": "queries/account.ts",
         "index": 0,
@@ -4037,7 +4037,7 @@
           "accepted": true
         },
         "status": "qualified",
-        "evidenceDigest": "eb7088a3342f5cf44dd9b0c1fc6a5f8983dc2fda3d0da0ca37fe6a43ce4d08cd"
+        "evidenceDigest": "01f9fb33c2dd9a4e5a079da54f9617c65bced3f56183f07addd57b6684393be7"
       },
       {
         "file": "queries/audit.ts",
@@ -4124,7 +4124,7 @@
         "status": "declined"
       }
     ],
-    "d1e3a0823160240145470d06596f7af3584e7892efe587d19c38b0b4fdd9a0d4": [
+    "350d61486eae66703ce9b34d48027fcbdf3c5ca85c3518e2928e25f55d32170a": [
       {
         "file": "queries/account.ts",
         "index": 0,
@@ -4135,7 +4135,7 @@
           "accepted": true
         },
         "status": "qualified",
-        "evidenceDigest": "38b93fdba365c8bcd9374c57998ca3557ae92fc671954eac7854eceff6adba9e"
+        "evidenceDigest": "d9deee2ad6fa5508360def5079eb3d1af197c80a94e139e61aae3012ba3fa3a5"
       },
       {
         "file": "queries/audit.ts",
@@ -4324,7 +4324,7 @@
   "profiles": [
     {
       "formatVersion": 1,
-      "sourceRevision": "eb1b199f0ef98b7e00a532df36adcea2691abe52",
+      "sourceRevision": "745a48a0c13ad214ff96907436f70aa491c28ec6",
       "toolDigest": "6cb9d4753cacb713632c72f47e064ce2000c782ad5fd294a5eceb4f23780f00a",
       "fixtureProducer": {
         "path": "planning/hybrid-analysis/measure-duckdb-commerce.mjs",
@@ -4337,7 +4337,7 @@
       },
       "adapter": {
         "id": "@typed-sql/duckdb/node-api-contracts",
-        "version": "duckdb-native-prepare-v3"
+        "version": "duckdb-native-prepare-v4"
       },
       "server": {
         "product": "duckdb",
@@ -4385,7 +4385,7 @@
         "mode": "native-required",
         "owner": {
           "id": "@typed-sql/duckdb/reconciliation",
-          "version": "duckdb-contract-reconciliation-v2"
+          "version": "duckdb-contract-reconciliation-v3"
         },
         "requiredNativeFacets": ["runtime-type"]
       },
@@ -4420,7 +4420,7 @@
         "tables": 7,
         "ownedDatabaseRemovedBeforeOffline": true
       },
-      "reportDigest": "fa06b23eb319c8f07a808461e85063e896e5c3f842274e10c8c90c712381d70e",
+      "reportDigest": "51302a2fe770782295674a8ff7a13746c4f5b41fabda4f53f7e4c4dfb6819370",
       "observations": [
         {
           "copies": 1,
@@ -4433,16 +4433,16 @@
           },
           "admittedSubsetComplete": true,
           "completeProject": false,
-          "contextInspectionMs": 67.769792,
+          "contextInspectionMs": 71.56299999999999,
           "contextAttempts": [
             {
               "attempt": 0,
               "status": "observed"
             }
           ],
-          "acquisitionMs": 110.73808300000007,
-          "reconciliationMs": 3.0479159999999865,
-          "acquisitionAndPublicationMs": 289.84804199999996,
+          "acquisitionMs": 109.55058299999996,
+          "reconciliationMs": 2.978375000000028,
+          "acquisitionAndPublicationMs": 295.667958,
           "valuePlans": {
             "bytes": 892,
             "gzipBytes": 351,
@@ -4456,8 +4456,8 @@
             "bytes": 13473,
             "files": 5
           },
-          "offlineReloadAndCheckMs": 46.95320900000115,
-          "queriesDigest": "d1e3a0823160240145470d06596f7af3584e7892efe587d19c38b0b4fdd9a0d4"
+          "offlineReloadAndCheckMs": 39.134250000000975,
+          "queriesDigest": "c1c4e88b2c29a9c934ab6f8ab2eef08d309443fcbd93d7cc3b4daac9142d0a9b"
         },
         {
           "copies": 10,
@@ -4470,16 +4470,16 @@
           },
           "admittedSubsetComplete": true,
           "completeProject": false,
-          "contextInspectionMs": 68.80983400000002,
+          "contextInspectionMs": 60.62266699999998,
           "contextAttempts": [
             {
               "attempt": 0,
               "status": "observed"
             }
           ],
-          "acquisitionMs": 1023.5924180000001,
-          "reconciliationMs": 23.655750000000126,
-          "acquisitionAndPublicationMs": 1474.7380829999997,
+          "acquisitionMs": 1031.924541,
+          "reconciliationMs": 22.543041000000358,
+          "acquisitionAndPublicationMs": 1461.9067499999996,
           "valuePlans": {
             "bytes": 8911,
             "gzipBytes": 414,
@@ -4493,8 +4493,8 @@
             "bytes": 125272,
             "files": 14
           },
-          "offlineReloadAndCheckMs": 367.5149999999994,
-          "queriesDigest": "d1e3a0823160240145470d06596f7af3584e7892efe587d19c38b0b4fdd9a0d4"
+          "offlineReloadAndCheckMs": 356.1810839999998,
+          "queriesDigest": "c1c4e88b2c29a9c934ab6f8ab2eef08d309443fcbd93d7cc3b4daac9142d0a9b"
         },
         {
           "copies": 50,
@@ -4507,16 +4507,16 @@
           },
           "admittedSubsetComplete": true,
           "completeProject": false,
-          "contextInspectionMs": 60.3794170000001,
+          "contextInspectionMs": 56.19512500000019,
           "contextAttempts": [
             {
               "attempt": 0,
               "status": "observed"
             }
           ],
-          "acquisitionMs": 5010.935872000006,
-          "reconciliationMs": 115.28754000000208,
-          "acquisitionAndPublicationMs": 6669.064375,
+          "acquisitionMs": 4990.0966210000015,
+          "reconciliationMs": 114.78578899999957,
+          "acquisitionAndPublicationMs": 6595.593290999999,
           "valuePlans": {
             "bytes": 44551,
             "gzipBytes": 613,
@@ -4530,14 +4530,14 @@
             "bytes": 622152,
             "files": 54
           },
-          "offlineReloadAndCheckMs": 1733.3452909999996,
-          "queriesDigest": "d1e3a0823160240145470d06596f7af3584e7892efe587d19c38b0b4fdd9a0d4"
+          "offlineReloadAndCheckMs": 1694.4792499999985,
+          "queriesDigest": "c1c4e88b2c29a9c934ab6f8ab2eef08d309443fcbd93d7cc3b4daac9142d0a9b"
         }
       ]
     },
     {
       "formatVersion": 1,
-      "sourceRevision": "eb1b199f0ef98b7e00a532df36adcea2691abe52",
+      "sourceRevision": "745a48a0c13ad214ff96907436f70aa491c28ec6",
       "toolDigest": "6cb9d4753cacb713632c72f47e064ce2000c782ad5fd294a5eceb4f23780f00a",
       "fixtureProducer": {
         "path": "planning/hybrid-analysis/measure-duckdb-commerce.mjs",
@@ -4550,7 +4550,7 @@
       },
       "adapter": {
         "id": "@typed-sql/duckdb/node-api-contracts",
-        "version": "duckdb-native-prepare-v3"
+        "version": "duckdb-native-prepare-v4"
       },
       "server": {
         "product": "duckdb",
@@ -4596,7 +4596,7 @@
         "mode": "native-required",
         "owner": {
           "id": "@typed-sql/duckdb/reconciliation",
-          "version": "duckdb-contract-reconciliation-v2"
+          "version": "duckdb-contract-reconciliation-v3"
         },
         "requiredNativeFacets": ["runtime-type"]
       },
@@ -4631,7 +4631,7 @@
         "tables": 7,
         "ownedDatabaseRemovedBeforeOffline": true
       },
-      "reportDigest": "d03fad633f8a78b90cc450b3de090a3212ab40c9d4ba21d25bace6c502d48fa8",
+      "reportDigest": "9d343dbfd2230346df641dd7980cffdf322dd1b1927e7ce1f336376ddeaa0b03",
       "observations": [
         {
           "copies": 1,
@@ -4644,16 +4644,16 @@
           },
           "admittedSubsetComplete": true,
           "completeProject": false,
-          "contextInspectionMs": 85.91504100000003,
+          "contextInspectionMs": 86.35429199999999,
           "contextAttempts": [
             {
               "attempt": 0,
               "status": "observed"
             }
           ],
-          "acquisitionMs": 137.7835,
-          "reconciliationMs": 3.230000000000018,
-          "acquisitionAndPublicationMs": 337.887,
+          "acquisitionMs": 128.34516699999995,
+          "reconciliationMs": 2.9728750000000446,
+          "acquisitionAndPublicationMs": 328.04316700000004,
           "valuePlans": {
             "bytes": 892,
             "gzipBytes": 351,
@@ -4667,8 +4667,8 @@
             "bytes": 13473,
             "files": 5
           },
-          "offlineReloadAndCheckMs": 54.97883400000137,
-          "queriesDigest": "4bccb7e627f241d6dac5c47111f9f4d86826143367c0f6a69960b93080d836c1"
+          "offlineReloadAndCheckMs": 47.02716700000019,
+          "queriesDigest": "350d61486eae66703ce9b34d48027fcbdf3c5ca85c3518e2928e25f55d32170a"
         },
         {
           "copies": 10,
@@ -4681,16 +4681,16 @@
           },
           "admittedSubsetComplete": true,
           "completeProject": false,
-          "contextInspectionMs": 79.38108299999999,
+          "contextInspectionMs": 75.11204199999997,
           "contextAttempts": [
             {
               "attempt": 0,
               "status": "observed"
             }
           ],
-          "acquisitionMs": 1267.421835,
-          "reconciliationMs": 24.51012400000036,
-          "acquisitionAndPublicationMs": 1728.974458,
+          "acquisitionMs": 1277.3062090000008,
+          "reconciliationMs": 24.579334000000472,
+          "acquisitionAndPublicationMs": 1722.0764999999997,
           "valuePlans": {
             "bytes": 8911,
             "gzipBytes": 414,
@@ -4704,8 +4704,8 @@
             "bytes": 125272,
             "files": 14
           },
-          "offlineReloadAndCheckMs": 386.5901670000003,
-          "queriesDigest": "4bccb7e627f241d6dac5c47111f9f4d86826143367c0f6a69960b93080d836c1"
+          "offlineReloadAndCheckMs": 386.3600829999996,
+          "queriesDigest": "350d61486eae66703ce9b34d48027fcbdf3c5ca85c3518e2928e25f55d32170a"
         },
         {
           "copies": 50,
@@ -4718,16 +4718,16 @@
           },
           "admittedSubsetComplete": true,
           "completeProject": false,
-          "contextInspectionMs": 80.42375000000038,
+          "contextInspectionMs": 78.035167,
           "contextAttempts": [
             {
               "attempt": 0,
               "status": "observed"
             }
           ],
-          "acquisitionMs": 6128.344295000005,
-          "reconciliationMs": 119.14800100000366,
-          "acquisitionAndPublicationMs": 7840.777666,
+          "acquisitionMs": 6141.755627999996,
+          "reconciliationMs": 118.93107900000177,
+          "acquisitionAndPublicationMs": 7842.727792000001,
           "valuePlans": {
             "bytes": 44551,
             "gzipBytes": 613,
@@ -4741,8 +4741,8 @@
             "bytes": 622152,
             "files": 54
           },
-          "offlineReloadAndCheckMs": 1853.5359579999986,
-          "queriesDigest": "4bccb7e627f241d6dac5c47111f9f4d86826143367c0f6a69960b93080d836c1"
+          "offlineReloadAndCheckMs": 1906.6736250000013,
+          "queriesDigest": "350d61486eae66703ce9b34d48027fcbdf3c5ca85c3518e2928e25f55d32170a"
         }
       ]
     },

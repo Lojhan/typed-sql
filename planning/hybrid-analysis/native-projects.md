@@ -29,12 +29,12 @@ Missing grammar measurements: none. Only the explicitly listed engine versions a
 
 | Profile | Copies | Qualified / finite | Durable bytes | Cache bytes | Acquire and publish ms | Offline reload and check ms |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| duckdb-commerce-1.5.6 | 1 | 1 / 8 | 12825 | 13473 | 289.85 | 46.95 |
-| duckdb-commerce-1.5.6 | 10 | 10 / 80 | 121662 | 125272 | 1474.74 | 367.51 |
-| duckdb-commerce-1.5.6 | 50 | 50 / 400 | 605382 | 622152 | 6669.06 | 1733.35 |
-| duckdb-commerce-2.0.0 | 1 | 1 / 8 | 12825 | 13473 | 337.89 | 54.98 |
-| duckdb-commerce-2.0.0 | 10 | 10 / 80 | 121662 | 125272 | 1728.97 | 386.59 |
-| duckdb-commerce-2.0.0 | 50 | 50 / 400 | 605382 | 622152 | 7840.78 | 1853.54 |
+| duckdb-commerce-1.5.6 | 1 | 1 / 8 | 12825 | 13473 | 295.67 | 39.13 |
+| duckdb-commerce-1.5.6 | 10 | 10 / 80 | 121662 | 125272 | 1461.91 | 356.18 |
+| duckdb-commerce-1.5.6 | 50 | 50 / 400 | 605382 | 622152 | 6595.59 | 1694.48 |
+| duckdb-commerce-2.0.0 | 1 | 1 / 8 | 12825 | 13473 | 328.04 | 47.03 |
+| duckdb-commerce-2.0.0 | 10 | 10 / 80 | 121662 | 125272 | 1722.08 | 386.36 |
+| duckdb-commerce-2.0.0 | 50 | 50 / 400 | 605382 | 622152 | 7842.73 | 1906.67 |
 | mysql-commerce-8.4.11 | 1 | 1 / 7 | 12224 | 12872 | 118.19 | 17.31 |
 | mysql-commerce-8.4.11 | 10 | 10 / 70 | 115661 | 119271 | 554.90 | 99.82 |
 | mysql-commerce-8.4.11 | 50 | 50 / 350 | 575381 | 592151 | 2459.80 | 428.44 |

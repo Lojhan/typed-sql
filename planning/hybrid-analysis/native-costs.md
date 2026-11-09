@@ -8,7 +8,7 @@ none.
 
 Each profile records its actual engine version, adapter/grammar identities, client environment,
 SQL digest, raw observations and exact committed measurement-tool hash. Source revisions:
-[7bb092a8](https://github.com/Lojhan/typed-sql/commit/7bb092a83804cc85501a3b808bc281119c927439), [b054a1a3](https://github.com/Lojhan/typed-sql/commit/b054a1a344a3e30c3ea4eab6e8f9b3de5ea379ea), [b601d85c](https://github.com/Lojhan/typed-sql/commit/b601d85c81f5681eead3a596b2afd6c63db5687a).
+[745a48a0](https://github.com/Lojhan/typed-sql/commit/745a48a0c13ad214ff96907436f70aa491c28ec6), [7bb092a8](https://github.com/Lojhan/typed-sql/commit/7bb092a83804cc85501a3b808bc281119c927439), [b054a1a3](https://github.com/Lojhan/typed-sql/commit/b054a1a344a3e30c3ea4eab6e8f9b3de5ea379ea), [b601d85c](https://github.com/Lojhan/typed-sql/commit/b601d85c81f5681eead3a596b2afd6c63db5687a).
 Hosted artifact provenance is recorded in [implementation evidence](./implementation.md).
 These are selected qualified fixtures, not a complete application workload or all supported
 engine versions, and do not establish production popularity or latency guarantees.
@@ -56,8 +56,8 @@ The sum-of-timed-stages statistic excludes untimed caller and fixture overhead.
 
 | Profile | Context inspection | Acquisition + reconciliation | Reopened cache object | Warm lookup |
 | --- | ---: | ---: | ---: | ---: |
-| duckdb-1.5.6 | 29.6 | 39.5 | 6.3 | 3.7 |
-| duckdb-2.0.0 | 47.5 | 58.3 | 7.7 | 4.5 |
+| duckdb-1.5.6 | 28.6 | 38.0 | 7.2 | 4.3 |
+| duckdb-2.0.0 | 42.4 | 54.1 | 8.9 | 4.6 |
 | mysql-8.4.11 | 9.0 | 15.9 | 12.0 | 4.7 |
 | mysql-9.7.2 | 11.5 | 17.8 | 12.1 | 4.8 |
 | postgres-18.3 | 92.7 | 182.3 | 7.0 | 5.1 |

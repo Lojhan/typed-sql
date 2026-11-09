@@ -19,12 +19,12 @@
   "profiles": [
     {
       "formatVersion": 2,
-      "sourceRevision": "7bb092a83804cc85501a3b808bc281119c927439",
+      "sourceRevision": "745a48a0c13ad214ff96907436f70aa491c28ec6",
       "toolDigest": "f001eb36771bbcd97a474da387f52f741ba33846e4670339f4d09ab8ecfbcbfd",
       "label": "duckdb-1.5.6",
       "serverVersion": "v1.5.6",
       "grammar": { "id": "duckdb", "version": "1.0.0" },
-      "adapter": { "id": "@typed-sql/duckdb/node-api-contracts", "version": "duckdb-native-prepare-v3" },
+      "adapter": { "id": "@typed-sql/duckdb/node-api-contracts", "version": "duckdb-native-prepare-v4" },
       "sqlDigest": "956e5d1ecae1a3a650568066b64c0432f0a6675907ced5699a1b8891df3e5938",
       "parameterOccurrences": 1,
       "fixtureSchema": {
@@ -33,10 +33,10 @@
       },
       "environment": { "node": "v24.22.2", "platform": "darwin", "architecture": "arm64" },
       "facetObservations": {
-        "9359d60f8123e5ce96f9ffb909d3f5f35396d4e7d47e51f942cef3eb7e142b1d": {
+        "ce038638fb7e7a7b6950124bdd71b4db8bff73bb15f812053aad00518b50123b": {
           "sqlLength": 32,
           "nativeEvidence": {
-            "adapter": { "id": "@typed-sql/duckdb/node-api-contracts", "version": "duckdb-native-prepare-v3" },
+            "adapter": { "id": "@typed-sql/duckdb/node-api-contracts", "version": "duckdb-native-prepare-v4" },
             "columns": [
               {
                 "descriptor": { "logicalType": { "kind": "scalar", "name": "VARCHAR" } },
@@ -155,15 +155,15 @@
                 "target": "parameter"
               }
             ],
-            "nativeEvidenceHash": "ddaaca55c1a15c7734d2812149e0a213492202c531d8a18ccfdd5468803952cd",
+            "nativeEvidenceHash": "72f48991b11df09048fc50f49e0f162b657bc42db77f608db089790af5e94c19",
             "policy": {
               "mode": "native-required",
-              "owner": { "id": "@typed-sql/duckdb/reconciliation", "version": "duckdb-contract-reconciliation-v2" },
+              "owner": { "id": "@typed-sql/duckdb/reconciliation", "version": "duckdb-contract-reconciliation-v3" },
               "requiredNativeFacets": ["runtime-type"]
             },
-            "policyHash": "ad4cbabe54cdeba43b4f99da8430079ea506888176230df1f121f78ecd6766c4",
-            "sourceContractHash": "d6384d5449135bc48973f4188d246b6bc53d9902c6ca70bd6c14ba76bfb01971",
-            "staticClaimHash": "5c0a6511adc0d2142414754585c54061256be3b219dbaab0525cd6ba9ce2adcd"
+            "policyHash": "f02091e61bcee10cc936941d82bb6102f84d47c7a304a626fe98762e15d678c0",
+            "sourceContractHash": "4197d5a2b9525ca7f70b8c07e9720eb1ac7eac48e4e2275ffe69f731d97faaf9",
+            "staticClaimHash": "4d152196642f5e59de3d1c584e9b89dd33c311ddff80cae741044ce799383040"
           }
         }
       },
@@ -171,137 +171,137 @@
         {
           "attempts": [
             {
-              "contextInspectionMs": 27.620124999999973,
-              "staticAnalysisMs": 0.3502080000000092,
-              "acquisitionAndReconciliationMs": 38.092667000000006,
+              "contextInspectionMs": 28.529999999999745,
+              "staticAnalysisMs": 0.3076250000003711,
+              "acquisitionAndReconciliationMs": 36.803499999999985,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "39d786154c1981fad7953e971fc62512e8ac686e66289f39d926a8739fd2470a",
-          "contextDigest": "c9670bf3b1f7ded30b18082a6fe0910ebc0ad67d1ed9391fdb8a551ec4d586f2",
-          "facetObservationDigest": "9359d60f8123e5ce96f9ffb909d3f5f35396d4e7d47e51f942cef3eb7e142b1d",
+          "contractDigest": "265642512ec93ce0bfb5d3a30b4bbee5e5fbb9467499a87a8e242c620d4e0e91",
+          "contextDigest": "a0bb0abbaa362facf227d8062118c736eaadb1a92e54d111f5e5db41e04ef71e",
+          "facetObservationDigest": "ce038638fb7e7a7b6950124bdd71b4db8bff73bb15f812053aad00518b50123b",
           "canonicalContractBytes": 4767,
           "nativeEvidenceBytes": 890,
           "valuePlanBytes": 274,
           "durable": { "bytes": 5566, "files": 3 },
           "cache": { "bytes": 6213, "files": 5 },
-          "durableExportMs": 19.862500000000068,
-          "durableReloadMs": 1.4735410000000684,
-          "cachePublishMs": 18.467208000000028,
-          "coldCacheObjectLookupMs": 5.8630829999999605,
-          "warmLookupMs": [2.896333000000027, 3.9272079999999505, 4.247582999999963]
+          "durableExportMs": 20.50500000000011,
+          "durableReloadMs": 1.9333750000005239,
+          "cachePublishMs": 17.6709579999997,
+          "coldCacheObjectLookupMs": 7.200084000000061,
+          "warmLookupMs": [4.130500000000211, 5.166374999999789, 2.3886670000001686]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 29.605542000000014,
-              "staticAnalysisMs": 1.8286249999999882,
-              "acquisitionAndReconciliationMs": 40.67229099999997,
+              "contextInspectionMs": 28.647790999999415,
+              "staticAnalysisMs": 1.8060420000001614,
+              "acquisitionAndReconciliationMs": 37.9643329999999,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "39d786154c1981fad7953e971fc62512e8ac686e66289f39d926a8739fd2470a",
-          "contextDigest": "c9670bf3b1f7ded30b18082a6fe0910ebc0ad67d1ed9391fdb8a551ec4d586f2",
-          "facetObservationDigest": "9359d60f8123e5ce96f9ffb909d3f5f35396d4e7d47e51f942cef3eb7e142b1d",
+          "contractDigest": "265642512ec93ce0bfb5d3a30b4bbee5e5fbb9467499a87a8e242c620d4e0e91",
+          "contextDigest": "a0bb0abbaa362facf227d8062118c736eaadb1a92e54d111f5e5db41e04ef71e",
+          "facetObservationDigest": "ce038638fb7e7a7b6950124bdd71b4db8bff73bb15f812053aad00518b50123b",
           "canonicalContractBytes": 4767,
           "nativeEvidenceBytes": 890,
           "valuePlanBytes": 274,
           "durable": { "bytes": 5566, "files": 3 },
           "cache": { "bytes": 6213, "files": 5 },
-          "durableExportMs": 14.034791000000041,
-          "durableReloadMs": 1.190417000000025,
-          "cachePublishMs": 16.278290999999967,
-          "coldCacheObjectLookupMs": 6.290499999999952,
-          "warmLookupMs": [5.406083999999964, 3.520582999999988, 2.8748330000000806]
+          "durableExportMs": 11.955541999999696,
+          "durableReloadMs": 1.2516249999998763,
+          "cachePublishMs": 15.859582999999475,
+          "coldCacheObjectLookupMs": 8.130750000000262,
+          "warmLookupMs": [5.81329100000039, 4.559124999999767, 2.8488330000000133]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 31.815707999999972,
-              "staticAnalysisMs": 1.8227499999999281,
-              "acquisitionAndReconciliationMs": 39.45450000000005,
+              "contextInspectionMs": 31.21379100000013,
+              "staticAnalysisMs": 1.8304580000003625,
+              "acquisitionAndReconciliationMs": 38.30262500000026,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "39d786154c1981fad7953e971fc62512e8ac686e66289f39d926a8739fd2470a",
-          "contextDigest": "c9670bf3b1f7ded30b18082a6fe0910ebc0ad67d1ed9391fdb8a551ec4d586f2",
-          "facetObservationDigest": "9359d60f8123e5ce96f9ffb909d3f5f35396d4e7d47e51f942cef3eb7e142b1d",
+          "contractDigest": "265642512ec93ce0bfb5d3a30b4bbee5e5fbb9467499a87a8e242c620d4e0e91",
+          "contextDigest": "a0bb0abbaa362facf227d8062118c736eaadb1a92e54d111f5e5db41e04ef71e",
+          "facetObservationDigest": "ce038638fb7e7a7b6950124bdd71b4db8bff73bb15f812053aad00518b50123b",
           "canonicalContractBytes": 4767,
           "nativeEvidenceBytes": 890,
           "valuePlanBytes": 274,
           "durable": { "bytes": 5566, "files": 3 },
           "cache": { "bytes": 6213, "files": 5 },
-          "durableExportMs": 12.35370899999998,
-          "durableReloadMs": 1.2268329999999423,
-          "cachePublishMs": 18.751957999999945,
-          "coldCacheObjectLookupMs": 6.294167000000016,
-          "warmLookupMs": [3.69233399999996, 3.9523329999999532, 3.467041999999992]
+          "durableExportMs": 12.160167000000001,
+          "durableReloadMs": 1.7412909999993644,
+          "cachePublishMs": 15.51129200000014,
+          "coldCacheObjectLookupMs": 6.4421659999998155,
+          "warmLookupMs": [4.2902500000000146, 4.6047499999995125, 2.907999999999447]
         }
       ],
-      "reportDigest": "a3a90d17a29ff15b96be7b7cad8d9a23a6f0d7b2b4dacd04d391230a6e6d9390",
+      "reportDigest": "da4bc9f5fe88e2bd9ac1e7a9153b41a1da3128fbceab020f50433376a618fc94",
       "summary": {
         "canonicalContractBytes": { "count": 3, "min": 4767, "median": 4767, "max": 4767 },
         "durableFileBytes": { "count": 3, "min": 5566, "median": 5566, "max": 5566 },
         "cacheFileBytes": { "count": 3, "min": 6213, "median": 6213, "max": 6213 },
         "contextInspectionMs": {
           "count": 3,
-          "min": 27.620124999999973,
-          "median": 29.605542000000014,
-          "max": 31.815707999999972
+          "min": 28.529999999999745,
+          "median": 28.647790999999415,
+          "max": 31.21379100000013
         },
         "staticAnalysisMs": {
           "count": 3,
-          "min": 0.3502080000000092,
-          "median": 1.8227499999999281,
-          "max": 1.8286249999999882
+          "min": 0.3076250000003711,
+          "median": 1.8060420000001614,
+          "max": 1.8304580000003625
         },
         "acquisitionAndReconciliationMs": {
           "count": 3,
-          "min": 38.092667000000006,
-          "median": 39.45450000000005,
-          "max": 40.67229099999997
+          "min": 36.803499999999985,
+          "median": 37.9643329999999,
+          "max": 38.30262500000026
         },
         "sumOfQualificationStagesMs": {
           "count": 3,
-          "min": 66.06299999999999,
-          "median": 72.10645799999998,
-          "max": 73.09295799999995
+          "min": 65.6411250000001,
+          "median": 68.41816599999947,
+          "max": 71.34687400000075
         },
         "durableExportMs": {
           "count": 3,
-          "min": 12.35370899999998,
-          "median": 14.034791000000041,
-          "max": 19.862500000000068
+          "min": 11.955541999999696,
+          "median": 12.160167000000001,
+          "max": 20.50500000000011
         },
         "durableReloadMs": {
           "count": 3,
-          "min": 1.190417000000025,
-          "median": 1.2268329999999423,
-          "max": 1.4735410000000684
+          "min": 1.2516249999998763,
+          "median": 1.7412909999993644,
+          "max": 1.9333750000005239
         },
         "cachePublishMs": {
           "count": 3,
-          "min": 16.278290999999967,
-          "median": 18.467208000000028,
-          "max": 18.751957999999945
+          "min": 15.51129200000014,
+          "median": 15.859582999999475,
+          "max": 17.6709579999997
         },
         "coldCacheObjectLookupMs": {
           "count": 3,
-          "min": 5.8630829999999605,
-          "median": 6.290499999999952,
-          "max": 6.294167000000016
+          "min": 6.4421659999998155,
+          "median": 7.200084000000061,
+          "max": 8.130750000000262
         },
-        "warmLookupMs": { "count": 9, "min": 2.8748330000000806, "median": 3.69233399999996, "max": 5.406083999999964 }
+        "warmLookupMs": { "count": 9, "min": 2.3886670000001686, "median": 4.2902500000000146, "max": 5.81329100000039 }
       }
     },
     {
       "formatVersion": 2,
-      "sourceRevision": "7bb092a83804cc85501a3b808bc281119c927439",
+      "sourceRevision": "745a48a0c13ad214ff96907436f70aa491c28ec6",
       "toolDigest": "f001eb36771bbcd97a474da387f52f741ba33846e4670339f4d09ab8ecfbcbfd",
       "label": "duckdb-2.0.0",
       "serverVersion": "v2.0.0",
       "grammar": { "id": "duckdb", "version": "1.0.0" },
-      "adapter": { "id": "@typed-sql/duckdb/node-api-contracts", "version": "duckdb-native-prepare-v3" },
+      "adapter": { "id": "@typed-sql/duckdb/node-api-contracts", "version": "duckdb-native-prepare-v4" },
       "sqlDigest": "956e5d1ecae1a3a650568066b64c0432f0a6675907ced5699a1b8891df3e5938",
       "parameterOccurrences": 1,
       "fixtureSchema": {
@@ -310,10 +310,10 @@
       },
       "environment": { "node": "v24.22.2", "platform": "darwin", "architecture": "arm64" },
       "facetObservations": {
-        "678fc4a2e82c6d47206cf8e13772b53bf0575f83ad955cc11f68828f38464759": {
+        "d52a899dce1895e9d96d76b78fc20398433ee67ddf671634889f5fed9757197e": {
           "sqlLength": 32,
           "nativeEvidence": {
-            "adapter": { "id": "@typed-sql/duckdb/node-api-contracts", "version": "duckdb-native-prepare-v3" },
+            "adapter": { "id": "@typed-sql/duckdb/node-api-contracts", "version": "duckdb-native-prepare-v4" },
             "columns": [
               {
                 "descriptor": { "logicalType": { "kind": "scalar", "name": "VARCHAR" } },
@@ -432,15 +432,15 @@
                 "target": "parameter"
               }
             ],
-            "nativeEvidenceHash": "ddaaca55c1a15c7734d2812149e0a213492202c531d8a18ccfdd5468803952cd",
+            "nativeEvidenceHash": "72f48991b11df09048fc50f49e0f162b657bc42db77f608db089790af5e94c19",
             "policy": {
               "mode": "native-required",
-              "owner": { "id": "@typed-sql/duckdb/reconciliation", "version": "duckdb-contract-reconciliation-v2" },
+              "owner": { "id": "@typed-sql/duckdb/reconciliation", "version": "duckdb-contract-reconciliation-v3" },
               "requiredNativeFacets": ["runtime-type"]
             },
-            "policyHash": "ad4cbabe54cdeba43b4f99da8430079ea506888176230df1f121f78ecd6766c4",
-            "sourceContractHash": "c1a47cb4cd829d2858d141993ab335a15dd29c63f7ddd496a74fd85d71678412",
-            "staticClaimHash": "29d83e82b06f8695bec85524f2221882513290e9b5c4a1a04b8301a8fcc10e16"
+            "policyHash": "f02091e61bcee10cc936941d82bb6102f84d47c7a304a626fe98762e15d678c0",
+            "sourceContractHash": "1263d64489ead4adbaa41fd7e4fc4b9797b2b8b41cf28317b3c56732874f9722",
+            "staticClaimHash": "ab5d3f497ce8278e22dc7f39c66f95a8664baf130ec0109708c15584c0bc3b11"
           }
         }
       },
@@ -448,127 +448,132 @@
         {
           "attempts": [
             {
-              "contextInspectionMs": 44.328666999999996,
-              "staticAnalysisMs": 0.3485410000000684,
-              "acquisitionAndReconciliationMs": 57.657125000000065,
+              "contextInspectionMs": 40.88500000000022,
+              "staticAnalysisMs": 0.29129199999988487,
+              "acquisitionAndReconciliationMs": 53.106040999999095,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "e7d7fea9915f52b9c6ec02c4e2379f5a70d9cdab32f11a4534ef8b013b4872f4",
-          "contextDigest": "857d369bbec50409823737400b99bde31e10e451ef94bcf90ec624063bb8fe19",
-          "facetObservationDigest": "678fc4a2e82c6d47206cf8e13772b53bf0575f83ad955cc11f68828f38464759",
+          "contractDigest": "d60decdf96eac575720c82aa6d232ec9eeb52a635644052e80800813c5c2ba88",
+          "contextDigest": "a7977d4d721651f83a9dc0637f0b1e3b108711c56508e04b2862436f4f2b73ca",
+          "facetObservationDigest": "d52a899dce1895e9d96d76b78fc20398433ee67ddf671634889f5fed9757197e",
           "canonicalContractBytes": 4767,
           "nativeEvidenceBytes": 890,
           "valuePlanBytes": 274,
           "durable": { "bytes": 5566, "files": 3 },
           "cache": { "bytes": 6213, "files": 5 },
-          "durableExportMs": 28.404499999999985,
-          "durableReloadMs": 1.5321249999999509,
-          "cachePublishMs": 19.760374999999954,
-          "coldCacheObjectLookupMs": 8.633790999999974,
-          "warmLookupMs": [4.863959000000023, 4.686417000000006, 3.554791000000023]
+          "durableExportMs": 19.62750000000051,
+          "durableReloadMs": 1.370999999999185,
+          "cachePublishMs": 17.859875000000102,
+          "coldCacheObjectLookupMs": 9.279958000000988,
+          "warmLookupMs": [4.388750000000073, 4.717500000000655, 2.3850000000002183]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 49.05754200000001,
-              "staticAnalysisMs": 2.0299159999999574,
-              "acquisitionAndReconciliationMs": 60.01783299999988,
+              "contextInspectionMs": 42.417999999999665,
+              "staticAnalysisMs": 1.7569579999999405,
+              "acquisitionAndReconciliationMs": 54.084249999999884,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "e7d7fea9915f52b9c6ec02c4e2379f5a70d9cdab32f11a4534ef8b013b4872f4",
-          "contextDigest": "857d369bbec50409823737400b99bde31e10e451ef94bcf90ec624063bb8fe19",
-          "facetObservationDigest": "678fc4a2e82c6d47206cf8e13772b53bf0575f83ad955cc11f68828f38464759",
+          "contractDigest": "d60decdf96eac575720c82aa6d232ec9eeb52a635644052e80800813c5c2ba88",
+          "contextDigest": "a7977d4d721651f83a9dc0637f0b1e3b108711c56508e04b2862436f4f2b73ca",
+          "facetObservationDigest": "d52a899dce1895e9d96d76b78fc20398433ee67ddf671634889f5fed9757197e",
           "canonicalContractBytes": 4767,
           "nativeEvidenceBytes": 890,
           "valuePlanBytes": 274,
           "durable": { "bytes": 5566, "files": 3 },
           "cache": { "bytes": 6213, "files": 5 },
-          "durableExportMs": 14.13391700000011,
-          "durableReloadMs": 1.4589999999998327,
-          "cachePublishMs": 19.552457999999888,
-          "coldCacheObjectLookupMs": 7.738667000000078,
-          "warmLookupMs": [6.018458999999893, 4.045292000000018, 4.1212920000000395]
+          "durableExportMs": 15.011582999999519,
+          "durableReloadMs": 1.2104999999992287,
+          "cachePublishMs": 17.483792000000903,
+          "coldCacheObjectLookupMs": 8.870375000000422,
+          "warmLookupMs": [5.308375000000524, 5.956333000000086, 4.764624999999796]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 47.549166000000014,
-              "staticAnalysisMs": 1.8528329999999187,
-              "acquisitionAndReconciliationMs": 58.2582910000001,
+              "contextInspectionMs": 45.24224999999933,
+              "staticAnalysisMs": 1.7680840000011813,
+              "acquisitionAndReconciliationMs": 54.781333000000814,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "e7d7fea9915f52b9c6ec02c4e2379f5a70d9cdab32f11a4534ef8b013b4872f4",
-          "contextDigest": "857d369bbec50409823737400b99bde31e10e451ef94bcf90ec624063bb8fe19",
-          "facetObservationDigest": "678fc4a2e82c6d47206cf8e13772b53bf0575f83ad955cc11f68828f38464759",
+          "contractDigest": "d60decdf96eac575720c82aa6d232ec9eeb52a635644052e80800813c5c2ba88",
+          "contextDigest": "a7977d4d721651f83a9dc0637f0b1e3b108711c56508e04b2862436f4f2b73ca",
+          "facetObservationDigest": "d52a899dce1895e9d96d76b78fc20398433ee67ddf671634889f5fed9757197e",
           "canonicalContractBytes": 4767,
           "nativeEvidenceBytes": 890,
           "valuePlanBytes": 274,
           "durable": { "bytes": 5566, "files": 3 },
           "cache": { "bytes": 6213, "files": 5 },
-          "durableExportMs": 13.235707999999931,
-          "durableReloadMs": 1.31049999999982,
-          "cachePublishMs": 18.986458000000084,
-          "coldCacheObjectLookupMs": 6.305958000000146,
-          "warmLookupMs": [4.969916999999896, 4.514708000000155, 2.9440420000000813]
+          "durableExportMs": 12.144124999998894,
+          "durableReloadMs": 1.3490419999998267,
+          "cachePublishMs": 17.18870799999968,
+          "coldCacheObjectLookupMs": 6.11554199999955,
+          "warmLookupMs": [3.921834000000672, 4.5807500000009895, 2.587916000000405]
         }
       ],
-      "reportDigest": "b485de4da7b9da6623a252c9e04ee33afccd7111c1b0a223eda65dd13fe44100",
+      "reportDigest": "5cb0cbd196780218b87c91cf69c7a106c06903fbb31994707a3162872131b310",
       "summary": {
         "canonicalContractBytes": { "count": 3, "min": 4767, "median": 4767, "max": 4767 },
         "durableFileBytes": { "count": 3, "min": 5566, "median": 5566, "max": 5566 },
         "cacheFileBytes": { "count": 3, "min": 6213, "median": 6213, "max": 6213 },
         "contextInspectionMs": {
           "count": 3,
-          "min": 44.328666999999996,
-          "median": 47.549166000000014,
-          "max": 49.05754200000001
+          "min": 40.88500000000022,
+          "median": 42.417999999999665,
+          "max": 45.24224999999933
         },
         "staticAnalysisMs": {
           "count": 3,
-          "min": 0.3485410000000684,
-          "median": 1.8528329999999187,
-          "max": 2.0299159999999574
+          "min": 0.29129199999988487,
+          "median": 1.7569579999999405,
+          "max": 1.7680840000011813
         },
         "acquisitionAndReconciliationMs": {
           "count": 3,
-          "min": 57.657125000000065,
-          "median": 58.2582910000001,
-          "max": 60.01783299999988
+          "min": 53.106040999999095,
+          "median": 54.084249999999884,
+          "max": 54.781333000000814
         },
         "sumOfQualificationStagesMs": {
           "count": 3,
-          "min": 102.33433300000013,
-          "median": 107.66029000000003,
-          "max": 111.10529099999985
+          "min": 94.2823329999992,
+          "median": 98.25920799999949,
+          "max": 101.79166700000133
         },
         "durableExportMs": {
           "count": 3,
-          "min": 13.235707999999931,
-          "median": 14.13391700000011,
-          "max": 28.404499999999985
+          "min": 12.144124999998894,
+          "median": 15.011582999999519,
+          "max": 19.62750000000051
         },
         "durableReloadMs": {
           "count": 3,
-          "min": 1.31049999999982,
-          "median": 1.4589999999998327,
-          "max": 1.5321249999999509
+          "min": 1.2104999999992287,
+          "median": 1.3490419999998267,
+          "max": 1.370999999999185
         },
         "cachePublishMs": {
           "count": 3,
-          "min": 18.986458000000084,
-          "median": 19.552457999999888,
-          "max": 19.760374999999954
+          "min": 17.18870799999968,
+          "median": 17.483792000000903,
+          "max": 17.859875000000102
         },
         "coldCacheObjectLookupMs": {
           "count": 3,
-          "min": 6.305958000000146,
-          "median": 7.738667000000078,
-          "max": 8.633790999999974
+          "min": 6.11554199999955,
+          "median": 8.870375000000422,
+          "max": 9.279958000000988
         },
-        "warmLookupMs": { "count": 9, "min": 2.9440420000000813, "median": 4.514708000000155, "max": 6.018458999999893 }
+        "warmLookupMs": {
+          "count": 9,
+          "min": 2.3850000000002183,
+          "median": 4.5807500000009895,
+          "max": 5.956333000000086
+        }
       }
     },
     {
