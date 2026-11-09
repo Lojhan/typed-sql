@@ -42,16 +42,7 @@ async function elapsed(run) {
 /**
  * Opt-in measurement of an already qualified owner fixture, with actual native acquisition.
  * Ordinary package tests do not enable this or perform its additional native round trips.
- * @param {{
- * label: string,
- * serverVersion: string,
- * schema: import("../../packages/core/src/index.js").SchemaSnapshot,
- * adapter: import("../../packages/analysis/src/index.js").NativeContractAdapter & {inspectContext(): Promise<import("../../packages/analysis/src/index.js").QueryContractContext>},
- * candidate: import("../../packages/analysis/src/index.js").NativeContractCandidate,
- * analyze: (sql: string) => import("../../packages/core/src/index.js").DialectAnalysis,
- * contribution: import("../../packages/analysis/src/index.js").ContractReconciliationContribution,
- * policy: import("../../packages/analysis/src/index.js").ContractQualificationPolicy
- * }} input
+ * @param {import("./measure-native.mjs").NativeCostFixture} input
  */
 export async function recordNativeCosts(input) {
   const configured = process.env.TYPED_SQL_NATIVE_COSTS_DIRECTORY;

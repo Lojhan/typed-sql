@@ -1185,3 +1185,43 @@ Main CI `42562791948` at `4fe65a4f` completes successfully. The new composition/
 changes also pass workspace types, all 49 repository contracts, docs and quality locally. The
 measurement helper separately counts the fixture schema input and asserts its digest matches the
 qualified context; that small input is not presented as a full application/server catalog.
+
+
+### Native cost observations across all five grammars
+
+The [native cost report](./native-costs.md) and [raw observations](./native-measurements.json)
+now cover 16 actual profiles, with three independently qualified acquisitions each. Local Node
+24.22.2 Darwin arm64 runs cover PostgreSQL 18.3, MySQL 8.4.11/9.7.2, SQLite 3.53.4 and DuckDB
+1.5.6/2.0.0. The local owner fixtures ran concurrently; PostgreSQL/MySQL use Podman-forwarded
+connections and DuckDB SDKs stay in separate processes. All six complete native helpers pass.
+
+Hosted [CI `42564033389`](https://github.com/Lojhan/typed-sql/actions/runs/42564033389) supplies
+SQL Server 14.0.3560.2, 15.0.4500.2, 16.0.4305.5 and 17.0.5035.5 at all ten declared compatibility
+targets on Node 24.22.2 Linux x64. All four native transport jobs pass, including 70 qualified
+contracts, 40 unsafe-relation rejections and the cost observations. Transport artifact IDs are
+13650995622 (14), 13650980752 (15), 13651140626 (16) and 13650173700 (17). The checked-out
+merge commit is `12f93112ca31725c5f8a2698f30f357dd88a1b67`; its tree matches measured local
+source `edb255e6a5db86d34de8512d13c632118224baeb`. Every raw report identifies that source
+revision and exact measurement-tool hash.
+
+The database-free aggregation tool verifies those hashes through Git, retains raw samples and
+automatically regenerates grammar coverage and both report files. Five adversarial controls
+(wrong tool, unqualified outcome, invalid timing, invalid byte count and conflicting observations)
+are rejected without changing the current JSON report. These fixtures produce 5,532–6,033-byte
+one-query durable closures, with 270–386-byte standalone plans already included inside them.
+The separate small fixture schema is not a full application/server catalog. No native application
+scaling or engine latency ranking is inferred from these observations.
+
+The same aggregate CI catches an instrumentation typing gap: PostgreSQL and packed E2E projects
+disable JavaScript inference and require a declaration for the new helper. A repository-only
+`measure-native.d.mts` now owns its fixture input type and the JavaScript JSDoc refers to it.
+Both exact E2E `tsc` commands and the root typecheck pass locally. Source quality/performance,
+SQL Server native, embedded, editor and build jobs pass in the preceding CI; a fresh aggregate run is
+required for the declaration fix. The separate experimental MySQL 26.7 native profile remains
+unqualified and is not counted among successful native profiles.
+
+Vocabulary source review also confirms that the current PostgreSQL reference inventory includes
+SQL-standard-only appendix words without PostgreSQL reservation classes, while MySQL/SQL Server
+reference snapshots do not supply a complete keyword category. Runtime keyword generation must
+use pinned authoritative word tables and grammar-owned contextual rules; treating those current
+reference lists as reserved-word truth would introduce incorrect mappings. This remains unfinished.

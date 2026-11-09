@@ -17,8 +17,10 @@ isolated performance. [Preceding main CI](https://github.com/Lojhan/typed-sql/ac
 passes. [Main CI at `4fe65a4f`](https://github.com/Lojhan/typed-sql/actions/runs/42562791948)
 also passes, including cold installed cores, source-move/inherited-grammar regressions, selected-core
 commerce tooling and the reviewed SQL Server fingerprints. The subsequent partial-composition and
-native-cost instrumentation changes pass local checks; their own pushed revision still requires
-hosted checks.
+native-cost instrumentation changes pass local checks. Main CI at `edb255e6` passes source
+quality/performance and the native SQL Server matrix, but fails PostgreSQL/packed E2E type checks
+because the JavaScript measurement helper lacks a declaration. The declaration fix passes those
+exact E2E type checks locally and requires a fresh aggregate run.
 
 | ID | Finding | Evidence and remaining boundary |
 | --- | --- | --- |
@@ -40,10 +42,10 @@ hosted checks.
 | 16 | Scoped proof | [Build integration](../../packages/build/test/build.test.ts) keeps analyzer/native factories cold for frozen builds and uses offline rules in ordinary live-configured builds. Explicit live preparation is separate. Canonical manifests/closures and isolated consumers check path-independent, cache-independent output; timestamps remain disposable freshness evidence. |
 | 17 | Partial | Five grammar profiles use neutral orchestration; [synthetic vendor contracts](../../packages/analysis/test/contracts.test.ts) compile/decode without builtin analyzers. A [derived grammar contribution](../../packages/analysis/test/helpers/inherited-postgres.ts) uses public entrypoints exclusively to inherit PostgreSQL 18 rendering, policy, analyzer, native transport and reconciliation mechanics under its own snapshot/profile/interpreter identities. Its [unit tests](../../packages/analysis/test/inherited-grammar.test.ts) enforce cold registration, identity/version checks and retained restrictions; the [real integration](../../test/helpers/inherited-postgres-contracts.ts) qualifies an unknown routine, persists/reopens its cache, exports durable inputs, compiles offline and decodes with the child identity. It retains unknown nullability and does not inherit reusable catalog permissions. The exact-version/facet availability matrix still requires reconciliation with current native runs. |
 | 18 | Scoped proof | [Frozen packed consumers](../../test/helpers/frozen-contract-consumer.ts) actually delete semantic/native files and decode through lightweight runtime entrypoints. [Bundle measurements](./bundle-size.md) retain zero global catalogs in runtime/profile/frozen graphs, isolate optional/version imports and separate package installation from tree-shaken bytes. |
-| 19 | Partial | [Main CI at `4fe65a4f`](https://github.com/Lojhan/typed-sql/actions/runs/42562791948) is green, including reviewed catalog fingerprints, cold cores, native execution and source quality/performance. Subsequent composition/cost-instrumentation changes pass local checks; the final implementation revision still requires the full hosted gates. MySQL local recognition/context differences remain disclosed without local baseline acceptance. No timeout or budget increase substitutes for a fix. |
+| 19 | Partial | [Main CI at `4fe65a4f`](https://github.com/Lojhan/typed-sql/actions/runs/42562791948) is green, including reviewed catalog fingerprints, cold cores, native execution and source quality/performance. Subsequent CI at `edb255e6` passes source quality/performance and SQL Server qualification but fails PostgreSQL/packed E2E type checking on the missing measurement-helper declaration. The added declaration passes those exact checks locally; the final implementation revision still requires the full hosted gates. MySQL local recognition/context differences remain disclosed without local baseline acceptance. No timeout or budget increase substitutes for a fix. |
 | 20 | Scoped proof | [Reconciliation tests](../../packages/analysis/test/reconciliation.test.ts) explicitly block an apparently successful wrong mapping. [Live view tests](../../packages/analysis/test/live-view.test.ts) qualify every unique successful static candidate, persist conflicts and re-describe during explicit live checking rather than substituting a prior cached contract. |
 | 21 | Scoped proof | [Migration qualification](../../test/helpers/migration-contracts.ts) applies/replays file-backed PostgreSQL migrations, rejects missing routines/extensions and changed settings despite matching tables, exports durable reconciled inputs, drops qualification databases and invokes the separate packed network-trapped frozen consumer. This qualifies PostgreSQL 18's declared environment, not every migration/extension/engine combination. |
-| 22 | Partial | [Bundle](./bundle-size.md), [repository](./repository-size.md), [installation](./installation-measurements.json) and [commerce project](./project-size.md) reports measure distinct costs. Installation is refreshed at this audit's source. The commerce tool now discovers matching public core exports and independently compares all 37 finite base candidates with the compatibility analyzers: complete analyses and measured payloads are identical. These are selected example profiles, not production popularity or all versions. Native-qualified artifact payload/acquisition latency remain unmeasured. |
+| 22 | Partial | [Bundle](./bundle-size.md), [repository](./repository-size.md), [installation](./installation-measurements.json) and [commerce project](./project-size.md) reports measure distinct costs. Installation is refreshed at this audit's source. The commerce tool now discovers matching public core exports and independently compares all 37 finite base candidates with the compatibility analyzers: complete analyses and measured payloads are identical. These are selected example profiles, not production popularity or all versions. The [native cost report](./native-costs.md) now measures 16 actual owner-fixture profiles across all five grammars, including all ten hosted SQL Server compatibility targets. It separates schema, plan, reconciled closure and cache bytes plus context/acquisition/reconciliation/reload/cold/warm timings. Full native application-workload admissibility/scaling beyond these one-query fixtures is not established. |
 
 ## Cross-cutting requirements still requiring proof
 
@@ -62,11 +64,14 @@ hosted checks.
 - **Reusable metadata:** the project layer is optional, but its exact supported permission/type
   scope must be published per owner. PostgreSQL fixed scalars do not imply portable polymorphic,
   custom-type, table-output or argument-dependent rules.
-- **Measurement closure:** measure native-qualified durable bytes, acquisition/context-check
-  latency and cold/warm cache behavior on declared actual engine profiles. Refresh installation
-  independently of minified application bundles; external driver/engine payload remains separate.
+- **Measurement closure:** native-qualified single-query fixtures now have actual byte and
+  context/acquisition/cache observations for 16 profiles across all five grammars. Their small
+  schema inputs and three observations are not a complete native application scaling result.
+  The maintained commerce corpus still supplies the separate realistic offline project measure.
+  Installation, external drivers/engines and minified application bundles remain separate costs.
 
-The remaining implementation sequence is concrete: establish generated vocabulary scope; measure native project costs; reconcile
+The remaining implementation sequence is concrete: establish generated vocabulary scope;
+account for native application-workload admissibility/scaling; reconcile
 descriptor/invalidation/profile evidence; then run the full required gates.
 This ledger deliberately leaves those requirements open instead of deriving completion from test
 counts, native preparation alone, or a narrow successful sample.

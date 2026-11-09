@@ -1,0 +1,2270 @@
+{
+  "formatVersion": 1,
+  "aggregationToolDigest": "f0cafa230e6f292425e5aecb394d265b80cc305ea4120d359919ce4006b67ea9",
+  "coverage": {
+    "discoveredGrammars": ["duckdb", "mysql", "postgres", "sqlite", "sqlserver"],
+    "measuredGrammars": ["duckdb", "mysql", "postgres", "sqlite", "sqlserver"],
+    "unmeasuredGrammars": []
+  },
+  "conditions": "Local profiles may run concurrently on the same host. Hosted profiles use their declared runner environment. Three observations and reused owner fixtures do not establish workload latency percentiles, engine rankings or production popularity. Sum of timed qualification stages excludes untimed caller/fixture overhead.",
+  "methods": {
+    "6df0f7c0342a6e74386714c96d110ae9d15d5a5c292eefdf1d7c34b213d75d16": {
+      "scope": "Three actual acquisitions of an existing owner-qualified fixture; not an application corpus, popularity sample or latency service-level guarantee.",
+      "acquisition": "Fresh context inspection, offline analysis, native acquisition and reconciliation measured separately. Up to three bounded attempts; stale attempts remain in the report. No candidate execution or application-value sampling.",
+      "bytes": "Canonical contract, native evidence and plan serialization plus actual exported one-query closure and disposable cache file contents. Filesystem blocks, install payloads and connection credentials are excluded.",
+      "cache": "Cold lookup opens a new cache object against existing files; warm lookups reuse an object. Neither drops OS page caches or claims current remote freshness. All recorded lookups must remain unverified.",
+      "environment": "Owner fixtures may already have warmed driver/server state; SDK ownership and transport boundaries remain adapter-specific. Compare only the declared environment, not engines as universal performance rankings."
+    }
+  },
+  "profiles": [
+    {
+      "formatVersion": 1,
+      "sourceRevision": "edb255e6a5db86d34de8512d13c632118224baeb",
+      "toolDigest": "6df0f7c0342a6e74386714c96d110ae9d15d5a5c292eefdf1d7c34b213d75d16",
+      "label": "duckdb-1.5.6",
+      "serverVersion": "v1.5.6",
+      "grammar": { "id": "duckdb", "version": "1.0.0" },
+      "adapter": { "id": "@typed-sql/duckdb/node-api-contracts", "version": "duckdb-native-prepare-v3" },
+      "sqlDigest": "956e5d1ecae1a3a650568066b64c0432f0a6675907ced5699a1b8891df3e5938",
+      "parameterOccurrences": 1,
+      "fixtureSchema": {
+        "bytes": 262,
+        "scope": "Owner-fixture compiler input; not a complete server catalog or application workload"
+      },
+      "environment": { "node": "v24.22.2", "platform": "darwin", "architecture": "arm64" },
+      "samples": [
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 34.46633300000008,
+              "staticAnalysisMs": 0.38900000000001,
+              "acquisitionAndReconciliationMs": 48.654249999999934,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "0660630a2eb7731c02ca26fb6c05ccbc973543f9f66fa697cec74f01c58d2994",
+          "contextDigest": "c1c51aed50d87f5db1524ab64d8a3758a99dd30676ffdda25051a0e2f896e4b0",
+          "canonicalContractBytes": 4767,
+          "nativeEvidenceBytes": 890,
+          "valuePlanBytes": 274,
+          "durable": { "bytes": 5566, "files": 3 },
+          "cache": { "bytes": 6213, "files": 5 },
+          "durableExportMs": 30.41341699999998,
+          "durableReloadMs": 1.8682079999999814,
+          "cachePublishMs": 38.32174999999995,
+          "coldCacheObjectLookupMs": 18.643500000000017,
+          "warmLookupMs": [13.815083000000072, 13.299458999999956, 13.164457999999968]
+        },
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 47.45495899999992,
+              "staticAnalysisMs": 2.408541000000014,
+              "acquisitionAndReconciliationMs": 52.871291999999926,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "0660630a2eb7731c02ca26fb6c05ccbc973543f9f66fa697cec74f01c58d2994",
+          "contextDigest": "c1c51aed50d87f5db1524ab64d8a3758a99dd30676ffdda25051a0e2f896e4b0",
+          "canonicalContractBytes": 4767,
+          "nativeEvidenceBytes": 890,
+          "valuePlanBytes": 274,
+          "durable": { "bytes": 5566, "files": 3 },
+          "cache": { "bytes": 6213, "files": 5 },
+          "durableExportMs": 25.71895799999993,
+          "durableReloadMs": 2.553874999999948,
+          "cachePublishMs": 31.01979099999994,
+          "coldCacheObjectLookupMs": 17.004084000000148,
+          "warmLookupMs": [10.375, 6.069999999999936, 8.42687500000011]
+        },
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 37.58574999999996,
+              "staticAnalysisMs": 2.2432909999999993,
+              "acquisitionAndReconciliationMs": 50.001625000000104,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "0660630a2eb7731c02ca26fb6c05ccbc973543f9f66fa697cec74f01c58d2994",
+          "contextDigest": "c1c51aed50d87f5db1524ab64d8a3758a99dd30676ffdda25051a0e2f896e4b0",
+          "canonicalContractBytes": 4767,
+          "nativeEvidenceBytes": 890,
+          "valuePlanBytes": 274,
+          "durable": { "bytes": 5566, "files": 3 },
+          "cache": { "bytes": 6213, "files": 5 },
+          "durableExportMs": 10.8927920000001,
+          "durableReloadMs": 1.4132079999999405,
+          "cachePublishMs": 21.15429199999994,
+          "coldCacheObjectLookupMs": 12.633291999999983,
+          "warmLookupMs": [6.717499999999973, 6.150417000000061, 4.593583000000081]
+        }
+      ],
+      "reportDigest": "34b09191548a52be6daa487c159cbdd22b01297c65a802bd1bcb85dd6e5aafc2",
+      "summary": {
+        "canonicalContractBytes": { "count": 3, "min": 4767, "median": 4767, "max": 4767 },
+        "durableFileBytes": { "count": 3, "min": 5566, "median": 5566, "max": 5566 },
+        "cacheFileBytes": { "count": 3, "min": 6213, "median": 6213, "max": 6213 },
+        "contextInspectionMs": {
+          "count": 3,
+          "min": 34.46633300000008,
+          "median": 37.58574999999996,
+          "max": 47.45495899999992
+        },
+        "staticAnalysisMs": {
+          "count": 3,
+          "min": 0.38900000000001,
+          "median": 2.2432909999999993,
+          "max": 2.408541000000014
+        },
+        "acquisitionAndReconciliationMs": {
+          "count": 3,
+          "min": 48.654249999999934,
+          "median": 50.001625000000104,
+          "max": 52.871291999999926
+        },
+        "sumOfQualificationStagesMs": {
+          "count": 3,
+          "min": 83.50958300000002,
+          "median": 89.83066600000006,
+          "max": 102.73479199999986
+        },
+        "durableExportMs": {
+          "count": 3,
+          "min": 10.8927920000001,
+          "median": 25.71895799999993,
+          "max": 30.41341699999998
+        },
+        "durableReloadMs": {
+          "count": 3,
+          "min": 1.4132079999999405,
+          "median": 1.8682079999999814,
+          "max": 2.553874999999948
+        },
+        "cachePublishMs": {
+          "count": 3,
+          "min": 21.15429199999994,
+          "median": 31.01979099999994,
+          "max": 38.32174999999995
+        },
+        "coldCacheObjectLookupMs": {
+          "count": 3,
+          "min": 12.633291999999983,
+          "median": 17.004084000000148,
+          "max": 18.643500000000017
+        },
+        "warmLookupMs": { "count": 9, "min": 4.593583000000081, "median": 8.42687500000011, "max": 13.815083000000072 }
+      }
+    },
+    {
+      "formatVersion": 1,
+      "sourceRevision": "edb255e6a5db86d34de8512d13c632118224baeb",
+      "toolDigest": "6df0f7c0342a6e74386714c96d110ae9d15d5a5c292eefdf1d7c34b213d75d16",
+      "label": "duckdb-2.0.0",
+      "serverVersion": "v2.0.0",
+      "grammar": { "id": "duckdb", "version": "1.0.0" },
+      "adapter": { "id": "@typed-sql/duckdb/node-api-contracts", "version": "duckdb-native-prepare-v3" },
+      "sqlDigest": "956e5d1ecae1a3a650568066b64c0432f0a6675907ced5699a1b8891df3e5938",
+      "parameterOccurrences": 1,
+      "fixtureSchema": {
+        "bytes": 240,
+        "scope": "Owner-fixture compiler input; not a complete server catalog or application workload"
+      },
+      "environment": { "node": "v24.22.2", "platform": "darwin", "architecture": "arm64" },
+      "samples": [
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 51.54770800000006,
+              "staticAnalysisMs": 0.7507080000000315,
+              "acquisitionAndReconciliationMs": 74.24795900000004,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "2b9cd9cf5fd53b8e266796541206b5b562af66b919062318284fd2be6bfb94fb",
+          "contextDigest": "887d4fe130acfd612cc46a6b43b8e9bbc9a0888dc965bc4f9290bb1668cd2aa4",
+          "canonicalContractBytes": 4767,
+          "nativeEvidenceBytes": 890,
+          "valuePlanBytes": 274,
+          "durable": { "bytes": 5566, "files": 3 },
+          "cache": { "bytes": 6213, "files": 5 },
+          "durableExportMs": 28.76870800000006,
+          "durableReloadMs": 5.216874999999959,
+          "cachePublishMs": 27.01329199999998,
+          "coldCacheObjectLookupMs": 23.787708000000066,
+          "warmLookupMs": [7.004792000000066, 11.878209000000084, 8.914166999999907]
+        },
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 61.077499999999986,
+              "staticAnalysisMs": 2.30112500000007,
+              "acquisitionAndReconciliationMs": 79.37854199999992,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "2b9cd9cf5fd53b8e266796541206b5b562af66b919062318284fd2be6bfb94fb",
+          "contextDigest": "887d4fe130acfd612cc46a6b43b8e9bbc9a0888dc965bc4f9290bb1668cd2aa4",
+          "canonicalContractBytes": 4767,
+          "nativeEvidenceBytes": 890,
+          "valuePlanBytes": 274,
+          "durable": { "bytes": 5566, "files": 3 },
+          "cache": { "bytes": 6213, "files": 5 },
+          "durableExportMs": 25.042584000000033,
+          "durableReloadMs": 2.8293750000000273,
+          "cachePublishMs": 23.844708000000082,
+          "coldCacheObjectLookupMs": 16.83137499999998,
+          "warmLookupMs": [10.041958000000022, 9.042916999999989, 7.869916999999987]
+        },
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 54.83970799999997,
+              "staticAnalysisMs": 2.1743330000001606,
+              "acquisitionAndReconciliationMs": 68.18229200000019,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "2b9cd9cf5fd53b8e266796541206b5b562af66b919062318284fd2be6bfb94fb",
+          "contextDigest": "887d4fe130acfd612cc46a6b43b8e9bbc9a0888dc965bc4f9290bb1668cd2aa4",
+          "canonicalContractBytes": 4767,
+          "nativeEvidenceBytes": 890,
+          "valuePlanBytes": 274,
+          "durable": { "bytes": 5566, "files": 3 },
+          "cache": { "bytes": 6213, "files": 5 },
+          "durableExportMs": 10.588500000000067,
+          "durableReloadMs": 1.855333999999857,
+          "cachePublishMs": 20.99716599999988,
+          "coldCacheObjectLookupMs": 7.727540999999974,
+          "warmLookupMs": [5.171041999999943, 5.602415999999948, 10.435500000000047]
+        }
+      ],
+      "reportDigest": "3696c02b2d55be2c75b072548cd3b83cf996f20d7e42758efa11f581a96627b5",
+      "summary": {
+        "canonicalContractBytes": { "count": 3, "min": 4767, "median": 4767, "max": 4767 },
+        "durableFileBytes": { "count": 3, "min": 5566, "median": 5566, "max": 5566 },
+        "cacheFileBytes": { "count": 3, "min": 6213, "median": 6213, "max": 6213 },
+        "contextInspectionMs": {
+          "count": 3,
+          "min": 51.54770800000006,
+          "median": 54.83970799999997,
+          "max": 61.077499999999986
+        },
+        "staticAnalysisMs": {
+          "count": 3,
+          "min": 0.7507080000000315,
+          "median": 2.1743330000001606,
+          "max": 2.30112500000007
+        },
+        "acquisitionAndReconciliationMs": {
+          "count": 3,
+          "min": 68.18229200000019,
+          "median": 74.24795900000004,
+          "max": 79.37854199999992
+        },
+        "sumOfQualificationStagesMs": {
+          "count": 3,
+          "min": 125.19633300000032,
+          "median": 126.54637500000013,
+          "max": 142.75716699999998
+        },
+        "durableExportMs": {
+          "count": 3,
+          "min": 10.588500000000067,
+          "median": 25.042584000000033,
+          "max": 28.76870800000006
+        },
+        "durableReloadMs": {
+          "count": 3,
+          "min": 1.855333999999857,
+          "median": 2.8293750000000273,
+          "max": 5.216874999999959
+        },
+        "cachePublishMs": {
+          "count": 3,
+          "min": 20.99716599999988,
+          "median": 23.844708000000082,
+          "max": 27.01329199999998
+        },
+        "coldCacheObjectLookupMs": {
+          "count": 3,
+          "min": 7.727540999999974,
+          "median": 16.83137499999998,
+          "max": 23.787708000000066
+        },
+        "warmLookupMs": { "count": 9, "min": 5.171041999999943, "median": 8.914166999999907, "max": 11.878209000000084 }
+      }
+    },
+    {
+      "formatVersion": 1,
+      "sourceRevision": "edb255e6a5db86d34de8512d13c632118224baeb",
+      "toolDigest": "6df0f7c0342a6e74386714c96d110ae9d15d5a5c292eefdf1d7c34b213d75d16",
+      "label": "mysql-8.4.11",
+      "serverVersion": "8.4.11",
+      "grammar": { "id": "mysql", "version": "1.0.0" },
+      "adapter": { "id": "@typed-sql/mysql/mysql2-contracts", "version": "mysql-backup-locked-prepare-v2" },
+      "sqlDigest": "8287314a14187f5cc17866a5cde4243941e671bede31c74caa622117b4a44b1e",
+      "parameterOccurrences": 1,
+      "fixtureSchema": {
+        "bytes": 4168,
+        "scope": "Owner-fixture compiler input; not a complete server catalog or application workload"
+      },
+      "environment": { "node": "v24.22.2", "platform": "darwin", "architecture": "arm64" },
+      "samples": [
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 20.004083000000037,
+              "staticAnalysisMs": 0.9062920000000076,
+              "acquisitionAndReconciliationMs": 30.740375000000085,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "4bd5ca276f3f499f8f1090ab2b18b4d7c597a78c4f8607db01e8f6c67f8ae649",
+          "contextDigest": "fbd4519f6d3c1779134158461903eea247a02b87c81abae1a98994c1ded7a178",
+          "canonicalContractBytes": 4734,
+          "nativeEvidenceBytes": 911,
+          "valuePlanBytes": 279,
+          "durable": { "bytes": 5532, "files": 3 },
+          "cache": { "bytes": 6179, "files": 5 },
+          "durableExportMs": 39.092083,
+          "durableReloadMs": 2.1731249999999136,
+          "cachePublishMs": 37.16324999999995,
+          "coldCacheObjectLookupMs": 25.804458000000068,
+          "warmLookupMs": [5.267541000000051, 11.956042000000025, 5.6631660000000466]
+        },
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 20.251666999999998,
+              "staticAnalysisMs": 2.6130419999999503,
+              "acquisitionAndReconciliationMs": 26.713999999999942,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "4bd5ca276f3f499f8f1090ab2b18b4d7c597a78c4f8607db01e8f6c67f8ae649",
+          "contextDigest": "fbd4519f6d3c1779134158461903eea247a02b87c81abae1a98994c1ded7a178",
+          "canonicalContractBytes": 4734,
+          "nativeEvidenceBytes": 911,
+          "valuePlanBytes": 279,
+          "durable": { "bytes": 5532, "files": 3 },
+          "cache": { "bytes": 6179, "files": 5 },
+          "durableExportMs": 15.727250000000026,
+          "durableReloadMs": 3.161375000000021,
+          "cachePublishMs": 32.35000000000002,
+          "coldCacheObjectLookupMs": 18.359916,
+          "warmLookupMs": [16.198334000000045, 10.068457999999964, 8.456791000000067]
+        },
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 20.87379199999998,
+              "staticAnalysisMs": 2.810000000000059,
+              "acquisitionAndReconciliationMs": 34.33999999999992,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "4bd5ca276f3f499f8f1090ab2b18b4d7c597a78c4f8607db01e8f6c67f8ae649",
+          "contextDigest": "fbd4519f6d3c1779134158461903eea247a02b87c81abae1a98994c1ded7a178",
+          "canonicalContractBytes": 4734,
+          "nativeEvidenceBytes": 911,
+          "valuePlanBytes": 279,
+          "durable": { "bytes": 5532, "files": 3 },
+          "cache": { "bytes": 6179, "files": 5 },
+          "durableExportMs": 22.019915999999967,
+          "durableReloadMs": 3.266750000000002,
+          "cachePublishMs": 29.091541000000007,
+          "coldCacheObjectLookupMs": 15.711874999999964,
+          "warmLookupMs": [14.742375000000038, 13.870666000000028, 10.518583000000035]
+        }
+      ],
+      "reportDigest": "053a6e9982501be2ee75256c1508433fa4f9deb83ffb7b4546cf8bfe2f4a66c5",
+      "summary": {
+        "canonicalContractBytes": { "count": 3, "min": 4734, "median": 4734, "max": 4734 },
+        "durableFileBytes": { "count": 3, "min": 5532, "median": 5532, "max": 5532 },
+        "cacheFileBytes": { "count": 3, "min": 6179, "median": 6179, "max": 6179 },
+        "contextInspectionMs": {
+          "count": 3,
+          "min": 20.004083000000037,
+          "median": 20.251666999999998,
+          "max": 20.87379199999998
+        },
+        "staticAnalysisMs": {
+          "count": 3,
+          "min": 0.9062920000000076,
+          "median": 2.6130419999999503,
+          "max": 2.810000000000059
+        },
+        "acquisitionAndReconciliationMs": {
+          "count": 3,
+          "min": 26.713999999999942,
+          "median": 30.740375000000085,
+          "max": 34.33999999999992
+        },
+        "sumOfQualificationStagesMs": {
+          "count": 3,
+          "min": 49.57870899999989,
+          "median": 51.65075000000013,
+          "max": 58.02379199999996
+        },
+        "durableExportMs": { "count": 3, "min": 15.727250000000026, "median": 22.019915999999967, "max": 39.092083 },
+        "durableReloadMs": {
+          "count": 3,
+          "min": 2.1731249999999136,
+          "median": 3.161375000000021,
+          "max": 3.266750000000002
+        },
+        "cachePublishMs": {
+          "count": 3,
+          "min": 29.091541000000007,
+          "median": 32.35000000000002,
+          "max": 37.16324999999995
+        },
+        "coldCacheObjectLookupMs": {
+          "count": 3,
+          "min": 15.711874999999964,
+          "median": 18.359916,
+          "max": 25.804458000000068
+        },
+        "warmLookupMs": {
+          "count": 9,
+          "min": 5.267541000000051,
+          "median": 10.518583000000035,
+          "max": 16.198334000000045
+        }
+      }
+    },
+    {
+      "formatVersion": 1,
+      "sourceRevision": "edb255e6a5db86d34de8512d13c632118224baeb",
+      "toolDigest": "6df0f7c0342a6e74386714c96d110ae9d15d5a5c292eefdf1d7c34b213d75d16",
+      "label": "mysql-9.7.2",
+      "serverVersion": "9.7.2",
+      "grammar": { "id": "mysql", "version": "1.0.0" },
+      "adapter": { "id": "@typed-sql/mysql/mysql2-contracts", "version": "mysql-backup-locked-prepare-v2" },
+      "sqlDigest": "8287314a14187f5cc17866a5cde4243941e671bede31c74caa622117b4a44b1e",
+      "parameterOccurrences": 1,
+      "fixtureSchema": {
+        "bytes": 4196,
+        "scope": "Owner-fixture compiler input; not a complete server catalog or application workload"
+      },
+      "environment": { "node": "v24.22.2", "platform": "darwin", "architecture": "arm64" },
+      "samples": [
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 18.463750000000005,
+              "staticAnalysisMs": 1.3626659999999902,
+              "acquisitionAndReconciliationMs": 37.61975000000007,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "62aae9b72cf459c8b632f9935efd512bb4d19a2fe4b427dfc85dcd14001c76f9",
+          "contextDigest": "4e97eab1d439f80251e432433426592c1dbad5afac3978544b7f6436a87477eb",
+          "canonicalContractBytes": 4734,
+          "nativeEvidenceBytes": 911,
+          "valuePlanBytes": 279,
+          "durable": { "bytes": 5532, "files": 3 },
+          "cache": { "bytes": 6179, "files": 5 },
+          "durableExportMs": 37.56566699999996,
+          "durableReloadMs": 1.8702920000000631,
+          "cachePublishMs": 35.49020799999994,
+          "coldCacheObjectLookupMs": 24.18779200000006,
+          "warmLookupMs": [9.514833000000067, 11.208500000000072, 6.407332999999994]
+        },
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 20.443750000000023,
+              "staticAnalysisMs": 2.63412500000004,
+              "acquisitionAndReconciliationMs": 27.880999999999972,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "62aae9b72cf459c8b632f9935efd512bb4d19a2fe4b427dfc85dcd14001c76f9",
+          "contextDigest": "4e97eab1d439f80251e432433426592c1dbad5afac3978544b7f6436a87477eb",
+          "canonicalContractBytes": 4734,
+          "nativeEvidenceBytes": 911,
+          "valuePlanBytes": 279,
+          "durable": { "bytes": 5532, "files": 3 },
+          "cache": { "bytes": 6179, "files": 5 },
+          "durableExportMs": 15.164958999999953,
+          "durableReloadMs": 4.138208000000077,
+          "cachePublishMs": 26.754625000000033,
+          "coldCacheObjectLookupMs": 18.914791000000037,
+          "warmLookupMs": [14.731041000000005, 9.593875000000025, 6.67004200000008]
+        },
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 24.086332999999968,
+              "staticAnalysisMs": 2.7593329999999696,
+              "acquisitionAndReconciliationMs": 40.399125000000026,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "62aae9b72cf459c8b632f9935efd512bb4d19a2fe4b427dfc85dcd14001c76f9",
+          "contextDigest": "4e97eab1d439f80251e432433426592c1dbad5afac3978544b7f6436a87477eb",
+          "canonicalContractBytes": 4734,
+          "nativeEvidenceBytes": 911,
+          "valuePlanBytes": 279,
+          "durable": { "bytes": 5532, "files": 3 },
+          "cache": { "bytes": 6179, "files": 5 },
+          "durableExportMs": 23.929292000000032,
+          "durableReloadMs": 2.2101249999998345,
+          "cachePublishMs": 30.934958999999935,
+          "coldCacheObjectLookupMs": 25.03520800000001,
+          "warmLookupMs": [15.758334000000104, 16.33704200000011, 5.596000000000004]
+        }
+      ],
+      "reportDigest": "3ff1d59dfd0461090454e5a274a91f88164f4c1be304d7cc311ef13eb86491bd",
+      "summary": {
+        "canonicalContractBytes": { "count": 3, "min": 4734, "median": 4734, "max": 4734 },
+        "durableFileBytes": { "count": 3, "min": 5532, "median": 5532, "max": 5532 },
+        "cacheFileBytes": { "count": 3, "min": 6179, "median": 6179, "max": 6179 },
+        "contextInspectionMs": {
+          "count": 3,
+          "min": 18.463750000000005,
+          "median": 20.443750000000023,
+          "max": 24.086332999999968
+        },
+        "staticAnalysisMs": {
+          "count": 3,
+          "min": 1.3626659999999902,
+          "median": 2.63412500000004,
+          "max": 2.7593329999999696
+        },
+        "acquisitionAndReconciliationMs": {
+          "count": 3,
+          "min": 27.880999999999972,
+          "median": 37.61975000000007,
+          "max": 40.399125000000026
+        },
+        "sumOfQualificationStagesMs": {
+          "count": 3,
+          "min": 50.958875000000035,
+          "median": 57.44616600000006,
+          "max": 67.24479099999996
+        },
+        "durableExportMs": {
+          "count": 3,
+          "min": 15.164958999999953,
+          "median": 23.929292000000032,
+          "max": 37.56566699999996
+        },
+        "durableReloadMs": {
+          "count": 3,
+          "min": 1.8702920000000631,
+          "median": 2.2101249999998345,
+          "max": 4.138208000000077
+        },
+        "cachePublishMs": {
+          "count": 3,
+          "min": 26.754625000000033,
+          "median": 30.934958999999935,
+          "max": 35.49020799999994
+        },
+        "coldCacheObjectLookupMs": {
+          "count": 3,
+          "min": 18.914791000000037,
+          "median": 24.18779200000006,
+          "max": 25.03520800000001
+        },
+        "warmLookupMs": { "count": 9, "min": 5.596000000000004, "median": 9.593875000000025, "max": 16.33704200000011 }
+      }
+    },
+    {
+      "formatVersion": 1,
+      "sourceRevision": "edb255e6a5db86d34de8512d13c632118224baeb",
+      "toolDigest": "6df0f7c0342a6e74386714c96d110ae9d15d5a5c292eefdf1d7c34b213d75d16",
+      "label": "postgres-18.3",
+      "serverVersion": "18.3 (Debian 18.3-1.pgdg13+1)",
+      "grammar": { "id": "postgres", "version": "1.0.0" },
+      "adapter": { "id": "@typed-sql/postgres/pg-contracts", "version": "postgres-contract-describe-v3" },
+      "sqlDigest": "366250a30b6d047ed95b3c005791943a07c6800a15adab449b9789f4d845f74f",
+      "parameterOccurrences": 1,
+      "fixtureSchema": {
+        "bytes": 187,
+        "scope": "Owner-fixture compiler input; not a complete server catalog or application workload"
+      },
+      "environment": { "node": "v24.22.2", "platform": "darwin", "architecture": "arm64" },
+      "samples": [
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 98.69016600000009,
+              "staticAnalysisMs": 0.4154999999998381,
+              "acquisitionAndReconciliationMs": 197.52766699999984,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "391ec60ee4c38a863a8a794ae50c98b4be7fce1da5cf18342c2c80ca573e3cc3",
+          "contextDigest": "0139bbbebbf7e31cef21552647375a9b0a1f792db36cad5f61c0d0d6b8a5039b",
+          "canonicalContractBytes": 4797,
+          "nativeEvidenceBytes": 889,
+          "valuePlanBytes": 270,
+          "durable": { "bytes": 5598, "files": 3 },
+          "cache": { "bytes": 6245, "files": 5 },
+          "durableExportMs": 11.066500000000133,
+          "durableReloadMs": 1.9379579999999805,
+          "cachePublishMs": 18.89345800000001,
+          "coldCacheObjectLookupMs": 12.402417000000014,
+          "warmLookupMs": [2.923958000000084, 7.0015840000000935, 8.691790999999967]
+        },
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 97.2337500000001,
+              "staticAnalysisMs": 2.8647920000000795,
+              "acquisitionAndReconciliationMs": 195.86366700000008,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "391ec60ee4c38a863a8a794ae50c98b4be7fce1da5cf18342c2c80ca573e3cc3",
+          "contextDigest": "0139bbbebbf7e31cef21552647375a9b0a1f792db36cad5f61c0d0d6b8a5039b",
+          "canonicalContractBytes": 4797,
+          "nativeEvidenceBytes": 889,
+          "valuePlanBytes": 270,
+          "durable": { "bytes": 5598, "files": 3 },
+          "cache": { "bytes": 6245, "files": 5 },
+          "durableExportMs": 10.651667000000089,
+          "durableReloadMs": 1.8901660000001357,
+          "cachePublishMs": 31.45179199999984,
+          "coldCacheObjectLookupMs": 10.287583000000268,
+          "warmLookupMs": [5.135208000000148, 6.885291000000052, 5.8503749999999854]
+        },
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 98.42941699999983,
+              "staticAnalysisMs": 2.7617079999999987,
+              "acquisitionAndReconciliationMs": 196.09266700000035,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "391ec60ee4c38a863a8a794ae50c98b4be7fce1da5cf18342c2c80ca573e3cc3",
+          "contextDigest": "0139bbbebbf7e31cef21552647375a9b0a1f792db36cad5f61c0d0d6b8a5039b",
+          "canonicalContractBytes": 4797,
+          "nativeEvidenceBytes": 889,
+          "valuePlanBytes": 270,
+          "durable": { "bytes": 5598, "files": 3 },
+          "cache": { "bytes": 6245, "files": 5 },
+          "durableExportMs": 12.152791999999863,
+          "durableReloadMs": 1.4639170000000377,
+          "cachePublishMs": 24.137874999999894,
+          "coldCacheObjectLookupMs": 9.994915999999648,
+          "warmLookupMs": [5.512416999999914, 7.515250000000378, 5.005500000000211]
+        }
+      ],
+      "reportDigest": "418b1e196e92f22fc73731577ce9f256cbeefdb2c9d9907220f8a3637f4f7b11",
+      "summary": {
+        "canonicalContractBytes": { "count": 3, "min": 4797, "median": 4797, "max": 4797 },
+        "durableFileBytes": { "count": 3, "min": 5598, "median": 5598, "max": 5598 },
+        "cacheFileBytes": { "count": 3, "min": 6245, "median": 6245, "max": 6245 },
+        "contextInspectionMs": {
+          "count": 3,
+          "min": 97.2337500000001,
+          "median": 98.42941699999983,
+          "max": 98.69016600000009
+        },
+        "staticAnalysisMs": {
+          "count": 3,
+          "min": 0.4154999999998381,
+          "median": 2.7617079999999987,
+          "max": 2.8647920000000795
+        },
+        "acquisitionAndReconciliationMs": {
+          "count": 3,
+          "min": 195.86366700000008,
+          "median": 196.09266700000035,
+          "max": 197.52766699999984
+        },
+        "sumOfQualificationStagesMs": {
+          "count": 3,
+          "min": 295.96220900000026,
+          "median": 296.63333299999977,
+          "max": 297.2837920000002
+        },
+        "durableExportMs": {
+          "count": 3,
+          "min": 10.651667000000089,
+          "median": 11.066500000000133,
+          "max": 12.152791999999863
+        },
+        "durableReloadMs": {
+          "count": 3,
+          "min": 1.4639170000000377,
+          "median": 1.8901660000001357,
+          "max": 1.9379579999999805
+        },
+        "cachePublishMs": {
+          "count": 3,
+          "min": 18.89345800000001,
+          "median": 24.137874999999894,
+          "max": 31.45179199999984
+        },
+        "coldCacheObjectLookupMs": {
+          "count": 3,
+          "min": 9.994915999999648,
+          "median": 10.287583000000268,
+          "max": 12.402417000000014
+        },
+        "warmLookupMs": { "count": 9, "min": 2.923958000000084, "median": 5.8503749999999854, "max": 8.691790999999967 }
+      }
+    },
+    {
+      "formatVersion": 1,
+      "sourceRevision": "edb255e6a5db86d34de8512d13c632118224baeb",
+      "toolDigest": "6df0f7c0342a6e74386714c96d110ae9d15d5a5c292eefdf1d7c34b213d75d16",
+      "label": "sqlite-3.53.4",
+      "serverVersion": "3.53.4",
+      "grammar": { "id": "sqlite", "version": "1.0.0" },
+      "adapter": { "id": "@typed-sql/sqlite/node-sqlite-contracts", "version": "node-sqlite-readonly-prepare-v1" },
+      "sqlDigest": "2d66724b23b3ffac24aa8a374e70fa6cba8ec57c74283e9918afc230842469f8",
+      "parameterOccurrences": 1,
+      "fixtureSchema": {
+        "bytes": 50,
+        "scope": "Owner-fixture compiler input; not a complete server catalog or application workload"
+      },
+      "environment": { "node": "v24.22.2", "platform": "darwin", "architecture": "arm64" },
+      "samples": [
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 58.1215000000002,
+              "staticAnalysisMs": 0.3322090000001481,
+              "acquisitionAndReconciliationMs": 67.85962500000005,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "a62cbc2e93a6a8c5c895970f9d04afe3e783c0c726596f6fffa75dcbc77e2257",
+          "contextDigest": "5d9d92aa138b06c879fa511be043a31196b7fd430f3570fd68ab189a194c5e69",
+          "canonicalContractBytes": 5234,
+          "nativeEvidenceBytes": 1049,
+          "valuePlanBytes": 386,
+          "durable": { "bytes": 6033, "files": 3 },
+          "cache": { "bytes": 6680, "files": 5 },
+          "durableExportMs": 20.453708000000006,
+          "durableReloadMs": 2.703791999999794,
+          "cachePublishMs": 23.135499999999865,
+          "coldCacheObjectLookupMs": 9.541250000000218,
+          "warmLookupMs": [5.801500000000033, 3.219833000000108, 7.988999999999578]
+        },
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 67.62875000000031,
+              "staticAnalysisMs": 2.1252919999997175,
+              "acquisitionAndReconciliationMs": 62.60208300000022,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "a62cbc2e93a6a8c5c895970f9d04afe3e783c0c726596f6fffa75dcbc77e2257",
+          "contextDigest": "5d9d92aa138b06c879fa511be043a31196b7fd430f3570fd68ab189a194c5e69",
+          "canonicalContractBytes": 5234,
+          "nativeEvidenceBytes": 1049,
+          "valuePlanBytes": 386,
+          "durable": { "bytes": 6033, "files": 3 },
+          "cache": { "bytes": 6680, "files": 5 },
+          "durableExportMs": 17.891749999999774,
+          "durableReloadMs": 2.6259580000000824,
+          "cachePublishMs": 20.679209000000355,
+          "coldCacheObjectLookupMs": 9.25558299999966,
+          "warmLookupMs": [5.81762499999968, 4.400709000000006, 5.973333000000366]
+        },
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 69.67783400000008,
+              "staticAnalysisMs": 2.100333999999748,
+              "acquisitionAndReconciliationMs": 62.47195899999997,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "a62cbc2e93a6a8c5c895970f9d04afe3e783c0c726596f6fffa75dcbc77e2257",
+          "contextDigest": "5d9d92aa138b06c879fa511be043a31196b7fd430f3570fd68ab189a194c5e69",
+          "canonicalContractBytes": 5234,
+          "nativeEvidenceBytes": 1049,
+          "valuePlanBytes": 386,
+          "durable": { "bytes": 6033, "files": 3 },
+          "cache": { "bytes": 6680, "files": 5 },
+          "durableExportMs": 25.904291999999714,
+          "durableReloadMs": 1.9526249999998981,
+          "cachePublishMs": 18.511999999999716,
+          "coldCacheObjectLookupMs": 10.871708000000126,
+          "warmLookupMs": [6.2323749999995925, 5.438375000000178, 5.568791000000147]
+        }
+      ],
+      "reportDigest": "b725f5c75ff3c1e2c9f8e42f71d9a3cae02ff97e3c654d0b5a234641336533ee",
+      "summary": {
+        "canonicalContractBytes": { "count": 3, "min": 5234, "median": 5234, "max": 5234 },
+        "durableFileBytes": { "count": 3, "min": 6033, "median": 6033, "max": 6033 },
+        "cacheFileBytes": { "count": 3, "min": 6680, "median": 6680, "max": 6680 },
+        "contextInspectionMs": {
+          "count": 3,
+          "min": 58.1215000000002,
+          "median": 67.62875000000031,
+          "max": 69.67783400000008
+        },
+        "staticAnalysisMs": {
+          "count": 3,
+          "min": 0.3322090000001481,
+          "median": 2.100333999999748,
+          "max": 2.1252919999997175
+        },
+        "acquisitionAndReconciliationMs": {
+          "count": 3,
+          "min": 62.47195899999997,
+          "median": 62.60208300000022,
+          "max": 67.85962500000005
+        },
+        "sumOfQualificationStagesMs": {
+          "count": 3,
+          "min": 126.3133340000004,
+          "median": 132.35612500000025,
+          "max": 134.2501269999998
+        },
+        "durableExportMs": {
+          "count": 3,
+          "min": 17.891749999999774,
+          "median": 20.453708000000006,
+          "max": 25.904291999999714
+        },
+        "durableReloadMs": {
+          "count": 3,
+          "min": 1.9526249999998981,
+          "median": 2.6259580000000824,
+          "max": 2.703791999999794
+        },
+        "cachePublishMs": {
+          "count": 3,
+          "min": 18.511999999999716,
+          "median": 20.679209000000355,
+          "max": 23.135499999999865
+        },
+        "coldCacheObjectLookupMs": {
+          "count": 3,
+          "min": 9.25558299999966,
+          "median": 9.541250000000218,
+          "max": 10.871708000000126
+        },
+        "warmLookupMs": { "count": 9, "min": 3.219833000000108, "median": 5.801500000000033, "max": 7.988999999999578 }
+      }
+    },
+    {
+      "formatVersion": 1,
+      "sourceRevision": "12f93112ca31725c5f8a2698f30f357dd88a1b67",
+      "toolDigest": "6df0f7c0342a6e74386714c96d110ae9d15d5a5c292eefdf1d7c34b213d75d16",
+      "label": "sqlserver-14.0.3560.2-compat-140",
+      "serverVersion": "14.0.3560.2",
+      "grammar": { "id": "sqlserver", "version": "1.0.0" },
+      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v2" },
+      "sqlDigest": "19693d330c1a76f7ab048138effdc367c76b9db95c9a046b28b0dc694401eb01",
+      "parameterOccurrences": 1,
+      "fixtureSchema": {
+        "bytes": 805,
+        "scope": "Owner-fixture compiler input; not a complete server catalog or application workload"
+      },
+      "environment": { "node": "v24.22.2", "platform": "linux", "architecture": "x64" },
+      "samples": [
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 189.68727000000013,
+              "staticAnalysisMs": 1.0563459999998486,
+              "acquisitionAndReconciliationMs": 202.63637799999992,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "4010ba4a934c8d949593fb88edf10b98ecef7fea07fb0d2fa05cc8da5cda35a1",
+          "contextDigest": "3168a50a7d5e5bdcb504f71137de651e80489023e2d3899c0baa768f881e4476",
+          "canonicalContractBytes": 5064,
+          "nativeEvidenceBytes": 1247,
+          "valuePlanBytes": 275,
+          "durable": { "bytes": 5866, "files": 3 },
+          "cache": { "bytes": 6513, "files": 5 },
+          "durableExportMs": 16.574039999999968,
+          "durableReloadMs": 3.892071999999871,
+          "cachePublishMs": 24.77954099999988,
+          "coldCacheObjectLookupMs": 54.56454899999994,
+          "warmLookupMs": [25.181099999999788, 32.280095000000074, 23.20124799999985]
+        },
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 258.64513799999986,
+              "staticAnalysisMs": 6.682369999999992,
+              "acquisitionAndReconciliationMs": 230.3391029999998,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "4010ba4a934c8d949593fb88edf10b98ecef7fea07fb0d2fa05cc8da5cda35a1",
+          "contextDigest": "3168a50a7d5e5bdcb504f71137de651e80489023e2d3899c0baa768f881e4476",
+          "canonicalContractBytes": 5064,
+          "nativeEvidenceBytes": 1247,
+          "valuePlanBytes": 275,
+          "durable": { "bytes": 5866, "files": 3 },
+          "cache": { "bytes": 6513, "files": 5 },
+          "durableExportMs": 7.5150870000002215,
+          "durableReloadMs": 3.5714130000001205,
+          "cachePublishMs": 32.55907799999977,
+          "coldCacheObjectLookupMs": 35.99445399999968,
+          "warmLookupMs": [25.375296000000162, 32.75488299999961, 20.253713999999945]
+        },
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 211.15294900000026,
+              "staticAnalysisMs": 6.547815999999784,
+              "acquisitionAndReconciliationMs": 231.42612899999995,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "4010ba4a934c8d949593fb88edf10b98ecef7fea07fb0d2fa05cc8da5cda35a1",
+          "contextDigest": "3168a50a7d5e5bdcb504f71137de651e80489023e2d3899c0baa768f881e4476",
+          "canonicalContractBytes": 5064,
+          "nativeEvidenceBytes": 1247,
+          "valuePlanBytes": 275,
+          "durable": { "bytes": 5866, "files": 3 },
+          "cache": { "bytes": 6513, "files": 5 },
+          "durableExportMs": 7.448876000000382,
+          "durableReloadMs": 16.062161999999716,
+          "cachePublishMs": 38.636757999999645,
+          "coldCacheObjectLookupMs": 43.23566299999993,
+          "warmLookupMs": [38.79828899999984, 22.803415000000314, 38.52250499999991]
+        }
+      ],
+      "reportDigest": "69f383c4bcfda24f4804f5764b82104e6ef37058e8a19a5876cf26897d5f5536",
+      "summary": {
+        "canonicalContractBytes": { "count": 3, "min": 5064, "median": 5064, "max": 5064 },
+        "durableFileBytes": { "count": 3, "min": 5866, "median": 5866, "max": 5866 },
+        "cacheFileBytes": { "count": 3, "min": 6513, "median": 6513, "max": 6513 },
+        "contextInspectionMs": {
+          "count": 3,
+          "min": 189.68727000000013,
+          "median": 211.15294900000026,
+          "max": 258.64513799999986
+        },
+        "staticAnalysisMs": {
+          "count": 3,
+          "min": 1.0563459999998486,
+          "median": 6.547815999999784,
+          "max": 6.682369999999992
+        },
+        "acquisitionAndReconciliationMs": {
+          "count": 3,
+          "min": 202.63637799999992,
+          "median": 230.3391029999998,
+          "max": 231.42612899999995
+        },
+        "sumOfQualificationStagesMs": {
+          "count": 3,
+          "min": 393.3799939999999,
+          "median": 449.126894,
+          "max": 495.66661099999965
+        },
+        "durableExportMs": {
+          "count": 3,
+          "min": 7.448876000000382,
+          "median": 7.5150870000002215,
+          "max": 16.574039999999968
+        },
+        "durableReloadMs": {
+          "count": 3,
+          "min": 3.5714130000001205,
+          "median": 3.892071999999871,
+          "max": 16.062161999999716
+        },
+        "cachePublishMs": {
+          "count": 3,
+          "min": 24.77954099999988,
+          "median": 32.55907799999977,
+          "max": 38.636757999999645
+        },
+        "coldCacheObjectLookupMs": {
+          "count": 3,
+          "min": 35.99445399999968,
+          "median": 43.23566299999993,
+          "max": 54.56454899999994
+        },
+        "warmLookupMs": {
+          "count": 9,
+          "min": 20.253713999999945,
+          "median": 25.375296000000162,
+          "max": 38.79828899999984
+        }
+      }
+    },
+    {
+      "formatVersion": 1,
+      "sourceRevision": "12f93112ca31725c5f8a2698f30f357dd88a1b67",
+      "toolDigest": "6df0f7c0342a6e74386714c96d110ae9d15d5a5c292eefdf1d7c34b213d75d16",
+      "label": "sqlserver-15.0.4500.2-compat-140",
+      "serverVersion": "15.0.4500.2",
+      "grammar": { "id": "sqlserver", "version": "1.0.0" },
+      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v2" },
+      "sqlDigest": "19693d330c1a76f7ab048138effdc367c76b9db95c9a046b28b0dc694401eb01",
+      "parameterOccurrences": 1,
+      "fixtureSchema": {
+        "bytes": 805,
+        "scope": "Owner-fixture compiler input; not a complete server catalog or application workload"
+      },
+      "environment": { "node": "v24.22.2", "platform": "linux", "architecture": "x64" },
+      "samples": [
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 158.768871,
+              "staticAnalysisMs": 0.9401629999999841,
+              "acquisitionAndReconciliationMs": 176.344834,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "0d8f8ac91da851568dae92afd72e6e1f6df1f7098b865e60ed43c47bf60a1e7a",
+          "contextDigest": "4739c0baf3ba35f6acc188a7400010196e6c20a1a9e726ef7eb8583c461f552a",
+          "canonicalContractBytes": 5064,
+          "nativeEvidenceBytes": 1247,
+          "valuePlanBytes": 275,
+          "durable": { "bytes": 5866, "files": 3 },
+          "cache": { "bytes": 6513, "files": 5 },
+          "durableExportMs": 13.787784999999985,
+          "durableReloadMs": 9.172831000000087,
+          "cachePublishMs": 17.56442100000004,
+          "coldCacheObjectLookupMs": 42.72920299999987,
+          "warmLookupMs": [20.919607999999926, 21.265701000000035, 23.459591000000046]
+        },
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 179.22510199999988,
+              "staticAnalysisMs": 3.8774680000001354,
+              "acquisitionAndReconciliationMs": 192.35667999999987,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "0d8f8ac91da851568dae92afd72e6e1f6df1f7098b865e60ed43c47bf60a1e7a",
+          "contextDigest": "4739c0baf3ba35f6acc188a7400010196e6c20a1a9e726ef7eb8583c461f552a",
+          "canonicalContractBytes": 5064,
+          "nativeEvidenceBytes": 1247,
+          "valuePlanBytes": 275,
+          "durable": { "bytes": 5866, "files": 3 },
+          "cache": { "bytes": 6513, "files": 5 },
+          "durableExportMs": 6.260849999999664,
+          "durableReloadMs": 6.043075000000044,
+          "cachePublishMs": 20.874790000000303,
+          "coldCacheObjectLookupMs": 24.306462999999894,
+          "warmLookupMs": [21.784406000000217, 27.79774600000019, 24.355055999999877]
+        },
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 156.39732700000013,
+              "staticAnalysisMs": 3.9465119999999843,
+              "acquisitionAndReconciliationMs": 174.03752299999996,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "0d8f8ac91da851568dae92afd72e6e1f6df1f7098b865e60ed43c47bf60a1e7a",
+          "contextDigest": "4739c0baf3ba35f6acc188a7400010196e6c20a1a9e726ef7eb8583c461f552a",
+          "canonicalContractBytes": 5064,
+          "nativeEvidenceBytes": 1247,
+          "valuePlanBytes": 275,
+          "durable": { "bytes": 5866, "files": 3 },
+          "cache": { "bytes": 6513, "files": 5 },
+          "durableExportMs": 5.992389000000003,
+          "durableReloadMs": 4.013523999999961,
+          "cachePublishMs": 12.807831999999962,
+          "coldCacheObjectLookupMs": 46.46585700000014,
+          "warmLookupMs": [24.641149999999925, 18.09535399999959, 16.938943999999992]
+        }
+      ],
+      "reportDigest": "2ac32bea4e3eba859a3beee28fb80649597bcb51aa6b5f6deba660bb0a16b291",
+      "summary": {
+        "canonicalContractBytes": { "count": 3, "min": 5064, "median": 5064, "max": 5064 },
+        "durableFileBytes": { "count": 3, "min": 5866, "median": 5866, "max": 5866 },
+        "cacheFileBytes": { "count": 3, "min": 6513, "median": 6513, "max": 6513 },
+        "contextInspectionMs": {
+          "count": 3,
+          "min": 156.39732700000013,
+          "median": 158.768871,
+          "max": 179.22510199999988
+        },
+        "staticAnalysisMs": {
+          "count": 3,
+          "min": 0.9401629999999841,
+          "median": 3.8774680000001354,
+          "max": 3.9465119999999843
+        },
+        "acquisitionAndReconciliationMs": {
+          "count": 3,
+          "min": 174.03752299999996,
+          "median": 176.344834,
+          "max": 192.35667999999987
+        },
+        "sumOfQualificationStagesMs": {
+          "count": 3,
+          "min": 334.3813620000001,
+          "median": 336.05386799999997,
+          "max": 375.4592499999999
+        },
+        "durableExportMs": {
+          "count": 3,
+          "min": 5.992389000000003,
+          "median": 6.260849999999664,
+          "max": 13.787784999999985
+        },
+        "durableReloadMs": {
+          "count": 3,
+          "min": 4.013523999999961,
+          "median": 6.043075000000044,
+          "max": 9.172831000000087
+        },
+        "cachePublishMs": {
+          "count": 3,
+          "min": 12.807831999999962,
+          "median": 17.56442100000004,
+          "max": 20.874790000000303
+        },
+        "coldCacheObjectLookupMs": {
+          "count": 3,
+          "min": 24.306462999999894,
+          "median": 42.72920299999987,
+          "max": 46.46585700000014
+        },
+        "warmLookupMs": {
+          "count": 9,
+          "min": 16.938943999999992,
+          "median": 21.784406000000217,
+          "max": 27.79774600000019
+        }
+      }
+    },
+    {
+      "formatVersion": 1,
+      "sourceRevision": "12f93112ca31725c5f8a2698f30f357dd88a1b67",
+      "toolDigest": "6df0f7c0342a6e74386714c96d110ae9d15d5a5c292eefdf1d7c34b213d75d16",
+      "label": "sqlserver-15.0.4500.2-compat-150",
+      "serverVersion": "15.0.4500.2",
+      "grammar": { "id": "sqlserver", "version": "1.0.0" },
+      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v2" },
+      "sqlDigest": "19693d330c1a76f7ab048138effdc367c76b9db95c9a046b28b0dc694401eb01",
+      "parameterOccurrences": 1,
+      "fixtureSchema": {
+        "bytes": 805,
+        "scope": "Owner-fixture compiler input; not a complete server catalog or application workload"
+      },
+      "environment": { "node": "v24.22.2", "platform": "linux", "architecture": "x64" },
+      "samples": [
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 150.29063599999972,
+              "staticAnalysisMs": 0.6723869999996168,
+              "acquisitionAndReconciliationMs": 161.65061799999967,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "c82eb50f5ab934def65dfc66b4651f4526abdc752dd84958e65e15f6926943f4",
+          "contextDigest": "e2f0188404ca316f513e8685b0af43e24e424d2c5834e5512416e97bc3786a05",
+          "canonicalContractBytes": 5064,
+          "nativeEvidenceBytes": 1247,
+          "valuePlanBytes": 275,
+          "durable": { "bytes": 5866, "files": 3 },
+          "cache": { "bytes": 6513, "files": 5 },
+          "durableExportMs": 5.638633000000482,
+          "durableReloadMs": 11.588647000000492,
+          "cachePublishMs": 19.212044000000787,
+          "coldCacheObjectLookupMs": 32.17590199999995,
+          "warmLookupMs": [14.483338000000003, 22.828887000000577, 22.244322000000466]
+        },
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 153.05767699999979,
+              "staticAnalysisMs": 2.365139000000454,
+              "acquisitionAndReconciliationMs": 167.71932600000036,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "c82eb50f5ab934def65dfc66b4651f4526abdc752dd84958e65e15f6926943f4",
+          "contextDigest": "e2f0188404ca316f513e8685b0af43e24e424d2c5834e5512416e97bc3786a05",
+          "canonicalContractBytes": 5064,
+          "nativeEvidenceBytes": 1247,
+          "valuePlanBytes": 275,
+          "durable": { "bytes": 5866, "files": 3 },
+          "cache": { "bytes": 6513, "files": 5 },
+          "durableExportMs": 6.274956000000202,
+          "durableReloadMs": 2.735319000000345,
+          "cachePublishMs": 21.167472999999518,
+          "coldCacheObjectLookupMs": 39.71386999999959,
+          "warmLookupMs": [5.117965999999797, 20.148441000000275, 21.811267000000043]
+        },
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 158.3412790000002,
+              "staticAnalysisMs": 2.256444999999985,
+              "acquisitionAndReconciliationMs": 170.79988500000036,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "c82eb50f5ab934def65dfc66b4651f4526abdc752dd84958e65e15f6926943f4",
+          "contextDigest": "e2f0188404ca316f513e8685b0af43e24e424d2c5834e5512416e97bc3786a05",
+          "canonicalContractBytes": 5064,
+          "nativeEvidenceBytes": 1247,
+          "valuePlanBytes": 275,
+          "durable": { "bytes": 5866, "files": 3 },
+          "cache": { "bytes": 6513, "files": 5 },
+          "durableExportMs": 5.674367999999959,
+          "durableReloadMs": 6.6443349999999555,
+          "cachePublishMs": 22.972176999999647,
+          "coldCacheObjectLookupMs": 28.280620999999883,
+          "warmLookupMs": [22.664150999999947, 17.572935000000143, 19.711983000000146]
+        }
+      ],
+      "reportDigest": "954a6f717a04fcc0a29d35ae21d8978bdc472af650a1790b20273357f91845d3",
+      "summary": {
+        "canonicalContractBytes": { "count": 3, "min": 5064, "median": 5064, "max": 5064 },
+        "durableFileBytes": { "count": 3, "min": 5866, "median": 5866, "max": 5866 },
+        "cacheFileBytes": { "count": 3, "min": 6513, "median": 6513, "max": 6513 },
+        "contextInspectionMs": {
+          "count": 3,
+          "min": 150.29063599999972,
+          "median": 153.05767699999979,
+          "max": 158.3412790000002
+        },
+        "staticAnalysisMs": {
+          "count": 3,
+          "min": 0.6723869999996168,
+          "median": 2.256444999999985,
+          "max": 2.365139000000454
+        },
+        "acquisitionAndReconciliationMs": {
+          "count": 3,
+          "min": 161.65061799999967,
+          "median": 167.71932600000036,
+          "max": 170.79988500000036
+        },
+        "sumOfQualificationStagesMs": {
+          "count": 3,
+          "min": 312.613640999999,
+          "median": 323.1421420000006,
+          "max": 331.39760900000056
+        },
+        "durableExportMs": {
+          "count": 3,
+          "min": 5.638633000000482,
+          "median": 5.674367999999959,
+          "max": 6.274956000000202
+        },
+        "durableReloadMs": {
+          "count": 3,
+          "min": 2.735319000000345,
+          "median": 6.6443349999999555,
+          "max": 11.588647000000492
+        },
+        "cachePublishMs": {
+          "count": 3,
+          "min": 19.212044000000787,
+          "median": 21.167472999999518,
+          "max": 22.972176999999647
+        },
+        "coldCacheObjectLookupMs": {
+          "count": 3,
+          "min": 28.280620999999883,
+          "median": 32.17590199999995,
+          "max": 39.71386999999959
+        },
+        "warmLookupMs": {
+          "count": 9,
+          "min": 5.117965999999797,
+          "median": 20.148441000000275,
+          "max": 22.828887000000577
+        }
+      }
+    },
+    {
+      "formatVersion": 1,
+      "sourceRevision": "12f93112ca31725c5f8a2698f30f357dd88a1b67",
+      "toolDigest": "6df0f7c0342a6e74386714c96d110ae9d15d5a5c292eefdf1d7c34b213d75d16",
+      "label": "sqlserver-16.0.4305.5-compat-140",
+      "serverVersion": "16.0.4305.5",
+      "grammar": { "id": "sqlserver", "version": "1.0.0" },
+      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v2" },
+      "sqlDigest": "19693d330c1a76f7ab048138effdc367c76b9db95c9a046b28b0dc694401eb01",
+      "parameterOccurrences": 1,
+      "fixtureSchema": {
+        "bytes": 805,
+        "scope": "Owner-fixture compiler input; not a complete server catalog or application workload"
+      },
+      "environment": { "node": "v24.22.2", "platform": "linux", "architecture": "x64" },
+      "samples": [
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 119.82195200000001,
+              "staticAnalysisMs": 0.743502000000035,
+              "acquisitionAndReconciliationMs": 137.6324189999998,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "78c4ecdbe53ee0a3551dfb300114db447cba2150bd6f3f27bda0ba95b8ad9690",
+          "contextDigest": "09fdf1b2f6f073c7dc805ca09db340e5c9baeaed310ee7f97668e8402ee2e492",
+          "canonicalContractBytes": 5064,
+          "nativeEvidenceBytes": 1247,
+          "valuePlanBytes": 275,
+          "durable": { "bytes": 5866, "files": 3 },
+          "cache": { "bytes": 6513, "files": 5 },
+          "durableExportMs": 10.530477999999903,
+          "durableReloadMs": 12.413379999999961,
+          "cachePublishMs": 15.057182000000012,
+          "coldCacheObjectLookupMs": 30.95399999999995,
+          "warmLookupMs": [8.715516999999863, 12.003531000000066, 14.45312899999999]
+        },
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 140.480638,
+              "staticAnalysisMs": 4.067059999999856,
+              "acquisitionAndReconciliationMs": 131.88899800000013,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "78c4ecdbe53ee0a3551dfb300114db447cba2150bd6f3f27bda0ba95b8ad9690",
+          "contextDigest": "09fdf1b2f6f073c7dc805ca09db340e5c9baeaed310ee7f97668e8402ee2e492",
+          "canonicalContractBytes": 5064,
+          "nativeEvidenceBytes": 1247,
+          "valuePlanBytes": 275,
+          "durable": { "bytes": 5866, "files": 3 },
+          "cache": { "bytes": 6513, "files": 5 },
+          "durableExportMs": 7.92728800000009,
+          "durableReloadMs": 1.8953809999998157,
+          "cachePublishMs": 15.499458999999888,
+          "coldCacheObjectLookupMs": 22.222739000000047,
+          "warmLookupMs": [17.274659000000156, 17.29879600000004, 15.500940999999784]
+        },
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 150.79684300000008,
+              "staticAnalysisMs": 4.332108999999946,
+              "acquisitionAndReconciliationMs": 151.6987640000002,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "78c4ecdbe53ee0a3551dfb300114db447cba2150bd6f3f27bda0ba95b8ad9690",
+          "contextDigest": "09fdf1b2f6f073c7dc805ca09db340e5c9baeaed310ee7f97668e8402ee2e492",
+          "canonicalContractBytes": 5064,
+          "nativeEvidenceBytes": 1247,
+          "valuePlanBytes": 275,
+          "durable": { "bytes": 5866, "files": 3 },
+          "cache": { "bytes": 6513, "files": 5 },
+          "durableExportMs": 5.181152000000111,
+          "durableReloadMs": 7.587174000000232,
+          "cachePublishMs": 16.42970400000013,
+          "coldCacheObjectLookupMs": 32.48410999999987,
+          "warmLookupMs": [22.007734000000255, 14.04742699999997, 21.01525599999968]
+        }
+      ],
+      "reportDigest": "84e8d1ebcb121cba9c261cd61025628183e648fa0380a31046694924988a4b9e",
+      "summary": {
+        "canonicalContractBytes": { "count": 3, "min": 5064, "median": 5064, "max": 5064 },
+        "durableFileBytes": { "count": 3, "min": 5866, "median": 5866, "max": 5866 },
+        "cacheFileBytes": { "count": 3, "min": 6513, "median": 6513, "max": 6513 },
+        "contextInspectionMs": {
+          "count": 3,
+          "min": 119.82195200000001,
+          "median": 140.480638,
+          "max": 150.79684300000008
+        },
+        "staticAnalysisMs": {
+          "count": 3,
+          "min": 0.743502000000035,
+          "median": 4.067059999999856,
+          "max": 4.332108999999946
+        },
+        "acquisitionAndReconciliationMs": {
+          "count": 3,
+          "min": 131.88899800000013,
+          "median": 137.6324189999998,
+          "max": 151.6987640000002
+        },
+        "sumOfQualificationStagesMs": {
+          "count": 3,
+          "min": 258.19787299999984,
+          "median": 276.436696,
+          "max": 306.82771600000024
+        },
+        "durableExportMs": {
+          "count": 3,
+          "min": 5.181152000000111,
+          "median": 7.92728800000009,
+          "max": 10.530477999999903
+        },
+        "durableReloadMs": {
+          "count": 3,
+          "min": 1.8953809999998157,
+          "median": 7.587174000000232,
+          "max": 12.413379999999961
+        },
+        "cachePublishMs": {
+          "count": 3,
+          "min": 15.057182000000012,
+          "median": 15.499458999999888,
+          "max": 16.42970400000013
+        },
+        "coldCacheObjectLookupMs": {
+          "count": 3,
+          "min": 22.222739000000047,
+          "median": 30.95399999999995,
+          "max": 32.48410999999987
+        },
+        "warmLookupMs": {
+          "count": 9,
+          "min": 8.715516999999863,
+          "median": 15.500940999999784,
+          "max": 22.007734000000255
+        }
+      }
+    },
+    {
+      "formatVersion": 1,
+      "sourceRevision": "12f93112ca31725c5f8a2698f30f357dd88a1b67",
+      "toolDigest": "6df0f7c0342a6e74386714c96d110ae9d15d5a5c292eefdf1d7c34b213d75d16",
+      "label": "sqlserver-16.0.4305.5-compat-150",
+      "serverVersion": "16.0.4305.5",
+      "grammar": { "id": "sqlserver", "version": "1.0.0" },
+      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v2" },
+      "sqlDigest": "19693d330c1a76f7ab048138effdc367c76b9db95c9a046b28b0dc694401eb01",
+      "parameterOccurrences": 1,
+      "fixtureSchema": {
+        "bytes": 805,
+        "scope": "Owner-fixture compiler input; not a complete server catalog or application workload"
+      },
+      "environment": { "node": "v24.22.2", "platform": "linux", "architecture": "x64" },
+      "samples": [
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 115.7144989999997,
+              "staticAnalysisMs": 0.6355189999994764,
+              "acquisitionAndReconciliationMs": 127.95299299999988,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "0259c812f206c5a6250069e4c8416828c46da1758bed8245444e8944e54d1228",
+          "contextDigest": "66c7e6ec29615dc1fb65c3c483b431a0804b0b6d27e249cab99ad5372ad68e33",
+          "canonicalContractBytes": 5064,
+          "nativeEvidenceBytes": 1247,
+          "valuePlanBytes": 275,
+          "durable": { "bytes": 5866, "files": 3 },
+          "cache": { "bytes": 6513, "files": 5 },
+          "durableExportMs": 4.468912000000273,
+          "durableReloadMs": 1.6072350000004008,
+          "cachePublishMs": 13.682622999999694,
+          "coldCacheObjectLookupMs": 25.916921000000002,
+          "warmLookupMs": [17.525770999999622, 19.197823999999855, 16.623829999999543]
+        },
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 120.89188899999954,
+              "staticAnalysisMs": 2.0798380000005636,
+              "acquisitionAndReconciliationMs": 133.76802599999974,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "0259c812f206c5a6250069e4c8416828c46da1758bed8245444e8944e54d1228",
+          "contextDigest": "66c7e6ec29615dc1fb65c3c483b431a0804b0b6d27e249cab99ad5372ad68e33",
+          "canonicalContractBytes": 5064,
+          "nativeEvidenceBytes": 1247,
+          "valuePlanBytes": 275,
+          "durable": { "bytes": 5866, "files": 3 },
+          "cache": { "bytes": 6513, "files": 5 },
+          "durableExportMs": 4.977640000000065,
+          "durableReloadMs": 4.540068999999676,
+          "cachePublishMs": 12.625519000000168,
+          "coldCacheObjectLookupMs": 31.368986000000405,
+          "warmLookupMs": [3.4760839999999007, 19.379939000000377, 19.15668099999948]
+        },
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 120.47595300000012,
+              "staticAnalysisMs": 2.0289309999998295,
+              "acquisitionAndReconciliationMs": 129.00001299999985,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "0259c812f206c5a6250069e4c8416828c46da1758bed8245444e8944e54d1228",
+          "contextDigest": "66c7e6ec29615dc1fb65c3c483b431a0804b0b6d27e249cab99ad5372ad68e33",
+          "canonicalContractBytes": 5064,
+          "nativeEvidenceBytes": 1247,
+          "valuePlanBytes": 275,
+          "durable": { "bytes": 5866, "files": 3 },
+          "cache": { "bytes": 6513, "files": 5 },
+          "durableExportMs": 4.610255999999936,
+          "durableReloadMs": 2.0897830000003523,
+          "cachePublishMs": 16.239019999999982,
+          "coldCacheObjectLookupMs": 26.23184500000025,
+          "warmLookupMs": [3.4108160000005228, 10.28060000000005, 21.634469999999965]
+        }
+      ],
+      "reportDigest": "8f0f4d1f08ec13f353ce03200d76a02203c91767cd95feb11ade3b54f90c4f47",
+      "summary": {
+        "canonicalContractBytes": { "count": 3, "min": 5064, "median": 5064, "max": 5064 },
+        "durableFileBytes": { "count": 3, "min": 5866, "median": 5866, "max": 5866 },
+        "cacheFileBytes": { "count": 3, "min": 6513, "median": 6513, "max": 6513 },
+        "contextInspectionMs": {
+          "count": 3,
+          "min": 115.7144989999997,
+          "median": 120.47595300000012,
+          "max": 120.89188899999954
+        },
+        "staticAnalysisMs": {
+          "count": 3,
+          "min": 0.6355189999994764,
+          "median": 2.0289309999998295,
+          "max": 2.0798380000005636
+        },
+        "acquisitionAndReconciliationMs": {
+          "count": 3,
+          "min": 127.95299299999988,
+          "median": 129.00001299999985,
+          "max": 133.76802599999974
+        },
+        "sumOfQualificationStagesMs": {
+          "count": 3,
+          "min": 244.30301099999906,
+          "median": 251.5048969999998,
+          "max": 256.73975299999984
+        },
+        "durableExportMs": {
+          "count": 3,
+          "min": 4.468912000000273,
+          "median": 4.610255999999936,
+          "max": 4.977640000000065
+        },
+        "durableReloadMs": {
+          "count": 3,
+          "min": 1.6072350000004008,
+          "median": 2.0897830000003523,
+          "max": 4.540068999999676
+        },
+        "cachePublishMs": {
+          "count": 3,
+          "min": 12.625519000000168,
+          "median": 13.682622999999694,
+          "max": 16.239019999999982
+        },
+        "coldCacheObjectLookupMs": {
+          "count": 3,
+          "min": 25.916921000000002,
+          "median": 26.23184500000025,
+          "max": 31.368986000000405
+        },
+        "warmLookupMs": {
+          "count": 9,
+          "min": 3.4108160000005228,
+          "median": 17.525770999999622,
+          "max": 21.634469999999965
+        }
+      }
+    },
+    {
+      "formatVersion": 1,
+      "sourceRevision": "12f93112ca31725c5f8a2698f30f357dd88a1b67",
+      "toolDigest": "6df0f7c0342a6e74386714c96d110ae9d15d5a5c292eefdf1d7c34b213d75d16",
+      "label": "sqlserver-16.0.4305.5-compat-160",
+      "serverVersion": "16.0.4305.5",
+      "grammar": { "id": "sqlserver", "version": "1.0.0" },
+      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v2" },
+      "sqlDigest": "19693d330c1a76f7ab048138effdc367c76b9db95c9a046b28b0dc694401eb01",
+      "parameterOccurrences": 1,
+      "fixtureSchema": {
+        "bytes": 805,
+        "scope": "Owner-fixture compiler input; not a complete server catalog or application workload"
+      },
+      "environment": { "node": "v24.22.2", "platform": "linux", "architecture": "x64" },
+      "samples": [
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 116.46796600000016,
+              "staticAnalysisMs": 0.5020569999996951,
+              "acquisitionAndReconciliationMs": 130.17349300000024,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "59d445aff9364c4c58b2fe647debf2012e156b5ed0b96b95aa8fac91b0944a0b",
+          "contextDigest": "bb4bea6ac8bfa3b437a314072514796d9b4e55ea1f9c8292aee3eb43d71e29bd",
+          "canonicalContractBytes": 5064,
+          "nativeEvidenceBytes": 1247,
+          "valuePlanBytes": 275,
+          "durable": { "bytes": 5866, "files": 3 },
+          "cache": { "bytes": 6513, "files": 5 },
+          "durableExportMs": 4.5671000000002095,
+          "durableReloadMs": 3.6719300000004296,
+          "cachePublishMs": 16.466844000000492,
+          "coldCacheObjectLookupMs": 34.18765899999926,
+          "warmLookupMs": [20.096580000001268, 16.17225900000085, 18.695886999999857]
+        },
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 133.5506580000001,
+              "staticAnalysisMs": 1.8674670000000333,
+              "acquisitionAndReconciliationMs": 133.28803200000038,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "59d445aff9364c4c58b2fe647debf2012e156b5ed0b96b95aa8fac91b0944a0b",
+          "contextDigest": "bb4bea6ac8bfa3b437a314072514796d9b4e55ea1f9c8292aee3eb43d71e29bd",
+          "canonicalContractBytes": 5064,
+          "nativeEvidenceBytes": 1247,
+          "valuePlanBytes": 275,
+          "durable": { "bytes": 5866, "files": 3 },
+          "cache": { "bytes": 6513, "files": 5 },
+          "durableExportMs": 4.536373999999341,
+          "durableReloadMs": 1.8042619999996532,
+          "cachePublishMs": 16.361653999998452,
+          "coldCacheObjectLookupMs": 30.87467099999958,
+          "warmLookupMs": [17.33784800000103, 18.608244000000923, 9.85599000000002]
+        },
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 121.27745200000027,
+              "staticAnalysisMs": 1.9383839999991324,
+              "acquisitionAndReconciliationMs": 125.38095299999986,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "59d445aff9364c4c58b2fe647debf2012e156b5ed0b96b95aa8fac91b0944a0b",
+          "contextDigest": "bb4bea6ac8bfa3b437a314072514796d9b4e55ea1f9c8292aee3eb43d71e29bd",
+          "canonicalContractBytes": 5064,
+          "nativeEvidenceBytes": 1247,
+          "valuePlanBytes": 275,
+          "durable": { "bytes": 5866, "files": 3 },
+          "cache": { "bytes": 6513, "files": 5 },
+          "durableExportMs": 4.586568999999145,
+          "durableReloadMs": 1.6494179999990592,
+          "cachePublishMs": 18.78605299999981,
+          "coldCacheObjectLookupMs": 29.903856000000815,
+          "warmLookupMs": [17.513412000000244, 10.435883999998623, 23.778134000000136]
+        }
+      ],
+      "reportDigest": "07209a5cf6bf0f0e0fef0c95f4921e93db3e95618ae74d4c9b444bb9ec0be8cd",
+      "summary": {
+        "canonicalContractBytes": { "count": 3, "min": 5064, "median": 5064, "max": 5064 },
+        "durableFileBytes": { "count": 3, "min": 5866, "median": 5866, "max": 5866 },
+        "cacheFileBytes": { "count": 3, "min": 6513, "median": 6513, "max": 6513 },
+        "contextInspectionMs": {
+          "count": 3,
+          "min": 116.46796600000016,
+          "median": 121.27745200000027,
+          "max": 133.5506580000001
+        },
+        "staticAnalysisMs": {
+          "count": 3,
+          "min": 0.5020569999996951,
+          "median": 1.8674670000000333,
+          "max": 1.9383839999991324
+        },
+        "acquisitionAndReconciliationMs": {
+          "count": 3,
+          "min": 125.38095299999986,
+          "median": 130.17349300000024,
+          "max": 133.28803200000038
+        },
+        "sumOfQualificationStagesMs": {
+          "count": 3,
+          "min": 247.1435160000001,
+          "median": 248.59678899999926,
+          "max": 268.70615700000053
+        },
+        "durableExportMs": {
+          "count": 3,
+          "min": 4.536373999999341,
+          "median": 4.5671000000002095,
+          "max": 4.586568999999145
+        },
+        "durableReloadMs": {
+          "count": 3,
+          "min": 1.6494179999990592,
+          "median": 1.8042619999996532,
+          "max": 3.6719300000004296
+        },
+        "cachePublishMs": {
+          "count": 3,
+          "min": 16.361653999998452,
+          "median": 16.466844000000492,
+          "max": 18.78605299999981
+        },
+        "coldCacheObjectLookupMs": {
+          "count": 3,
+          "min": 29.903856000000815,
+          "median": 30.87467099999958,
+          "max": 34.18765899999926
+        },
+        "warmLookupMs": { "count": 9, "min": 9.85599000000002, "median": 17.513412000000244, "max": 23.778134000000136 }
+      }
+    },
+    {
+      "formatVersion": 1,
+      "sourceRevision": "12f93112ca31725c5f8a2698f30f357dd88a1b67",
+      "toolDigest": "6df0f7c0342a6e74386714c96d110ae9d15d5a5c292eefdf1d7c34b213d75d16",
+      "label": "sqlserver-17.0.5035.5-compat-140",
+      "serverVersion": "17.0.5035.5",
+      "grammar": { "id": "sqlserver", "version": "1.0.0" },
+      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v2" },
+      "sqlDigest": "19693d330c1a76f7ab048138effdc367c76b9db95c9a046b28b0dc694401eb01",
+      "parameterOccurrences": 1,
+      "fixtureSchema": {
+        "bytes": 816,
+        "scope": "Owner-fixture compiler input; not a complete server catalog or application workload"
+      },
+      "environment": { "node": "v24.22.2", "platform": "linux", "architecture": "x64" },
+      "samples": [
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 304.4641710000001,
+              "staticAnalysisMs": 1.4476700000000164,
+              "acquisitionAndReconciliationMs": 324.0445759999998,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "55ea1e02d4a76bfc7959cf3c16bd711581ec1fc52644dd3903ea98f3d72873c0",
+          "contextDigest": "a2eb21f8ff5d4e992a50a7504a5f798e98491cc3df871cc78d6adccf677a1171",
+          "canonicalContractBytes": 5064,
+          "nativeEvidenceBytes": 1247,
+          "valuePlanBytes": 275,
+          "durable": { "bytes": 5866, "files": 3 },
+          "cache": { "bytes": 6513, "files": 5 },
+          "durableExportMs": 17.17936299999974,
+          "durableReloadMs": 9.91758899999968,
+          "cachePublishMs": 23.869799000000057,
+          "coldCacheObjectLookupMs": 42.299492999999984,
+          "warmLookupMs": [29.36075699999992, 30.126636999999846, 20.414839999999913]
+        },
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 321.368821,
+              "staticAnalysisMs": 5.357192999999825,
+              "acquisitionAndReconciliationMs": 339.04275499999994,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "55ea1e02d4a76bfc7959cf3c16bd711581ec1fc52644dd3903ea98f3d72873c0",
+          "contextDigest": "a2eb21f8ff5d4e992a50a7504a5f798e98491cc3df871cc78d6adccf677a1171",
+          "canonicalContractBytes": 5064,
+          "nativeEvidenceBytes": 1247,
+          "valuePlanBytes": 275,
+          "durable": { "bytes": 5866, "files": 3 },
+          "cache": { "bytes": 6513, "files": 5 },
+          "durableExportMs": 7.6434870000002775,
+          "durableReloadMs": 5.732594000000063,
+          "cachePublishMs": 31.2603509999999,
+          "coldCacheObjectLookupMs": 42.363292,
+          "warmLookupMs": [26.542601000000104, 21.846309999999903, 30.728789000000234]
+        },
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 300.6756569999998,
+              "staticAnalysisMs": 5.647313999999824,
+              "acquisitionAndReconciliationMs": 310.84523400000035,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "55ea1e02d4a76bfc7959cf3c16bd711581ec1fc52644dd3903ea98f3d72873c0",
+          "contextDigest": "a2eb21f8ff5d4e992a50a7504a5f798e98491cc3df871cc78d6adccf677a1171",
+          "canonicalContractBytes": 5064,
+          "nativeEvidenceBytes": 1247,
+          "valuePlanBytes": 275,
+          "durable": { "bytes": 5866, "files": 3 },
+          "cache": { "bytes": 6513, "files": 5 },
+          "durableExportMs": 7.002169000000322,
+          "durableReloadMs": 9.680397000000085,
+          "cachePublishMs": 16.235085999999683,
+          "coldCacheObjectLookupMs": 35.256914000000506,
+          "warmLookupMs": [29.763246000000436, 24.68503899999996, 29.905493999999635]
+        }
+      ],
+      "reportDigest": "be316c87ac0c0177dd67d47e681a96762203fd3bad7ab4652f1a2e1c7336e1cb",
+      "summary": {
+        "canonicalContractBytes": { "count": 3, "min": 5064, "median": 5064, "max": 5064 },
+        "durableFileBytes": { "count": 3, "min": 5866, "median": 5866, "max": 5866 },
+        "cacheFileBytes": { "count": 3, "min": 6513, "median": 6513, "max": 6513 },
+        "contextInspectionMs": { "count": 3, "min": 300.6756569999998, "median": 304.4641710000001, "max": 321.368821 },
+        "staticAnalysisMs": {
+          "count": 3,
+          "min": 1.4476700000000164,
+          "median": 5.357192999999825,
+          "max": 5.647313999999824
+        },
+        "acquisitionAndReconciliationMs": {
+          "count": 3,
+          "min": 310.84523400000035,
+          "median": 324.0445759999998,
+          "max": 339.04275499999994
+        },
+        "sumOfQualificationStagesMs": {
+          "count": 3,
+          "min": 617.168205,
+          "median": 629.9564169999999,
+          "max": 665.7687689999998
+        },
+        "durableExportMs": {
+          "count": 3,
+          "min": 7.002169000000322,
+          "median": 7.6434870000002775,
+          "max": 17.17936299999974
+        },
+        "durableReloadMs": {
+          "count": 3,
+          "min": 5.732594000000063,
+          "median": 9.680397000000085,
+          "max": 9.91758899999968
+        },
+        "cachePublishMs": {
+          "count": 3,
+          "min": 16.235085999999683,
+          "median": 23.869799000000057,
+          "max": 31.2603509999999
+        },
+        "coldCacheObjectLookupMs": {
+          "count": 3,
+          "min": 35.256914000000506,
+          "median": 42.299492999999984,
+          "max": 42.363292
+        },
+        "warmLookupMs": {
+          "count": 9,
+          "min": 20.414839999999913,
+          "median": 29.36075699999992,
+          "max": 30.728789000000234
+        }
+      }
+    },
+    {
+      "formatVersion": 1,
+      "sourceRevision": "12f93112ca31725c5f8a2698f30f357dd88a1b67",
+      "toolDigest": "6df0f7c0342a6e74386714c96d110ae9d15d5a5c292eefdf1d7c34b213d75d16",
+      "label": "sqlserver-17.0.5035.5-compat-150",
+      "serverVersion": "17.0.5035.5",
+      "grammar": { "id": "sqlserver", "version": "1.0.0" },
+      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v2" },
+      "sqlDigest": "19693d330c1a76f7ab048138effdc367c76b9db95c9a046b28b0dc694401eb01",
+      "parameterOccurrences": 1,
+      "fixtureSchema": {
+        "bytes": 816,
+        "scope": "Owner-fixture compiler input; not a complete server catalog or application workload"
+      },
+      "environment": { "node": "v24.22.2", "platform": "linux", "architecture": "x64" },
+      "samples": [
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 291.107406000001,
+              "staticAnalysisMs": 0.8410380000004807,
+              "acquisitionAndReconciliationMs": 309.7548289999995,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "c6686b7d54154c385de5af46bf9dc661dad5eb33b0b08cf1eba737399b915a32",
+          "contextDigest": "824e08251ae0fd0ce120bc98bd060337c505fb4c6690704ec96054813224a5a7",
+          "canonicalContractBytes": 5064,
+          "nativeEvidenceBytes": 1247,
+          "valuePlanBytes": 275,
+          "durable": { "bytes": 5866, "files": 3 },
+          "cache": { "bytes": 6513, "files": 5 },
+          "durableExportMs": 7.018541000001278,
+          "durableReloadMs": 3.1675180000002,
+          "cachePublishMs": 35.88786099999925,
+          "coldCacheObjectLookupMs": 36.39629700000114,
+          "warmLookupMs": [6.9028960000014195, 35.71014699999978, 30.76202800000101]
+        },
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 293.1073669999987,
+              "staticAnalysisMs": 2.873870999999781,
+              "acquisitionAndReconciliationMs": 309.9661329999999,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "c6686b7d54154c385de5af46bf9dc661dad5eb33b0b08cf1eba737399b915a32",
+          "contextDigest": "824e08251ae0fd0ce120bc98bd060337c505fb4c6690704ec96054813224a5a7",
+          "canonicalContractBytes": 5064,
+          "nativeEvidenceBytes": 1247,
+          "valuePlanBytes": 275,
+          "durable": { "bytes": 5866, "files": 3 },
+          "cache": { "bytes": 6513, "files": 5 },
+          "durableExportMs": 10.037749999999505,
+          "durableReloadMs": 3.6709370000007766,
+          "cachePublishMs": 10.072136999999202,
+          "coldCacheObjectLookupMs": 54.166682999999466,
+          "warmLookupMs": [16.624979000000167, 31.10919499999909, 16.88052499999867]
+        },
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 297.0205559999995,
+              "staticAnalysisMs": 2.550468000001274,
+              "acquisitionAndReconciliationMs": 313.27439500000037,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "c6686b7d54154c385de5af46bf9dc661dad5eb33b0b08cf1eba737399b915a32",
+          "contextDigest": "824e08251ae0fd0ce120bc98bd060337c505fb4c6690704ec96054813224a5a7",
+          "canonicalContractBytes": 5064,
+          "nativeEvidenceBytes": 1247,
+          "valuePlanBytes": 275,
+          "durable": { "bytes": 5866, "files": 3 },
+          "cache": { "bytes": 6513, "files": 5 },
+          "durableExportMs": 6.624884000000748,
+          "durableReloadMs": 14.809133000000656,
+          "cachePublishMs": 21.731033000000025,
+          "coldCacheObjectLookupMs": 35.21428200000082,
+          "warmLookupMs": [32.27406499999961, 21.883386999999857, 34.75202999999965]
+        }
+      ],
+      "reportDigest": "6e1e595920f4890d35296c9316a3f790b9b48ce6e09ff0cd01288b1d86526dc2",
+      "summary": {
+        "canonicalContractBytes": { "count": 3, "min": 5064, "median": 5064, "max": 5064 },
+        "durableFileBytes": { "count": 3, "min": 5866, "median": 5866, "max": 5866 },
+        "cacheFileBytes": { "count": 3, "min": 6513, "median": 6513, "max": 6513 },
+        "contextInspectionMs": {
+          "count": 3,
+          "min": 291.107406000001,
+          "median": 293.1073669999987,
+          "max": 297.0205559999995
+        },
+        "staticAnalysisMs": {
+          "count": 3,
+          "min": 0.8410380000004807,
+          "median": 2.550468000001274,
+          "max": 2.873870999999781
+        },
+        "acquisitionAndReconciliationMs": {
+          "count": 3,
+          "min": 309.7548289999995,
+          "median": 309.9661329999999,
+          "max": 313.27439500000037
+        },
+        "sumOfQualificationStagesMs": {
+          "count": 3,
+          "min": 601.703273000001,
+          "median": 605.9473709999984,
+          "max": 612.8454190000011
+        },
+        "durableExportMs": {
+          "count": 3,
+          "min": 6.624884000000748,
+          "median": 7.018541000001278,
+          "max": 10.037749999999505
+        },
+        "durableReloadMs": {
+          "count": 3,
+          "min": 3.1675180000002,
+          "median": 3.6709370000007766,
+          "max": 14.809133000000656
+        },
+        "cachePublishMs": {
+          "count": 3,
+          "min": 10.072136999999202,
+          "median": 21.731033000000025,
+          "max": 35.88786099999925
+        },
+        "coldCacheObjectLookupMs": {
+          "count": 3,
+          "min": 35.21428200000082,
+          "median": 36.39629700000114,
+          "max": 54.166682999999466
+        },
+        "warmLookupMs": { "count": 9, "min": 6.9028960000014195, "median": 30.76202800000101, "max": 35.71014699999978 }
+      }
+    },
+    {
+      "formatVersion": 1,
+      "sourceRevision": "12f93112ca31725c5f8a2698f30f357dd88a1b67",
+      "toolDigest": "6df0f7c0342a6e74386714c96d110ae9d15d5a5c292eefdf1d7c34b213d75d16",
+      "label": "sqlserver-17.0.5035.5-compat-160",
+      "serverVersion": "17.0.5035.5",
+      "grammar": { "id": "sqlserver", "version": "1.0.0" },
+      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v2" },
+      "sqlDigest": "19693d330c1a76f7ab048138effdc367c76b9db95c9a046b28b0dc694401eb01",
+      "parameterOccurrences": 1,
+      "fixtureSchema": {
+        "bytes": 816,
+        "scope": "Owner-fixture compiler input; not a complete server catalog or application workload"
+      },
+      "environment": { "node": "v24.22.2", "platform": "linux", "architecture": "x64" },
+      "samples": [
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 282.960192999999,
+              "staticAnalysisMs": 0.5951300000015181,
+              "acquisitionAndReconciliationMs": 306.85893600000054,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "79650be0c31d3d07ebe526f9809d609704c783603c190812faa0c2d136be8b14",
+          "contextDigest": "2b4071c8ecbd291e191cad36339d273306eff03dedd7fa53e752663c3cb23582",
+          "canonicalContractBytes": 5064,
+          "nativeEvidenceBytes": 1247,
+          "valuePlanBytes": 275,
+          "durable": { "bytes": 5866, "files": 3 },
+          "cache": { "bytes": 6513, "files": 5 },
+          "durableExportMs": 6.991840999999113,
+          "durableReloadMs": 5.589083999999275,
+          "cachePublishMs": 35.161989000000176,
+          "coldCacheObjectLookupMs": 39.1316749999969,
+          "warmLookupMs": [30.458975000001374, 27.816311999999016, 32.255356999998185]
+        },
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 301.264562999997,
+              "staticAnalysisMs": 2.8755630000014207,
+              "acquisitionAndReconciliationMs": 307.77130800000305,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "79650be0c31d3d07ebe526f9809d609704c783603c190812faa0c2d136be8b14",
+          "contextDigest": "2b4071c8ecbd291e191cad36339d273306eff03dedd7fa53e752663c3cb23582",
+          "canonicalContractBytes": 5064,
+          "nativeEvidenceBytes": 1247,
+          "valuePlanBytes": 275,
+          "durable": { "bytes": 5866, "files": 3 },
+          "cache": { "bytes": 6513, "files": 5 },
+          "durableExportMs": 6.964418999999907,
+          "durableReloadMs": 7.045299999997951,
+          "cachePublishMs": 20.85700999999972,
+          "coldCacheObjectLookupMs": 38.81025199999931,
+          "warmLookupMs": [32.730563999997685, 31.11420200000066, 25.28078000000096]
+        },
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 290.1406029999998,
+              "staticAnalysisMs": 2.601683000000776,
+              "acquisitionAndReconciliationMs": 317.5296090000011,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "79650be0c31d3d07ebe526f9809d609704c783603c190812faa0c2d136be8b14",
+          "contextDigest": "2b4071c8ecbd291e191cad36339d273306eff03dedd7fa53e752663c3cb23582",
+          "canonicalContractBytes": 5064,
+          "nativeEvidenceBytes": 1247,
+          "valuePlanBytes": 275,
+          "durable": { "bytes": 5866, "files": 3 },
+          "cache": { "bytes": 6513, "files": 5 },
+          "durableExportMs": 7.984390999998141,
+          "durableReloadMs": 4.1644469999992,
+          "cachePublishMs": 27.438583999999537,
+          "coldCacheObjectLookupMs": 43.813443999999436,
+          "warmLookupMs": [30.620859000002383, 25.58697100000063, 34.31341600000087]
+        }
+      ],
+      "reportDigest": "c915e9fb4d6850e72b0b555a75b7c283e07b4c0c46830df36757e980a9f3d270",
+      "summary": {
+        "canonicalContractBytes": { "count": 3, "min": 5064, "median": 5064, "max": 5064 },
+        "durableFileBytes": { "count": 3, "min": 5866, "median": 5866, "max": 5866 },
+        "cacheFileBytes": { "count": 3, "min": 6513, "median": 6513, "max": 6513 },
+        "contextInspectionMs": {
+          "count": 3,
+          "min": 282.960192999999,
+          "median": 290.1406029999998,
+          "max": 301.264562999997
+        },
+        "staticAnalysisMs": {
+          "count": 3,
+          "min": 0.5951300000015181,
+          "median": 2.601683000000776,
+          "max": 2.8755630000014207
+        },
+        "acquisitionAndReconciliationMs": {
+          "count": 3,
+          "min": 306.85893600000054,
+          "median": 307.77130800000305,
+          "max": 317.5296090000011
+        },
+        "sumOfQualificationStagesMs": {
+          "count": 3,
+          "min": 590.414259000001,
+          "median": 610.2718950000017,
+          "max": 611.9114340000015
+        },
+        "durableExportMs": {
+          "count": 3,
+          "min": 6.964418999999907,
+          "median": 6.991840999999113,
+          "max": 7.984390999998141
+        },
+        "durableReloadMs": {
+          "count": 3,
+          "min": 4.1644469999992,
+          "median": 5.589083999999275,
+          "max": 7.045299999997951
+        },
+        "cachePublishMs": {
+          "count": 3,
+          "min": 20.85700999999972,
+          "median": 27.438583999999537,
+          "max": 35.161989000000176
+        },
+        "coldCacheObjectLookupMs": {
+          "count": 3,
+          "min": 38.81025199999931,
+          "median": 39.1316749999969,
+          "max": 43.813443999999436
+        },
+        "warmLookupMs": { "count": 9, "min": 25.28078000000096, "median": 30.620859000002383, "max": 34.31341600000087 }
+      }
+    },
+    {
+      "formatVersion": 1,
+      "sourceRevision": "12f93112ca31725c5f8a2698f30f357dd88a1b67",
+      "toolDigest": "6df0f7c0342a6e74386714c96d110ae9d15d5a5c292eefdf1d7c34b213d75d16",
+      "label": "sqlserver-17.0.5035.5-compat-170",
+      "serverVersion": "17.0.5035.5",
+      "grammar": { "id": "sqlserver", "version": "1.0.0" },
+      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v2" },
+      "sqlDigest": "19693d330c1a76f7ab048138effdc367c76b9db95c9a046b28b0dc694401eb01",
+      "parameterOccurrences": 1,
+      "fixtureSchema": {
+        "bytes": 816,
+        "scope": "Owner-fixture compiler input; not a complete server catalog or application workload"
+      },
+      "environment": { "node": "v24.22.2", "platform": "linux", "architecture": "x64" },
+      "samples": [
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 302.19766999999774,
+              "staticAnalysisMs": 0.5842689999990398,
+              "acquisitionAndReconciliationMs": 308.5364359999985,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "c33fd840a8799039b1b4b045c5dbf9a0e605d350dbd6e2457e0d61ebd7b92632",
+          "contextDigest": "ce4cd404e6a30a80b0e50f240d2a5ae4947c0354fc665ac50bf4a913c5e6c7fa",
+          "canonicalContractBytes": 5064,
+          "nativeEvidenceBytes": 1247,
+          "valuePlanBytes": 275,
+          "durable": { "bytes": 5866, "files": 3 },
+          "cache": { "bytes": 6513, "files": 5 },
+          "durableExportMs": 7.543145999999979,
+          "durableReloadMs": 5.74096500000087,
+          "cachePublishMs": 38.93260000000009,
+          "coldCacheObjectLookupMs": 41.50650300000052,
+          "warmLookupMs": [27.07097199999771, 30.7944920000009, 27.134902999998303]
+        },
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 305.7768929999984,
+              "staticAnalysisMs": 2.5520480000013777,
+              "acquisitionAndReconciliationMs": 307.677254000002,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "c33fd840a8799039b1b4b045c5dbf9a0e605d350dbd6e2457e0d61ebd7b92632",
+          "contextDigest": "ce4cd404e6a30a80b0e50f240d2a5ae4947c0354fc665ac50bf4a913c5e6c7fa",
+          "canonicalContractBytes": 5064,
+          "nativeEvidenceBytes": 1247,
+          "valuePlanBytes": 275,
+          "durable": { "bytes": 5866, "files": 3 },
+          "cache": { "bytes": 6513, "files": 5 },
+          "durableExportMs": 6.739907999999559,
+          "durableReloadMs": 3.0923559999973804,
+          "cachePublishMs": 29.116243000000395,
+          "coldCacheObjectLookupMs": 40.746312999999645,
+          "warmLookupMs": [34.65709799999968, 26.277063000001363, 30.274865999999747]
+        },
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 304.06348699999944,
+              "staticAnalysisMs": 2.7525930000010703,
+              "acquisitionAndReconciliationMs": 309.06352100000004,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "c33fd840a8799039b1b4b045c5dbf9a0e605d350dbd6e2457e0d61ebd7b92632",
+          "contextDigest": "ce4cd404e6a30a80b0e50f240d2a5ae4947c0354fc665ac50bf4a913c5e6c7fa",
+          "canonicalContractBytes": 5064,
+          "nativeEvidenceBytes": 1247,
+          "valuePlanBytes": 275,
+          "durable": { "bytes": 5866, "files": 3 },
+          "cache": { "bytes": 6513, "files": 5 },
+          "durableExportMs": 6.793517999998585,
+          "durableReloadMs": 7.1967509999994945,
+          "cachePublishMs": 27.282392999997683,
+          "coldCacheObjectLookupMs": 24.56425699999818,
+          "warmLookupMs": [17.340205000000424, 19.14735500000097, 6.008926000002248]
+        }
+      ],
+      "reportDigest": "1336451a49870679963610423ec13a49f39139e7020a6f81b3fdd53684b64d16",
+      "summary": {
+        "canonicalContractBytes": { "count": 3, "min": 5064, "median": 5064, "max": 5064 },
+        "durableFileBytes": { "count": 3, "min": 5866, "median": 5866, "max": 5866 },
+        "cacheFileBytes": { "count": 3, "min": 6513, "median": 6513, "max": 6513 },
+        "contextInspectionMs": {
+          "count": 3,
+          "min": 302.19766999999774,
+          "median": 304.06348699999944,
+          "max": 305.7768929999984
+        },
+        "staticAnalysisMs": {
+          "count": 3,
+          "min": 0.5842689999990398,
+          "median": 2.5520480000013777,
+          "max": 2.7525930000010703
+        },
+        "acquisitionAndReconciliationMs": {
+          "count": 3,
+          "min": 307.677254000002,
+          "median": 308.5364359999985,
+          "max": 309.06352100000004
+        },
+        "sumOfQualificationStagesMs": {
+          "count": 3,
+          "min": 611.3183749999953,
+          "median": 615.8796010000005,
+          "max": 616.0061950000018
+        },
+        "durableExportMs": {
+          "count": 3,
+          "min": 6.739907999999559,
+          "median": 6.793517999998585,
+          "max": 7.543145999999979
+        },
+        "durableReloadMs": {
+          "count": 3,
+          "min": 3.0923559999973804,
+          "median": 5.74096500000087,
+          "max": 7.1967509999994945
+        },
+        "cachePublishMs": {
+          "count": 3,
+          "min": 27.282392999997683,
+          "median": 29.116243000000395,
+          "max": 38.93260000000009
+        },
+        "coldCacheObjectLookupMs": {
+          "count": 3,
+          "min": 24.56425699999818,
+          "median": 40.746312999999645,
+          "max": 41.50650300000052
+        },
+        "warmLookupMs": { "count": 9, "min": 6.008926000002248, "median": 27.07097199999771, "max": 34.65709799999968 }
+      }
+    }
+  ]
+}

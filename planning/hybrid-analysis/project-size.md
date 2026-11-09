@@ -104,7 +104,9 @@ Closure compression uses sorted name/NUL/length/NUL/content framing, not a tarba
 individually compressed files. File-content sums exclude filesystem blocks and empty directories.
 Standalone plan JSON repeats the plans; it is not an extra mandatory distributed artifact.
 Native evidence and reconciliation add metadata absent from these offline-rule artifacts, so
-these figures must not be presented as native artifact sizes.
+these figures must not be presented as native artifact sizes. The [native cost report](./native-costs.md)
+measures actual one-query reconciled closures and cache behavior separately for all five grammars;
+its owner fixtures are not a native application scaling experiment.
 
 A separate schema-input experiment adds 50/500 unused product-shaped relations, validated by the
 owner. It measures serialization growth only; it does not pretend to be 500 independently
