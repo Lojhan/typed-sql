@@ -118,6 +118,111 @@ await describe("project live session", async () => {
     strict.equal(closes, 1);
     await strict.rejects(session.prepare({ document: "file:///one.ts", version: 2, candidates: [] }));
   });
+  await it("recaptures context after cache invalidation even within the observation interval", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "typed-sql-session-fence-"));
+    const cache = await openAnalysisCache({ directory, workspaceContext: queryContractDigest("session-fence") });
+    const { context: _context, ...automatic } = configuration;
+    let observations = 0;
+    const session = createLiveContractSession({
+      profile,
+      schema,
+      configuration: { ...automatic, mode: "live" },
+      cache,
+      loadAnalyzer: () => analyzer,
+      now: () => 0,
+      live: {
+        adapter: () => ({
+          connectionContext: configuration.cache.connectionContext,
+          adapter: adapter({
+            open: async () => ({ context: async () => context, describe: async () => evidence, close: async () => {} }),
+          }),
+          contribution: owner,
+          inspectContext: async () => {
+            observations++;
+            return context;
+          },
+          close: async () => {},
+        }),
+      },
+    });
+    try {
+      const first = await session.prepare({ document: "file:///one.ts", version: 1, candidates: [request.candidate] });
+      await first.assertCurrent();
+      strict.equal(observations, 1);
+      await cache.invalidate();
+      await strict.rejects(first.assertCurrent());
+      const fresh = await session.prepare({ document: "file:///one.ts", version: 1, candidates: [request.candidate] });
+      await fresh.assertCurrent();
+      strict.equal(observations, 2, "A fresh native observation is required after a changed cache fence");
+      strict.equal(fresh.contracts.length, 1);
+      await strict.rejects(first.assertCurrent(), "A fresh view must not revive the old view's token");
+    } finally {
+      await session.close();
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+  await it("retries classified acquisition drift with fresh observations, bounded attempts and retained explicit pins", async () => {
+    for (const [pinned, races] of [
+      [false, 1],
+      [false, 3],
+      [true, 1],
+    ] as const) {
+      const directory = await mkdtemp(join(tmpdir(), "typed-sql-session-acquisition-race-"));
+      const cache = await openAnalysisCache({ directory, workspaceContext: queryContractDigest("acquisition-race") });
+      const { context: _context, ...automatic } = configuration;
+      const guard = new Error("classified acquisition guard race");
+      let observations = 0,
+        descriptions = 0,
+        closes = 0;
+      const session = createLiveContractSession({
+        profile,
+        schema,
+        cache,
+        loadAnalyzer: () => analyzer,
+        configuration: { ...(pinned ? configuration : automatic), mode: "live" },
+        live: {
+          adapter: () => ({
+            connectionContext: configuration.cache.connectionContext,
+            contribution: owner,
+            adapter: adapter({
+              classifyError: () => ({ kind: "stale-context", code: "acquisition-guard" }),
+              open: async () => ({
+                context: async () => context,
+                describe: async () => {
+                  if (++descriptions <= races) throw guard;
+                  return evidence;
+                },
+                close: async () => {
+                  closes++;
+                },
+              }),
+            }),
+            inspectContext: async () => {
+              observations++;
+              return context;
+            },
+            close: async () => {},
+          }),
+        },
+      });
+      try {
+        const prepared = session.prepare({ document: "file:///one.ts", version: 1, candidates: [request.candidate] });
+        if (pinned || races === 3) await strict.rejects(prepared);
+        else {
+          const fresh = await prepared;
+          await fresh.assertCurrent();
+          strict.equal(fresh.contracts.length, 1);
+        }
+        const attempts = pinned ? 1 : races === 3 ? 3 : 2;
+        strict.equal(descriptions, attempts);
+        strict.equal(observations, attempts, "Each new acquisition attempt requires a fresh context observation");
+        strict.equal(closes, attempts, "Every failed acquisition lease must close before retrying");
+      } finally {
+        await session.close();
+        await rm(directory, { recursive: true, force: true });
+      }
+    }
+  });
   await it("recaptures classified observation races without restoring retired evidence or retrying permissions", async () => {
     const directory = await mkdtemp(join(tmpdir(), "typed-sql-session-observation-race-"));
     const cache = await openAnalysisCache({ directory, workspaceContext: queryContractDigest("observation-race") });

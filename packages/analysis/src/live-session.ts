@@ -20,6 +20,7 @@ import {
   prepareLiveContractView,
   prepareLiveContractViewWithScheduler,
 } from "./live-view.js";
+import { NativeContextChangedError } from "./native-context.js";
 import { createPersistentLiveAnalysisRunner } from "./persistent-live.js";
 import { defineAnalysisRegistration, type LiveAnalysisServices } from "./registration.js";
 
@@ -173,6 +174,7 @@ export function createLiveContractSession<Snapshot extends SchemaSnapshot, Polic
     lifetime.signal.throwIfAborted();
     if (
       head.recorded?.status === "stale" ||
+      (contextToken && canonicalContractData(contextToken) !== canonicalContractData(head.token)) ||
       (selected && head.recorded && canonicalContractData(selected) !== canonicalContractData(head.recorded.context))
     )
       checkedAt = undefined;
@@ -324,8 +326,11 @@ export function createLiveContractSession<Snapshot extends SchemaSnapshot, Polic
         if (result.kind === "unavailable") connection = "unavailable";
         else if (result.kind === "usable-recorded-context") connection = "available";
         const key = queryContractDigest(request);
-        if (result.kind === "stale-context") checkedAt = undefined;
-        if (result.kind === "unavailable" && result.retry === "transport") {
+        if (result.kind === "stale-context") {
+          checkedAt = undefined;
+          if (retry.size >= 256 && !retry.has(key)) retry.delete(retry.keys().next().value!);
+          retry.set(key, { attempts: 0, at: now() });
+        } else if (result.kind === "unavailable" && result.retry === "transport") {
           const attempts = (retry.get(key)?.attempts ?? 0) + 1;
           if (retry.size >= 256 && !retry.has(key)) retry.delete(retry.keys().next().value!);
           retry.set(key, { attempts, at: now() + [1000, 2000, 4000, 8000, 16000, 30000][Math.min(attempts - 1, 5)]! });
@@ -383,15 +388,13 @@ export function createLiveContractSession<Snapshot extends SchemaSnapshot, Polic
         controller = new AbortController();
       pending.set(id, { document: request.document, controller });
       const signal = AbortSignal.any([lifetime.signal, controller.signal, ...(request.signal ? [request.signal] : [])]);
-      const deadline = input.projectCatalogs?.capture
-        ? setTimeout(
-            () => controller.abort(new Error("Live catalog session batch deadline exceeded")),
-            input.live.batchDeadlineMs ?? 60_000,
-          )
-        : undefined;
+      const deadline = setTimeout(
+        () => controller.abort(new Error("Live session batch deadline exceeded")),
+        input.live.batchDeadlineMs ?? 60_000,
+      );
       try {
         signal.throwIfAborted();
-        const owned = await services();
+        const owned = await untilAbort(services(), signal);
         signal.throwIfAborted();
         if (input.projectCatalogs?.capture) {
           const before = captureTail;
@@ -463,81 +466,96 @@ export function createLiveContractSession<Snapshot extends SchemaSnapshot, Polic
             release();
           }
         }
-        const queue = await sharedScheduler({
-          run: async () => {
-            throw new Error("Uninitialized native runner");
-          },
-          debounceMs: 300,
-          maxActive: input.live.maxActive ?? 8,
-          concurrencyPerContext: input.live.concurrencyPerContext ?? 2,
-          deadlineMs: input.live.deadlineMs ?? 5000,
-        });
-        signal.throwIfAborted();
-        const current = await inspect();
-        signal.throwIfAborted();
-        const capturedContextToken = contextToken!;
-        const view = await prepareLiveContractViewWithScheduler(
-          {
-            ...input,
-            configuration: { ...input.configuration, context: current },
-            candidates,
-            signal,
-            live: {
-              ...input.live,
-              adapter: async () => ({
-                connectionContext: owned.connectionContext,
-                adapter: owned.adapter,
-                contribution: owned.contribution,
-                inspectContext: inspect,
-                ...(owned.classifyError ? { classifyError: owned.classifyError.bind(owned) } : {}),
+        for (let attempt = 0; ; attempt++) {
+          try {
+            const queue = await sharedScheduler({
+              run: async () => {
+                throw new Error("Uninitialized native runner");
+              },
+              debounceMs: 300,
+              maxActive: input.live.maxActive ?? 8,
+              concurrencyPerContext: input.live.concurrencyPerContext ?? 2,
+              deadlineMs: input.live.deadlineMs ?? 5000,
+            });
+            signal.throwIfAborted();
+            const current = await inspect();
+            signal.throwIfAborted();
+            const capturedContextToken = contextToken!;
+            const view = await prepareLiveContractViewWithScheduler(
+              {
+                ...input,
+                configuration: { ...input.configuration, context: current },
+                candidates,
+                signal,
+                live: {
+                  ...input.live,
+                  adapter: async () => ({
+                    connectionContext: owned.connectionContext,
+                    adapter: owned.adapter,
+                    contribution: owned.contribution,
+                    inspectContext: inspect,
+                    ...(owned.classifyError ? { classifyError: owned.classifyError.bind(owned) } : {}),
+                    close: async () => {},
+                  }),
+                },
+              },
+              () => ({
+                ...queue,
+                subscribe(value, listener) {
+                  const requestKey = queryContractDigest(value.request),
+                    due = retry.get(requestKey);
+                  const subscription = queue.subscribe(
+                    {
+                      ...value,
+                      ticket: {
+                        ...value.ticket,
+                        document: `typed-sql:session:${id}`,
+                        documentVersion: request.version,
+                      },
+                    },
+                    listener,
+                  );
+                  if (due && due.at <= now()) queue.retry(requestKey);
+                  return subscription;
+                },
                 close: async () => {},
               }),
-            },
-          },
-          () => ({
-            ...queue,
-            subscribe(value, listener) {
-              const requestKey = queryContractDigest(value.request),
-                due = retry.get(requestKey);
-              if (due && due.at <= now()) queue.retry(requestKey);
-              return queue.subscribe(
-                {
-                  ...value,
-                  ticket: { ...value.ticket, document: `typed-sql:session:${id}`, documentVersion: request.version },
-                },
-                listener,
-              );
-            },
-            close: async () => {},
-          }),
-        );
-        const tokens: AnalysisCacheToken[] = [capturedContextToken];
-        for (const candidate of candidates) {
-          const found = await input.cache.lookupRecorded({
-            candidate,
-            context: view.context,
-            adapter: registration.cache!.adapter,
-            connectionContext: registration.cache!.connectionContext,
-            policy: registration.qualification,
-          });
-          const contract = view.contracts.find((contract) => contract.sqlDigest === exactSqlDigest(candidate.sql));
-          if (
-            contract &&
-            found.cached &&
-            (found.cached.outcome.kind !== "usable-recorded-context" ||
-              found.cached.outcome.contract.digest !== contract.digest)
-          )
-            throw new Error("Live query changed before view publication");
-          tokens.push(found.token);
+            );
+            const tokens: AnalysisCacheToken[] = [capturedContextToken];
+            for (const candidate of candidates) {
+              const found = await input.cache.lookupRecorded({
+                candidate,
+                context: view.context,
+                adapter: registration.cache!.adapter,
+                connectionContext: registration.cache!.connectionContext,
+                policy: registration.qualification,
+              });
+              const contract = view.contracts.find((contract) => contract.sqlDigest === exactSqlDigest(candidate.sql));
+              if (
+                contract &&
+                found.cached &&
+                (found.cached.outcome.kind !== "usable-recorded-context" ||
+                  found.cached.outcome.contract.digest !== contract.digest)
+              )
+                throw new Error("Live query changed before view publication");
+              tokens.push(found.token);
+            }
+            const assertCurrent = async () => {
+              signal.throwIfAborted();
+              if (closed || documents.get(request.document)?.key !== key)
+                throw new Error("Live document view is stale");
+              await view.assertCurrent();
+              if (!(await input.cache.areTokensCurrent(tokens))) throw new Error("Live query evidence changed");
+            };
+            await assertCurrent();
+            return Object.freeze({ ...view, assertCurrent });
+          } catch (error) {
+            signal.throwIfAborted();
+            if (input.configuration.context || !(error instanceof NativeContextChangedError) || attempt >= 2)
+              throw error;
+            checkedAt = undefined;
+          }
         }
-        const assertCurrent = async () => {
-          signal.throwIfAborted();
-          if (closed || documents.get(request.document)?.key !== key) throw new Error("Live document view is stale");
-          await view.assertCurrent();
-          if (!(await input.cache.areTokensCurrent(tokens))) throw new Error("Live query evidence changed");
-        };
-        await assertCurrent();
-        return Object.freeze({ ...view, assertCurrent });
       } finally {
         clearTimeout(deadline);
         scheduler?.closeDocument(`typed-sql:session:${id}`);
