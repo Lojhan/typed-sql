@@ -1745,3 +1745,31 @@ bound. It retains the original expected context on every attempt, must still obt
 capture and assert `context-mismatch`, and immediately fails on other errors or exhaustion.
 Root types and the actual local PostgreSQL 18.3 mutation helper pass. Production acquisition
 guards and performance budgets are unchanged; fresh hosted qualification remains required.
+
+## Required aggregate and application admission baseline
+
+The [full run at `8328c51f`](https://github.com/Lojhan/typed-sql/actions/runs/42599873360)
+passes every required gate, including the corrected PostgreSQL 18.6 mutation proof, both supported
+MySQL versions, all SQL Server engine jobs, packed/editor checks and unchanged hosted performance
+budgets. The optional MySQL canary remains unqualified. This is required aggregate proof for that
+revision; subsequent audit tooling still needs current-head qualification.
+
+The [commerce admission audit](./native-admission.md) discovers all grammars from the ledger,
+selects core/native factories through public export metadata, and executes their admission
+prefilters against every maintained query file. There is no copied grammar/function/query list.
+Its 37 finite candidates have zero static core errors. Six pass admission, 24 are declined and
+seven cannot be assessed because the MySQL example has no SQL-mode evidence. The script does
+not invent that evidence or convert unavailability to a successful admission. Each grammar also
+has one incomplete rendering file excluded from exact native candidates.
+
+The [JSON](./native-admission.json) retains SQL/digests, parameter occurrences, static parameter
+evidence, schema/corpus input hashes, selected owner identities and every decision. Its committed
+producer runs with clean library/corpus sources and a preloaded Node network-denial trap:
+zero native factory calls and zero TCP/DNS/fetch attempts. The regression accounts for every
+ledger grammar and maintained query file, checks the result partition and parameter bounds,
+and requires every native qualification status to remain `not-attempted`.
+
+This is an admission baseline, not actual native preparation, safe live table binding, descriptor
+availability or project qualification. It exposes the native statement/binding restrictions
+that must be investigated using real provisioned commerce schemas before workload scaling can
+be claimed. Root types, the new regression, all 52 repository contracts and source quality pass.
