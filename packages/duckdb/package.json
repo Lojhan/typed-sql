@@ -35,7 +35,9 @@
       "./analysis",
       "./browser",
       "./node-api-contracts",
-      "./reconciliation"
+      "./reconciliation",
+      "./analysis/1.5.6",
+      "./analysis/2.0.0"
     ]
   },
   "exports": {
@@ -48,7 +50,9 @@
     "./analysis": "./dist/packages/duckdb/src/analysis.js",
     "./node-api-contracts": "./dist/packages/duckdb/src/node-api-contracts.js",
     "./contract-profile": "./dist/packages/duckdb/src/contract-profile.js",
-    "./reconciliation": "./dist/packages/duckdb/src/reconciliation.js"
+    "./reconciliation": "./dist/packages/duckdb/src/reconciliation.js",
+    "./analysis/1.5.6": "./dist/packages/duckdb/src/analysis/1.5.6.js",
+    "./analysis/2.0.0": "./dist/packages/duckdb/src/analysis/2.0.0.js"
   },
   "scripts": {
     "test": "poku test --sequential --coverage=@pokujs/c8 --coverageConfig=.c8rc.json --reporter=compact --enforce && pnpm test:native --skip-current",

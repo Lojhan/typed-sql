@@ -36,6 +36,8 @@ the native adapter does not claim their compatibility.
 | --- | --- |
 | `@typed-sql/duckdb` | Lightweight `sql`, rendering, runtime plans and policies |
 | `@typed-sql/duckdb/analysis` | Full compatibility analyzer, policies, native types, catalog and snapshot provider |
+| `@typed-sql/duckdb/analysis/1.5.6` | Offline analyzer with only the qualified 1.5.6 catalog data |
+| `@typed-sql/duckdb/analysis/2.0.0` | Offline analyzer with only the qualified 2.0.0 catalog data |
 | `@typed-sql/duckdb/browser` | Portable grammar factory, policies, parsing, catalog and snapshot validation; no Node services |
 | `@typed-sql/duckdb/query` | Lightweight query construction and native `$N` rendering |
 | `@typed-sql/duckdb/runtime` | Driver-neutral native connection and execution contracts |
@@ -48,6 +50,20 @@ The browser and query entrypoints do not import Node services or the driver.
 The full analysis entrypoint exports the catalog provider, whose fingerprinting services use Node
 APIs. Installing the grammar does not install the SDK. The SDK is loaded when the explicit native
 adapter is constructed.
+
+When the project targets one qualified engine, select its offline analyzer explicitly:
+
+```ts
+import { duckdb } from "@typed-sql/duckdb/analysis/2.0.0";
+
+const analyzer = duckdb();
+```
+
+This entrypoint exports the analyzer factory and retains that engine's existing offline rules.
+It rejects snapshots for other engines and excludes their catalog metadata from the analyzer
+import graph. `@typed-sql/duckdb/analysis` retains compatibility with both qualified engines.
+Application queries continue to import `sql` from `@typed-sql/duckdb`; native adapter selection
+and durable contract context checks remain explicit.
 
 ## Native query contracts
 

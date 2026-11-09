@@ -315,7 +315,7 @@ await describe("packed public packages", async () => {
         import "@typed-sql/sqlserver/runtime";
         import "@typed-sql/sqlserver/msnodesqlv8";
         import "@typed-sql/sqlserver/browser";
-        import { duckdb } from "@typed-sql/duckdb/analysis";
+        import { duckdb, duckDBServerEvidence, DUCKDB_SUPPORT_POLICY } from "@typed-sql/duckdb/analysis";
         import "@typed-sql/duckdb/node-api";
         import "@typed-sql/duckdb/runtime";
         import "@typed-sql/duckdb/browser";
@@ -348,6 +348,17 @@ await describe("packed public packages", async () => {
         if (mysql().id !== "mysql") throw new Error("MySQL dialect import failed");
         if (sqlserver().id !== "sqlserver" || sqlserver().sqlModule !== "@typed-sql/sqlserver") throw new Error("SQL Server public grammar contract failed");
         if (duckdb().id !== "duckdb" || duckdb().sqlModule !== "@typed-sql/duckdb") throw new Error("DuckDB public grammar contract failed");
+        for (const version of DUCKDB_SUPPORT_POLICY.qualifiedEngines) {
+          const module = await import("@typed-sql/duckdb/analysis/" + version);
+          if (Object.keys(module).join(",") !== "duckdb") throw new Error("Versioned analyzer exports changed");
+          const analyzer = module.duckdb();
+          assertDialectPlugin(analyzer);
+          const schema = {formatVersion:1,dialect:"duckdb",server:duckDBServerEvidence(version),tables:{}};
+          if (analyzer.validateSnapshot(schema).server.versionKey !== version) throw new Error("Selected engine snapshot changed");
+          let refused = false;
+          try { analyzer.validateSnapshot({...schema,server:duckDBServerEvidence("0.0.0")}); } catch { refused = true; }
+          if (!refused) throw new Error("Selected analyzer accepted a different engine");
+        }
         if (sqlite().id !== "sqlite") throw new Error("SQLite dialect import failed");
         if (sqlserver().id !== "sqlserver" || sqlserver().sqlModule !== "@typed-sql/sqlserver") throw new Error("SQL Server public grammar contract failed");
         if (sqlserver().id !== "sqlserver" || duckdb().id !== "duckdb") throw new Error("native grammar import failed");

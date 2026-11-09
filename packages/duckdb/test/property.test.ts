@@ -1,9 +1,17 @@
 import { it, strict } from "poku";
-import { duckDBBuiltinSignatures, duckDBScalarImplicitCast } from "../src/catalog/index.js";
+import { defaultDuckDBCatalog, duckDBBuiltinSignatures, duckDBScalarImplicitCast } from "../src/catalog/index.js";
 import { matchDuckDBBuiltin } from "../src/catalog/resolution.js";
 import { decodeDuckDBValue, encodeDuckDBValue } from "../src/codecs.js";
 import { formatDuckDBType, parseDuckDBType } from "../src/native-types.js";
 import { defaultDuckDBTypePolicy, duckDBRuntimeType, duckDBTypeScript } from "../src/type-policy.js";
+
+await it("keeps a bare polymorphic MAP result unresolved instead of dereferencing absent child types", () => {
+  for (const version of ["1.5.6", "2.0.0"]) {
+    const matches = matchDuckDBBuiltin(version, "histogram", [parseDuckDBType("NULL")], defaultDuckDBCatalog);
+    strict.ok(matches.length > 0);
+    strict.ok(matches.every(({ result }) => result === undefined));
+  }
+});
 
 await it("round trips a deterministic native type corpus without flattening nesting or quoted names", () => {
   const leaves = [
@@ -88,7 +96,10 @@ await it("matches generic native catalog families and rejects incompatible ariti
       ["lower", ["ANY"]],
       ["gcd", ["INTEGER", "BIGINT"]],
     ] as const)
-      strict.ok(matchDuckDBBuiltin(version, name, types.map(parseDuckDBType)).length, `${version}:${name}`);
+      strict.ok(
+        matchDuckDBBuiltin(version, name, types.map(parseDuckDBType), defaultDuckDBCatalog).length,
+        `${version}:${name}`,
+      );
     for (const [name, types] of [
       ["lower", ["INTEGER"]],
       ["lower", []],
@@ -97,7 +108,11 @@ await it("matches generic native catalog families and rejects incompatible ariti
       ["array_cross_product", ["DOUBLE[4]", "DOUBLE[4]"]],
       ["map_extract_value", ["MAP(INTEGER,VARCHAR)", "VARCHAR"]],
     ] as const)
-      strict.equal(matchDuckDBBuiltin(version, name, types.map(parseDuckDBType)).length, 0, `${version}:${name}`);
+      strict.equal(
+        matchDuckDBBuiltin(version, name, types.map(parseDuckDBType), defaultDuckDBCatalog).length,
+        0,
+        `${version}:${name}`,
+      );
     strict.equal(duckDBScalarImplicitCast(version, "INTEGER", "INTEGER"), true);
     strict.equal(duckDBScalarImplicitCast(version, "INTEGER", "VARCHAR"), false);
   }

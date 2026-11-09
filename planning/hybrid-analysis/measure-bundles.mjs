@@ -89,6 +89,15 @@ for (const grammar of grammars) {
           frozenHost: `export {createContractDialect,loadQueryContracts} from "@typed-sql/analysis";export {compileSource} from "@typed-sql/compiler";export {${profile}} from "@typed-sql/${grammar}/profile";`,
         }
       : {}),
+    ...Object.fromEntries(
+      Object.keys(manifest.exports)
+        .filter((entry) => /^\.\/analysis\/[^/]+$/u.test(entry))
+        .sort()
+        .map((entry) => [
+          `analyzer:${entry.slice("./analysis/".length)}`,
+          `export {${grammar} as createDialect} from "@typed-sql/${grammar}${entry.slice(1)}";`,
+        ]),
+    ),
   };
   for (const [scenario, contents] of Object.entries(scenarios)) {
     const output = await esbuild.build({

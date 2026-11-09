@@ -8,9 +8,7 @@ import {
   type SourceRange,
   type SqlDiagnostic,
 } from "@typed-sql/core";
-import { commonTypes as common15, expressionTypes as expression15 } from "./catalog/common-1.5.6.js";
-import { commonTypes as common20, expressionTypes as expression20 } from "./catalog/common-2.0.0.js";
-import { duckDBBuiltinSignatures } from "./catalog/index.js";
+import type { DuckDBCatalogProvider } from "./catalog/provider.js";
 import { matchDuckDBBuiltin } from "./catalog/resolution.js";
 import {
   type DuckDBType,
@@ -88,6 +86,7 @@ function isNumeric(type: DuckDBType): boolean {
   );
 }
 export function commonDuckDBType(
+  catalog: DuckDBCatalogProvider,
   a: DuckDBType,
   b: DuckDBType,
   version = "2.0.0",
@@ -123,33 +122,24 @@ export function commonDuckDBType(
       }
     }
     const key = `${a.name}|${b.name}`;
-    const matrix =
-      version === "1.5.6"
-        ? mode === "set"
-          ? common15
-          : expression15
-        : version === "2.0.0"
-          ? mode === "set"
-            ? common20
-            : expression20
-          : {};
+    const matrix = catalog.combinations(version, mode);
     const result = matrix[key];
     return result ? parseDuckDBType(result) : scalar("ANY");
   }
   if ((a.kind === "list" || a.kind === "array") && (b.kind === "list" || b.kind === "array"))
     return a.kind === "array" && b.kind === "array" && a.length === b.length
-      ? { kind: "array", length: a.length, element: commonDuckDBType(a.element, b.element, version, mode) }
-      : { kind: "list", element: commonDuckDBType(a.element, b.element, version, mode) };
+      ? { kind: "array", length: a.length, element: commonDuckDBType(catalog, a.element, b.element, version, mode) }
+      : { kind: "list", element: commonDuckDBType(catalog, a.element, b.element, version, mode) };
   if (a.kind === "tuple" && b.kind === "tuple" && a.elements.length === b.elements.length)
     return {
       kind: "tuple",
-      elements: a.elements.map((type, i) => commonDuckDBType(type, b.elements[i]!, version, mode)),
+      elements: a.elements.map((type, i) => commonDuckDBType(catalog, type, b.elements[i]!, version, mode)),
     };
   if (a.kind === "map" && b.kind === "map")
     return {
       kind: "map",
-      key: commonDuckDBType(a.key, b.key, version, mode),
-      value: commonDuckDBType(a.value, b.value, version, mode),
+      key: commonDuckDBType(catalog, a.key, b.key, version, mode),
+      value: commonDuckDBType(catalog, a.value, b.value, version, mode),
     };
   if (a.kind === "struct" && b.kind === "struct") {
     const names = [
@@ -163,6 +153,7 @@ export function commonDuckDBType(
       fields: names.map((name) => ({
         name,
         type: commonDuckDBType(
+          catalog,
           a.fields.find((x) => duckDBAsciiFold(x.name) === duckDBAsciiFold(name))?.type ?? nil.type,
           b.fields.find((x) => duckDBAsciiFold(x.name) === duckDBAsciiFold(name))?.type ?? nil.type,
           version,
@@ -173,7 +164,12 @@ export function commonDuckDBType(
   }
   return scalar("ANY");
 }
-function nullableUnion(values: readonly Value[], version = "2.0.0", mode: "expression" | "set" = "expression"): Value {
+function nullableUnion(
+  catalog: DuckDBCatalogProvider,
+  values: readonly Value[],
+  version = "2.0.0",
+  mode: "expression" | "set" = "expression",
+): Value {
   const fits = (range: readonly [bigint, bigint], type: DuckDBType): boolean => {
     if (type.kind !== "scalar") return false;
     const width = (
@@ -207,7 +203,7 @@ function nullableUnion(values: readonly Value[], version = "2.0.0", mode: "expre
         ? value.type
         : mode === "expression" && value.integerLiteralRange && fits(value.integerLiteralRange, combined.type)
           ? combined.type
-          : commonDuckDBType(combined.type, value.type, version, mode);
+          : commonDuckDBType(catalog, combined.type, value.type, version, mode);
     combined = { type, nullable: false };
   }
   return { type: combined.type, nullable: values.some((value) => value.nullable) };
@@ -226,12 +222,13 @@ export class DuckDBResolver {
   constructor(
     readonly snapshot: DuckDBSchemaSnapshot,
     readonly policy: DuckDBTypePolicy,
+    readonly catalog: DuckDBCatalogProvider,
   ) {}
   commonType(a: DuckDBType, b: DuckDBType, mode: "expression" | "set" = "expression"): DuckDBType {
-    return commonDuckDBType(a, b, this.snapshot.server?.versionKey ?? "", mode);
+    return commonDuckDBType(this.catalog, a, b, this.snapshot.server?.versionKey ?? "", mode);
   }
   unionValues(values: readonly Value[], mode: "expression" | "set" = "expression"): Value {
-    return nullableUnion(values, this.snapshot.server?.versionKey ?? "", mode);
+    return nullableUnion(this.catalog, values, this.snapshot.server?.versionKey ?? "", mode);
   }
   error(message: string, range: SourceRange, code = "TSQ101"): void {
     this.diagnostics.push({ code, message, range, severity: "error" });
@@ -427,10 +424,12 @@ export class DuckDBResolver {
           (left.integerLiteralRange || right.integerLiteralRange) && isNumeric(left.type) && isNumeric(right.type)
             ? this.unionValues([left, right]).type
             : undefined;
-        const operators = matchDuckDBBuiltin(this.snapshot.server?.versionKey ?? "", expr.value ?? "", [
-          literalTarget ?? left.type,
-          literalTarget ?? right.type,
-        ]);
+        const operators = matchDuckDBBuiltin(
+          this.snapshot.server?.versionKey ?? "",
+          expr.value ?? "",
+          [literalTarget ?? left.type, literalTarget ?? right.type],
+          this.catalog,
+        );
         if (!operators.length) {
           this.error("No qualified DuckDB operator overload matches the operands", expr.range, "TSQ201");
           return unknown;
@@ -543,9 +542,9 @@ export class DuckDBResolver {
           .some(
             (routine) => routine.kind === "aggregate" && duckDBAsciiFold(routine.name) === duckDBAsciiFold(name),
           )) ||
-      duckDBBuiltinSignatures(this.snapshot.server?.versionKey ?? "", name).some(
-        (signature) => signature[1] === "aggregate",
-      )
+      this.catalog
+        .signatures(this.snapshot.server?.versionKey ?? "", name)
+        .some((signature) => signature[1] === "aggregate")
     );
   }
   groupingExpressions(expression: Expression): readonly Expression[] {
@@ -869,7 +868,7 @@ export class DuckDBResolver {
     }
     const entries = [...(this.functionIndex.get(name) ?? [])];
     const builtin =
-      duckDBBuiltinSignatures(this.snapshot.server?.versionKey ?? "", name).length > 0 ||
+      this.catalog.signatures(this.snapshot.server?.versionKey ?? "", name).length > 0 ||
       ["if", "ifnull", "nullif", "coalesce", "json_group_array", "json_group_object"].includes(name);
     if (builtin) entries.push({ path: ["system", "main"], macro: false });
     for (const path of paths) {
@@ -984,7 +983,7 @@ export class DuckDBResolver {
       return unknown;
     }
     const builtinName = name === "count" && (!args.length || args[0]?.kind === "star") ? "count_star" : name;
-    const signatures = duckDBBuiltinSignatures(version, builtinName);
+    const signatures = this.catalog.signatures(version, builtinName);
     const aggregate =
       signatures.some((signature) => signature[1] === "aggregate") ||
       ["json_group_array", "json_group_object"].includes(name);
@@ -1017,6 +1016,7 @@ export class DuckDBResolver {
       version,
       builtinName,
       values.map((value) => combination ?? value.type),
+      this.catalog,
     );
     this.dependencies.push({
       kind: "function",
@@ -2029,6 +2029,7 @@ export function resolveDuckDBStatement(
   statement: Statement,
   snapshot: DuckDBSchemaSnapshot,
   policy: DuckDBTypePolicy,
+  catalog: DuckDBCatalogProvider,
 ): DialectAnalysis {
-  return new DuckDBResolver(snapshot, policy).analyze(statement);
+  return new DuckDBResolver(snapshot, policy, catalog).analyze(statement);
 }

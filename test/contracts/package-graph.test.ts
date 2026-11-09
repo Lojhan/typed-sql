@@ -181,6 +181,8 @@ const expectedEntrypoints: Readonly<Record<(typeof publicPackages)[number], read
     "./browser",
     "./profile",
     "./analysis",
+    "./analysis/1.5.6",
+    "./analysis/2.0.0",
   ],
 };
 
