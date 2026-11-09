@@ -10,6 +10,7 @@ import { type DuckDBType, formatDuckDBType, parseDuckDBType } from "../../src/na
 import { createNodeDuckDBNativeContractAdapter } from "../../src/node-api-contracts.js";
 import { duckDBParameterOccurrences } from "../../src/parser/parser.js";
 import { duckdbProfile } from "../../src/profile.js";
+import { DUCKDB_SUPPORT_POLICY } from "../../src/support-policy.js";
 import { defaultDuckDBTypePolicy, duckDBRuntimeType } from "../../src/type-policy.js";
 
 interface Observation {
@@ -25,6 +26,14 @@ interface Observation {
 
 /** Discover engine names independently; do not turn a bare parametric name into a concrete type. */
 export async function captureDuckDBDescriptorInventory(sdk: Pick<typeof SDK, "DuckDBInstance" | "version">) {
+  const engine = DUCKDB_SUPPORT_POLICY.qualifiedEngines.find((engine) => sdk.version() === `v${engine}`);
+  if (!engine) throw new TypeError("Unqualified DuckDB descriptor engine");
+  const sdkPackage = process.env.TYPED_SQL_DUCKDB_SDK_PACKAGE ?? "@duckdb/node-api";
+  const sdkMetadata = JSON.parse(
+    await readFile(new URL(`../../node_modules/${sdkPackage}/package.json`, import.meta.url), "utf8"),
+  );
+  assert.equal(sdkMetadata.name, "@duckdb/node-api");
+  assert.equal(sdkMetadata.version, DUCKDB_SUPPORT_POLICY.nodeApi[engine]);
   const instance = await sdk.DuckDBInstance.create(":memory:", {
     enable_external_access: "false",
     autoload_known_extensions: "false",
@@ -146,6 +155,7 @@ export async function captureDuckDBDescriptorInventory(sdk: Pick<typeof SDK, "Du
   const requiredControls: { type: string; inputType: string; observation: Observation }[] = [];
   for (const [kind, declarations] of Object.entries(controls))
     for (const type of declarations) {
+      assert.equal(parseDuckDBType(type).kind, kind, "Every modeled kind needs a matching concrete control");
       for (const mode of ["column", "parameter"] as const) {
         const observation = await probe(
           type,
@@ -164,6 +174,13 @@ export async function captureDuckDBDescriptorInventory(sdk: Pick<typeof SDK, "Du
   const report = {
     formatVersion: 1,
     engine: sdk.version(),
+    environment: {
+      node: process.version,
+      platform: process.platform,
+      architecture: process.arch,
+      sdkPackage,
+      sdkVersion: DUCKDB_SUPPORT_POLICY.nodeApi[engine],
+    },
     sourceRevision: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
     toolDigest: createHash("sha256")
       .update(await readFile(fileURLToPath(import.meta.url)))
