@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { describe, it, strict } from "poku";
 import { digest } from "../../scripts/vocabulary/common.mjs";
+import { mySqlDescriptorTypes } from "../../scripts/vocabulary/mysql-descriptors.mjs";
 import { parseSqliteStandardTypes } from "../../scripts/vocabulary/sqlite-descriptors.mjs";
 import { parseSqlServerVocabulary } from "../../scripts/vocabulary/sqlserver.mjs";
 import { sqlServerNativePermissions } from "../../scripts/vocabulary/sqlserver-policy.mjs";
@@ -34,6 +35,27 @@ const expectedRows = (ids: number[]): NativeVocabularyRow[] =>
   }));
 
 await describe("source vocabulary extraction and native audit boundaries", async () => {
+  await it("derives every MySQL type alternative and discovers new lexical aliases without a type-name list", () => {
+    const lex = '{ SYM("ALPHA", ALPHA_SYM) }, { SYM("A_ALIAS", ALPHA_SYM) }, { SYM("BETA", BETA_SYM) }';
+    const grammar = `%%
+type: head opt_length { this_action_must_not_run(); } | BETA_SYM '(' TEXT_STRING ')' ;
+head: ALPHA_SYM | BETA_SYM ;
+opt_length: %empty | '(' NUM ')' ;
+cast_type: ALPHA_SYM opt_length ;
+%%`;
+    const facts = mySqlDescriptorTypes(lex, grammar);
+    strict.equal(facts.alternatives.length, 3);
+    strict.equal(facts.cases.length, 6);
+    strict.deepEqual(
+      facts.cases.find(({ kind, type }) => kind === "column" && type === "BETA ( 'value' )")?.alternatives,
+      ["type:1"],
+    );
+    const extended = mySqlDescriptorTypes(`${lex}, { SYM("ADDED", ALPHA_SYM) }`, grammar);
+    strict.equal(extended.cases.length, facts.cases.length + 2);
+    strict.ok(extended.cases.some(({ kind, type }) => kind === "column" && type === "ADDED"));
+    strict.throws(() => mySqlDescriptorTypes(lex, grammar.replace("head opt_length", "head UNKNOWN_VALUE")));
+    strict.throws(() => mySqlDescriptorTypes(lex, grammar.replace("cast_type:", "different_root:")));
+  });
   await it("discovers standard type names from source and rejects truncated or inconsistent tables", () => {
     const source = `
       const unsigned char sqlite3StdTypeLen[] = { 4, 5 };
