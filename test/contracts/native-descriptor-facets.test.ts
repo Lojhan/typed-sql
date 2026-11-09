@@ -1,5 +1,6 @@
 import { describe, it, strict } from "poku";
 import type { NativeContractValueEvidence } from "../../packages/analysis/src/index.js";
+import { contractNativeFacetStatus } from "../../packages/analysis/src/qualification-model.js";
 import { summarizeNativeDescriptorFacets } from "../../scripts/vocabulary/native-descriptor-facets.mjs";
 
 const field: NativeContractValueEvidence = {
@@ -50,16 +51,17 @@ await describe("native descriptor facet accounting", async () => {
           nullable: { status: "unknown", reason: "no-native-nullability" },
         },
         nullable: { ...field, nullable: { status: "known", value: true, precision: "exact" } },
+        nonNullBound: { ...field, nullable: { status: "known", value: false, precision: "upper-bound" } },
       },
-      observations: [{ status: "acquired", columns: ["known", "unknown", "nullable"], parameters: [] }],
+      observations: [{ status: "acquired", columns: ["known", "unknown", "nullable", "nonNullBound"], parameters: [] }],
     });
-    strict.deepEqual(result.columns.nativeType, { complete: 1, partial: 1, unavailable: 1 });
-    strict.deepEqual(result.columns.runtimeType, { known: 1, unavailable: 2 });
-    strict.deepEqual(result.columns.nullable, { exactNonNull: 1, exactNullable: 1, upperBound: 0, unavailable: 1 });
+    strict.deepEqual(result.columns.nativeType, { complete: 1, partial: 2, unavailable: 1 });
+    strict.deepEqual(result.columns.runtimeType, { known: 1, unavailable: 3 });
+    strict.deepEqual(result.columns.nullable, { exactNonNull: 2, exactNullable: 1, upperBound: 0, unavailable: 1 });
     strict.deepEqual(result.columns.reasons, {
       "nativeType:missing-native-identity": 1,
       "nullable:no-native-nullability": 1,
-      "runtimeType:codec-not-qualified": 1,
+      "runtimeType:codec-not-qualified": 2,
     });
   });
   await it("rejects missing, unacquired or unaccounted evidence", () => {
@@ -71,7 +73,7 @@ await describe("native descriptor facet accounting", async () => {
       strict.throws(() => summarizeNativeDescriptorFacets({ fields: { future: field }, observations: [observation] }));
     for (const invalid of [
       { ...field, newUnaccountedFacet: true },
-      { ...field, nullable: { status: "known", value: false, precision: "upper-bound" } },
+      { ...field, nullable: { status: "known", value: true, precision: "invented" } },
       { ...field, runtimeType: { status: "unknown", reason: "" } },
     ])
       strict.throws(() =>
@@ -99,5 +101,42 @@ await describe("native descriptor facet accounting", async () => {
         observations: [{ policy: "known-policy", status: "unavailable" }, { status: "unavailable" }],
       }),
     );
+  });
+  await it("agrees with qualification for every native/runtime/nullability state combination", () => {
+    const unknown = { status: "unknown" as const, reason: "not-qualified" };
+    const nativeTypes = [
+      ...[true, false].map((complete) => ({ status: "known" as const, value: { name: "future_type", complete } })),
+      unknown,
+    ];
+    const runtimeTypes = [
+      ...(["string", "unknown", "never"] as const).map((value) => ({ status: "known" as const, value })),
+      unknown,
+    ];
+    const nullabilities = [
+      ...[true, false].flatMap((value) =>
+        (["exact", "upper-bound"] as const).map((precision) => ({ status: "known" as const, value, precision })),
+      ),
+      unknown,
+    ];
+    for (const nativeType of nativeTypes)
+      for (const runtimeType of runtimeTypes)
+        for (const nullable of nullabilities) {
+          const value = { nativeType, runtimeType, nullable, descriptor: {} };
+          const result = summarizeNativeDescriptorFacets({
+            fields: { value },
+            observations: [{ status: "acquired", columns: ["value"], parameters: [] }],
+          }).columns;
+          const native = contractNativeFacetStatus(value, "native-type");
+          const runtime = contractNativeFacetStatus(value, "runtime-type");
+          const nullability = contractNativeFacetStatus(value, "nullability");
+          strict.equal(result.nativeType[native === "unknown" ? "unavailable" : native], 1);
+          strict.equal(result.runtimeType[runtime === "complete" ? "known" : "unavailable"], 1);
+          strict.equal(
+            nullability === "complete"
+              ? result.nullable.exactNonNull + result.nullable.exactNullable
+              : result.nullable[nullability === "partial" ? "upperBound" : "unavailable"],
+            1,
+          );
+        }
   });
 });

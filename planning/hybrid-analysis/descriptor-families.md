@@ -1,6 +1,6 @@
 # Native descriptor-family review
 
-This review separates native descriptor observations from reusable function semantics, query qualification and runtime value tests. A known return type on one prepared statement does not establish every invocation, modifier, nullability refinement or JSON shape. The full five-grammar review remains incomplete.
+This review separates native descriptor observations from reusable function semantics, query qualification and runtime value tests. A known return type on one prepared statement does not establish every invocation, modifier, nullability refinement or JSON shape. The review covers the declared native profiles and explicitly retains unavailable/partial capabilities; it does not certify arbitrary SQL or every future type composition.
 
 ## DuckDB live inventory
 
@@ -288,7 +288,8 @@ Repeated field occurrences are not distinct types or function overloads; empty g
 no capability. The summarizer uses no grammar or type-name list.
 
 Missing references, field evidence attached to an unacquired outcome, unaccounted evidence facets
-and non-conservative nullability fail the audit. A TypeScript-exhaustive facet visitor makes a
+and invalid evidence states/nullability precision fail the audit. A false nullable upper bound
+is counted as a complete non-null guarantee, matching the qualification model. A TypeScript-exhaustive facet visitor makes a
 new common evidence facet require an accounting implementation. Summary artifacts carry their
 own tool digest, while the existing semantic fingerprints continue to bind the underlying fields
 and observations. Changing a summary does not approve changed native facts or update baselines.
@@ -337,6 +338,31 @@ No owner derives JSON object shape, cardinality, execution effects or universal 
 from a type-name inventory. Missing evidence remains unavailable or partial in the durable
 contract and is checked again against the project's required-facet policy.
 
-## Remaining owners
+## Review conclusion and retained limits
 
-SQL Server now has reviewed observations and passing fresh drift gates for all ten pairs; additional concrete/custom-family controls remain open. PostgreSQL still requires additional class/policy controls. SQLite's reviewed gate passes the latest full aggregate. MySQL's hosted mode observations and reviewed drift gate pass required CI. Existing real/native unit and packed tests remain evidence for their declared invocations. They do not substitute for independent inventory-driven family accounting. In particular, SQLite storage domains are not arbitrary-expression result types, MySQL modifiers/parameter authority can be partial, PostgreSQL custom/domain/polymorphic bindings need separate rules, and SQL Server opaque/custom/XML/collation facets can be unavailable. Acceptance scenario 17 remains open.
+The declared descriptor-capability review has scoped proof. Every collector preserves the same
+three evidence facets, and the shared audit checks all acquired field references and records
+non-acquired outcomes. All sixty valid native-identity/runtime/nullability state combinations
+are compared automatically with the compiler qualification model. This includes a false nullable
+upper bound: it excludes NULL and is a complete non-null guarantee. Invalid precision remains an
+audit failure. These format checks establish accounting consistency, not engine semantics.
+
+Independent, reviewed exact-engine captures establish the native observations listed above.
+Fresh hosted summaries pass and recompute exactly for all ten SQL Server compatibility pairs
+(1,584 observations) in [run 42659335405](https://github.com/Lojhan/typed-sql/actions/runs/42659335405).
+Their facet-tool digest matches merge producer `2808d51234c65394983162c23044b337937af301`.
+The same run emits MySQL mode and SQLite policy summaries, while source verification captures
+both DuckDB SDKs. PostgreSQL has the seven fresh local captures and earlier reviewed exact-version
+protocol observations. The run's PostgreSQL/packed E2E TypeScript declaration failures and later
+SQL Server 17 packed editor failure are separate integration defects; descriptor facts do not
+make that aggregate green. Standalone test-project compilation now accepts the checked JavaScript
+audit helper, and the complete local PostgreSQL E2E command passes its typecheck and both files
+in 105.35 seconds.
+
+These findings do not expand owner admission or reuse permissions. SQLite's storage domains,
+MySQL's incomplete modifiers/parameter authority, PostgreSQL's custom/domain/polymorphic
+representations, SQL Server's opaque/XML/collation facets and unobserved nested/policy combinations
+retain their recorded limitations. No type-name witness qualifies an entire family or gives an
+unknown facet a precise value. Required-facet policies refuse insufficient evidence. New profiles,
+capabilities or stronger claims require their own reviewed tests and captures. The separate
+integration acceptance gate remains open until required CI passes.

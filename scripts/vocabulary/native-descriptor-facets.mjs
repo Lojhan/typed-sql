@@ -68,12 +68,12 @@ function summarizeFields({ fields, observations }) {
           nullable() {
             const fact = field.nullable;
             if (fact.status === "unknown") summary.nullable.unavailable++;
-            else if (fact.precision === "upper-bound") {
-              assert.equal(fact.value, true, "A non-null upper bound is not conservative evidence");
-              summary.nullable.upperBound++;
-            } else {
-              assert.equal(fact.precision, "exact");
-              summary.nullable[fact.value ? "exactNullable" : "exactNonNull"]++;
+            else {
+              assert.equal(typeof fact.value, "boolean");
+              assert.ok(fact.precision === "exact" || fact.precision === "upper-bound");
+              // A false nullable upper bound excludes NULL and is a complete non-null guarantee.
+              if (!fact.value) summary.nullable.exactNonNull++;
+              else summary.nullable[fact.precision === "exact" ? "exactNullable" : "upperBound"]++;
             }
           },
         };
