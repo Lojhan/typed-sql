@@ -3,7 +3,12 @@ import { parseLiveAnalysisFailure } from "./live.js";
 import type { LiveAnalysisServices } from "./registration.js";
 
 /** Internal retry signal; only an explicitly classified native guard contradiction creates it. */
-export class NativeContextChangedError extends Error {}
+export class NativeContextChangedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "NativeContextChangedError";
+  }
+}
 export class NativeContextObservationChangedError extends NativeContextChangedError {}
 
 export async function inspectNativeContext(services: LiveAnalysisServices, signal: AbortSignal) {

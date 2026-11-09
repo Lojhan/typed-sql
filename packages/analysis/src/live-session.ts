@@ -1,5 +1,6 @@
 import { setTimeout as delay } from "node:timers/promises";
 import type { SchemaSnapshot } from "@typed-sql/core";
+import { namedAnalysisError } from "./analysis-errors.js";
 import type { AnalysisCacheToken } from "./cache.js";
 import { type NativeContractCandidate, parseNativeContractCandidate } from "./candidate.js";
 import { canonicalContractData, exactSqlDigest, queryContractDigest } from "./canonical.js";
@@ -243,7 +244,7 @@ export function createLiveContractSession<Snapshot extends SchemaSnapshot, Polic
         canonicalContractData(current) !== canonicalContractData(input.configuration.context)
       ) {
         await input.cache.retireContext(input.configuration.context);
-        throw new Error("Live context differs from its explicit pin");
+        throw namedAnalysisError("LiveContextPinError", "Live context differs from its explicit pin");
       }
       const published = await input.cache.publishContext({
         token: head.token,
@@ -251,7 +252,8 @@ export function createLiveContractSession<Snapshot extends SchemaSnapshot, Polic
         context: current,
         ...(input.recordedContext ? { previousContext: input.recordedContext } : {}),
       });
-      if (published.status !== "published") throw new Error(`Live context publication ${published.status}`);
+      if (published.status !== "published")
+        throw namedAnalysisError("LiveContextPublicationError", `Live context publication ${published.status}`);
       contextToken = published.token;
       const changed = selected && canonicalContractData(selected) !== canonicalContractData(current);
       selected = current;
@@ -374,7 +376,8 @@ export function createLiveContractSession<Snapshot extends SchemaSnapshot, Polic
       const candidates = request.candidates.map(parseNativeContractCandidate);
       const key = queryContractDigest({ version: request.version, candidates });
       const previous = documents.get(request.document);
-      if (previous && previous.version > request.version) throw new Error("Live document version is stale");
+      if (previous && previous.version > request.version)
+        throw namedAnalysisError("LiveDocumentChangedError", "Live document version is stale");
       if (previous && previous.key !== key) closeDocument(request.document);
       if (!documents.has(request.document) && documents.size >= 256) {
         const active = new Set([...pending.values()].map((batch) => batch.document));
@@ -455,7 +458,7 @@ export function createLiveContractSession<Snapshot extends SchemaSnapshot, Polic
             const assertCurrent = async () => {
               signal.throwIfAborted();
               if (closed || documents.get(request.document)?.key !== key)
-                throw new Error("Live document view is stale");
+                throw namedAnalysisError("LiveDocumentChangedError", "Live document view is stale");
               await view.assertCurrent();
             };
             await assertCurrent();
@@ -537,15 +540,16 @@ export function createLiveContractSession<Snapshot extends SchemaSnapshot, Polic
                 (found.cached.outcome.kind !== "usable-recorded-context" ||
                   found.cached.outcome.contract.digest !== contract.digest)
               )
-                throw new Error("Live query changed before view publication");
+                throw namedAnalysisError("LiveQueryPublicationError", "Live query changed before view publication");
               tokens.push(found.token);
             }
             const assertCurrent = async () => {
               signal.throwIfAborted();
               if (closed || documents.get(request.document)?.key !== key)
-                throw new Error("Live document view is stale");
+                throw namedAnalysisError("LiveDocumentChangedError", "Live document view is stale");
               await view.assertCurrent();
-              if (!(await input.cache.areTokensCurrent(tokens))) throw new Error("Live query evidence changed");
+              if (!(await input.cache.areTokensCurrent(tokens)))
+                throw namedAnalysisError("LiveViewInvalidatedError", "Live query evidence changed");
             };
             await assertCurrent();
             return Object.freeze({ ...view, assertCurrent });

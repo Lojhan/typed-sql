@@ -6,6 +6,7 @@ import {
   type SchemaSnapshot,
 } from "@typed-sql/core";
 import { calculateSchemaHash, calculateTypePolicyHash } from "@typed-sql/schema";
+import { namedAnalysisError } from "./analysis-errors.js";
 import type { AnalysisCache, AnalysisCacheToken } from "./cache.js";
 import { type NativeContractCandidate, parseNativeContractCandidate } from "./candidate.js";
 import { exactSqlDigest, queryContractDigest } from "./canonical.js";
@@ -54,7 +55,10 @@ export async function prepareOfflineContractView<Snapshot extends SchemaSnapshot
     const scope = createAnalysisContextScope(input);
     const selection = await input.cache.lookupProjectCatalog({ scope, sql: candidates.map(({ sql }) => sql) });
     if (selection.blocked)
-      throw new Error("Recorded catalog context is stale; refresh live evidence before offline reuse");
+      throw namedAnalysisError(
+        "RecordedContextStaleError",
+        "Recorded catalog context is stale; refresh live evidence before offline reuse",
+      );
     if (selection.cached) {
       const closure = selection.cached.closure;
       if (
@@ -67,7 +71,10 @@ export async function prepareOfflineContractView<Snapshot extends SchemaSnapshot
         head.recorded?.status !== "usable" ||
         queryContractDigest(head.recorded.context) !== queryContractDigest(closure.baseContext)
       )
-        throw new Error("Recorded catalog base context changed before offline interpretation");
+        throw namedAnalysisError(
+          "RecordedCatalogChangedError",
+          "Recorded catalog base context changed before offline interpretation",
+        );
       const projected = materializeProjectCatalogClosure({
         closure,
         schema: input.schema,
@@ -91,7 +98,10 @@ export async function prepareOfflineContractView<Snapshot extends SchemaSnapshot
       const assertCurrent = async () => {
         await view.assertCurrent();
         if (!(await input.cache!.areTokensCurrent([selection.token, head.token])))
-          throw new Error("Recorded catalog selection changed during offline analysis");
+          throw namedAnalysisError(
+            "RecordedCatalogChangedError",
+            "Recorded catalog selection changed during offline analysis",
+          );
       };
       await assertCurrent();
       return Object.freeze({ ...view, projectCatalogs: closure, assertCurrent });
@@ -211,7 +221,10 @@ export async function prepareOfflineContractView<Snapshot extends SchemaSnapshot
     context,
     async assertCurrent() {
       if (input.cache && !(await input.cache.areTokensCurrent(cacheTokens)))
-        throw new Error("Offline evidence selection changed; retry current analysis inputs");
+        throw namedAnalysisError(
+          "RecordedEvidenceChangedError",
+          "Offline evidence selection changed; retry current analysis inputs",
+        );
     },
     contracts: Object.freeze([...new Map(contracts.map((item) => [item.digest, item])).values()]),
   });

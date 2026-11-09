@@ -1,5 +1,6 @@
 import { assertDialectProfile, type DialectPlugin, type DialectProfile, type SchemaSnapshot } from "@typed-sql/core";
 import { calculateSchemaHash, calculateTypePolicyHash } from "@typed-sql/schema";
+import { namedAnalysisError } from "./analysis-errors.js";
 import { loadQueryContractContext, loadQueryContractInputs } from "./artifacts.js";
 import type { AnalysisCache } from "./cache.js";
 import { canonicalContractData, queryContractDigest } from "./canonical.js";
@@ -239,7 +240,10 @@ export async function selectOfflineAnalysisContext<Snapshot extends SchemaSnapsh
     recorded = await input.cache?.lookupContext(scope);
   if (recorded?.recorded) {
     if (recorded.recorded.status === "stale")
-      throw new Error("Recorded target context is stale; refresh live evidence before offline reuse");
+      throw namedAnalysisError(
+        "RecordedContextStaleError",
+        "Recorded target context is stale; refresh live evidence before offline reuse",
+      );
     return recorded.recorded.context;
   }
   if (input.directory !== undefined) {
@@ -247,7 +251,10 @@ export async function selectOfflineAnalysisContext<Snapshot extends SchemaSnapsh
     if (context) return context;
   }
   if (configuration.qualification.mode === "native-required")
-    throw new Error("No recorded target context is available; generate qualified native inputs first");
+    throw namedAnalysisError(
+      "RecordedContextUnavailableError",
+      "No recorded target context is available; generate qualified native inputs first",
+    );
   const { adapter: _adapter, connectionContext: _connection, ...staticContext } = scope;
   return parseQueryContractContext({
     ...staticContext,

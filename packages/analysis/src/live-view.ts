@@ -6,6 +6,7 @@ import {
   type SchemaSnapshot,
 } from "@typed-sql/core";
 import { calculateSchemaHash, calculateTypePolicyHash } from "@typed-sql/schema";
+import { namedAnalysisError } from "./analysis-errors.js";
 import type { AnalysisCache, AnalysisCacheToken } from "./cache.js";
 import { type NativeContractCandidate, parseNativeContractCandidate } from "./candidate.js";
 import { canonicalContractData, exactSqlDigest, queryContractDigest } from "./canonical.js";
@@ -248,7 +249,10 @@ export async function prepareLiveContractViewWithScheduler<Snapshot extends Sche
         context: selectedContext(),
       });
       if (committed.status !== "published")
-        throw new Error(`Live context selection ${committed.status}; retry against current inputs`);
+        throw namedAnalysisError(
+          "LiveContextPublicationError",
+          `Live context selection ${committed.status}; retry against current inputs`,
+        );
       observationToken = committed.token;
     }
     return view(outcomes);
@@ -280,7 +284,10 @@ export async function prepareLiveContractViewWithScheduler<Snapshot extends Sche
           ...(input.recordedContext ? { previousContext: input.recordedContext } : {}),
         });
         if (observed.status !== "published")
-          throw new Error(`Live context selection ${observed.status}; retry against current inputs`);
+          throw namedAnalysisError(
+            "LiveContextPublicationError",
+            `Live context selection ${observed.status}; retry against current inputs`,
+          );
         context = current;
         observationToken = observed.token;
         return;
@@ -388,7 +395,10 @@ export async function prepareLiveContractViewWithScheduler<Snapshot extends Sche
               ...(observationToken ? [observationToken] : []),
             ]))
           )
-            throw new Error("Live evidence/context selection changed; retry current analysis inputs");
+            throw namedAnalysisError(
+              "LiveViewInvalidatedError",
+              "Live evidence/context selection changed; retry current analysis inputs",
+            );
         },
         contracts: Object.freeze(contracts),
         outcomes: Object.freeze([...results]),

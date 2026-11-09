@@ -175,7 +175,10 @@ try{assert.deepEqual(await db.one(statement),{value:1n});assert.deepEqual(await 
             if (attempt >= 2 || !String(error).includes("-32802")) throw error;
           }
         }
-        assert.ok(!diagnostics.items.some((item) => item.severity === 1), JSON.stringify(diagnostics));
+        assert.ok(
+          !diagnostics.items.some((item) => item.severity === 1),
+          JSON.stringify({ phase, languageId, diagnostics }),
+        );
         const prefix = text(sql).slice(0, text(sql).indexOf("SELECT")).split("\n");
         const hover = await client.request("textDocument/hover", {
           textDocument: { uri },
@@ -183,6 +186,7 @@ try{assert.deepEqual(await db.one(statement),{value:1n});assert.deepEqual(await 
         });
         assert.match(JSON.stringify(hover), new RegExp(`value[^}]*${expected}`, "u"));
       };
+      phase = `${languageId} initial live editor`;
       const live = await open("live", initial);
       try {
         await inspect(live, initial, "number");
@@ -191,12 +195,14 @@ try{assert.deepEqual(await db.one(statement),{value:1n});assert.deepEqual(await 
           await admin.queryable.all(
             `EXEC [${name}].sys.sp_executesql N'CREATE FUNCTION dbo.contract_context_marker() RETURNS int AS BEGIN RETURN 1 END'`,
           );
+          phase = `${languageId} routine-change editor refresh`;
           await inspect(live, initial, "number");
           const after = await live.request("typedSql/status", {});
           assert.ok(after.workspaces[0].metrics.generation > before.workspaces[0].metrics.generation);
           await admin.queryable.all(
             `EXEC [${name}].sys.sp_executesql N'ALTER TABLE dbo.contract_records ADD context_marker int NULL'`,
           );
+          phase = `${languageId} table-change editor refresh`;
           await inspect(live, initial, "number");
           const tableAfter = await live.request("typedSql/status", {});
           assert.ok(tableAfter.workspaces[0].metrics.generation > after.workspaces[0].metrics.generation);
@@ -209,12 +215,14 @@ try{assert.deepEqual(await db.one(statement),{value:1n});assert.deepEqual(await 
           textDocument: { uri, version: 3 },
           contentChanges: [{ text: text(changed) }],
         });
+        phase = `${languageId} changed-query live editor`;
         await inspect(live, changed, "bigint");
       } finally {
         await live.close();
       }
       await rename(join(project, "contracts"), join(project, "contracts-held"));
       try {
+        phase = `${languageId} cache-only offline editor`;
         const offline = await open("offline", initial);
         try {
           await inspect(offline, initial, "number");
