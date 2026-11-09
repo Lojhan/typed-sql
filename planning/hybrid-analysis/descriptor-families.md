@@ -146,8 +146,57 @@ The full SQLite suite passes nineteen files with its existing coverage threshold
 all 53 repository contract files and quality pass. Source-quality and Node-matrix jobs upload
 detailed captures. Runtimes without authorizer/column APIs retain their existing explicit
 unavailable-profile test; no descriptor capability is inferred from a skipped native suite.
-Hosted capture review and approved per-profile drift fingerprints remain pending.
+The two hosted advanced-API profiles pass their native suites in [run 42624331784](https://github.com/Lojhan/typed-sql/actions/runs/42624331784), despite that aggregate's separate PostgreSQL flow timeout. Their captures identify merge producer `6b3bdcb6807be0b14660e54d89a7b9f6dd03c3d3`; each collector hash matches its Git blob. The reviewed [SQLite fingerprints](../../grammar/sqlite/qualification/native-descriptors.json) cover 3.53.4 on Node 24 and 3.54.0 on Node 26. The 3.53.4 fingerprint also exactly matches local Darwin/arm64 observations. Normal native tests now require the approved counts and fingerprint; a deliberately changed fingerprint fails. Unsupported API profiles now emit an explicit unavailable artifact after their negative native test. Hosted qualification of these new gates/reporting mechanics remains pending.
+
+## MySQL source-driven type witnesses
+
+The [MySQL extractor](../../scripts/vocabulary/mysql-descriptors.mjs) reads both lexical aliases
+and every `type`/`cast_type` alternative from the existing hash-pinned engine grammar. Finite
+keyword-only productions expand completely; recursive, optional and value-bearing productions
+use bounded minimal witnesses. Numeric/string seeds represent terminal classes rather than a
+maintained list of SQL type names. Missing witness derivations and excessive expansion fail.
+Every root alternative must appear in the generated case accounting. This covers root alternatives
+and lexical aliases, not all recursive modifier combinations or semantic argument constraints.
+
+The [source projection](../../grammar/mysql/qualification/descriptor-types.json) retains 59
+alternatives/136 constructors on 8.4.11 and 60/137 on 9.7.2. The canary has its own source pin and
+shares byte-identical witness data with 9.7; it remains transport-unqualified. Two factored
+inventories occupy approximately 33 KB without vendor parser actions or source bodies. Root
+quality validates pins, hashes, root coverage and unique constructors offline. A fake-name
+regression proves new lexical aliases become cases without editing a type-name list.
+
+The [native collector](../../test/helpers/mysql-descriptor-inventory.ts) creates owned empty
+InnoDB tables for all generated column declarations, captures independent information-schema
+column dimensions and prepares each table/cast witness as output and parameter input. It then
+compares guarded acquisition's wire descriptors with independent COM_STMT_PREPARE metadata.
+Candidates are never executed or bound to example application values. Tables are removed before
+the collector resolves. Owned table prefixes are retained in raw SQL but excluded from the
+semantic fingerprint; policy, SQL mode, constructors, outcomes and field facts remain included.
+
+Committed producer `d62171e192ffb1d4f1b9b7b9c34127dde29613b1` reproduces both local captures;
+collector hashes match the exact Git blobs:
+
+| Engine | Column / cast constructors | Native acquired | Unavailable | Declined | Acquired column native identity complete / partial | Acquired parameter native identity complete / partial |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 8.4.11 | 99 / 37 | 260 | 2 | 10 | 58 / 202 | 29 / 100 |
+| 9.7.2 | 100 / 37 | 262 | 2 | 10 | 58 / 204 | 29 / 101 |
+
+Every independent preparation succeeds on these profiles. The two unavailable observations are
+JSON parameters under default unknown-JSON policy, once through a table comparison and once
+through CAST. The ten declines cover five CAST spellings in both modes: `NATIONAL CHAR`,
+`SIGNED INT`, `SIGNED INT4`, `UNSIGNED INT`, `UNSIGNED INT4`. The engine accepts them; the
+current native parser scope does not. They are recorded gaps rather than inferred engine failures.
+The extra 9.7 constructor is VECTOR. Each acquired column set contains two unknown runtime facts
+for JSON; acquired parameters retain unknown nullability. Character/temporal/enum/spatial/JSON
+facets do not become complete merely because the wire family is known. Raw type-policy helper
+observations are retained separately and are not parser/analyzer coverage percentages.
+
+Both owners' isolated integration files pass locally on PostgreSQL 18.6 and MySQL 8.4.11 with
+unchanged deadlines. MySQL native capture runs in its own fixture file, and all supported engine/
+SQL-mode CI jobs upload detailed JSON. Hosted review, approved mode-specific drift fingerprints,
+further modifier/policy controls and source-vs-semantic qualification remain pending. These are
+acquisition observations rather than universal type/function semantics or workload qualification.
 
 ## Remaining owners
 
-MySQL and SQL Server still need a reconciled descriptor-family availability review beyond the representative [16-profile facet report](./native-costs.md). PostgreSQL still requires additional class/policy controls; SQLite's initial source/native review still requires hosted observations and a reviewed drift gate. Existing real/native unit and packed tests remain evidence for their declared invocations. They do not substitute for independent inventory-driven family accounting. In particular, SQLite storage domains are not arbitrary-expression result types, MySQL modifiers/parameter authority can be partial, PostgreSQL custom/domain/polymorphic bindings need separate rules, and SQL Server opaque/custom/XML/collation facets can be unavailable. Acceptance scenario 17 remains open.
+SQL Server still needs a reconciled descriptor-family availability review beyond the representative [16-profile facet report](./native-costs.md). PostgreSQL still requires additional class/policy controls. SQLite's new reviewed gate requires hosted qualification, and MySQL's initial source/native inventory requires hosted mode-specific review and a drift gate. Existing real/native unit and packed tests remain evidence for their declared invocations. They do not substitute for independent inventory-driven family accounting. In particular, SQLite storage domains are not arbitrary-expression result types, MySQL modifiers/parameter authority can be partial, PostgreSQL custom/domain/polymorphic bindings need separate rules, and SQL Server opaque/custom/XML/collation facets can be unavailable. Acceptance scenario 17 remains open.

@@ -1991,3 +1991,42 @@ per-profile approved drift gate remain pending. Descriptor-family scenario 17 st
 MySQL/SQL Server inventory reviews and other class/policy boundaries remain open. The reports
 retain their existing production-source pins because this stage adds audit/test mechanics rather
 than changing application runtime or compiler package behavior.
+
+
+## MySQL constructor audit and independent integration fixtures
+
+The [descriptor-family review](./descriptor-families.md#mysql-source-driven-type-witnesses)
+now derives bounded cases from every pinned MySQL column/cast grammar alternative, expanding
+lexical aliases without a test-maintained type-name list. Source data is factored into two
+inventories (approximately 33 KB); semantic actions and vendor source bodies are absent. Root
+quality checks source/fact consistency offline. Fake aliases and unresolvable terminal classes
+exercise automatic discovery and fail-closed generation.
+
+Committed producer `d62171e192ffb1d4f1b9b7b9c34127dde29613b1` captures 136 cases on 8.4.11
+and 137 on 9.7.2, each as an output and parameter probe. Actual independent preparation succeeds
+for every case. Guarded acquisition yields 260/262 contracts, two default-policy JSON parameter
+unavailability cases and ten parser-scope declines on each engine. Captures retain all native
+field facts and independent schema dimensions, with incomplete identity/representation facets
+explicit. Collector hashes match the committed Git blobs. No candidate is executed or bound.
+Hosted mode-specific qualification and an approved MySQL drift gate remain open.
+
+[Run `b829035a`](https://github.com/Lojhan/typed-sql/actions/runs/42624331784) passes source
+quality, the reviewed PostgreSQL descriptors and SQLite native matrices, but PostgreSQL 18.6's
+large developer-flow file exceeds its existing 180-second deadline. Native contract/descriptor
+proofs now live in an independent PostgreSQL integration file over shared owned-fixture setup.
+The new MySQL audit also has its own file and shared setup. No assertions are removed and no
+deadline or performance budget changes. Both full split suites pass locally: PostgreSQL 18.6
+two files in approximately 115 seconds total and MySQL 8.4.11 two files in approximately 85
+seconds, with owned containers cleaned up. The local 18.3 native file also passes; its broader
+language matrix requires an unapproved exact-context inventory, which is not accepted here.
+The updated topology still requires hosted aggregate qualification.
+
+SQLite's hosted 3.53.4/Node 24 and 3.54.0/Node 26 captures identify merge producer
+`6b3bdcb6807be0b14660e54d89a7b9f6dd03c3d3`; collector hashes match Git. The local 3.53.4
+Darwin/arm64 fingerprint equals Linux/x64's. Normal native tests now check the reviewed exact
+engine fingerprints, while unavailable API profiles emit an explicit artifact after proving
+native rejection. A deliberate SQLite fingerprint mutation fails and approved bytes are
+restored exactly. Root types, all 53 repository contracts, source-generation regressions and
+quality pass. SQL Server's inventory review and remaining family/policy/invalidation boundaries
+keep the full acceptance audit open. Production package code is unchanged by this stage;
+existing bundle/installation/project reports retain their declared measurement pins.
