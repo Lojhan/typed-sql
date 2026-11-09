@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { describe, it, strict } from "poku";
 import { digest } from "../../scripts/vocabulary/common.mjs";
+import { parseSqliteStandardTypes } from "../../scripts/vocabulary/sqlite-descriptors.mjs";
 import { parseSqlServerVocabulary } from "../../scripts/vocabulary/sqlserver.mjs";
 import { sqlServerNativePermissions } from "../../scripts/vocabulary/sqlserver-policy.mjs";
 import { auditSqlServerVocabulary, sqlServerVocabularyCases } from "../../scripts/vocabulary/sqlserver-probes.mjs";
@@ -33,6 +34,28 @@ const expectedRows = (ids: number[]): NativeVocabularyRow[] =>
   }));
 
 await describe("source vocabulary extraction and native audit boundaries", async () => {
+  await it("discovers standard type names from source and rejects truncated or inconsistent tables", () => {
+    const source = `
+      const unsigned char sqlite3StdTypeLen[] = { 4, 5 };
+      const char sqlite3StdTypeAffinity[] = { SQLITE_AFF_BLOB, SQLITE_AFF_INTEGER };
+      const char *sqlite3StdType[] = { "FAKE", "OTHER" };
+    `;
+    strict.deepEqual(parseSqliteStandardTypes(source), [
+      { name: "FAKE", affinity: "BLOB" },
+      { name: "OTHER", affinity: "INTEGER" },
+    ]);
+    for (const malformed of [
+      source.replace('"OTHER"', '"FAKE"'),
+      source.replace("4, 5", "4"),
+      source.replace("4, 5", "4, 6"),
+      source.replace("4, 5", "4, 2+3"),
+      source.replace("SQLITE_AFF_INTEGER", "SQLITE_AFF_INTEGER | 1"),
+      source.replace('"FAKE", "OTHER"', '"FAKE", "OTHER", extra()'),
+      source + source,
+    ])
+      strict.throws(() => parseSqliteStandardTypes(malformed));
+    strict.deepEqual(parseSqliteStandardTypes(`/* ${source} */ ${source}`), parseSqliteStandardTypes(source));
+  });
   await it("requires complete native scopes, pinned producers and every word/context before reconciliation", () => {
     const producerDigest = `sha256:${"0".repeat(64)}`;
     const artifact = {

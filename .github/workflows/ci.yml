@@ -575,6 +575,15 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm --filter @typed-sql/sqlite test
+        env:
+          TYPED_SQL_NATIVE_DESCRIPTOR_DIRECTORY: ${{ github.workspace }}/artifacts/native-descriptors
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: typed-sql-sqlite-descriptors-${{ matrix.label }}-${{ github.run_attempt }}
+          path: artifacts/native-descriptors/sqlite-*-descriptors.json
+          if-no-files-found: warn
+          retention-days: 14
       - run: pnpm exec poku test/contracts/native-project-measurement.test.ts --reporter=compact --enforce
       - run: >-
           node scripts/sqlite-matrix-probe.mjs

@@ -25,6 +25,7 @@ import { createNodeSqliteNativeContractAdapter, SqliteContractAcquisitionError }
 import { sqliteProfile } from "../src/profile.js";
 import { createSqliteContractReconciler } from "../src/reconciliation.js";
 import { defaultSqliteTypePolicy } from "../src/type-policy.js";
+import { captureSqliteDescriptorInventory } from "./helpers/descriptor-inventory.js";
 
 const schema = { formatVersion: 1 as const, dialect: "sqlite" as const, tables: {} };
 const candidate = (sql: string): NativeContractCandidate => ({
@@ -79,6 +80,10 @@ await describe("SQLite owned read-only native query contracts", async () => {
     await it.skip("Native SQLite qualification requires the authorizer and column-metadata APIs", () => {});
     return;
   }
+  await it("audits source-derived standard types and native descriptor boundaries", async () => {
+    const report = await captureSqliteDescriptorInventory();
+    strict.equal(report.counts.acquired + report.counts.unavailable, report.counts.probes * report.counts.policies);
+  });
   await it("executes the recorded storage domains through the same integer and binding policy", async () => {
     await temporary(async (path) => {
       const baseline = await createNodeSqliteNativeContractAdapter({ path, schema }).inspectContext();

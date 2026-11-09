@@ -1,0 +1,110 @@
+{
+  "formatVersion": 1,
+  "inventories": {
+    "sha256:723843f1024fa1d6a05d65868ef725e4e20fb74d475867309c46b35b4b7b3b2d": [
+      { "name": "ANY", "affinity": "NUMERIC" },
+      { "name": "BLOB", "affinity": "BLOB" },
+      { "name": "INT", "affinity": "INTEGER" },
+      { "name": "INTEGER", "affinity": "INTEGER" },
+      { "name": "REAL", "affinity": "REAL" },
+      { "name": "TEXT", "affinity": "TEXT" }
+    ]
+  },
+  "profiles": [
+    [
+      "3.39.0",
+      "sha256:614f52da1481f255c8321435675040f8a3373bc10b08e0f3a9099d1f5ffb83ca",
+      "sha256:723843f1024fa1d6a05d65868ef725e4e20fb74d475867309c46b35b4b7b3b2d"
+    ],
+    [
+      "3.40.0",
+      "sha256:2156077f6fba2061a32073d3974f879ed0c5a393b86146b42f7e0c2cdef00a4e",
+      "sha256:723843f1024fa1d6a05d65868ef725e4e20fb74d475867309c46b35b4b7b3b2d"
+    ],
+    [
+      "3.41.0",
+      "sha256:2261177cea273f2f2756eb9018f1edd4995034cad9b499dd33257b3445f59f04",
+      "sha256:723843f1024fa1d6a05d65868ef725e4e20fb74d475867309c46b35b4b7b3b2d"
+    ],
+    [
+      "3.42.0",
+      "sha256:b2c1cfc5a7ebfb199b18ce849562178cd08a076914228211f42db8af00ff2ad2",
+      "sha256:723843f1024fa1d6a05d65868ef725e4e20fb74d475867309c46b35b4b7b3b2d"
+    ],
+    [
+      "3.43.0",
+      "sha256:734f22e4239c99a8b79254c131f968c5b0cd3044ac61033313a97246a215466e",
+      "sha256:723843f1024fa1d6a05d65868ef725e4e20fb74d475867309c46b35b4b7b3b2d"
+    ],
+    [
+      "3.44.0",
+      "sha256:d901f2821dcef92acb701189cb57acbb4b17ef8404282bea7b0312031fd3a511",
+      "sha256:723843f1024fa1d6a05d65868ef725e4e20fb74d475867309c46b35b4b7b3b2d"
+    ],
+    [
+      "3.45.0",
+      "sha256:6a1ee27e7618ebbc739e4ffed2392a0de1d9f9f9079c0ac8e415de1b31e6328b",
+      "sha256:723843f1024fa1d6a05d65868ef725e4e20fb74d475867309c46b35b4b7b3b2d"
+    ],
+    [
+      "3.46.0",
+      "sha256:f2c4c5c6e3e34678c14b9c43a2e2a909782e431235511e5b79038bfa62e13444",
+      "sha256:723843f1024fa1d6a05d65868ef725e4e20fb74d475867309c46b35b4b7b3b2d"
+    ],
+    [
+      "3.47.0",
+      "sha256:7c3d8f41635a233d525bf39b2fc81cd212813aea3f978fd262d9d6008c4ace85",
+      "sha256:723843f1024fa1d6a05d65868ef725e4e20fb74d475867309c46b35b4b7b3b2d"
+    ],
+    [
+      "3.47.2",
+      "sha256:3ff07602119c49494196d4a01ddeac76dd22fb47375d28dbc6153d689f772f3f",
+      "sha256:723843f1024fa1d6a05d65868ef725e4e20fb74d475867309c46b35b4b7b3b2d"
+    ],
+    [
+      "3.48.0",
+      "sha256:2112be139f19d843817f235cbdcd9c32c27448dd6247f3bb24676e2c07183e31",
+      "sha256:723843f1024fa1d6a05d65868ef725e4e20fb74d475867309c46b35b4b7b3b2d"
+    ],
+    [
+      "3.49.0",
+      "sha256:fa7bb93407ce47451059a118d07c938089b202fdae943d80f35ce9e45b6d93bd",
+      "sha256:723843f1024fa1d6a05d65868ef725e4e20fb74d475867309c46b35b4b7b3b2d"
+    ],
+    [
+      "3.50.0",
+      "sha256:ce05d0fde475037e8812cc10427cd942ecdea95546446e54bdb8ef254f13d618",
+      "sha256:723843f1024fa1d6a05d65868ef725e4e20fb74d475867309c46b35b4b7b3b2d"
+    ],
+    [
+      "3.51.0",
+      "sha256:0c40026d1df397be4fcc3f70e5fd792fce7345b89d16c82cba87e3ed69048ff4",
+      "sha256:723843f1024fa1d6a05d65868ef725e4e20fb74d475867309c46b35b4b7b3b2d"
+    ],
+    [
+      "3.52.0",
+      "sha256:55302a8b1238665c6e6cb7f97a864b999d11281ef20be9644a8d6f13a3c02dfd",
+      "sha256:723843f1024fa1d6a05d65868ef725e4e20fb74d475867309c46b35b4b7b3b2d"
+    ],
+    [
+      "3.53.0",
+      "sha256:b20c0ed9b8b4422a68975282bf0ac26eec3258b04df910b4f9bc0d4b40cd0baa",
+      "sha256:723843f1024fa1d6a05d65868ef725e4e20fb74d475867309c46b35b4b7b3b2d"
+    ],
+    [
+      "3.53.4",
+      "sha256:a4ac7ddb10d4b54ae68e516e9f98972a3672a8d4d1f04426ad793522b6fa0b84",
+      "sha256:723843f1024fa1d6a05d65868ef725e4e20fb74d475867309c46b35b4b7b3b2d"
+    ],
+    [
+      "3.54.0",
+      "sha256:c7ef9b29f4666d9ed5f0c9afb10196d45aa571e4120b96d608780605d3114597",
+      "sha256:723843f1024fa1d6a05d65868ef725e4e20fb74d475867309c46b35b4b7b3b2d"
+    ],
+    [
+      "3.54.1",
+      "sha256:cd0853553e6659090d0637a0a6303e32c4f6c9fffa8b5e45dcdf233e7f7ea900",
+      "sha256:723843f1024fa1d6a05d65868ef725e4e20fb74d475867309c46b35b4b7b3b2d"
+    ]
+  ]
+}
