@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
-  "sourceRevision": "b6f3d0d6f127a2b9e159b16a535a90581a7b7169",
-  "toolDigest": "7c79ca50d02071219b1748c2148b24ca85e51c415626209b8dc0e7bf2de842d6",
+  "sourceRevision": "4126b025cb1d3bc972d88c886de64745ca7e6f44",
+  "toolDigest": "d1882c1065567a10c8e5a60cd12be27287808b97fae75714b721d2aa9eed4f4e",
   "librarySourcesDirty": false,
   "scope": "Syntactic admission of the unmodified maintained commerce corpus. Acceptance is not native preparation, binding safety, descriptor availability or project qualification. No database is contacted.",
   "transportFactoryCalls": 0,
@@ -68,6 +68,7 @@
               "sql": "\n  SELECT u.id, u.email, u.display_name, u.status, u.created_at,\n         t.name AS team_name, m.role\n  FROM users AS u\n  LEFT JOIN memberships AS m ON m.user_id = u.id\n  LEFT JOIN teams AS t ON t.id = m.team_id\n  WHERE u.id = $1\n",
               "sqlDigest": "ed21d8923fb54061176c9c8ccb21e793166ebdbb4eded957a1be218f2194fc90",
               "parameterOccurrences": [{ "index": 1, "start": 227, "end": 229 }],
+              "logicalBindings": [0],
               "logicalParameterCount": 1,
               "staticColumnCount": 7,
               "staticParameters": [
@@ -94,6 +95,7 @@
                 { "index": 3, "start": 116, "end": 118 },
                 { "index": 4, "start": 125, "end": 127 }
               ],
+              "logicalBindings": [0, 1, 2, 3],
               "logicalParameterCount": 4,
               "staticColumnCount": 2,
               "staticParameters": [
@@ -130,6 +132,7 @@
               "sql": "\n  SELECT id, sku, title, price_cents FROM products\n  WHERE active = $1 AND price_cents >= $2\n  ORDER BY price_cents DESC\n",
               "sqlDigest": "49f3833e6eb018f238f8fe6c6339bcc8d9eaa78194047657185450855472c0b7",
               "parameterOccurrences": [{ "index": 1, "start": 69, "end": 71 }, { "index": 2, "start": 91, "end": 93 }],
+              "logicalBindings": [0, 1],
               "logicalParameterCount": 2,
               "staticColumnCount": 4,
               "staticParameters": [
@@ -156,6 +159,7 @@
               "sql": "\n  UPDATE orders SET status = 'shipped', shipped_at = CAST($1 AS TIMESTAMPTZ)\n  \n  WHERE id = $2 AND status = 'paid'\n  RETURNING id, status, shipped_at\n",
               "sqlDigest": "f1562089e9b5e932eb1d4420fec957b1f24727b1e69e79e6e5bca4c2de46a6ca",
               "parameterOccurrences": [{ "index": 1, "start": 59, "end": 61 }, { "index": 2, "start": 94, "end": 96 }],
+              "logicalBindings": [0, 1],
               "logicalParameterCount": 2,
               "staticColumnCount": 3,
               "staticParameters": [
@@ -195,6 +199,7 @@
                 { "index": 9, "start": 118, "end": 120 },
                 { "index": 10, "start": 122, "end": 125 }
               ],
+              "logicalBindings": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
               "logicalParameterCount": 10,
               "staticColumnCount": 3,
               "staticParameters": [
@@ -299,6 +304,7 @@
               "sql": "-- name: productAnalytics\nSELECT id, details, prices, dimensions, fulfillment,\n       row_number() OVER (PARTITION BY active ORDER BY price_cents DESC) AS rank\nFROM products QUALIFY rank <= $1;\n",
               "sqlDigest": "51ec793b6bec3eaf288ba8c4fa3d3d6fdb5e480901b9c0c387606a59d8183f6d",
               "parameterOccurrences": [{ "index": 1, "start": 190, "end": 192 }],
+              "logicalBindings": [0],
               "logicalParameterCount": 1,
               "staticColumnCount": 6,
               "staticParameters": [
@@ -320,6 +326,7 @@
               "sql": "\n  SELECT o.id, struct_pack(id := o.id, status := o.status, totalCents := o.total_cents, customer := struct_pack(email := u.email)) AS document\n  FROM orders AS o JOIN users AS u ON u.id = o.user_id\n  WHERE o.id = $1\n",
               "sqlDigest": "748fb57b38e5aff55f5931ea8de729ec0acdcba444e2a690fb0bf3b46009bbbf",
               "parameterOccurrences": [{ "index": 1, "start": 214, "end": 216 }],
+              "logicalBindings": [0],
               "logicalParameterCount": 1,
               "staticColumnCount": 2,
               "staticParameters": [
@@ -341,6 +348,7 @@
               "sql": "-- name: revenueByCustomer\nWITH paid_orders AS (\n  SELECT user_id, COUNT(*) AS order_count, SUM(total_cents) AS revenue_cents\n  FROM orders WHERE status = 'paid' GROUP BY user_id\n)\nSELECT u.id, LOWER(u.email) AS email, p.order_count, p.revenue_cents\nFROM users AS u JOIN paid_orders AS p ON p.user_id = u.id\nWHERE p.revenue_cents >= $1\nORDER BY p.revenue_cents DESC;\n",
               "sqlDigest": "662af5d0b6cb3cf10f4e3fe1abcea18186c64f6fdd4ee3fba2ec0a310737988a",
               "parameterOccurrences": [{ "index": 1, "start": 333, "end": 335 }],
+              "logicalBindings": [0],
               "logicalParameterCount": 1,
               "staticColumnCount": 4,
               "staticParameters": [
@@ -406,6 +414,7 @@
               "sql": "\n  SELECT u.id, u.email, u.display_name, u.status, u.created_at,\n         t.name AS team_name, m.role\n  FROM users AS u\n  LEFT JOIN memberships AS m ON m.user_id = u.id\n  LEFT JOIN teams AS t ON t.id = m.team_id\n  WHERE u.id = ?\n",
               "sqlDigest": "6134b8f32c6563e4b860c849d0e968af88bec642d16c372e2d86609b0504f50d",
               "parameterOccurrences": [{ "index": 1, "start": 227, "end": 228 }],
+              "logicalBindings": [0],
               "logicalParameterCount": 1,
               "staticColumnCount": 7,
               "staticParameters": [
@@ -432,6 +441,7 @@
                 { "index": 3, "start": 111, "end": 112 },
                 { "index": 4, "start": 114, "end": 115 }
               ],
+              "logicalBindings": [0, 1, 2, 3],
               "logicalParameterCount": 4,
               "staticColumnCount": 0,
               "staticParameters": [
@@ -463,6 +473,7 @@
               "sql": "\n  SELECT id, sku, title, price_cents\n  FROM products\n  WHERE active = ? AND price_cents >= ?\n  ORDER BY price_cents DESC\n",
               "sqlDigest": "302cec30542eeb7c9884b3185448ea04bc718d4c40b51612c9be8870937835fd",
               "parameterOccurrences": [{ "index": 1, "start": 71, "end": 72 }, { "index": 2, "start": 92, "end": 93 }],
+              "logicalBindings": [0, 1],
               "logicalParameterCount": 2,
               "staticColumnCount": 4,
               "staticParameters": [
@@ -477,6 +488,7 @@
               "sql": "\n  UPDATE orders SET status = 'shipped', shipped_at = ?\n  WHERE id = ? AND status = 'paid'\n",
               "sqlDigest": "0a889c7c3b4debfdd14bd0be523ff23db02b244440e1b89f920f8ed338604aa9",
               "parameterOccurrences": [{ "index": 1, "start": 54, "end": 55 }, { "index": 2, "start": 69, "end": 70 }],
+              "logicalBindings": [0, 1],
               "logicalParameterCount": 2,
               "staticColumnCount": 0,
               "staticParameters": [
@@ -510,6 +522,7 @@
                 { "index": 9, "start": 107, "end": 108 },
                 { "index": 10, "start": 110, "end": 111 }
               ],
+              "logicalBindings": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
               "logicalParameterCount": 10,
               "staticColumnCount": 0,
               "staticParameters": [
@@ -554,6 +567,7 @@
               "sql": "\n  SELECT o.id, JSON_OBJECT(\n    'id', o.id,\n    'status', o.status,\n    'totalCents', o.total_cents,\n    'customer', JSON_OBJECT('email', u.email),\n    'items', COALESCE(JSON_ARRAYAGG(JSON_OBJECT(\n      'sku', p.sku, 'quantity', i.quantity,\n      'unitPriceCents', i.unit_price_cents\n    )), JSON_ARRAY())\n  ) AS document\n  FROM orders AS o\n  JOIN users AS u ON u.id = o.user_id\n  JOIN order_items AS i ON i.order_id = o.id\n  JOIN products AS p ON p.id = i.product_id\n  WHERE o.id = ?\n  GROUP BY o.id, o.status, o.total_cents, u.email\n",
               "sqlDigest": "1f62680e943a1f976cf95612692f42e63611a32c5feaf968db0d1c144df2495b",
               "parameterOccurrences": [{ "index": 1, "start": 484, "end": 485 }],
+              "logicalBindings": [0],
               "logicalParameterCount": 1,
               "staticColumnCount": 2,
               "staticParameters": [
@@ -575,6 +589,7 @@
               "sql": "-- name: revenueByCustomer\nWITH paid_orders AS (\n  SELECT user_id, COUNT(*) AS order_count,\n         SUM(total_cents) AS revenue_cents\n  FROM orders\n  WHERE status = 'paid'\n  GROUP BY user_id\n)\nSELECT u.id, display_email(u.email) AS email,\n       p.order_count, p.revenue_cents\nFROM users AS u\nJOIN paid_orders AS p ON p.user_id = u.id\nWHERE p.revenue_cents >= ?\nORDER BY p.revenue_cents DESC;\n",
               "sqlDigest": "2b63c708369ee165048f3a56575b463db6d141b4a7808891da8183615c3aded0",
               "parameterOccurrences": [{ "index": 1, "start": 361, "end": 362 }],
+              "logicalBindings": [0],
               "logicalParameterCount": 1,
               "staticColumnCount": 4,
               "staticParameters": [{ "index": 1, "tsType": "string", "nullable": true, "databaseType": "decimal" }],
@@ -635,6 +650,7 @@
               "sql": "\n  SELECT u.id, u.email, u.display_name, u.status, u.created_at,\n         t.name AS team_name, m.role\n  FROM users AS u\n  LEFT JOIN memberships AS m ON m.user_id = u.id\n  LEFT JOIN teams AS t ON t.id = m.team_id\n  WHERE u.id = $1\n",
               "sqlDigest": "ed21d8923fb54061176c9c8ccb21e793166ebdbb4eded957a1be218f2194fc90",
               "parameterOccurrences": [{ "index": 1, "start": 227, "end": 229 }],
+              "logicalBindings": [0],
               "logicalParameterCount": 1,
               "staticColumnCount": 7,
               "staticParameters": [{ "index": 1, "tsType": "bigint", "nullable": false, "databaseType": "bigint" }],
@@ -659,6 +675,7 @@
                 { "index": 3, "start": 113, "end": 115 },
                 { "index": 4, "start": 117, "end": 119 }
               ],
+              "logicalBindings": [0, 1, 2, 3],
               "logicalParameterCount": 4,
               "staticColumnCount": 2,
               "staticParameters": [
@@ -690,6 +707,7 @@
               "sql": "\n  SELECT id, sku, title, price_cents\n  FROM products\n  WHERE active = $1 AND price_cents >= $2\n  ORDER BY price_cents DESC\n",
               "sqlDigest": "18afec7b91a04192e2d207fa6dbe54d1fb701405f5665cf4a2db7195fae64f48",
               "parameterOccurrences": [{ "index": 1, "start": 71, "end": 73 }, { "index": 2, "start": 93, "end": 95 }],
+              "logicalBindings": [0, 1],
               "logicalParameterCount": 2,
               "staticColumnCount": 4,
               "staticParameters": [
@@ -704,6 +722,7 @@
               "sql": "\n  UPDATE orders SET status = 'shipped'::order_status, shipped_at = $1\n  WHERE id = $2 AND status = 'paid'\n  RETURNING id, status, shipped_at\n",
               "sqlDigest": "5fdb0b27095544b34ea92a78e6e2ff23ebd99beb34f38ca88eabcbc471bf2edf",
               "parameterOccurrences": [{ "index": 1, "start": 68, "end": 70 }, { "index": 2, "start": 84, "end": 86 }],
+              "logicalBindings": [0, 1],
               "logicalParameterCount": 2,
               "staticColumnCount": 3,
               "staticParameters": [
@@ -737,6 +756,7 @@
                 { "index": 9, "start": 115, "end": 117 },
                 { "index": 10, "start": 119, "end": 122 }
               ],
+              "logicalBindings": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
               "logicalParameterCount": 10,
               "staticColumnCount": 3,
               "staticParameters": [
@@ -781,6 +801,7 @@
               "sql": "\n  SELECT o.id, jsonb_build_object(\n    'id', o.id,\n    'status', o.status::text,\n    'totalCents', o.total_cents,\n    'customer', jsonb_build_object('email', u.email),\n    'items', COALESCE(jsonb_agg(jsonb_build_object(\n      'sku', p.sku, 'quantity', i.quantity,\n      'unitPriceCents', i.unit_price_cents\n    )), '[]'::jsonb)\n  ) AS document\n  FROM orders AS o\n  JOIN users AS u ON u.id = o.user_id\n  JOIN order_items AS i ON i.order_id = o.id\n  JOIN products AS p ON p.id = i.product_id\n  WHERE o.id = $1\n  GROUP BY o.id, o.status, o.total_cents, u.email\n",
               "sqlDigest": "0ddff0cd316bad4bf4393eb1dcfa16b18d09df6ade69bbd35cc0151f426cd9ea",
               "parameterOccurrences": [{ "index": 1, "start": 506, "end": 508 }],
+              "logicalBindings": [0],
               "logicalParameterCount": 1,
               "staticColumnCount": 2,
               "staticParameters": [{ "index": 1, "tsType": "bigint", "nullable": false, "databaseType": "bigint" }],
@@ -800,6 +821,7 @@
               "sql": "-- name: revenueByCustomer\nWITH paid_orders AS (\n  SELECT user_id, COUNT(*) AS order_count,\n         SUM(total_cents) AS revenue_cents\n  FROM orders\n  WHERE status = 'paid'\n  GROUP BY user_id\n)\nSELECT u.id, display_email(u.email) AS email,\n       p.order_count, p.revenue_cents\nFROM users AS u\nJOIN paid_orders AS p ON p.user_id = u.id\nWHERE p.revenue_cents >= $1\nORDER BY p.revenue_cents DESC;\n",
               "sqlDigest": "4d27fedf94f9bbd1893b7eddb57fb5ca180db2a2c7c67fd14d150056e721c7e8",
               "parameterOccurrences": [{ "index": 1, "start": 361, "end": 363 }],
+              "logicalBindings": [0],
               "logicalParameterCount": 1,
               "staticColumnCount": 4,
               "staticParameters": [{ "index": 1, "tsType": "number", "nullable": true, "databaseType": "integer" }],
@@ -859,6 +881,7 @@
               "sql": "\n  SELECT u.id, u.email, u.display_name, u.status, u.created_at,\n         t.name AS team_name, m.role\n  FROM users AS u\n  LEFT JOIN memberships AS m ON m.user_id = u.id\n  LEFT JOIN teams AS t ON t.id = m.team_id\n  WHERE u.id = ?\n",
               "sqlDigest": "6134b8f32c6563e4b860c849d0e968af88bec642d16c372e2d86609b0504f50d",
               "parameterOccurrences": [{ "index": 1, "start": 227, "end": 228 }],
+              "logicalBindings": [0],
               "logicalParameterCount": 1,
               "staticColumnCount": 7,
               "staticParameters": [{ "index": 1, "tsType": "bigint", "nullable": false, "databaseType": "INTEGER" }],
@@ -883,6 +906,7 @@
                 { "index": 3, "start": 111, "end": 112 },
                 { "index": 4, "start": 114, "end": 115 }
               ],
+              "logicalBindings": [0, 1, 2, 3],
               "logicalParameterCount": 4,
               "staticColumnCount": 2,
               "staticParameters": [
@@ -907,6 +931,7 @@
               "sql": "\n  SELECT id, sku, title, price_cents\n  FROM products\n  WHERE active = ? AND price_cents >= ?\n  ORDER BY price_cents DESC\n",
               "sqlDigest": "302cec30542eeb7c9884b3185448ea04bc718d4c40b51612c9be8870937835fd",
               "parameterOccurrences": [{ "index": 1, "start": 71, "end": 72 }, { "index": 2, "start": 92, "end": 93 }],
+              "logicalBindings": [0, 1],
               "logicalParameterCount": 2,
               "staticColumnCount": 4,
               "staticParameters": [
@@ -921,6 +946,7 @@
               "sql": "\n  UPDATE orders SET status = 'shipped', shipped_at = ?\n  WHERE id = ? AND status = 'paid'\n  RETURNING id, status, shipped_at\n",
               "sqlDigest": "47f5c8550617384f0a2ec0d4af8f9a01d5f6c0e8abfcbf247bd3fa570a1690ea",
               "parameterOccurrences": [{ "index": 1, "start": 54, "end": 55 }, { "index": 2, "start": 69, "end": 70 }],
+              "logicalBindings": [0, 1],
               "logicalParameterCount": 2,
               "staticColumnCount": 3,
               "staticParameters": [
@@ -954,6 +980,7 @@
                 { "index": 9, "start": 107, "end": 108 },
                 { "index": 10, "start": 110, "end": 111 }
               ],
+              "logicalBindings": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
               "logicalParameterCount": 10,
               "staticColumnCount": 3,
               "staticParameters": [
@@ -998,6 +1025,7 @@
               "sql": "\n  SELECT o.id, json_object(\n    'id', o.id,\n    'status', o.status,\n    'totalCents', o.total_cents,\n    'customer', json_object('email', u.email),\n    'items', COALESCE(json_group_array(json_object(\n      'sku', p.sku, 'quantity', i.quantity,\n      'unitPriceCents', i.unit_price_cents\n    )), json_array())\n  ) AS document\n  FROM orders AS o\n  JOIN users AS u ON u.id = o.user_id\n  JOIN order_items AS i ON i.order_id = o.id\n  JOIN products AS p ON p.id = i.product_id\n  WHERE o.id = ?\n  GROUP BY o.id, o.status, o.total_cents, u.email\n",
               "sqlDigest": "79675504bd9951a2798a06c4f86331d20fbabf5328c9690750010144b09b9875",
               "parameterOccurrences": [{ "index": 1, "start": 487, "end": 488 }],
+              "logicalBindings": [0],
               "logicalParameterCount": 1,
               "staticColumnCount": 2,
               "staticParameters": [{ "index": 1, "tsType": "bigint", "nullable": false, "databaseType": "INTEGER" }],
@@ -1017,6 +1045,7 @@
               "sql": "-- name: revenueByCustomer\nWITH paid_orders AS (\n  SELECT user_id, COUNT(*) AS order_count,\n         SUM(total_cents) AS revenue_cents\n  FROM orders\n  WHERE status = 'paid'\n  GROUP BY user_id\n)\nSELECT u.id, lower(u.email) AS email,\n       p.order_count, p.revenue_cents\nFROM users AS u\nJOIN paid_orders AS p ON p.user_id = u.id\nWHERE p.revenue_cents >= ?\nORDER BY p.revenue_cents DESC;\n",
               "sqlDigest": "c1385569fe7cc746820edd5e1fc7ef176ab4d2e92aeed72bda83f92229872c8a",
               "parameterOccurrences": [{ "index": 1, "start": 353, "end": 354 }],
+              "logicalBindings": [0],
               "logicalParameterCount": 1,
               "staticColumnCount": 4,
               "staticParameters": [
@@ -1097,6 +1126,7 @@
               "sql": "\n  SELECT u.id, u.email, u.display_name, u.status, u.created_at,\n         t.name AS team_name, m.role\n  FROM users AS u\n  LEFT JOIN memberships AS m ON m.user_id = u.id\n  LEFT JOIN teams AS t ON t.id = m.team_id\n  WHERE u.id = @__typed_sql_1\n",
               "sqlDigest": "9bbd2e5b93a38e889e6e416efc5ee6115cbbb75e01939836eaed37b6468818b3",
               "parameterOccurrences": [{ "index": 1, "start": 227, "end": 241 }],
+              "logicalBindings": [0],
               "logicalParameterCount": 1,
               "staticColumnCount": 7,
               "staticParameters": [
@@ -1130,6 +1160,7 @@
                 { "index": 3, "start": 179, "end": 193 },
                 { "index": 4, "start": 200, "end": 214 }
               ],
+              "logicalBindings": [0, 1, 2, 3],
               "logicalParameterCount": 4,
               "staticColumnCount": 2,
               "staticParameters": [
@@ -1184,6 +1215,7 @@
                 { "index": 1, "start": 69, "end": 83 },
                 { "index": 2, "start": 103, "end": 117 }
               ],
+              "logicalBindings": [0, 1],
               "logicalParameterCount": 2,
               "staticColumnCount": 4,
               "staticParameters": [
@@ -1215,6 +1247,7 @@
                 { "index": 1, "start": 59, "end": 73 },
                 { "index": 2, "start": 163, "end": 177 }
               ],
+              "logicalBindings": [0, 1],
               "logicalParameterCount": 2,
               "staticColumnCount": 3,
               "staticParameters": [
@@ -1261,6 +1294,7 @@
                 { "index": 9, "start": 268, "end": 282 },
                 { "index": 10, "start": 284, "end": 299 }
               ],
+              "logicalBindings": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
               "logicalParameterCount": 10,
               "staticColumnCount": 3,
               "staticParameters": [
@@ -1375,6 +1409,7 @@
               "sql": "-- name: topProducts\nSELECT TOP (@__typed_sql_1) id, sku, weight FROM products\nWHERE weight >= @__typed_sql_2 ORDER BY price_cents DESC;\n",
               "sqlDigest": "fdd05e00f623c316e9f81588c8838b2fa5a43b037f800b344a49cc3404ef298f",
               "parameterOccurrences": [{ "index": 1, "start": 33, "end": 47 }, { "index": 2, "start": 95, "end": 109 }],
+              "logicalBindings": [0, 1],
               "logicalParameterCount": 2,
               "staticColumnCount": 3,
               "staticParameters": [
@@ -1410,6 +1445,7 @@
               "sql": "\n  SELECT o.id, JSON_QUERY(u.profile) AS document\n  FROM orders AS o JOIN users AS u ON u.id = o.user_id\n  WHERE o.id = @__typed_sql_1\n",
               "sqlDigest": "05079575044070dbfe29c90369cd2259a0a6443e5b50890349fdb915572cab9f",
               "parameterOccurrences": [{ "index": 1, "start": 120, "end": 134 }],
+              "logicalBindings": [0],
               "logicalParameterCount": 1,
               "staticColumnCount": 2,
               "staticParameters": [
@@ -1438,6 +1474,7 @@
               "sql": "-- name: revenueByCustomer\nWITH paid_orders AS (\n  SELECT user_id, COUNT(*) AS order_count, SUM(total_cents) AS revenue_cents\n  FROM orders WHERE status = 'paid' GROUP BY user_id\n)\nSELECT u.id, LOWER(u.email) AS email, p.order_count, p.revenue_cents\nFROM users AS u JOIN paid_orders AS p ON p.user_id = u.id\nWHERE p.revenue_cents >= @__typed_sql_1\nORDER BY p.revenue_cents DESC;\n",
               "sqlDigest": "300a37f40e5c085d6b3f63c26881814e7cf1700ad0e1c5cb28d481a66453856a",
               "parameterOccurrences": [{ "index": 1, "start": 333, "end": 347 }],
+              "logicalBindings": [0],
               "logicalParameterCount": 1,
               "staticColumnCount": 4,
               "staticParameters": [
