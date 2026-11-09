@@ -18,8 +18,9 @@ native transport currently qualified by this PR.
 
 The exhaustive upstream inventory, vendor fact extraction, global catalog model, generated
 completeness reports remain excluded. DuckDB has exact-engine full analyzers, a maintained
-bounded core and explicit compatibility packs. Equivalent distribution boundaries in other
-grammars and representative workload selection remain unfinished. Normal
+bounded core and explicit compatibility packs. MySQL has selected-series analyzers and a core
+retaining all of its existing maintained families. Other grammars’ appropriate distribution
+boundaries and representative workload selection remain unfinished. Normal
 builds and installations do not fetch database sources or require a global engine inventory.
 The existing PostgreSQL/MySQL catalog generators also derive small runtime codec projections
 from their maintained catalog inputs, preserving compile-time/runtime policy agreement.
@@ -874,3 +875,52 @@ same revision, distinguishes moved/generated/maintained lines and reproduces the
 Final topology, other grammars' core/pack boundaries and representative production workloads
 remain incomplete. The preceding `203d573e` passes CI, native language audit and migration
 workflows; the new core/pack head requires its own final CI result.
+
+## MySQL selected-series core and native long tail
+
+At `c9e4a793`, MySQL full and core entrypoints explicitly select 8.4, 9.7 or the existing 26.7
+canary policy. The resolver and numeric rules receive an immutable catalog owner; the portable
+factory imports neither the all-series registry nor introspection services. Existing compatibility
+helpers and internal consumers retain their default behavior through a small wrapper. Series
+selection rejects missing/mismatched snapshot evidence and preserves SQL-mode, edition and
+version guards. Shared compact runtime codec/type facts and availability vocabulary remain.
+
+All existing MySQL routine families fit this core. A measured subset/compatibility-pack prototype
+was larger than the full per-series analyzer, so the final source keeps the existing families and
+removes that extra machinery. The general analyzer remains compatible. The core gives unmapped
+routines a TSQ408 error with generation guidance, retaining argument casts and ordered parameters;
+version and ambiguity errors remain blocking. The reconciler's v2 owner permits only that specific
+unsupported-rule diagnostic to be supplied by qualified native evidence. Recursive CTE probes
+retain the core diagnostic mode. No universal function rule is generated from one invocation.
+
+Tests discover stable/canary targets from owner policy and walk their independent invocation
+inventories. Every existing rule agrees with compatibility analysis; unmapped calls retain their
+input evidence and request a contract. Core module graphs exclude other full catalogs, the registry,
+introspection and drivers. Packed consumers import every installed path and refuse missing target
+evidence. All three original full catalogs retain their exact content, order and revision hashes;
+the runtime codec projection is unchanged. No source-vendor inventory is added.
+
+The native helper qualifies both constant and parameterized `DEGREES`, an actually unmapped
+routine, on MySQL 8.4.11 and 9.7.2. Native preparation reports number output, explicit non-null
+metadata for the constant form, nullable output for a nullable parameter, and decimal(65,30)
+string input for the cast form. The full native helper retains conflict, cancellation, context
+retirement, table and non-execution checks. The installed CLI/build/editor/cache/offline helper
+now loads the selected core, proving generation and unsaved/editor refresh through this path.
+
+Validation: clean build/types, 29 package files and coverage (96.25% statements, 91.44% branches,
+99.13% functions), all 49 repository contract files, both real native/installed flows, soundness,
+documentation check/build, quality and isolated performance pass. The preceding `fdc0fab8` main
+CI completes successfully; this new source requires its own final CI result.
+
+Local inventory captures retain every existing default-profile category fingerprint. Their exact
+local recognition/context fingerprints require review and were not accepted as new baselines.
+An independent Git-blob build of the preceding `fdc0fab8` analyzer and the final compatibility
+analyzer produce identical full analysis for all 2,574/2,592 generated invocations under the same
+live contexts. This proves the refactor does not change those static outcomes; it does not claim
+that the local context is interchangeable with the reviewed CI fixture.
+
+The [current bundle report](./bundle-size.md) pins `c9e4a793`: full MySQL is 185.4 KiB minified,
+while selected full/core analyzers are 163.1–163.8 KiB. Gzip savings are small and reported directly.
+Runtime/frozen graphs are unchanged. PostgreSQL, SQLite and SQL Server distribution decisions,
+reusable catalogs/custom-type qualification beyond PostgreSQL, native-qualified project overhead,
+representative workload selection and the full acceptance audit remain open.

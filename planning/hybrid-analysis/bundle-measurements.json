@@ -1,6 +1,6 @@
 {
   "formatVersion": 2,
-  "sourceRevision": "1adfc8e5ded500d509ae47c10c8d971a7c78e6b0",
+  "sourceRevision": "c9e4a79395ad397d56c08cfd1d0aaaef339b7870",
   "nodeVersion": "v24.22.2",
   "esbuildVersion": "0.28.2",
   "measurementToolDigest": "dc40a67dc6020756ad046212866c23512282904af1aba29c572d93170931ef5e",
@@ -511,11 +511,12 @@
     {
       "grammar": "mysql",
       "scenario": "analyzer",
-      "minifiedBytes": 187799,
-      "gzipBytes": 45053,
-      "brotliBytes": 37783,
+      "minifiedBytes": 189852,
+      "gzipBytes": 45134,
+      "brotliBytes": 38306,
       "generatedInputBytes": 39562,
       "globalCatalogInputs": [
+        "packages/mysql/src/catalog/provider.ts",
         "packages/mysql/src/catalog/generated/8.4.ts",
         "packages/mysql/src/catalog/generated/9.7.ts",
         "packages/mysql/src/catalog/generated/26.7.ts",
@@ -523,13 +524,13 @@
       ],
       "attribution": {
         "core/other": 20015,
-        "mysql/other": 73921,
+        "mysql/other": 75104,
         "ast/other": 1647,
-        "mysql/parser": 30032,
+        "mysql/parser": 30035,
         "schema/other": 23075,
-        "mysql/catalog": 39080
+        "mysql/catalog": 39947
       },
-      "outputDigest": "2465f12830db03df8b82cdeaed6e06d93544ee4f2327a154cff967af3dd2ae78"
+      "outputDigest": "ee8efa01fa6b0d5cc136bf121112a2080a9ddb9ec67fce34d6f39eb08ffd4efe"
     },
     {
       "grammar": "mysql",
@@ -564,6 +565,138 @@
         "mysql/parser": 5419
       },
       "outputDigest": "4ad13204efa2afa07d2a4e89d0aff1b18adbdd96f7f52c5549bdd524f40969eb"
+    },
+    {
+      "grammar": "mysql",
+      "scenario": "analyzer:26.7",
+      "minifiedBytes": 167751,
+      "gzipBytes": 44994,
+      "brotliBytes": 38528,
+      "generatedInputBytes": 17568,
+      "globalCatalogInputs": [
+        "packages/mysql/src/catalog/provider.ts",
+        "packages/mysql/src/catalog/generated/26.7.ts",
+        "packages/mysql/src/catalog/generated/availability.ts"
+      ],
+      "attribution": {
+        "core/other": 20015,
+        "mysql/other": 75146,
+        "ast/other": 1647,
+        "mysql/parser": 30035,
+        "schema/other": 23075,
+        "mysql/catalog": 17804
+      },
+      "outputDigest": "a3ced8cdb4498cf449d478dc3881edab97852732eba2a2b4949482e3264d3bb1"
+    },
+    {
+      "grammar": "mysql",
+      "scenario": "analyzer:8.4",
+      "minifiedBytes": 167019,
+      "gzipBytes": 44921,
+      "brotliBytes": 38429,
+      "generatedInputBytes": 16837,
+      "globalCatalogInputs": [
+        "packages/mysql/src/catalog/provider.ts",
+        "packages/mysql/src/catalog/generated/8.4.ts",
+        "packages/mysql/src/catalog/generated/availability.ts"
+      ],
+      "attribution": {
+        "core/other": 20015,
+        "mysql/other": 75145,
+        "ast/other": 1647,
+        "mysql/parser": 30035,
+        "schema/other": 23075,
+        "mysql/catalog": 17073
+      },
+      "outputDigest": "b96ff648324dc82e96b67dc382ef8986be2614bd92ed03b16b0147203523d4ec"
+    },
+    {
+      "grammar": "mysql",
+      "scenario": "analyzer:9.7",
+      "minifiedBytes": 167749,
+      "gzipBytes": 44998,
+      "brotliBytes": 38476,
+      "generatedInputBytes": 17567,
+      "globalCatalogInputs": [
+        "packages/mysql/src/catalog/provider.ts",
+        "packages/mysql/src/catalog/generated/9.7.ts",
+        "packages/mysql/src/catalog/generated/availability.ts"
+      ],
+      "attribution": {
+        "core/other": 20015,
+        "mysql/other": 75145,
+        "ast/other": 1647,
+        "mysql/parser": 30035,
+        "schema/other": 23075,
+        "mysql/catalog": 17803
+      },
+      "outputDigest": "1e60e0c8ad8992419773bc06bfc2102d1bd78a6d3ca7c17c37a8f0a497f30df3"
+    },
+    {
+      "grammar": "mysql",
+      "scenario": "analyzer:core:26.7",
+      "minifiedBytes": 167754,
+      "gzipBytes": 44994,
+      "brotliBytes": 38502,
+      "generatedInputBytes": 17568,
+      "globalCatalogInputs": [
+        "packages/mysql/src/catalog/provider.ts",
+        "packages/mysql/src/catalog/generated/26.7.ts",
+        "packages/mysql/src/catalog/generated/availability.ts"
+      ],
+      "attribution": {
+        "core/other": 20015,
+        "mysql/other": 75149,
+        "ast/other": 1647,
+        "mysql/parser": 30035,
+        "schema/other": 23075,
+        "mysql/catalog": 17804
+      },
+      "outputDigest": "eb74f996fd2b783f440c12cd1ebb791cb60b09aef028e4e4d65cffcebb7602d1"
+    },
+    {
+      "grammar": "mysql",
+      "scenario": "analyzer:core:8.4",
+      "minifiedBytes": 167022,
+      "gzipBytes": 44922,
+      "brotliBytes": 38407,
+      "generatedInputBytes": 16837,
+      "globalCatalogInputs": [
+        "packages/mysql/src/catalog/provider.ts",
+        "packages/mysql/src/catalog/generated/8.4.ts",
+        "packages/mysql/src/catalog/generated/availability.ts"
+      ],
+      "attribution": {
+        "core/other": 20015,
+        "mysql/other": 75148,
+        "ast/other": 1647,
+        "mysql/parser": 30035,
+        "schema/other": 23075,
+        "mysql/catalog": 17073
+      },
+      "outputDigest": "eb01614f30db3db7799a3b22d6769ef1c7b6e5616d6b064957a062e8b33213b2"
+    },
+    {
+      "grammar": "mysql",
+      "scenario": "analyzer:core:9.7",
+      "minifiedBytes": 167752,
+      "gzipBytes": 44999,
+      "brotliBytes": 38506,
+      "generatedInputBytes": 17567,
+      "globalCatalogInputs": [
+        "packages/mysql/src/catalog/provider.ts",
+        "packages/mysql/src/catalog/generated/9.7.ts",
+        "packages/mysql/src/catalog/generated/availability.ts"
+      ],
+      "attribution": {
+        "core/other": 20015,
+        "mysql/other": 75148,
+        "ast/other": 1647,
+        "mysql/parser": 30035,
+        "schema/other": 23075,
+        "mysql/catalog": 17803
+      },
+      "outputDigest": "69e1e83bef7c104c4e28680af2cd3f6716fa038eadd40e68688652db53172c79"
     },
     {
       "grammar": "postgres",
@@ -1003,20 +1136,30 @@
     "packages/duckdb/src/support.ts": "291a30278fa139b891b3f5cc895adb35d68b709be9da03f556badd65d1b40a87",
     "packages/duckdb/src/type-policy.ts": "be97fcd1b47b3d0596e83d246f8bdad58d9b3141e7204eb82bdfe729af96d574",
     "packages/duckdb/src/version.ts": "f9cada866215c7a1359f64dc33f469738d848468841f8285820890cb0dbadeb1",
-    "packages/mysql/package.json": "b55925ea07c927a517bdcf89bd8826560c7cfc0810b1d6c3387867497fbb1b02",
-    "packages/mysql/src/analysis.ts": "90cd93727acc6aa31a826ed218de607fee8a254d669acbe236c4941615c89484",
+    "packages/mysql/package.json": "fcdaa141b092ef3f6955047238e4747dc50bbd887a000c32b4e2ef7dc91b43d7",
+    "packages/mysql/src/analysis-factory.ts": "e55ccc71de42758563c230ffae9545d24e74b30dfb08c638ca92f0102b320664",
+    "packages/mysql/src/analysis.ts": "21333bc32e16c2105dcbf16ddb8305ae15b90663b3a731d34e10194d16cf0765",
+    "packages/mysql/src/analysis/26.7.ts": "29160e62797597458c59b6404820ae3b7ae2e9d779548301f220cf50a1b62f27",
+    "packages/mysql/src/analysis/8.4.ts": "18fc0503e5c7eea32a8bdc47d8b4092626ff9d3327b3b29e4e92c0addeb6d3d9",
+    "packages/mysql/src/analysis/9.7.ts": "24d0274ca916b9dc0c372dbb830d72c8486aab8acb2ab1c196f8748357080170",
+    "packages/mysql/src/analysis/core/26.7.ts": "5d9fc84ae63cddd2bfabe83dfd02a3d6c0c8285f1239f74a4244b04eb1ac9a3a",
+    "packages/mysql/src/analysis/core/8.4.ts": "6ce245fd0c288be61fbe620fc3c97ec73e2a1df5d693242545c8eeaa17e88b8c",
+    "packages/mysql/src/analysis/core/9.7.ts": "9064d9a3115612b122b8bbac2ac2c5a7cd76121af066c7ee77fcbb8b7806899f",
     "packages/mysql/src/bulk.ts": "3fe07ea725cb25a30d5ccf21d5ad6916e5814cd3e4ec88e774b3b436de7b88f2",
     "packages/mysql/src/capabilities.ts": "b5413dca735f9d05d54655b24b70e9241bf2ca4c67d4df8ebb0fa4a2c5dfc4e5",
     "packages/mysql/src/catalog/generated/26.7.ts": "6166c5d933aa2d14c271834a4de5832dd98cbebad1f61e948d9e1f541e135c18",
     "packages/mysql/src/catalog/generated/8.4.ts": "a17221899936c38408b9ddd2a32756926cd12e961db4cda0a145ed59c720b524",
     "packages/mysql/src/catalog/generated/9.7.ts": "2019595d0bb57721cd5a3f90722c35493450b344789e4fc5fbb4c5de26d56714",
-    "packages/mysql/src/catalog/index.ts": "a3ef38c5d158d2cdde98301802fe8c26558f816e515e0458844547c5480e5329",
+    "packages/mysql/src/catalog/generated/availability.ts": "2ba5541e5e04ac927e80da7e5907aeb2a4b13f8ba259c82c2fc2e8b81f960ab1",
+    "packages/mysql/src/catalog/index.ts": "5037db5a5408fc451d77b9ae9546e6722f228ecad1b899f49f83339f20d6c7d2",
+    "packages/mysql/src/catalog/provider.ts": "37fc61c26e3658188556e59ecbe9a0939d4947d83d41496689cec9eb96263acc",
     "packages/mysql/src/codecs/index.ts": "59b8cdfb4d1e7cd3df29bb98943d6ab9433dde33396f42a7624de9c04522b2c1",
     "packages/mysql/src/codecs/normalize.ts": "d1e82e51dab76164697fabbb17782930f6b58fa52fca923c0dddc753ad6d7d8c",
     "packages/mysql/src/codecs/types-data.ts": "1403e1e5f86cbfbc79a7f5dda4b6b85a70b928ac8fb45b5f867a14772382d9b5",
+    "packages/mysql/src/compatibility-resolver.ts": "761094a488ee983da64a40108996cbe6d48dbbb8ca0d9ff17cdae19a41de6291",
     "packages/mysql/src/decoding.ts": "266a3acd7feafd658a7c59fd1b5a7bfc2836e441f59e0237650ed86507445420",
     "packages/mysql/src/index.ts": "392777638772f53d262b879d49d256ecab6fe3e8f279c1d181c1ee66d77d83b1",
-    "packages/mysql/src/numeric-functions.ts": "d24ed7a2de92f56ae47fc956351cce4831e5056304f9a87a075f5db931310322",
+    "packages/mysql/src/numeric-functions.ts": "ee60b0dda6edd90c4e4b8db97560e3b4a3cce38136d18ed698977c738e758a92",
     "packages/mysql/src/parser/index.ts": "dcc04a6d0f9e78cd168ab549c2a13ad36e841959ba62285926771ea8350f9336",
     "packages/mysql/src/parser/parser.ts": "1baba5f04de9dd74c56486e18d197f490c05a491f0eef16a97db77ebc614cf08",
     "packages/mysql/src/parser/tokenizer.ts": "60381881c1d6e365a135f9857d49af64efbdf04e5b573152c337d50802a92357",
@@ -1027,8 +1170,8 @@
     "packages/mysql/src/provider.ts": "ec3fdc70971cd58f5ceb9a2ca0217ae928af11ad4b563a32625bf89d7161558a",
     "packages/mysql/src/query.ts": "9f7a3652b5038bd12302b322412a9af28b88069b216e5cf508b8465d2a7d4815",
     "packages/mysql/src/repeated-inputs.ts": "6c92a254c0279aec2ee1f2158a29e8d2eaa4957d46f259b6f953a4a3ccef95ac",
-    "packages/mysql/src/resolver.ts": "c312e72214a2495cfbb8a121cfc4a98a44e68cefcb13ca14a525553d4fdc66cc",
-    "packages/mysql/src/routing.ts": "b1811dcfbd832f4d8f8837dc2a7a825bbb1e505b2732213a68fe9d5dbc9a333e",
+    "packages/mysql/src/resolver.ts": "adb96a9bbecb5d5087a59ab7e7a3e00b4518eb41076942f40376867c922fbf20",
+    "packages/mysql/src/routing.ts": "6957f4ab3eda31618c84b66d53679a2af7fbff8e849528381654cce8b7e0919c",
     "packages/mysql/src/runtime.ts": "d2bf0501cb76154b5dc9028cf6ec38e968a07ba38af5a83f51c80ba8d476a036",
     "packages/mysql/src/semantics.ts": "1dab8e48d05c1b443cf99f6dd9d5d0356ca4ee193f14b25b227a9af3d0045bde",
     "packages/mysql/src/stream.ts": "4bf2241130b86c21f8b542766ddd19353c6b8329039994fa0401cec2b0021a36",

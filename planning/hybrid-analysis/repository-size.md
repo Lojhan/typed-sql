@@ -109,7 +109,10 @@ native data digests remain unchanged. The generated source increase includes the
 builtin-name vocabulary needed for binding/shadowing checks, selection metadata and provenance.
 The commit moves existing generated rows, so added/deleted diff counts exceed the net growth.
 
-Other grammars still need appropriate core/pack and version-selection boundaries. Representative
+Since this measured revision, MySQL has added selected-series core/full analyzers that retain its
+small maintained function set. The current bundle report measures that source separately; this
+tracked-line table still pins the exact revision shown above. PostgreSQL, SQLite and SQL Server
+still need appropriate distribution boundaries. Representative
 workload selection, reusable catalog/custom-type interpretation beyond PostgreSQL and qualified
 selection merging remain open. This accounting is not the final LOC result for those unfinished
 parts. [The bundle report](./bundle-size.md) measures the current DuckDB distribution separately.

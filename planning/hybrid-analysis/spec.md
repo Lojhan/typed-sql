@@ -2,8 +2,9 @@
 
 > Implementation scope: this PR retains existing offline support without an exhaustive upstream
 > inventory or vendor source-extraction pipeline. DuckDB has exact-engine full analyzers, a
-> maintained bounded core and complementary compatibility packs. Equivalent distribution across
-> other grammars and representative workload selection remain architecture targets. Native
+> maintained bounded core and complementary compatibility packs. MySQL has selected-series cores
+> retaining all existing maintained families. Appropriate distribution for the remaining grammars
+> and representative workload selection remain architecture targets. Native
 > capabilities below require their own qualification evidence; this specification is not a
 > completeness claim.
 
@@ -755,9 +756,11 @@ pending working-tree implementation. Values below are KiB (1,024 bytes).
 These generated contributions describe that historical exhaustive pipeline, not the current
 implementation. The current [machine-readable report](./bundle-measurements.json) remeasures
 the same four source scenarios and adds profile/frozen-host scenarios for all five grammars.
-The analyzer-only current minified sizes at `1adfc8e5` are 383.8 KiB PostgreSQL, 183.4 KiB MySQL,
+The analyzer-only current minified sizes at `c9e4a793` are 383.8 KiB PostgreSQL, 185.4 KiB MySQL,
 148.6 KiB SQLite, 121.1 KiB SQL Server and 627.8 KiB DuckDB. DuckDB core samples are
-234.3/246.0 KiB for 1.5.6/2.0.0, with matching full per-engine samples at 360.0/385.0 KiB. These net changes include pipeline removal,
+234.3/246.0 KiB for 1.5.6/2.0.0, with matching full per-engine samples at 360.0/385.0 KiB.
+MySQL selected full/core samples are 163.1–163.8 KiB and retain its full maintained routine set;
+measured small-family pack overhead exceeds the metadata saving, so no extra pack is introduced. These net changes include pipeline removal,
 semantic corrections and API separation; they do not isolate the effect of query contracts.
 Some compact generated vocabulary/type/codec metadata remains. Do not multiply the gzip column
 by the historical minified generated share.

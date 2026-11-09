@@ -6,7 +6,7 @@ description: MySQL grammar coverage, catalog introspection, application-owned my
 
 # MySQL
 
-`@typed-sql/mysql` contains the MySQL grammar, catalog model, resolver, type policy, and runtime codecs. The optional `@typed-sql/mysql/mysql2` entrypoint loads the `mysql2` driver installed by your application.
+`@typed-sql/mysql` provides the `sql` tag, rendering and runtime type policy. Offline analysis uses the explicit entrypoints below. The optional `@typed-sql/mysql/mysql2` entrypoint loads the `mysql2` driver installed by your application.
 
 ## Selected-series offline analysis
 
