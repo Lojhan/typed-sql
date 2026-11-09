@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -13,6 +13,16 @@ import {
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const roots = process.argv.slice(2);
+let output = join(root, "planning/hybrid-analysis");
+if (roots[0] === "--output-directory") {
+  roots.shift();
+  assert.ok(roots[0] && !roots[0].startsWith("--"), "Missing output directory");
+  output = resolve(roots.shift());
+}
+assert.ok(
+  roots.every((argument) => !argument.startsWith("--")),
+  "Unknown native report option",
+);
 if (!roots.length) throw Error("Supply native-cost report directories; this tool opens no database");
 const ledger = JSON.parse(await readFile(join(root, "grammar/features/ledger.json"), "utf8"));
 const grammars = Object.keys(ledger.dialects).sort();
@@ -144,7 +154,8 @@ const result = {
   methods: Object.fromEntries(Object.entries(methods).sort(([a], [b]) => a.localeCompare(b))),
   profiles,
 };
-const destination = join(root, "planning/hybrid-analysis/native-measurements.json");
+await mkdir(output, { recursive: true });
+const destination = join(output, "native-measurements.json");
 const formatted = execFileSync(
   join(root, "node_modules/.bin/biome"),
   ["format", "--stdin-file-path=native-measurements.json"],
@@ -286,4 +297,4 @@ regenerates this page and JSON. Fetch the named hosted merge commit when its Git
 is absent locally. Native acquisition never executes candidates or binds sample application
 values; its statement and facet boundaries remain those of the declared adapter profiles.
 `;
-await writeFile(join(root, "planning/hybrid-analysis/native-costs.md"), markdown);
+await writeFile(join(output, "native-costs.md"), markdown);
