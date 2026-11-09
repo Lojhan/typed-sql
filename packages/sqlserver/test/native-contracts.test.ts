@@ -78,7 +78,17 @@ function fixture() {
   let columns: readonly Record<string, unknown>[] = [column],
     parameters: readonly Record<string, unknown>[] = [parameter];
   const sessions: SqlServerServiceSession[] = [];
-  const catalog: Record<string, readonly Record<string, unknown>[]> = {};
+  const catalog: Record<string, readonly Record<string, unknown>[]> = {
+    [sqlServerContractContextQueries.loginPrincipal]: [
+      {
+        original_login: "original",
+        current_login: "current",
+        login_sid: "0x01",
+        database_user: "dbo",
+        database_user_sid: "0x01",
+      },
+    ],
+  };
   const pool: SqlServerServicePool = {
     async acquire() {
       const ordinal = sessions.length + 1;
@@ -186,6 +196,49 @@ function tableFixture() {
 }
 
 await describe("guarded SQL Server contract acquisition", async () => {
+  await it("keeps login names and SIDs distinct even when database tokens and permissions match", async () => {
+    for (const field of ["original_login", "current_login", "login_sid", "database_user", "database_user_sid"]) {
+      const f = fixture();
+      const adapter = createSqlServerNativeContractAdapter({ pool: f.pool, schema });
+      const before = await adapter.inspectContext();
+      f.catalog[sqlServerContractContextQueries.loginPrincipal] = [
+        {
+          ...f.catalog[sqlServerContractContextQueries.loginPrincipal]![0],
+          [field]: field.endsWith("sid") ? "0x02" : "changed",
+        },
+      ];
+      const after = await adapter.inspectContext();
+      strict.notEqual(after.databaseContextHash, before.databaseContextHash, field);
+      strict.equal(after.schemaHash, before.schemaHash);
+      strict.deepEqual(await acquireNativeQueryContract({ adapter, context: before, candidate: candidate() }), {
+        status: "unavailable",
+        reason: "context-mismatch",
+      });
+    }
+  });
+  await it("declines missing, malformed or overlarge login identity metadata", async () => {
+    const valid = fixture().catalog[sqlServerContractContextQueries.loginPrincipal]![0]!;
+    for (const rows of [
+      [],
+      [valid, valid],
+      [{}],
+      [{ ...valid, current_login: "" }],
+      [{ ...valid, current_login: "a".repeat(129) }],
+      [{ ...valid, original_login: "bad\0name" }],
+      [{ ...valid, database_user: null }],
+      [{ ...valid, login_sid: null }],
+      [{ ...valid, login_sid: "0xZZ" }],
+      [{ ...valid, database_user_sid: "0x1" }],
+      [{ ...valid, database_user_sid: `0x${"01".repeat(86)}` }],
+    ]) {
+      const f = fixture();
+      f.catalog[sqlServerContractContextQueries.loginPrincipal] = rows;
+      await strict.rejects(
+        createSqlServerNativeContractAdapter({ pool: f.pool, schema }).inspectContext(),
+        /unsupported-context/u,
+      );
+    }
+  });
   await it("retires contexts when explicit or effective permissions change", async () => {
     for (const key of ["permissions", "effectiveDatabasePermissions", "effectiveServerPermissions"] as const) {
       const f = fixture();

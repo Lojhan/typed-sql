@@ -1821,3 +1821,32 @@ gates pass. A separate 350-sample local profile moves p50 from 5.91 ms to 5.02 m
 for this local workload, not a hosted performance guarantee. The full local performance gate
 records semantic-metadata p50 6.73 ms against its unchanged 10 ms local budget. Hosted
 qualification of the optimization remains required.
+
+## Native session and engine context controls
+
+DuckDB's actual integer-division mutation changes a prepared expression's native result type,
+keeps compiler schema/codec identity fixed and rejects acquisition with the previous context.
+Actual nondefault search-path mutation declines context inspection and acquisition. Both SDKs
+pass. The declared-engine runner also captures each actual context in a separate process,
+acquires successfully under that engine's own context and rejects every cross-engine reuse.
+Targets are discovered from the owner policy and installed package declarations; SDK native
+libraries never share a process. These are engine-context checks, not database-file migration
+claims. The complete DuckDB suite passes 43 files with 98.95% statement / 91.35% branch /
+97.51% function coverage, plus the other SDK's native suite and both cross-engine directions.
+
+SQL Server's database token can be shared by distinct server logins that map to `dbo`.
+The native context now includes bounded original/current login names, login SID, database-user
+name and SID. Missing, malformed or overlarge identity metadata declines acquisition. Unit
+controls change each identity field while holding other context facts fixed and require
+old-context rejection. The adapter identity advances to v4; existing SQL Server native contracts
+require regeneration. The full SQL Server suite passes 26 files with 96.95% statement /
+91.82% branch / 95.65% function coverage. Root types, 53 repository contracts and local quality pass.
+
+The real SQL Server probe now creates a disposable sysadmin login on its owned test server
+before baseline capture, then impersonates it on a fresh exclusive lease. The compiler schema
+and codec stay fixed; old-context acquisition must be rejected even though both logins map to
+`dbo`. A second probe changes DATEFIRST and requires unsupported-context failure. Cleanup drops
+the owned database/login and records failure if either cannot be removed. These native cases
+require hosted qualification on every supported engine/compatibility pair; local unit coverage
+does not establish those results. The broader mutation matrix and descriptor-family review
+remain open.

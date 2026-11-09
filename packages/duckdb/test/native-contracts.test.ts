@@ -390,6 +390,71 @@ await describe("DuckDB non-executing native query contracts", async () => {
     strict.equal(instancesClosed, 3);
   });
 
+  await it("rejects prior contexts after actual session-setting and search-path mutations", async () => {
+    const alteredSDK = (statements: readonly string[]) => ({
+      ...sdk,
+      DuckDBInstance: new Proxy(sdk.DuckDBInstance, {
+        get(target, key) {
+          if (key !== "create") return Reflect.get(target, key);
+          return async (path: string, configuration: Record<string, string>) => {
+            const instance = await sdk.DuckDBInstance.create(path, configuration);
+            return {
+              async connect() {
+                const connection = await instance.connect();
+                try {
+                  for (const statement of statements) {
+                    const result = await connection.run(statement);
+                    result.closeSync();
+                  }
+                  return connection;
+                } catch (error) {
+                  connection.closeSync();
+                  throw error;
+                }
+              },
+              closeSync: () => instance.closeSync(),
+            };
+          };
+        },
+      }),
+    });
+    const normal = createNodeDuckDBNativeContractAdapter({ ...options });
+    const before = await normal.inspectContext();
+    // No input metadata is needed for this setting-dependent result descriptor.
+    const sql = candidate("SELECT 5 / 2 AS value");
+    const baseline = await acquireNativeQueryContract({ adapter: normal, context: before, candidate: sql });
+    strict.equal(baseline.status, "acquired", JSON.stringify(baseline));
+    const changed = createNodeDuckDBNativeContractAdapter({
+      ...options,
+      sdkImporter: async () => alteredSDK(["SET integer_division=true"]),
+    });
+    const after = await changed.inspectContext();
+    strict.equal(after.schemaHash, before.schemaHash, "The compiler schema stays fixed");
+    strict.equal(after.codecHash, before.codecHash, "The decoding policy stays fixed");
+    strict.notEqual(after.databaseContextHash, before.databaseContextHash);
+    strict.deepEqual(await acquireNativeQueryContract({ adapter: changed, context: before, candidate: sql }), {
+      status: "unavailable",
+      reason: "context-mismatch",
+    });
+    const fresh = await acquireNativeQueryContract({ adapter: changed, context: after, candidate: sql });
+    strict.equal(fresh.status, "acquired");
+    if (baseline.status !== "acquired" || fresh.status !== "acquired") throw Error("Missing setting descriptors");
+    strict.notDeepEqual(
+      baseline.contract.nativeEvidence?.columns[0]?.nativeType,
+      fresh.contract.nativeEvidence?.columns[0]?.nativeType,
+      "The actual integer-division setting changes the native expression result type",
+    );
+    const searchPath = createNodeDuckDBNativeContractAdapter({
+      ...options,
+      sdkImporter: async () => alteredSDK(["CREATE SCHEMA context_probe", "SET search_path='context_probe'"]),
+    });
+    await strict.rejects(searchPath.inspectContext(), /unsupported-context/u);
+    await strict.rejects(
+      acquireNativeQueryContract({ adapter: searchPath, context: before, candidate: sql }),
+      /unsupported-context/u,
+    );
+  });
+
   await it("opens existing files read-only, captures catalog drift and rejects case-insensitive macro shadowing", async () => {
     const directory = await mkdtemp(join(tmpdir(), "typed-sql-duck-contract-"));
     const path = join(directory, "project.duckdb");

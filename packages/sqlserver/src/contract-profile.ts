@@ -2,7 +2,7 @@ import { type ContractInterpreterIdentity, canonicalContractData, queryContractD
 import { defaultSqlServerTypePolicy, type SqlServerTypePolicy, validateSqlServerTypePolicy } from "./type-policy.js";
 import { SQLSERVER_VOCABULARY_REVISION } from "./vocabulary-identity.js";
 
-export const sqlServerContractAdapterVersion = "sqlserver-log-guarded-describe-v3";
+export const sqlServerContractAdapterVersion = "sqlserver-log-guarded-describe-v4";
 export const sqlServerContractReconciliationOwner = Object.freeze({
   id: "@typed-sql/sqlserver/reconciliation",
   version: "sqlserver-contract-reconciliation-v3",

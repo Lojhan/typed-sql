@@ -153,6 +153,9 @@ The guard binds database/recovery identity, connection, log position, session se
 catalog metadata. It requires database `VIEW DEFINITION` and the server permissions required by
 `sys.dm_db_log_stats` and `sys.dm_exec_connections`. Concurrent log activity can conservatively
 invalidate an acquisition. Missing permissions or changed settings do not permit an unguarded fallback.
+Contexts include original/current login names and SIDs, database-user identity, and explicit/effective
+permissions. Missing or malformed identity metadata declines acquisition. Regenerate native contracts
+when the adapter compatibility identity changes.
 
 This profile accepts plain SELECT expressions, projections, stars, filters and ordinary joins with
 canonical rendered parameters. Table sources use explicit two-part names such as `dbo.records`.

@@ -9,9 +9,9 @@ authorization, schema or session settings to manufacture a compatible context.
 | --- | --- | --- | --- | --- | --- |
 | PostgreSQL 18.3 | Actual principal change and permission grant reject the old context | Actual search-path change rejects the old context | Actual time-zone change rejects the old context | Actual BIGINT policy change changes type-policy/codec identities and rejects reuse | Native acquisition supports 18; other qualified grammar majors reject acquisition in the native helper. An actual engine replacement is not tested here. |
 | MySQL 8.4.11 / 9.7.2 | Actual principal, direct grant, active role and effective role grant changes reject prior context | Actual selected-database change rejects prior context | Actual time-zone change rejects prior context; changed SQL mode declines qualification | Actual BIGINT policy change changes identities and rejects reuse on both engines | Both exact engines run independently; replacement using an old context remains unverified |
-| DuckDB 1.5.6 / 2.0.0 | The supported owned embedded connection has no database-user authorization API; host file authorization is outside native metadata | Nondefault search paths are declined; actual path mutation remains unverified | Owned connection settings are guarded; actual setting mutation remains unverified | Actual BIGINT policy change changes identities and rejects reuse on both engines | Both SDK engines run independently; cross-engine reuse remains unverified |
+| DuckDB 1.5.6 / 2.0.0 | The supported owned embedded connection has no database-user authorization API; host file authorization is outside native metadata | Actual nondefault search-path mutation declines context inspection and old-context acquisition | Actual integer-division setting mutation changes the native result type and rejects prior context with unchanged compiler schema and codec policy | Actual BIGINT policy change changes identities and rejects reuse on both engines | Each engine acquires its own context and rejects the other engine's recorded context, in separate processes with the same compiler schema/policy |
 | SQLite 3.53.4, Node 24.22.2 | The supported embedded connection has no database-user authorization API; host file authorization is outside native metadata | Worker authorizer admits the main database only; arbitrary attachments/search paths are outside the profile | Owned worker forces its declared read-only settings; setting mutation is outside the worker protocol | Actual integer policy change changes identities and rejects reuse | Actual version/source/compile-option evidence is fingerprinted; engine replacement remains unverified |
-| SQL Server 14–17, ten compatibility pairs | Actual grant/revoke changes reject prior context on all ten pairs; principal mutation remains unverified | Two-part ordinary local tables only; default-schema mutation remains unverified | Exact server evidence is checked; actual setting mutation remains unverified | Actual BIGINT policy mutation rejects prior context on all ten pairs | Each exact engine/compatibility pair runs independently; replacement using an old context remains unverified |
+| SQL Server 14–17, ten compatibility pairs | Actual grant/revoke changes reject prior context on all ten pairs. Login-name/SID fingerprint controls pass locally; actual impersonation proof awaits hosted qualification | Two-part ordinary local tables only; default-schema mutation remains unverified | Exact server evidence is checked; actual DATEFIRST mutation proof awaits hosted qualification | Actual BIGINT policy mutation rejects prior context on all ten pairs | Each exact engine/compatibility pair runs independently; replacement using an old context remains unverified |
 
 PostgreSQL mutation proof is in [postgres-context-mutations.ts](../../test/helpers/postgres-context-mutations.ts).
 It keeps the compiler schema fixed while changing the actual native environment, then attempts
@@ -41,6 +41,16 @@ Policy isolation is also asserted in the [MySQL native helper](../../test/helper
 on PostgreSQL 18.3 and MySQL 8.4.11/9.7.2; embedded suites pass on both DuckDB SDKs and SQLite.
 SQL Server permission/codec mutation cases and cleanup pass on all ten pairs in [run 42597621667](https://github.com/Lojhan/typed-sql/actions/runs/42597621667).
 
+DuckDB's actual session mutations now pass on both SDKs. The setting test changes
+`integer_division` before the owned acquisition starts, keeps the compiler schema/codec fixed,
+verifies that the native result identity changes and refuses the old context. Nondefault search
+paths remain unsupported rather than inheriting default-path evidence. The declared-profile
+runner discovers every pinned engine from the owner policy/package manifest, captures each
+actual context in a separate process and verifies every cross-engine pair. Each engine still
+acquires its own context; a context from the other engine yields `context-mismatch`. This does
+not claim compatibility of database files created by different engines. Node native SDKs never
+share a process.
+
 SQL Server source review exposed a missing explicit-permission fingerprint: the principal token
 alone did not account for a grant that left the principal and schema unchanged. Native contexts
 now also include bounded database permission records and effective database/server permissions.
@@ -50,6 +60,17 @@ Unit controls cover each evidence set and reject overlarge permission inventorie
 regression grants SELECT to an otherwise unrelated database role, keeps the current principal
 and compiler schema fixed, and requires the previous context to be rejected before revoking
 the grant. Native adapter identity changes require regeneration of prior SQL Server contracts.
+
+The login identity review additionally finds that a database token alone does not identify the
+current server login when multiple sysadmins map to `dbo`. Contexts now fingerprint validated
+original/current login names, login SID, database-user name and SID. Unit controls hold other
+context facts fixed, mutate every identity field and reject prior contexts; missing, malformed
+and overlarge metadata are unavailable. The adapter identity advances to v4. The actual native
+probe creates a disposable server login before baseline capture, impersonates it on an owned
+exclusive lease and requires old-context rejection with unchanged compiler schema and codec.
+It also changes DATEFIRST and requires unsupported-context failure. Login/database cleanup is
+recorded even on failure. These new SQL Server native cases still require hosted execution;
+unit evidence is not substituted for that proof.
 
 Schema/routine changes already have separate native evidence: PostgreSQL routine and table
 mutations, MySQL table DDL, SQLite schema-version changes, DuckDB macro/catalog changes, and

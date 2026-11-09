@@ -78,6 +78,8 @@ export const sqlServerContractContextQueries = Object.freeze({
   modules:
     "SELECT object_id,definition,uses_ansi_nulls,uses_quoted_identifier,is_schema_bound,execute_as_principal_id FROM sys.sql_modules ORDER BY object_id",
   principal: "SELECT name,type,usage FROM sys.user_token ORDER BY name,type,usage",
+  loginPrincipal:
+    "SELECT ORIGINAL_LOGIN() AS original_login,SUSER_SNAME() AS current_login,CONVERT(varchar(172),SUSER_SID(),1) AS login_sid,USER_NAME() AS database_user,CONVERT(varchar(172),USER_SID(),1) AS database_user_sid",
   permissions:
     "SELECT TOP (20001) class,major_id,minor_id,grantee_principal_id,grantor_principal_id,type,state FROM sys.database_permissions ORDER BY class,major_id,minor_id,grantee_principal_id,grantor_principal_id,type,state",
   effectiveDatabasePermissions:
@@ -420,6 +422,7 @@ export function createSqlServerNativeContractAdapter(
         "types",
         "modules",
         "principal",
+        "loginPrincipal",
         "permissions",
         "effectiveDatabasePermissions",
         "effectiveServerPermissions",
@@ -429,6 +432,17 @@ export function createSqlServerNativeContractAdapter(
         const rows = await all(sqlServerContractContextQueries[key], undefined, initialSignal);
         if (rows.length > (key === "columns" ? 65536 : 20000))
           throw new SqlServerContractAcquisitionError("unsupported-context");
+        if (key === "loginPrincipal") {
+          if (rows.length !== 1) throw new SqlServerContractAcquisitionError("unsupported-context");
+          for (const name of ["original_login", "current_login", "database_user"]) {
+            const value = rows[0]![name];
+            if (typeof value !== "string" || !value.length || value.length > 128 || value.includes("\0"))
+              throw new SqlServerContractAcquisitionError("unsupported-context");
+          }
+          for (const name of ["login_sid", "database_user_sid"])
+            if (typeof rows[0]![name] !== "string" || !/^0x(?:[a-f0-9]{2}){1,85}$/iu.test(rows[0]![name] as string))
+              throw new SqlServerContractAcquisitionError("unsupported-context");
+        }
         catalog[key] = rows;
       }
       const selected = Object.freeze<QueryContractContext>({

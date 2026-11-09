@@ -1,5 +1,7 @@
 import { spawn } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DUCKDB_SUPPORT_POLICY } from "../src/support-policy.ts";
 
@@ -20,30 +22,45 @@ const targets = DUCKDB_SUPPORT_POLICY.qualifiedEngines.map((engine) => {
   return { engine, name: matches[0][0] };
 });
 if (!targets.some((target) => target.name === current)) throw Error("Current SDK is not a qualified declared target");
-for (const target of targets) {
-  if (skipCurrent && target.name === current) continue;
-  process.stdout.write(`Qualifying DuckDB ${target.engine} through ${target.name}\n`);
-  const child = spawn(
-    process.execPath,
-    [
-      "--input-type=module",
-      "-e",
-      "import {poku} from 'poku'; await poku(['test/native-contracts.test.ts'],{reporter:'compact',enforce:true});",
-    ],
-    {
-      cwd: root,
-      env: {
-        ...process.env,
-        TYPED_SQL_DUCKDB_SDK_PACKAGE: target.name,
-        TYPED_SQL_DUCKDB_EXPECTED_ENGINE: `v${target.engine}`,
-      },
-      stdio: "inherit",
+async function run(target, args) {
+  const child = spawn(process.execPath, args, {
+    cwd: root,
+    env: {
+      ...process.env,
+      TYPED_SQL_DUCKDB_SDK_PACKAGE: target.name,
+      TYPED_SQL_DUCKDB_EXPECTED_ENGINE: `v${target.engine}`,
     },
-  );
+    stdio: "inherit",
+  });
   await new Promise((resolve, reject) => {
     child.once("error", reject);
     child.once("exit", (code, signal) =>
       code === 0 ? resolve() : reject(Error(`DuckDB ${target.engine} qualification failed (${signal ?? code})`)),
     );
   });
+}
+for (const target of targets) {
+  if (skipCurrent && target.name === current) continue;
+  process.stdout.write(`Qualifying DuckDB ${target.engine} through ${target.name}\n`);
+  await run(target, [
+    "--input-type=module",
+    "-e",
+    "import {poku} from 'poku'; await poku(['test/native-contracts.test.ts'],{reporter:'compact',enforce:true});",
+  ]);
+}
+const directory = await mkdtemp(join(tmpdir(), "typed-sql-duck-engine-context-"));
+try {
+  const file = (target) => join(directory, `${target.engine}.json`);
+  // Collect actual contexts first; then attempt every cross-engine reuse in fresh SDK processes.
+  for (const target of targets) await run(target, ["--import", "tsx", "test/helpers/engine-context.ts", file(target)]);
+  for (const target of targets)
+    await run(target, [
+      "--import",
+      "tsx",
+      "test/helpers/engine-context.ts",
+      file(target),
+      ...targets.filter((other) => other !== target).map(file),
+    ]);
+} finally {
+  await rm(directory, { recursive: true, force: true });
 }

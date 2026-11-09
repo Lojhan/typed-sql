@@ -48,6 +48,8 @@ async function stableContext(adapter, compatibility, stage) {
   throw Error("No stable native context observed");
 }
 let created = false;
+let principalCreated = false;
+const principal = `${name}_principal`;
 const failures = [];
 const profile = sqlserverProfile();
 const candidate = (sql, schema) => ({
@@ -56,16 +58,25 @@ const candidate = (sql, schema) => ({
     .parameterOccurrences(sql, schema)
     .map(({ index, range }) => ({ index, start: range.start, end: range.end })),
 });
-const pool = {
+const servicePool = (setupStatements = []) => ({
   async acquire() {
     const database = await createSqlServerOdbcDatabase({ connectionString: dsn(name) });
+    try {
+      for (const statement of setupStatements) await database.queryable.all(statement);
+    } catch (error) {
+      const [closed] = await Promise.allSettled([database.close()]);
+      if (closed.status === "rejected")
+        throw new AggregateError([error, closed.reason], "Fixture setup and cleanup failed");
+      throw error;
+    }
     return {
       all: (text, values) => database.queryable.all(text, values),
       release: () => database.close(),
       discard: () => database.close(),
     };
   },
-};
+});
+const pool = servicePool();
 try {
   await admin.queryable.all(`CREATE DATABASE [${name}]`);
   created = true;
@@ -89,6 +100,13 @@ try {
   } finally {
     await setup.close();
   }
+  // This probe owns its disposable server. Create the login before baseline capture so the
+  // impersonation proof changes only session identity, not server/database permission records.
+  await admin.queryable.all(
+    `CREATE LOGIN [${principal}] WITH PASSWORD='Audit_1_${randomBytes(24).toString("hex")}',CHECK_POLICY=OFF`,
+  );
+  principalCreated = true;
+  await admin.queryable.all(`ALTER SERVER ROLE sysadmin ADD MEMBER [${principal}]`);
   for (const compatibility of [140, 150, 160, 170].filter((level) => level <= major * 10)) {
     await admin.queryable.all(`ALTER DATABASE [${name}] SET COMPATIBILITY_LEVEL=${compatibility}`);
     const connection = await createSqlServerOdbcDatabase({ connectionString: dsn(name) });
@@ -113,6 +131,35 @@ try {
     assert.equal(schema.server.settings.compatibilityLevel, compatibility);
     const adapter = createSqlServerNativeContractAdapter({ pool, schema });
     const baselineContext = await stableContext(adapter, compatibility, "baseline");
+    const principalAdapter = createSqlServerNativeContractAdapter({
+      pool: servicePool([`EXECUTE AS LOGIN='${principal}'`]),
+      schema,
+    });
+    const principalContext = await stableContext(principalAdapter, compatibility, "authorization-principal");
+    assert.equal(principalContext.schemaHash, baselineContext.schemaHash);
+    assert.equal(principalContext.codecHash, baselineContext.codecHash);
+    assert.notEqual(principalContext.databaseContextHash, baselineContext.databaseContextHash);
+    assert.deepEqual(
+      await acquireNativeQueryContract({
+        adapter: principalAdapter,
+        context: baselineContext,
+        candidate: candidate("SELECT CAST(@__typed_sql_1 AS bigint) AS value", schema),
+      }),
+      { status: "unavailable", reason: "context-mismatch" },
+      "Distinct server logins cannot reuse context even when both map to dbo with sysadmin permissions",
+    );
+    evidence.cases.push({ compatibility, id: "principal-context-mismatch", status: "pass" });
+    const settingAdapter = createSqlServerNativeContractAdapter({ pool: servicePool(["SET DATEFIRST 1"]), schema });
+    await assert.rejects(settingAdapter.inspectContext(), /unsupported-context/u);
+    await assert.rejects(
+      acquireNativeQueryContract({
+        adapter: settingAdapter,
+        context: baselineContext,
+        candidate: candidate("SELECT CAST(@__typed_sql_1 AS bigint) AS value", schema),
+      }),
+      /unsupported-context/u,
+    );
+    evidence.cases.push({ compatibility, id: "semantic-setting-unavailable", status: "pass" });
     const changedPolicyAdapter = createSqlServerNativeContractAdapter({
       pool,
       schema,
@@ -231,9 +278,13 @@ try {
 const [cleanup] = await Promise.allSettled([
   (async () => {
     try {
-      if (created) {
-        await admin.queryable.all(`ALTER DATABASE [${name}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE`);
-        await admin.queryable.all(`DROP DATABASE [${name}]`);
+      try {
+        if (created) {
+          await admin.queryable.all(`ALTER DATABASE [${name}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE`);
+          await admin.queryable.all(`DROP DATABASE [${name}]`);
+        }
+      } finally {
+        if (principalCreated) await admin.queryable.all(`DROP LOGIN [${principal}]`);
       }
     } finally {
       await admin.close();
