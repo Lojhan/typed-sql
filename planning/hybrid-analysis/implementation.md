@@ -771,3 +771,20 @@ under bigint/number policies. The full 28-file MySQL and 17-file SQLite coverage
 build/types, soundness, packed consumers/editors, docs, quality and isolated performance checks
 pass. See the [MySQL proof](./mysql-native-proof.md), [SQLite proof](./sqlite-codec-proof.md) and
 [project report](./project-size.md). Full architecture acceptance remains incomplete.
+
+## Tracked source and data accounting
+
+The [repository ownership/topology report](./repository-size.md) measures source at 21856214
+against the PR base and the exact +486,674 / −67,823 proposal. The tool reads Git blobs, separates
+header-declared generated code from maintained code and captured data, and reproduces all three
+independent Git line deltas. Five vendor fact catalogs (175,882 lines) and the separate 165,165-line
+upstream registry are absent; required native/reference audit fixtures remain. Relative to the PR
+base, maintained package source adds 13,487 lines, generated package source adds 659 and tests/E2E
+add 17,679. These are physical lines, not production bundle sizes or final core/pack projections.
+
+CI run 42541625378 completes with 41 successful jobs, including the source-quality lane, all
+SQLite matrix/audit targets and the repaired DuckDB packed launcher. The required aggregate fails
+on the PostgreSQL 18.6 migration fixture's extension namespace assumption; its exact role/name
+reproduction and full disconnected-consumer helper pass after the fixture correction. The next
+remote run must verify that fix. The unqualified MySQL canary is advisory and still rejects native
+acquisition outside the owner profile. This does not establish final architecture acceptance.
