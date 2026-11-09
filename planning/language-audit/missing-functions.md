@@ -12,6 +12,8 @@ The SQLite reference is unversioned and can include compile-option or extension 
 
 PostgreSQL keyword classifications come from the selected major's generated native reservation metadata, including unreserved, column-name, type/function-name and reserved classes. These classifications establish identifier context rules, not support for every associated syntax production.
 
+SQLite keyword classifications use source-owned build guards, identifier fallback/classes and contextual lexer rules. Explicit names and bare aliases have different permissions, and expression shifts can further restrict a bare column alias. These are lexical/context observations rather than complete syntax support.
+
 ## Coverage
 
 A number means the upstream inventory was observed. `—` means unavailable in that source, with the reason recorded in the baseline. Discovery coverage and semantic coverage are separate; unavailable and unverified categories never count as supported.

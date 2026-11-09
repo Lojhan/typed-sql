@@ -1,3 +1,4 @@
+import type { SqliteKeyword } from "../vocabulary/types.js";
 export interface SourceRange {
   readonly start: number;
   readonly end: number;
@@ -17,6 +18,7 @@ export type TokenKind =
   | "eof";
 
 export interface Token {
+  readonly nativeKeyword?: SqliteKeyword;
   readonly kind: TokenKind;
   readonly text: string;
   readonly value: string;

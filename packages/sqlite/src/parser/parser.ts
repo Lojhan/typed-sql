@@ -105,10 +105,12 @@ const typeContinuationWords = new Set([
 
 class Parser {
   readonly #source: string;
+  readonly #nativeVocabulary: boolean;
   readonly #cursor: TokenCursor;
 
   constructor(source: string, options: ParseOptions) {
     this.#source = source;
+    this.#nativeVocabulary = options.keywordLookup !== undefined;
     this.#cursor = new TokenCursor(tokenize(source, options), {
       maxDepth: options.maxDepth ?? DEFAULT_MAX_PARSE_DEPTH,
     });
@@ -509,8 +511,7 @@ class Parser {
       const expression = this.#parseExpression();
       let alias: Identifier | undefined;
       if (this.#matchKeyword("AS")) alias = this.#parseIdentifier();
-      else if (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier")
-        alias = this.#parseIdentifier();
+      else if (this.#canIdentifier(this.#current(), "bareColumnAlias")) alias = this.#parseIdentifier();
       items.push({
         expression,
         ...(alias === undefined ? {} : { alias }),
@@ -530,8 +531,8 @@ class Parser {
       const statement = this.#parseStatement();
       if (statement.kind !== "select") throw this.#error("FROM subquery must be SELECT", statement.range);
       this.#expectPunctuation(")");
-      this.#matchKeyword("AS");
-      const alias = this.#parseIdentifier();
+      const hasAs = this.#matchKeyword("AS");
+      const alias = this.#parseIdentifier(false, hasAs ? "identifier" : "bareAlias");
       return { kind: "subquery", query: statement, alias, lateral, range: mergeRanges(start, alias.range) };
     }
     const first = this.#parseIdentifier();
@@ -547,8 +548,7 @@ class Parser {
       const close = emptyArgs ? this.#previous() : this.#expectPunctuation(")");
       let alias: Identifier | undefined;
       if (this.#matchKeyword("AS")) alias = this.#parseIdentifier();
-      else if (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier")
-        alias = this.#parseIdentifier();
+      else if (this.#canIdentifier(this.#current(), "bareAlias")) alias = this.#parseIdentifier();
       return {
         kind: "table-function",
         name: tableName,
@@ -582,8 +582,7 @@ class Parser {
   ): NamedTableReference {
     let alias: Identifier | undefined;
     if (allowAlias && this.#matchKeyword("AS")) alias = this.#parseIdentifier();
-    else if (allowAlias && (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier"))
-      alias = this.#parseIdentifier();
+    else if (allowAlias && this.#canIdentifier(this.#current(), "bareAlias")) alias = this.#parseIdentifier();
     return {
       kind: "table",
       name,
@@ -775,21 +774,21 @@ class Parser {
       this.#expectPunctuation(")");
       return first;
     }
-    if (this.#matchKeyword("ARRAY")) {
+    if (this.#peekToken(1).value === "[" && this.#matchKeyword("ARRAY")) {
       this.#expectPunctuation("[");
       const emptyElements = this.#matchPunctuation("]");
       const elements = emptyElements ? [] : [...this.#parseExpressionList()];
       const close = emptyElements ? this.#previous() : this.#expectPunctuation("]");
       return { kind: "array", elements, range: mergeRanges(token.range, close.range) };
     }
-    if (this.#matchKeyword("ROW")) {
+    if (this.#peekToken(1).value === "(" && this.#matchKeyword("ROW")) {
       this.#expectPunctuation("(");
       const emptyElements = this.#matchPunctuation(")");
       const elements = emptyElements ? [] : [...this.#parseExpressionList()];
       const close = emptyElements ? this.#previous() : this.#expectPunctuation(")");
       return { kind: "row", elements, range: mergeRanges(token.range, close.range) };
     }
-    if (this.#matchKeyword("CAST")) return this.#parseCast(token.range);
+    if (this.#peekToken(1).value === "(" && this.#matchKeyword("CAST")) return this.#parseCast(token.range);
     if (this.#matchKeyword("CASE")) return this.#parseCase(token.range);
     if (this.#matchKeyword("NULL")) return { kind: "literal", value: null, range: token.range };
     if (this.#matchKeyword("TRUE")) return { kind: "literal", value: true, range: token.range };
@@ -810,12 +809,14 @@ class Parser {
     }
     if (this.#matchOperator("*")) return { kind: "star", range: token.range };
     if (this.#isIdentifierLike(token)) {
+      if (this.#nativeVocabulary && !this.#canIdentifier(token, "expression"))
+        throw this.#error(`Keyword ${token.text} requires its SQLite syntax production or quoting`, token.range);
       const first = this.#parseIdentifier(true);
       if (this.#matchPunctuation("(")) return this.#parseCall(undefined, first);
       if (this.#matchPunctuation(".")) {
         if (this.#matchOperator("*"))
           return { kind: "star", relation: first, range: mergeRanges(first.range, this.#previous().range) };
-        const second = this.#parseIdentifier(true);
+        const second = this.#parseIdentifier();
         if (this.#matchPunctuation("(")) return this.#parseCall(first, second);
         return { kind: "column", relation: first, column: second, range: mergeRanges(first.range, second.range) };
       }
@@ -843,8 +844,7 @@ class Parser {
     }
     let over: Identifier | WindowSpecification | undefined;
     if (this.#matchKeyword("OVER")) {
-      if (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier")
-        over = this.#parseIdentifier();
+      if (this.#canIdentifier(this.#current(), "identifier")) over = this.#parseIdentifier();
       else over = this.#parseWindowSpecification();
       close = { ...close, range: over.range };
     }
@@ -867,7 +867,7 @@ class Parser {
     let orderBy: OrderByItem[] = [];
     let frame: WindowSpecification["frame"];
     if (
-      (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier") &&
+      this.#canIdentifier(this.#current(), "identifier") &&
       !["PARTITION", "ORDER", "ROWS", "RANGE", "GROUPS"].includes(this.#current().value)
     ) {
       base = this.#parseIdentifier();
@@ -1029,13 +1029,30 @@ class Parser {
     };
   }
 
-  #parseIdentifier(allowKeyword = false): Identifier {
+  #parseIdentifier(
+    allowKeyword = false,
+    role: "identifier" | "bareAlias" | "bareColumnAlias" | "expression" = "identifier",
+  ): Identifier {
     const token = this.#current();
-    if (!this.#isIdentifierLike(token) || (token.kind === "keyword" && !allowKeyword)) {
+    if (!this.#isIdentifierLike(token) || (!allowKeyword && !this.#canIdentifier(token, role))) {
       throw this.#error(`Expected identifier, found ${token.text || "end of query"}`, token.range);
     }
     this.#advance();
     return { name: token.value, quoted: token.kind === "quoted-identifier", range: token.range };
+  }
+
+  #canIdentifier(token: Token, role: "identifier" | "bareAlias" | "bareColumnAlias" | "expression"): boolean {
+    if (token.kind === "quoted-identifier") return true;
+    if (!this.#isIdentifierLike(token)) return false;
+    if (!this.#nativeVocabulary) return token.kind === "identifier";
+    if (
+      role === "bareAlias" &&
+      token.value === "FOR" &&
+      ["UPDATE", "NO", "KEY", "SHARE"].includes(this.#peekToken(1).value)
+    )
+      return false;
+    if (token.nativeKeyword?.contextual && token.kind === "keyword") return false;
+    return token.nativeKeyword?.[role] ?? true;
   }
 
   #isIdentifierLike(token: Token): boolean {

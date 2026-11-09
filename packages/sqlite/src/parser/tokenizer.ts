@@ -1,17 +1,20 @@
 import { sqliteAsciiUpper } from "../identifier-case.js";
+import type { SqliteKeywordLookup } from "../vocabulary/types.js";
 import type { SourceRange, Token, TokenKind } from "./types.js";
 
 export const DEFAULT_MAX_SQL_LENGTH = 1_000_000;
 export const DEFAULT_MAX_TOKENS = 100_000;
 
 export interface TokenizeOptions {
+  readonly keywordLookup?: SqliteKeywordLookup;
   /** SQL asset frontend only; ordinary SQL analysis does not enable named bindings. */
   readonly sqlFileParameters?: boolean;
   readonly maxSqlLength?: number;
   readonly maxTokens?: number;
 }
 
-const keywords = new Set([
+// Parser terminals are distinct from the complete vendor keyword vocabulary.
+const syntaxWords = new Set([
   "ABORT",
   "ALL",
   "AND",
@@ -178,6 +181,7 @@ function isWordPart(value: string): boolean {
 
 class Scanner {
   readonly #source: string;
+  readonly #keywordLookup: SqliteKeywordLookup | undefined;
   readonly #maxTokens: number;
   #index = 0;
   #line = 1;
@@ -200,6 +204,7 @@ class Scanner {
       );
     }
     this.#source = source;
+    this.#keywordLookup = options.keywordLookup;
     this.#sqlFileParameters = options.sqlFileParameters === true;
   }
 
@@ -219,6 +224,27 @@ class Scanner {
     }
     const position = this.#position();
     tokens.push(this.#token("eof", "", "", position));
+    if (this.#keywordLookup !== undefined) {
+      const lookaheadId = (token: Token | undefined): boolean =>
+        token !== undefined &&
+        (token.kind === "quoted-identifier" ||
+          token.kind === "string" ||
+          ((token.kind === "identifier" || token.kind === "keyword") && (token.nativeKeyword?.lookahead ?? true)));
+      for (let index = 0; index < tokens.length; index++) {
+        const token = tokens[index]!,
+          keyword = token.nativeKeyword;
+        if (!keyword?.contextual) continue;
+        const next = tokens[index + 1],
+          previous = tokens[index - 1];
+        let syntax: boolean;
+        if (keyword.token === "WINDOW") syntax = lookaheadId(next) && tokens[index + 2]?.nativeKeyword?.token === "AS";
+        else if (keyword.token === "OVER")
+          syntax = previous?.value === ")" && (next?.value === "(" || lookaheadId(next));
+        else if (keyword.token === "FILTER") syntax = previous?.value === ")" && next?.value === "(";
+        else throw new SqlTokenizeError("Unsupported SQLite contextual keyword classifier", token.range, "TSQ401");
+        if (!syntax) tokens[index] = { ...token, kind: "identifier", value: token.text };
+      }
+    }
     return tokens;
   }
 
@@ -275,8 +301,12 @@ class Scanner {
     while (isWordPart(this.#peek())) this.#advance();
     const text = this.#source.slice(start.index, this.#index);
     const upper = sqliteAsciiUpper(text);
-    const kind: TokenKind = keywords.has(upper) ? "keyword" : "identifier";
-    return this.#token(kind, text, kind === "keyword" ? upper : text, start);
+    const nativeKeyword = this.#keywordLookup?.(text);
+    const terminal =
+      this.#keywordLookup === undefined || nativeKeyword !== undefined || !this.#keywordLookup.isDeclared(upper);
+    const kind: TokenKind = terminal && syntaxWords.has(upper) ? "keyword" : "identifier";
+    const token = this.#token(kind, text, kind === "keyword" ? upper : text, start);
+    return nativeKeyword === undefined ? token : { ...token, nativeKeyword };
   }
 
   #scanNumber(start: Position): Token {

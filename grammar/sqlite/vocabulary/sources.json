@@ -1,0 +1,595 @@
+{
+  "formatVersion": 1,
+  "grammar": "sqlite",
+  "profiles": [
+    {
+      "version": "3.39.0",
+      "revision": "47d8c40ca522babfadf3f774d9869cf5f6a5896e",
+      "files": {
+        "tool/mkkeywordhash.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/47d8c40ca522babfadf3f774d9869cf5f6a5896e/tool/mkkeywordhash.c",
+          "digest": "sha256:58b6c69316b3bd274f1a48406c20183b10452f98b590c88854017a7ad64c02e1",
+          "bytes": 26596
+        },
+        "src/parse.y": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/47d8c40ca522babfadf3f774d9869cf5f6a5896e/src/parse.y",
+          "digest": "sha256:4b0ddfce3a693f5ba8eaa2fe7fbaf9c6559b71a56d6218897f660b691a800622",
+          "bytes": 68003
+        },
+        "LICENSE.md": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/47d8c40ca522babfadf3f774d9869cf5f6a5896e/LICENSE.md",
+          "digest": "sha256:9c6479123f32a1ed50d9a0af203dfe8972e65035b0cdeef436b5f8d0924517fe",
+          "bytes": 263
+        },
+        "src/tokenize.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/47d8c40ca522babfadf3f774d9869cf5f6a5896e/src/tokenize.c",
+          "digest": "sha256:d38c8290b19a86369e43d4724cbccaec58730b10f783b2d59abbd1cdf0103d3b",
+          "bytes": 28027
+        },
+        "VERSION": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/47d8c40ca522babfadf3f774d9869cf5f6a5896e/VERSION",
+          "digest": "sha256:ea637c70b31469daf6aa7785c8a5d47d76b8003d8b96540f3d5f25719dd0a452",
+          "bytes": 7
+        }
+      }
+    },
+    {
+      "version": "3.40.0",
+      "revision": "2f2c5e2061cfebfad6b9aca4950d960caec073d8",
+      "files": {
+        "VERSION": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/2f2c5e2061cfebfad6b9aca4950d960caec073d8/VERSION",
+          "digest": "sha256:6e45aa5fc4a3bcf5cff28df440dba2769825b0993591bd39c0827812e572328e",
+          "bytes": 7
+        },
+        "src/parse.y": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/2f2c5e2061cfebfad6b9aca4950d960caec073d8/src/parse.y",
+          "digest": "sha256:4b0ddfce3a693f5ba8eaa2fe7fbaf9c6559b71a56d6218897f660b691a800622",
+          "bytes": 68003
+        },
+        "tool/mkkeywordhash.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/2f2c5e2061cfebfad6b9aca4950d960caec073d8/tool/mkkeywordhash.c",
+          "digest": "sha256:58b6c69316b3bd274f1a48406c20183b10452f98b590c88854017a7ad64c02e1",
+          "bytes": 26596
+        },
+        "src/tokenize.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/2f2c5e2061cfebfad6b9aca4950d960caec073d8/src/tokenize.c",
+          "digest": "sha256:4fb93214a358435a49f7429452b523700efb1e53897c0c0c4c48075838bdfeb3",
+          "bytes": 28051
+        },
+        "LICENSE.md": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/2f2c5e2061cfebfad6b9aca4950d960caec073d8/LICENSE.md",
+          "digest": "sha256:9c6479123f32a1ed50d9a0af203dfe8972e65035b0cdeef436b5f8d0924517fe",
+          "bytes": 263
+        }
+      }
+    },
+    {
+      "version": "3.41.0",
+      "revision": "3b832a1a29a6f1ffa3030c5dc1f734919f1bebd4",
+      "files": {
+        "VERSION": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/3b832a1a29a6f1ffa3030c5dc1f734919f1bebd4/VERSION",
+          "digest": "sha256:b5cc63c527ad4f8bce5528ca460a56b0ce150263a06c7e705b317a69d92b40c6",
+          "bytes": 7
+        },
+        "src/parse.y": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/3b832a1a29a6f1ffa3030c5dc1f734919f1bebd4/src/parse.y",
+          "digest": "sha256:95b12dd700d61278b8359af4962b61e714899fb3b5db25f0b294c1e588c5c497",
+          "bytes": 68238
+        },
+        "LICENSE.md": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/3b832a1a29a6f1ffa3030c5dc1f734919f1bebd4/LICENSE.md",
+          "digest": "sha256:9c6479123f32a1ed50d9a0af203dfe8972e65035b0cdeef436b5f8d0924517fe",
+          "bytes": 263
+        },
+        "src/tokenize.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/3b832a1a29a6f1ffa3030c5dc1f734919f1bebd4/src/tokenize.c",
+          "digest": "sha256:4fb93214a358435a49f7429452b523700efb1e53897c0c0c4c48075838bdfeb3",
+          "bytes": 28051
+        },
+        "tool/mkkeywordhash.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/3b832a1a29a6f1ffa3030c5dc1f734919f1bebd4/tool/mkkeywordhash.c",
+          "digest": "sha256:58b6c69316b3bd274f1a48406c20183b10452f98b590c88854017a7ad64c02e1",
+          "bytes": 26596
+        }
+      }
+    },
+    {
+      "version": "3.42.0",
+      "revision": "89efa897780db03eac974eb6b0e041cfb7c39733",
+      "files": {
+        "tool/mkkeywordhash.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/89efa897780db03eac974eb6b0e041cfb7c39733/tool/mkkeywordhash.c",
+          "digest": "sha256:1f08fd1dafdaf2e717e00d41e094a0c227cc38de5712141526e1ca38c42c2d61",
+          "bytes": 26622
+        },
+        "VERSION": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/89efa897780db03eac974eb6b0e041cfb7c39733/VERSION",
+          "digest": "sha256:f0682e1cc6929d5d780eddd4a249c32b27c1f0cb050d400d09517fe121a65df8",
+          "bytes": 7
+        },
+        "src/parse.y": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/89efa897780db03eac974eb6b0e041cfb7c39733/src/parse.y",
+          "digest": "sha256:69999db06ff5032b4b4c3950f74408b48810434bafba2e34f6eb966b11ae9ed7",
+          "bytes": 68196
+        },
+        "src/tokenize.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/89efa897780db03eac974eb6b0e041cfb7c39733/src/tokenize.c",
+          "digest": "sha256:4fb93214a358435a49f7429452b523700efb1e53897c0c0c4c48075838bdfeb3",
+          "bytes": 28051
+        },
+        "LICENSE.md": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/89efa897780db03eac974eb6b0e041cfb7c39733/LICENSE.md",
+          "digest": "sha256:9c6479123f32a1ed50d9a0af203dfe8972e65035b0cdeef436b5f8d0924517fe",
+          "bytes": 263
+        }
+      }
+    },
+    {
+      "version": "3.43.0",
+      "revision": "995f96f8e11036c909b1dec14049999bc23421c6",
+      "files": {
+        "tool/mkkeywordhash.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/995f96f8e11036c909b1dec14049999bc23421c6/tool/mkkeywordhash.c",
+          "digest": "sha256:b596d198b84cb6f092bbeb7b6bb6be8f7d8f730ac11596a2ba7b93af77332ae9",
+          "bytes": 26584
+        },
+        "src/tokenize.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/995f96f8e11036c909b1dec14049999bc23421c6/src/tokenize.c",
+          "digest": "sha256:93993ed466417706a9edeebc2035b927435453c774646480835ce147ce2add91",
+          "bytes": 28127
+        },
+        "src/parse.y": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/995f96f8e11036c909b1dec14049999bc23421c6/src/parse.y",
+          "digest": "sha256:86b8eb54fe37dbfc4de2619c8527a37ec428bcac84e9a3e9e75a8fe90a62f81a",
+          "bytes": 68344
+        },
+        "VERSION": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/995f96f8e11036c909b1dec14049999bc23421c6/VERSION",
+          "digest": "sha256:40747f341bd01bb962fff5c885e38c6951a528a22f32cdae774806d65cae93b0",
+          "bytes": 7
+        },
+        "LICENSE.md": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/995f96f8e11036c909b1dec14049999bc23421c6/LICENSE.md",
+          "digest": "sha256:9c6479123f32a1ed50d9a0af203dfe8972e65035b0cdeef436b5f8d0924517fe",
+          "bytes": 263
+        }
+      }
+    },
+    {
+      "version": "3.44.0",
+      "revision": "66476771b77e3c0df9d406d912486c43ac726fab",
+      "files": {
+        "LICENSE.md": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/66476771b77e3c0df9d406d912486c43ac726fab/LICENSE.md",
+          "digest": "sha256:9c6479123f32a1ed50d9a0af203dfe8972e65035b0cdeef436b5f8d0924517fe",
+          "bytes": 263
+        },
+        "VERSION": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/66476771b77e3c0df9d406d912486c43ac726fab/VERSION",
+          "digest": "sha256:94cb464a918aab64d44a18c45b626156b6dd43f7093d9e4b3c880d1085629614",
+          "bytes": 7
+        },
+        "src/tokenize.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/66476771b77e3c0df9d406d912486c43ac726fab/src/tokenize.c",
+          "digest": "sha256:93993ed466417706a9edeebc2035b927435453c774646480835ce147ce2add91",
+          "bytes": 28127
+        },
+        "tool/mkkeywordhash.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/66476771b77e3c0df9d406d912486c43ac726fab/tool/mkkeywordhash.c",
+          "digest": "sha256:b596d198b84cb6f092bbeb7b6bb6be8f7d8f730ac11596a2ba7b93af77332ae9",
+          "bytes": 26584
+        },
+        "src/parse.y": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/66476771b77e3c0df9d406d912486c43ac726fab/src/parse.y",
+          "digest": "sha256:4867140f553af2cc7a1d167703483707cea246f698ec3596576b5c483dabb305",
+          "bytes": 68730
+        }
+      }
+    },
+    {
+      "version": "3.45.0",
+      "revision": "f352e0a9cf3697c2bdb790705998121aa517fe36",
+      "files": {
+        "src/parse.y": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/f352e0a9cf3697c2bdb790705998121aa517fe36/src/parse.y",
+          "digest": "sha256:4867140f553af2cc7a1d167703483707cea246f698ec3596576b5c483dabb305",
+          "bytes": 68730
+        },
+        "tool/mkkeywordhash.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/f352e0a9cf3697c2bdb790705998121aa517fe36/tool/mkkeywordhash.c",
+          "digest": "sha256:b596d198b84cb6f092bbeb7b6bb6be8f7d8f730ac11596a2ba7b93af77332ae9",
+          "bytes": 26584
+        },
+        "src/tokenize.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/f352e0a9cf3697c2bdb790705998121aa517fe36/src/tokenize.c",
+          "digest": "sha256:93993ed466417706a9edeebc2035b927435453c774646480835ce147ce2add91",
+          "bytes": 28127
+        },
+        "VERSION": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/f352e0a9cf3697c2bdb790705998121aa517fe36/VERSION",
+          "digest": "sha256:8d9ba02b2d67b5397fa4ae35a7dd765b75e8377ab9321a5907126fbfad16e59b",
+          "bytes": 7
+        },
+        "LICENSE.md": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/f352e0a9cf3697c2bdb790705998121aa517fe36/LICENSE.md",
+          "digest": "sha256:9c6479123f32a1ed50d9a0af203dfe8972e65035b0cdeef436b5f8d0924517fe",
+          "bytes": 263
+        }
+      }
+    },
+    {
+      "version": "3.46.0",
+      "revision": "bebe2d8be8acfd02592c4972f4ba32c3b4e4a33f",
+      "files": {
+        "VERSION": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/bebe2d8be8acfd02592c4972f4ba32c3b4e4a33f/VERSION",
+          "digest": "sha256:64f7c5467d4beae1579ca7ed38420994fc81b9e7bd17e43bf631d032167e122f",
+          "bytes": 7
+        },
+        "LICENSE.md": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/bebe2d8be8acfd02592c4972f4ba32c3b4e4a33f/LICENSE.md",
+          "digest": "sha256:9c6479123f32a1ed50d9a0af203dfe8972e65035b0cdeef436b5f8d0924517fe",
+          "bytes": 263
+        },
+        "tool/mkkeywordhash.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/bebe2d8be8acfd02592c4972f4ba32c3b4e4a33f/tool/mkkeywordhash.c",
+          "digest": "sha256:b596d198b84cb6f092bbeb7b6bb6be8f7d8f730ac11596a2ba7b93af77332ae9",
+          "bytes": 26584
+        },
+        "src/tokenize.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/bebe2d8be8acfd02592c4972f4ba32c3b4e4a33f/src/tokenize.c",
+          "digest": "sha256:99b221e7704982603c27d93266823bf5019c4a1857dbb6ce997a42bfd2d3997f",
+          "bytes": 29063
+        },
+        "src/parse.y": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/bebe2d8be8acfd02592c4972f4ba32c3b4e4a33f/src/parse.y",
+          "digest": "sha256:6e8f340dccc258273db9efb60dd2cc034bc2f8a2b5d1d1c00c578dc28fb03d4f",
+          "bytes": 69550
+        }
+      }
+    },
+    {
+      "version": "3.47.0",
+      "revision": "f5fb820c0f4781337faf02ed871be68d13a83d94",
+      "files": {
+        "LICENSE.md": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/f5fb820c0f4781337faf02ed871be68d13a83d94/LICENSE.md",
+          "digest": "sha256:9c6479123f32a1ed50d9a0af203dfe8972e65035b0cdeef436b5f8d0924517fe",
+          "bytes": 263
+        },
+        "src/tokenize.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/f5fb820c0f4781337faf02ed871be68d13a83d94/src/tokenize.c",
+          "digest": "sha256:99b221e7704982603c27d93266823bf5019c4a1857dbb6ce997a42bfd2d3997f",
+          "bytes": 29063
+        },
+        "VERSION": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/f5fb820c0f4781337faf02ed871be68d13a83d94/VERSION",
+          "digest": "sha256:df654e3b9833afa42e6f6d015c47fd7fb78ad949ae9f4bda044ef8459b2194fc",
+          "bytes": 7
+        },
+        "src/parse.y": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/f5fb820c0f4781337faf02ed871be68d13a83d94/src/parse.y",
+          "digest": "sha256:fedaa79bae37d8adadb41becbe64b31795034ae6be58b910c91fc6741525103c",
+          "bytes": 73016
+        },
+        "tool/mkkeywordhash.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/f5fb820c0f4781337faf02ed871be68d13a83d94/tool/mkkeywordhash.c",
+          "digest": "sha256:88e9a1412ae4c52b1fa662953a5c7b714404d01be41868dd3b5e602ffe1f40e5",
+          "bytes": 26768
+        }
+      }
+    },
+    {
+      "version": "3.47.2",
+      "revision": "262de1bebb0647eb6fa6a2b0434111c7d831a14d",
+      "files": {
+        "tool/mkkeywordhash.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/262de1bebb0647eb6fa6a2b0434111c7d831a14d/tool/mkkeywordhash.c",
+          "digest": "sha256:88e9a1412ae4c52b1fa662953a5c7b714404d01be41868dd3b5e602ffe1f40e5",
+          "bytes": 26768
+        },
+        "src/parse.y": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/262de1bebb0647eb6fa6a2b0434111c7d831a14d/src/parse.y",
+          "digest": "sha256:fedaa79bae37d8adadb41becbe64b31795034ae6be58b910c91fc6741525103c",
+          "bytes": 73016
+        },
+        "LICENSE.md": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/262de1bebb0647eb6fa6a2b0434111c7d831a14d/LICENSE.md",
+          "digest": "sha256:9c6479123f32a1ed50d9a0af203dfe8972e65035b0cdeef436b5f8d0924517fe",
+          "bytes": 263
+        },
+        "src/tokenize.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/262de1bebb0647eb6fa6a2b0434111c7d831a14d/src/tokenize.c",
+          "digest": "sha256:99b221e7704982603c27d93266823bf5019c4a1857dbb6ce997a42bfd2d3997f",
+          "bytes": 29063
+        },
+        "VERSION": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/262de1bebb0647eb6fa6a2b0434111c7d831a14d/VERSION",
+          "digest": "sha256:838d19398c494c46b46ffb22ba449d2e73728dd2b71f6bd17bc723b170b1659a",
+          "bytes": 7
+        }
+      }
+    },
+    {
+      "version": "3.48.0",
+      "revision": "942c9587698715734715242737dba07ef296b0ef",
+      "files": {
+        "src/parse.y": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/942c9587698715734715242737dba07ef296b0ef/src/parse.y",
+          "digest": "sha256:93c2a246e1c1f8d86e0c949bc9c0e69748c01a21574913750efa55170c6e5694",
+          "bytes": 73222
+        },
+        "tool/mkkeywordhash.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/942c9587698715734715242737dba07ef296b0ef/tool/mkkeywordhash.c",
+          "digest": "sha256:88e9a1412ae4c52b1fa662953a5c7b714404d01be41868dd3b5e602ffe1f40e5",
+          "bytes": 26768
+        },
+        "src/tokenize.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/942c9587698715734715242737dba07ef296b0ef/src/tokenize.c",
+          "digest": "sha256:b44f2ca8e12183f5870d938d23d8c5b61d63fd7dbcec30ebbfec9a9ccd31f03a",
+          "bytes": 29131
+        },
+        "LICENSE.md": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/942c9587698715734715242737dba07ef296b0ef/LICENSE.md",
+          "digest": "sha256:a7a58d6022c090c528e3167026167b3141d682efc6a3c188b473ba59f1788fc7",
+          "bytes": 3864
+        },
+        "VERSION": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/942c9587698715734715242737dba07ef296b0ef/VERSION",
+          "digest": "sha256:45cfa99814e74690d677173ae67cf6638e588c24b46743e93884639443ee9558",
+          "bytes": 7
+        }
+      }
+    },
+    {
+      "version": "3.49.0",
+      "revision": "659bafd05dee789298074283ce857e27e65ef675",
+      "files": {
+        "tool/mkkeywordhash.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/659bafd05dee789298074283ce857e27e65ef675/tool/mkkeywordhash.c",
+          "digest": "sha256:88e9a1412ae4c52b1fa662953a5c7b714404d01be41868dd3b5e602ffe1f40e5",
+          "bytes": 26768
+        },
+        "src/tokenize.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/659bafd05dee789298074283ce857e27e65ef675/src/tokenize.c",
+          "digest": "sha256:7e390135d69ddbbe71f00d7f111d7c17ca81ef8f9ea837690675ba802096521a",
+          "bytes": 29267
+        },
+        "VERSION": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/659bafd05dee789298074283ce857e27e65ef675/VERSION",
+          "digest": "sha256:837ef541c550b3f797efc3049a46eb7c00e00823c3d279281312472698ee2538",
+          "bytes": 7
+        },
+        "src/parse.y": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/659bafd05dee789298074283ce857e27e65ef675/src/parse.y",
+          "digest": "sha256:5286230370be858f36fbc8aa902b9a155b4198b7d74de4c0e36bd3f2e1ab06b5",
+          "bytes": 73258
+        },
+        "LICENSE.md": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/659bafd05dee789298074283ce857e27e65ef675/LICENSE.md",
+          "digest": "sha256:a7a58d6022c090c528e3167026167b3141d682efc6a3c188b473ba59f1788fc7",
+          "bytes": 3864
+        }
+      }
+    },
+    {
+      "version": "3.50.0",
+      "revision": "3f523613528194d3487853ed6e5367c6f215ec4f",
+      "files": {
+        "src/tokenize.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/3f523613528194d3487853ed6e5367c6f215ec4f/src/tokenize.c",
+          "digest": "sha256:21faaf410638dafcc1bb15652e643f8fb32d376920bcf5d110600d1083d1da72",
+          "bytes": 29459
+        },
+        "LICENSE.md": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/3f523613528194d3487853ed6e5367c6f215ec4f/LICENSE.md",
+          "digest": "sha256:a7a58d6022c090c528e3167026167b3141d682efc6a3c188b473ba59f1788fc7",
+          "bytes": 3864
+        },
+        "VERSION": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/3f523613528194d3487853ed6e5367c6f215ec4f/VERSION",
+          "digest": "sha256:0701ed8fbd5035375716e9e1fc98fc9d8b61c37832c4fe81dc60a4478350b205",
+          "bytes": 7
+        },
+        "tool/mkkeywordhash.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/3f523613528194d3487853ed6e5367c6f215ec4f/tool/mkkeywordhash.c",
+          "digest": "sha256:88e9a1412ae4c52b1fa662953a5c7b714404d01be41868dd3b5e602ffe1f40e5",
+          "bytes": 26768
+        },
+        "src/parse.y": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/3f523613528194d3487853ed6e5367c6f215ec4f/src/parse.y",
+          "digest": "sha256:1ae84126268347100dc53c0884e4fbd157ea4edc11d4f9db3435892e93ceda0c",
+          "bytes": 73714
+        }
+      }
+    },
+    {
+      "version": "3.51.0",
+      "revision": "c2aa8e3875907d84540af7624534e326b26b82ee",
+      "files": {
+        "src/tokenize.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/c2aa8e3875907d84540af7624534e326b26b82ee/src/tokenize.c",
+          "digest": "sha256:0d7a55b96844791bea145ccdb38fd1dc84cbae9f4d491f364a49c31d0552b21c",
+          "bytes": 29492
+        },
+        "LICENSE.md": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/c2aa8e3875907d84540af7624534e326b26b82ee/LICENSE.md",
+          "digest": "sha256:ee6af51062b30d532991face5164136ae6f84e265ecf8abe89dc69dac45ca1e7",
+          "bytes": 3850
+        },
+        "VERSION": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/c2aa8e3875907d84540af7624534e326b26b82ee/VERSION",
+          "digest": "sha256:f033ca7e6adbc824930a147b95daa189c8bb3f5ca476c6cfd32d4e1e5ecf3da1",
+          "bytes": 7
+        },
+        "src/parse.y": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/c2aa8e3875907d84540af7624534e326b26b82ee/src/parse.y",
+          "digest": "sha256:b45f310ae9ad6f5a50afc5713e3117a47d249ce29bb8b7e9300d0e30e80927b3",
+          "bytes": 74100
+        },
+        "tool/mkkeywordhash.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/c2aa8e3875907d84540af7624534e326b26b82ee/tool/mkkeywordhash.c",
+          "digest": "sha256:88e9a1412ae4c52b1fa662953a5c7b714404d01be41868dd3b5e602ffe1f40e5",
+          "bytes": 26768
+        }
+      }
+    },
+    {
+      "version": "3.52.0",
+      "revision": "257fdf8496d3b70e6fe7dac910c124fb9b9776dc",
+      "files": {
+        "LICENSE.md": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/257fdf8496d3b70e6fe7dac910c124fb9b9776dc/LICENSE.md",
+          "digest": "sha256:ee6af51062b30d532991face5164136ae6f84e265ecf8abe89dc69dac45ca1e7",
+          "bytes": 3850
+        },
+        "tool/mkkeywordhash.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/257fdf8496d3b70e6fe7dac910c124fb9b9776dc/tool/mkkeywordhash.c",
+          "digest": "sha256:099f834d82274c1c4dd1a31fb7f2ad59cf1e71db30f5fd87772d2dfc70c35cae",
+          "bytes": 26768
+        },
+        "src/parse.y": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/257fdf8496d3b70e6fe7dac910c124fb9b9776dc/src/parse.y",
+          "digest": "sha256:e91e0e0e308462d250aa98d3707575ec6c0ce0b252251d4414f90908ce4e8510",
+          "bytes": 76434
+        },
+        "VERSION": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/257fdf8496d3b70e6fe7dac910c124fb9b9776dc/VERSION",
+          "digest": "sha256:eadbbcb6cd50b9fcd364b8e6da69b31410ef5004145d8197078b534b3f43d7b6",
+          "bytes": 7
+        },
+        "src/tokenize.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/257fdf8496d3b70e6fe7dac910c124fb9b9776dc/src/tokenize.c",
+          "digest": "sha256:cfa76c3c4a9f6113978786e4311101cd1826f6a7ba7924e71f94352d817d0046",
+          "bytes": 29492
+        }
+      }
+    },
+    {
+      "version": "3.53.0",
+      "revision": "4ebc7fdcf459e8d88eb5b019c2949bda86565528",
+      "files": {
+        "LICENSE.md": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/4ebc7fdcf459e8d88eb5b019c2949bda86565528/LICENSE.md",
+          "digest": "sha256:ee6af51062b30d532991face5164136ae6f84e265ecf8abe89dc69dac45ca1e7",
+          "bytes": 3850
+        },
+        "src/tokenize.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/4ebc7fdcf459e8d88eb5b019c2949bda86565528/src/tokenize.c",
+          "digest": "sha256:fc0679949c68463f8a82a3f4f78cc17d720bd94a356ee6652b2bb1f6c6bacd22",
+          "bytes": 29527
+        },
+        "tool/mkkeywordhash.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/4ebc7fdcf459e8d88eb5b019c2949bda86565528/tool/mkkeywordhash.c",
+          "digest": "sha256:099f834d82274c1c4dd1a31fb7f2ad59cf1e71db30f5fd87772d2dfc70c35cae",
+          "bytes": 26768
+        },
+        "VERSION": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/4ebc7fdcf459e8d88eb5b019c2949bda86565528/VERSION",
+          "digest": "sha256:072ec5de4afc8df3b5e2c5e5f0a48af6c36a6ca8cd72c7a308995b7df8e99193",
+          "bytes": 7
+        },
+        "src/parse.y": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/4ebc7fdcf459e8d88eb5b019c2949bda86565528/src/parse.y",
+          "digest": "sha256:e91e0e0e308462d250aa98d3707575ec6c0ce0b252251d4414f90908ce4e8510",
+          "bytes": 76434
+        }
+      }
+    },
+    {
+      "version": "3.53.4",
+      "revision": "b09c88c14082339b66c7b7158d609a771e64ca69",
+      "files": {
+        "tool/mkkeywordhash.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/b09c88c14082339b66c7b7158d609a771e64ca69/tool/mkkeywordhash.c",
+          "digest": "sha256:099f834d82274c1c4dd1a31fb7f2ad59cf1e71db30f5fd87772d2dfc70c35cae",
+          "bytes": 26768
+        },
+        "src/parse.y": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/b09c88c14082339b66c7b7158d609a771e64ca69/src/parse.y",
+          "digest": "sha256:19628d51a728421581e9075c7b4fd2c67218c5ad30718c7ae7ab0717c9e93185",
+          "bytes": 76543
+        },
+        "LICENSE.md": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/b09c88c14082339b66c7b7158d609a771e64ca69/LICENSE.md",
+          "digest": "sha256:ee6af51062b30d532991face5164136ae6f84e265ecf8abe89dc69dac45ca1e7",
+          "bytes": 3850
+        },
+        "src/tokenize.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/b09c88c14082339b66c7b7158d609a771e64ca69/src/tokenize.c",
+          "digest": "sha256:fc0679949c68463f8a82a3f4f78cc17d720bd94a356ee6652b2bb1f6c6bacd22",
+          "bytes": 29527
+        },
+        "VERSION": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/b09c88c14082339b66c7b7158d609a771e64ca69/VERSION",
+          "digest": "sha256:632cf989f3b8c2925dc35a67d06535db480cb97d53f78c14bb159f3de4e9bb04",
+          "bytes": 7
+        }
+      }
+    },
+    {
+      "version": "3.54.0",
+      "revision": "6932c59ee5c280599dfae9e7b431698a7cab9687",
+      "files": {
+        "tool/mkkeywordhash.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/6932c59ee5c280599dfae9e7b431698a7cab9687/tool/mkkeywordhash.c",
+          "digest": "sha256:099f834d82274c1c4dd1a31fb7f2ad59cf1e71db30f5fd87772d2dfc70c35cae",
+          "bytes": 26768
+        },
+        "src/parse.y": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/6932c59ee5c280599dfae9e7b431698a7cab9687/src/parse.y",
+          "digest": "sha256:ba52f3a1a8c7500d35fe71b46730ae13f3e5dc3701ae23d854ffbfefae7a449a",
+          "bytes": 76847
+        },
+        "LICENSE.md": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/6932c59ee5c280599dfae9e7b431698a7cab9687/LICENSE.md",
+          "digest": "sha256:ee6af51062b30d532991face5164136ae6f84e265ecf8abe89dc69dac45ca1e7",
+          "bytes": 3850
+        },
+        "src/tokenize.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/6932c59ee5c280599dfae9e7b431698a7cab9687/src/tokenize.c",
+          "digest": "sha256:fc0679949c68463f8a82a3f4f78cc17d720bd94a356ee6652b2bb1f6c6bacd22",
+          "bytes": 29527
+        },
+        "VERSION": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/6932c59ee5c280599dfae9e7b431698a7cab9687/VERSION",
+          "digest": "sha256:7f61124735d044fa39bd13799617c4f8682650997cd6dedc84bba569b5413edc",
+          "bytes": 7
+        }
+      }
+    },
+    {
+      "version": "3.54.1",
+      "revision": "57520227c95396ce39ba6ecaac8d475b78dd3964",
+      "files": {
+        "tool/mkkeywordhash.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/57520227c95396ce39ba6ecaac8d475b78dd3964/tool/mkkeywordhash.c",
+          "digest": "sha256:099f834d82274c1c4dd1a31fb7f2ad59cf1e71db30f5fd87772d2dfc70c35cae",
+          "bytes": 26768
+        },
+        "src/parse.y": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/57520227c95396ce39ba6ecaac8d475b78dd3964/src/parse.y",
+          "digest": "sha256:ba52f3a1a8c7500d35fe71b46730ae13f3e5dc3701ae23d854ffbfefae7a449a",
+          "bytes": 76847
+        },
+        "LICENSE.md": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/57520227c95396ce39ba6ecaac8d475b78dd3964/LICENSE.md",
+          "digest": "sha256:ee6af51062b30d532991face5164136ae6f84e265ecf8abe89dc69dac45ca1e7",
+          "bytes": 3850
+        },
+        "src/tokenize.c": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/57520227c95396ce39ba6ecaac8d475b78dd3964/src/tokenize.c",
+          "digest": "sha256:fc0679949c68463f8a82a3f4f78cc17d720bd94a356ee6652b2bb1f6c6bacd22",
+          "bytes": 29527
+        },
+        "VERSION": {
+          "url": "https://raw.githubusercontent.com/sqlite/sqlite/57520227c95396ce39ba6ecaac8d475b78dd3964/VERSION",
+          "digest": "sha256:ac00bc246f381662294505074279244edd1d23f6e18455d7820852e6c5c37d8d",
+          "bytes": 7
+        }
+      }
+    }
+  ]
+}

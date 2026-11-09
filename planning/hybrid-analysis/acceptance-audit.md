@@ -19,8 +19,11 @@ also passes, including cold installed cores, source-move/inherited-grammar regre
 commerce tooling and the reviewed SQL Server fingerprints. The subsequent partial-composition and
 native-cost instrumentation changes, including the measurement-helper declaration, pass
 [main CI at `310bd775`](https://github.com/Lojhan/typed-sql/actions/runs/42565964481).
-The newer PostgreSQL vocabulary integration has local native and package evidence; its own final
-hosted aggregate remains required.
+The PostgreSQL vocabulary integration passes all six hosted native majors at `626ed0ac`.
+That aggregate finds invalid unquoted `user` aliases in compiler/editor fixtures; the correction
+at `76b21880` passes the complete compiler and affected editor suites locally. Its hosted
+aggregate remains in progress. The newer SQLite vocabulary integration has local package, native
+context and C keyword-API evidence; its final hosted aggregate is still required.
 
 | ID | Finding | Evidence and remaining boundary |
 | --- | --- | --- |
@@ -53,8 +56,13 @@ hosted aggregate remains required.
   selected majors, factored into shared rows and version deltas. Generated tests cover complete
   keyword classes, bare labels, qualified columns and relation/CTE identifiers; the PostgreSQL E2E
   matrix also compares the inventory against `pg_get_keywords()` and non-executing native probes.
-  Local native evidence currently covers 18.3. SQLite/MySQL tokenizer keyword sets remain
-  maintained in source, and the other parsers use their own word/context mechanics. This audit
+  PostgreSQL native evidence also covers all six hosted matrix versions. SQLite now consumes
+  source-derived build guards, fallback/name/alias classes and contextual lexer rules across 19
+  pinned profiles covering every supported minor boundary. Local SQLite 3.39.0 and 3.54.1 C APIs
+  exactly match the active inventory, and generated context probes pass there and on Node
+  SQLite 3.53.4. The CLI matrix fails its separate reviewed-context gate for the local compiler;
+  those new local contexts are not accepted as standard baselines. MySQL, DuckDB and SQL Server
+  authoritative vocabulary integration remains unfinished. This audit
   has not established that every grammar/profile's
   complete authoritative reservation/context inventory is generated and consumed correctly.
   Verify inventory-to-parser classification and quoted/unquoted contextual behavior before

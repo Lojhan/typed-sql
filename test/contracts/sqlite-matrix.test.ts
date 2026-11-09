@@ -69,6 +69,15 @@ await describe("SQLite support matrix", async () => {
           .sort(),
         exactFeatures,
       );
+      strict.match(artifact.evidence.vocabulary.sourceDigest, /^sha256:[a-f0-9]{64}$/u);
+      strict.ok(artifact.evidence.vocabulary.probeCount >= 1000);
+      strict.deepEqual(artifact.evidence.vocabulary.failures, []);
+      strict.equal(artifact.evidence.vocabulary.inventoryApi.status, "unavailable");
+      strict.ok(
+        artifact.results.some(
+          (row: { id: string; status: string }) => row.id === "vocabulary.identifier-contexts" && row.status === "pass",
+        ),
+      );
       strict.deepStrictEqual(artifact.evidence.plan.unsupportedFacts, ["cost", "estimatedRows", "stableNodeShape"]);
       strict.strictEqual(artifact.evidence.plan.detail, undefined);
       strict.strictEqual(artifact.summary.fail, 0);

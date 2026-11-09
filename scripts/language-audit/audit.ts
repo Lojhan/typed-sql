@@ -18,6 +18,7 @@ import { sqlite } from "../../packages/sqlite/src/analysis.js";
 import { SQLITE_BUILTIN_FUNCTIONS } from "../../packages/sqlite/src/catalog/functions.js";
 import { SQLITE_JSON_TABLE_FUNCTIONS } from "../../packages/sqlite/src/catalog/json.js";
 import { tokenize as tokenizeSqlite } from "../../packages/sqlite/src/parser/tokenizer.js";
+import { sqliteVocabulary } from "../../packages/sqlite/src/vocabulary/index.js";
 import { sqlserver } from "../../packages/sqlserver/src/analysis.js";
 import { sqlServerServerEvidence } from "../../packages/sqlserver/src/capabilities.js";
 import { SQLSERVER_BUILTINS } from "../../packages/sqlserver/src/catalog/index.js";
@@ -221,6 +222,24 @@ function auditOther(
           status: token?.nativeKeyword
             ? `keyword-${token.nativeKeyword.category.toLowerCase().replace("_keyword", "")}-observed`
             : "contextual-or-unclassified-keyword",
+        };
+      }
+      if (dialect === "sqlite") {
+        const keywordLookup = sqliteVocabulary(version.replace(/^reference-/u, "")).forOptions();
+        const word = tokenizeSqlite(name, { keywordLookup })[0]?.nativeKeyword;
+        return {
+          name,
+          status: word?.contextual
+            ? "keyword-contextual-observed"
+            : word?.fallback
+              ? "keyword-identifier-fallback-observed"
+              : word?.identifier
+                ? "keyword-identifier-class-observed"
+                : word
+                  ? "keyword-syntax-observed"
+                  : keywordLookup.isDeclared(name)
+                    ? "keyword-build-gated-observed"
+                    : "contextual-or-unclassified-keyword",
         };
       }
       const token = tokenize!(name)[0];

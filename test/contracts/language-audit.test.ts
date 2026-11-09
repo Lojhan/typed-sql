@@ -41,6 +41,17 @@ await describe("independent upstream language auditing", async () => {
     ])
       strict.throws(() => parsePostgresKeywords(source));
   });
+  await it("rejects unfamiliar SQLite build conditions instead of dropping keyword guards", async () => {
+    const { sqliteCondition } = await import("../../scripts/vocabulary/sqlite.mjs");
+    strict.deepEqual(sqliteCondition("defined(SQLITE_OMIT_FEATURE) || !defined(SQLITE_ENABLE_EXTRA)"), [
+      "or",
+      "OMIT_FEATURE",
+      ["not", "ENABLE_EXTRA"],
+    ]);
+    for (const source of ["SQLITE_FEATURE + 1", "defined(UNKNOWN)", "(SQLITE_FEATURE", "SQLITE_A SQLITE_B", ""])
+      strict.throws(() => sqliteCondition(source));
+  });
+
   await it("requires discovery adapters and upstream evidence for every grammar in the feature ledger", async () => {
     const ledger = JSON.parse(await readFile(new URL("../../grammar/features/ledger.json", import.meta.url), "utf8"));
     strict.deepEqual([...DIALECTS].sort(), Object.keys(ledger.dialects).sort());

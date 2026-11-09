@@ -12,6 +12,8 @@ import { resolveSqliteStatement } from "./resolver.js";
 import { analyzeSqliteSemantics } from "./semantics.js";
 import type { SqliteSchemaSnapshot } from "./snapshot.js";
 import type { SqliteTypePolicy } from "./type-policy.js";
+import { sqliteVocabulary } from "./vocabulary/index.js";
+import type { SqliteKeywordLookup } from "./vocabulary/types.js";
 
 export function createSqliteDialect(
   options: SqliteDialectOptions = {},
@@ -19,6 +21,7 @@ export function createSqliteDialect(
 ): DialectPlugin<SqliteSchemaSnapshot, SqliteTypePolicy> {
   const profile = sqliteProfile(options);
   const defaultTypePolicy = profile.defaultTypePolicy;
+  const vocabularies = new WeakMap<SqliteSchemaSnapshot, SqliteKeywordLookup>();
   return Object.freeze({
     ...profile,
     analyze(
@@ -28,7 +31,14 @@ export function createSqliteDialect(
       context: DialectAnalysisContext = {},
     ) {
       try {
-        const statement = parseStatement(sql);
+        let keywordLookup = vocabularies.get(snapshot);
+        if (keywordLookup === undefined) {
+          keywordLookup = sqliteVocabulary(snapshot.server?.versionKey ?? snapshot.version).forOptions(
+            snapshot.server?.features,
+          );
+          vocabularies.set(snapshot, keywordLookup);
+        }
+        const statement = parseStatement(sql, { keywordLookup });
         const resolved = resolveSqliteStatement(statement, snapshot, {
           typePolicy: policy,
           runtimeValidation: context.runtimeValidation === true,

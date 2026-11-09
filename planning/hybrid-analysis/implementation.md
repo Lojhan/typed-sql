@@ -1264,3 +1264,47 @@ files including packed consumers; nine soundness files; PostgreSQL and packed E2
 the full PostgreSQL 18.3 native helper; quality, documentation checks/build and isolated
 performance budgets. The language baseline changes were reviewed by category and status, rather
 than accepting new gaps as semantic support. Hosted multi-major qualification is still pending.
+
+## SQLite authoritative vocabulary
+
+SQLite consumes hash-pinned `mkkeywordhash.c`, `parse.y`, `tokenize.c`, VERSION and source notices.
+Profiles cover every supported minor release's initial patch plus additional exact matrix/source
+targets: 19 profiles and 2,804 versioned declarations. Factoring retains 140 shared rows and three
+distinct delta packs, rather than nineteen complete copies. Source predicates retain compile-option
+conditions, token-class membership, fallback permission and native contextual classifiers. The
+3.42 boundary preserves the expanded join-word expression class; 3.47 introduces the optional
+ordered-set keyword. Keyword discovery is separate from parser terminal dispatch.
+
+`sqlite:vocabulary:refresh` explicitly reads verified cached files or fetches exact locked URLs.
+Generation/checks use committed facts offline and reject source-pin/fact/digest/notice mismatches.
+Unknown declaration formats, mask conditions, name productions and classifier implementations
+require review. Neither normal builds nor editor/offline checks fetch upstream sources.
+
+Column and relation bare aliases are distinct contexts: pattern operators can shift in an
+expression even though their tokens fall back to identifiers elsewhere. A leading RECURSIVE after
+WITH also has a syntax production; generic identifier probes place names after a seed CTE so they
+test the intended context. WINDOW/OVER/FILTER classification follows native lookahead and preceding
+tokens. Inventory tests cover every declared name and all nineteen profiles. Native candidates are
+prepared without executing them; CLI probes run EXPLAIN on literal-only owned statements.
+
+The native SQLite matrix builds a small keyword-API companion from the same object and flags as
+the CLI. It reports `sqlite3_keyword_count/name` and compares the complete active inventory with
+source predicates. Compiler/library/compile options remain in the matrix context. Keyword and
+context evidence is recorded separately from the pre-existing SQL-metadata inventory: Node does
+not expose the C keyword API and explicitly records it unavailable. All words are generated from
+source facts; there is no separately maintained test keyword list.
+
+Local SQLite 3.39.0 passes all 147 active keyword comparisons and 1,029 context probes. SQLite
+3.54.1 passes all 147 active keyword comparisons and 1,036 context probes, including the inactive
+optional keyword. Node 24's SQLite 3.53.4 passes 1,036 context probes. The CLI matrix's independent
+reviewed-inventory gate remains red for the local Clang build contexts; these contexts are not
+silently accepted as hosted baselines. Required hosted qualification remains pending.
+
+The SQLite interpreter/reconciliation revision retires prior receipts. Runtime and frozen packed
+consumers work after the vocabulary directory is physically removed; only the pure revision digest
+remains. Local validation passes clean build/root types, all 19 SQLite package files with enforced
+coverage (94.05% statements / 88.68% branches / 98.31% functions), all 49 repository contracts,
+nine soundness files, focused vocabulary/matrix contracts, quality, documentation check/build and isolated performance
+budgets.
+The refreshed reference audit changes only the 147 SQLite keyword observations into native
+context classifications; no function observations change.

@@ -1,10 +1,11 @@
 import { type ContractInterpreterIdentity, canonicalContractData, queryContractDigest } from "@typed-sql/analysis";
 import { defaultSqliteTypePolicy, type SqliteTypePolicy } from "./type-policy.js";
+import { SQLITE_VOCABULARY_REVISION } from "./vocabulary-identity.js";
 
 export const sqliteContractAdapterVersion = "node-sqlite-readonly-prepare-v1";
 export const sqliteContractReconciliationOwner = Object.freeze({
   id: "@typed-sql/sqlite/reconciliation",
-  version: "sqlite-storage-domain-reconciliation-v2",
+  version: "sqlite-storage-domain-reconciliation-v3",
 });
 /** Validate the policy before transferring data into an owned native worker. */
 export function sqliteContractPolicy(input: SqliteTypePolicy = defaultSqliteTypePolicy): SqliteTypePolicy {
@@ -30,6 +31,10 @@ export function sqliteContractIdentity(
   return Object.freeze({
     profileHash: queryContractDigest({ profile: "sqlite-owned-readonly-select-v1" }),
     codecHash: queryContractDigest({ codec: "sqlite-storage-domain-v1", policy: sqliteContractPolicy(policy) }),
-    interpreterHash: queryContractDigest(sqliteContractAdapterVersion),
+    interpreterHash: queryContractDigest({
+      adapter: sqliteContractAdapterVersion,
+      analysis: "sqlite-analysis-keywords-v2",
+      vocabulary: SQLITE_VOCABULARY_REVISION,
+    }),
   });
 }

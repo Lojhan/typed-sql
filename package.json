@@ -16,7 +16,7 @@
     "api:check": "poku test/contracts/public-api.test.ts --reporter=compact --enforce",
     "changeset": "changeset",
     "verify": "pnpm quality && pnpm test && pnpm build && pnpm docs:build && pnpm performance:gate",
-    "quality": "pnpm postgres:vocabulary:check && pnpm audit:language:check && biome check .",
+    "quality": "pnpm sqlite:vocabulary:check && pnpm postgres:vocabulary:check && pnpm audit:language:check && biome check .",
     "audit:language": "tsx --tsconfig scripts/language-audit/tsconfig.json scripts/language-audit/run.ts",
     "audit:language:check": "pnpm audit:language check",
     "audit:language:refresh": "pnpm audit:language refresh",
@@ -83,7 +83,10 @@
     "docs:demos": "node --import tsx scripts/generate-readme-demos.ts",
     "docs:demos:check": "node --import tsx scripts/generate-readme-demos.ts --check",
     "e2e:sqlite-wasm": "pnpm typecheck && node --import tsx e2e/sqlite-wasm/test.mjs",
-    "e2e:duckdb": "pnpm typecheck && pnpm --filter @typed-sql/e2e-duckdb e2e"
+    "e2e:duckdb": "pnpm typecheck && pnpm --filter @typed-sql/e2e-duckdb e2e",
+    "sqlite:vocabulary:generate": "node --import tsx scripts/generate-sqlite-vocabulary.mjs",
+    "sqlite:vocabulary:refresh": "pnpm sqlite:vocabulary:generate --refresh",
+    "sqlite:vocabulary:check": "pnpm sqlite:vocabulary:generate --check"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.3",

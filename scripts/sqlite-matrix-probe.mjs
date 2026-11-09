@@ -6,6 +6,7 @@ import { isDeepStrictEqual } from "node:util";
 import { collectLive } from "./language-audit/inventory.mjs";
 import { reviewLiveBaseline } from "./language-audit/live-baseline.mjs";
 import { enrichRecognition } from "./language-audit/native.mjs";
+import { sqliteVocabularyProbes } from "./vocabulary/sqlite-probes.mjs";
 
 const options = Object.create(null);
 for (let index = 2; index < process.argv.length; index += 2) {
@@ -291,6 +292,58 @@ if (options.adapter === "node") {
     nullability: "unavailable",
   };
 }
+const vocabularyFacts = JSON.parse(
+  await readFile(new URL("../grammar/sqlite/vocabulary/facts.json", import.meta.url), "utf8"),
+);
+const vocabularyPlan = sqliteVocabularyProbes(vocabularyFacts, libraryVersion, compileOptions);
+const vocabularyFailures = [];
+for (const probe of vocabularyPlan.probes) {
+  let accepted = false;
+  try {
+    if (options.adapter === "node") {
+      const statement = nodeDatabase.prepare(probe.sql);
+      if ("close" in statement && typeof statement.close === "function") statement.close();
+    } else cli(`EXPLAIN ${probe.sql}`);
+    accepted = true;
+  } catch (error) {
+    if (
+      options.adapter === "node"
+        ? error.code !== "ERR_SQLITE_ERROR"
+        : error.message !== "sqlite3 CLI rejected the probe"
+    )
+      throw error;
+  }
+  if (accepted !== probe.expected)
+    vocabularyFailures.push({ name: probe.name, role: probe.role, expected: probe.expected, accepted });
+}
+let keywordApi = { status: "unavailable", reason: "The Node API does not expose sqlite3_keyword_name" };
+if (options.adapter === "cli") {
+  const nativeKeywords = JSON.parse(await readFile(`${options.executable}.keywords.json`, "utf8"));
+  if (nativeKeywords.version !== libraryVersion) throw new Error("SQLite keyword API version mismatch");
+  const actual = [...nativeKeywords.words].sort();
+  keywordApi = {
+    status: isDeepStrictEqual(actual, vocabularyPlan.words) ? "pass" : "fail",
+    count: actual.length,
+    words: actual,
+  };
+  if (new Set(actual).size !== actual.length) throw new Error("Duplicate native SQLite keyword entries");
+  results.push({ id: "vocabulary.complete-native-inventory", featureIds: [], status: keywordApi.status });
+}
+const vocabularyEvidence = {
+  sourceProfile: vocabularyPlan.profile,
+  sourceDigest: vocabularyPlan.sourceDigest,
+  inventoryApi: keywordApi,
+  activeKeywords: vocabularyPlan.words.length,
+  declaredNames: vocabularyPlan.probes.length / 7,
+  probeCount: vocabularyPlan.probes.length,
+  failures: vocabularyFailures,
+};
+results.push({
+  id: "vocabulary.identifier-contexts",
+  featureIds: [],
+  status: vocabularyFailures.length ? "fail" : "pass",
+});
+
 const planRows = execute("EXPLAIN QUERY PLAN SELECT value FROM (SELECT 1 AS value) WHERE value = 1");
 const ledgerSource = await readFile(resolve("grammar/features/ledger.json"));
 const ledger = JSON.parse(ledgerSource.toString("utf8"));
@@ -380,6 +433,7 @@ const artifact = {
   evidence: {
     languageInventory,
     languageRecognition,
+    vocabulary: vocabularyEvidence,
     compileOptions,
     featureLedger: {
       formatVersion: ledger.formatVersion,

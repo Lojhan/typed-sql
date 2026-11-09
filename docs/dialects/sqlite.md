@@ -29,6 +29,18 @@ The package has no dependency, optional dependency, or peer dependency on an SQL
 `node:sqlite` is part of Node itself. The adapter supports Node 22 from 22.13 onward, Node 24, and
 Node 26. Odd-numbered and unlisted future Node lines fail closed until they enter the tested matrix.
 
+## Keyword and identifier rules
+
+The offline analyzer consumes compact keyword and identifier-context metadata generated from
+pinned SQLite keyword tables, grammar declarations and tokenizer rules. Source profiles cover
+every supported minor release boundary, with additional exact patch targets. Compile options
+control keyword availability and identifier fallback. Column aliases, relation aliases, qualified
+names and window syntax use their respective grammar contexts; a keyword list is not treated as
+a list of universally reserved words. Unimplemented syntax still produces a diagnostic.
+
+Normal builds and offline checking do not fetch these sources. Runtime tags and frozen contract
+consumption do not load the keyword inventory.
+
 ## Offline core and query generation
 
 Development tooling can import `sqlite` from `@typed-sql/sqlite/analysis/core`.
