@@ -33,7 +33,11 @@ interface Observation {
 }
 
 /** Independent catalog discovery and Parse/Describe only: no Bind/Execute for candidates. */
-export async function capturePostgresDescriptorInventory(pool: Pool, version: string) {
+export async function capturePostgresDescriptorInventory(
+  pool: Pool,
+  version: string,
+  options: { reviewed?: boolean } = {},
+) {
   const inventory = (
     await pool.query<CatalogType>(
       `SELECT t.oid, t.typname AS name, t.typtype AS kind, t.typcategory AS category,
@@ -216,6 +220,22 @@ export async function capturePostgresDescriptorInventory(pool: Pool, version: st
       `${JSON.stringify(report, null, 2)}\n`,
     );
   }
+  if (options.reviewed) {
+    const approved = JSON.parse(
+      await readFile(new URL("../../grammar/postgres/qualification/native-descriptors.json", import.meta.url), "utf8"),
+    );
+    strict.equal(approved.formatVersion, 1);
+    const expected = approved.engines[version.split(" ")[0]!];
+    strict.ok(expected, "Review the descriptor capture for this exact PostgreSQL engine before qualification");
+    strict.equal(expected.catalogNames, inventory.length);
+    strict.equal(expected.adapterQualified, qualifiedAdapter);
+    strict.deepEqual(expected.counts, counts);
+    strict.equal(
+      expected.observationDigest,
+      report.observationDigest,
+      "Native PostgreSQL descriptor facts changed; review the capture without accepting new gaps",
+    );
+  }
   // Persist failures before checking the declared positive controls. Parameters deliberately
   // retain incomplete modifier identity: an OID does not encode precision, scale or length.
   for (const observation of observations.filter(({ origin }) => origin === "modifier-control")) {
@@ -244,7 +264,9 @@ if (process.argv[1] && (await realpath(process.argv[1])) === (await realpath(fil
   try {
     const version = (await pool.query<{ version: string }>("SELECT current_setting('server_version') AS version"))
       .rows[0]!.version;
-    const report = await capturePostgresDescriptorInventory(pool, version);
+    const report = await capturePostgresDescriptorInventory(pool, version, {
+      reviewed: process.argv.includes("--check"),
+    });
     console.log(
       JSON.stringify({
         engine: report.engine,

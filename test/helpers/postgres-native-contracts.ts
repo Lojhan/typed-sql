@@ -63,7 +63,7 @@ export async function assertPostgresNativeContracts(connectionString: string, di
     const version = (await pool.query<{ version: string }>("SELECT current_setting('server_version') AS version"))
       .rows[0]!.version;
     await assertPostgresVocabulary(pool, version);
-    await capturePostgresDescriptorInventory(pool, version);
+    await capturePostgresDescriptorInventory(pool, version, { reviewed: true });
     const schema = {
       formatVersion: 1,
       dialect: "postgres",
