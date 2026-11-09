@@ -457,6 +457,17 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 20
+      engine-postgres-previous:
+        image: postgres:18.3-bookworm
+        env:
+          POSTGRES_PASSWORD: typed_sql_fixture
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
       runtime-mysql:
         image: mysql:8.4.11
         env:
@@ -507,6 +518,17 @@ jobs:
         with:
           name: typed-sql-mysql-engine-boundary-${{ github.run_attempt }}
           path: artifacts/mysql/engine-boundary.json
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Reject stale PostgreSQL contexts across actual engine versions
+        run: node --import tsx test/helpers/postgres-engine-boundary.ts
+        env:
+          TYPED_SQL_POSTGRES_ENGINE_URIS: '["postgresql://postgres:typed_sql_fixture@127.0.0.1:5432/postgres","postgresql://postgres:typed_sql_fixture@127.0.0.1:5433/postgres"]'
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: typed-sql-postgres-engine-boundary-${{ github.run_attempt }}
+          path: artifacts/postgres/engine-boundary.json
           if-no-files-found: warn
           retention-days: 14
       - run: pnpm --filter @typed-sql/adapters test:postgres
