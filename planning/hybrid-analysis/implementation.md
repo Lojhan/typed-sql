@@ -1959,3 +1959,35 @@ maintained package lines and 5,724 added generated package lines against base. T
 measurements do not close the remaining native class/policy/invalidation gaps. Root quality and
 the native fixture/project measurement plus vocabulary contract tests pass. The PostgreSQL
 collector remains subject to its own required hosted aggregate after publication.
+
+
+## SQLite source-derived descriptor audit and PostgreSQL drift review
+
+The full aggregate at `6764d623` passes
+[run 42622087624](https://github.com/Lojhan/typed-sql/actions/runs/42622087624), including every
+required native/source/editor/packed/performance gate. Its six PostgreSQL descriptor artifacts
+identify merge producer `bee9cb22caeff0b2de9570bd50f92fd420477b78`; collector content hashes match
+the committed Git blob. Reviewed fingerprints now account for every observed exact version,
+without treating PostgreSQL 18.3 and 18.6 as identical: their internal pseudo-type parameter
+Parse/Describe behavior differs while the adapter declines both. Normal native tests check the
+approved count/fingerprint; explicit capture remains separate. A deliberate local fingerprint
+change fails and the approved bytes are restored exactly. The new gate still needs its own run.
+
+SQLite now derives standard type names/affinities from three checked engine source tables at
+nineteen pinned revisions. The small source/fact maps contain no vendor source bodies and
+introduce no runtime dependency. Root quality checks them offline; explicit refresh verifies
+exact vendor URLs, byte lengths and hashes. Parser regressions reject incomplete/inconsistent
+metadata and use fake names to establish source-driven extraction.
+
+At committed producer `f6a5fb0745d3dc0ab953012da40ee4fa7b457d3b`, SQLite 3.53.4 captures 28
+probes under four policies: 103 acquisitions and nine explicitly unavailable unknown-flexible
+parameter contracts. Every standard name is checked against offline recognition and live
+STRICT/flexible/cast metadata; NOT NULL, open declarations and expressions retain their actual
+native limitations. No candidate is executed or bound. The exact collector hash matches its
+Git blob. The full SQLite suite passes nineteen files with unchanged thresholds; root types,
+all 53 repository contract files and quality pass. Source-quality and Node-matrix jobs capture
+detailed JSON; older unsupported APIs retain explicit unavailable tests. Hosted review and a
+per-profile approved drift gate remain pending. Descriptor-family scenario 17 stays partial;
+MySQL/SQL Server inventory reviews and other class/policy boundaries remain open. The reports
+retain their existing production-source pins because this stage adds audit/test mechanics rather
+than changing application runtime or compiler package behavior.
