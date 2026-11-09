@@ -169,7 +169,7 @@ export function createLiveContractSession<Snapshot extends SchemaSnapshot, Polic
   }
   async function inspectContext(): Promise<QueryContractContext> {
     alive();
-    const head = await input.cache.lookupContext(scope);
+    let head = await input.cache.lookupContext(scope);
     lifetime.signal.throwIfAborted();
     if (
       head.recorded?.status === "stale" ||
@@ -195,23 +195,35 @@ export function createLiveContractSession<Snapshot extends SchemaSnapshot, Polic
     observation = (async () => {
       const owned = await services();
       async function remote() {
-        try {
-          return await owned.inspectContext(deadline);
-        } catch (error) {
-          deadline.throwIfAborted();
-          connection = "unavailable";
-          const failure = parseLiveAnalysisFailure(
-            owned.classifyError?.(error) ??
-              owned.adapter.classifyError?.(error) ?? {
-                kind: "unavailable",
-                code: "context-observation-failed",
-                retry: "change",
-              },
-          );
-          if (failure.kind === "unavailable") throw new LiveContextUnavailableError(failure);
-          checkedAt = undefined;
-          if (failure.kind === "stale-context" && selected) await input.cache.retireContext(selected);
-          throw error;
+        for (let attempt = 0; ; attempt++) {
+          try {
+            return await owned.inspectContext(deadline);
+          } catch (error) {
+            deadline.throwIfAborted();
+            connection = "unavailable";
+            const failure = parseLiveAnalysisFailure(
+              owned.classifyError?.(error) ??
+                owned.adapter.classifyError?.(error) ?? {
+                  kind: "unavailable",
+                  code: "context-observation-failed",
+                  retry: "change",
+                },
+            );
+            if (failure.kind === "unavailable") throw new LiveContextUnavailableError(failure);
+            checkedAt = undefined;
+            if (failure.kind === "stale-context") {
+              const prior = selected ?? head.recorded?.context ?? input.recordedContext;
+              if (prior) await input.cache.retireContext(prior);
+              if (attempt < 2) {
+                // A failed observation grants no facts. Begin the next read with a fresh cache fence
+                // after retirement, preserving any subsequent clear or competing publication.
+                head = await input.cache.lookupContext(scope);
+                deadline.throwIfAborted();
+                continue;
+              }
+            }
+            throw error;
+          }
         }
       }
       const signal = deadline;

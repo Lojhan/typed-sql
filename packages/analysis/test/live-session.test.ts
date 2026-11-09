@@ -118,6 +118,93 @@ await describe("project live session", async () => {
     strict.equal(closes, 1);
     await strict.rejects(session.prepare({ document: "file:///one.ts", version: 2, candidates: [] }));
   });
+  await it("recaptures classified observation races without restoring retired evidence or retrying permissions", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "typed-sql-session-observation-race-"));
+    const cache = await openAnalysisCache({ directory, workspaceContext: queryContractDigest("observation-race") });
+    const { context: _context, ...automatic } = configuration;
+    const guard = new Error("classified native guard race");
+    const permission = new Error("metadata permission unavailable");
+    let current = context,
+      time = 0,
+      observations = 0,
+      descriptions = 0,
+      races = 0,
+      denied = false;
+    const session = createLiveContractSession({
+      profile,
+      schema,
+      cache,
+      configuration: { ...automatic, mode: "live" },
+      loadAnalyzer: () => analyzer,
+      now: () => time,
+      live: {
+        adapter: () => ({
+          connectionContext: configuration.cache.connectionContext,
+          contribution: owner,
+          adapter: adapter({
+            open: async () => ({
+              context: async () => current,
+              describe: async () => {
+                descriptions++;
+                return evidence;
+              },
+              close: async () => {},
+            }),
+          }),
+          inspectContext: async () => {
+            observations++;
+            if (races > 0) {
+              races--;
+              throw guard;
+            }
+            if (denied) throw permission;
+            return current;
+          },
+          classifyError: (error) =>
+            error === guard
+              ? { kind: "stale-context", code: "guard-raced" }
+              : { kind: "unavailable", code: "permission-unavailable", retry: "change" },
+          close: async () => {},
+        }),
+      },
+    });
+    try {
+      const before = await session.prepare({
+        document: "file:///race.ts",
+        version: 1,
+        candidates: [request.candidate],
+      });
+      strict.equal(before.contracts.length, 1);
+      const initialObservations = observations;
+      time = 5001;
+      current = { ...context, databaseContextHash: queryContractDigest("after guarded DDL") };
+      races = 1;
+      const fresh = await session.prepare({ document: "file:///race.ts", version: 2, candidates: [request.candidate] });
+      strict.equal(fresh.context.databaseContextHash, current.databaseContextHash);
+      strict.equal(observations - initialObservations, 2);
+      strict.equal(descriptions, 2, "The new context requires fresh query evidence");
+      await strict.rejects(before.assertCurrent());
+      const beforeBound = observations;
+      time = 10002;
+      races = 3;
+      await strict.rejects(
+        session.prepare({ document: "file:///race.ts", version: 3, candidates: [request.candidate] }),
+        (error: unknown) => error === guard,
+      );
+      strict.equal(observations - beforeBound, 3);
+      strict.equal(descriptions, 2);
+      denied = true;
+      const beforePermission = observations;
+      await strict.rejects(
+        session.prepare({ document: "file:///race.ts", version: 4, candidates: [request.candidate] }),
+        LiveContextUnavailableError,
+      );
+      strict.equal(observations - beforePermission, 1, "Permission failures are not observation races");
+    } finally {
+      await session.close();
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
   await it("shares in-flight work without letting one cancelled subscriber cancel another", async () => {
     const directory = await mkdtemp(join(tmpdir(), "typed-sql-session-cancel-"));
     const cache = await openAnalysisCache({ directory, workspaceContext: queryContractDigest("shared") });
