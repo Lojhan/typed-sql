@@ -47,6 +47,7 @@ import { recordNativeCosts } from "../../planning/hybrid-analysis/measure-native
 import { assertIsolatedPostgresContractConsumer } from "./frozen-contract-consumer.js";
 import { assertInheritedPostgresContracts } from "./inherited-postgres-contracts.js";
 import { assertPostgresContextMutations } from "./postgres-context-mutations.js";
+import { capturePostgresDescriptorInventory } from "./postgres-descriptor-inventory.js";
 import { assertPostgresTableContracts } from "./postgres-table-contracts.js";
 import { assertPostgresVocabulary } from "./postgres-vocabulary.js";
 import { ProtocolClient } from "./protocol-client.js";
@@ -62,6 +63,7 @@ export async function assertPostgresNativeContracts(connectionString: string, di
     const version = (await pool.query<{ version: string }>("SELECT current_setting('server_version') AS version"))
       .rows[0]!.version;
     await assertPostgresVocabulary(pool, version);
+    await capturePostgresDescriptorInventory(pool, version);
     const schema = {
       formatVersion: 1,
       dialect: "postgres",

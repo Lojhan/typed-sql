@@ -245,6 +245,14 @@ jobs:
           TYPED_SQL_POSTGRES_IMAGE: ${{ matrix.image }}
           TYPED_SQL_POSTGRES_MATRIX_LABEL: ${{ matrix.label }}
           TYPED_SQL_POSTGRES_VERSION: ${{ matrix.version }}
+          TYPED_SQL_NATIVE_DESCRIPTOR_DIRECTORY: ${{ github.workspace }}/artifacts/native-descriptors
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: typed-sql-postgres-descriptors-${{ matrix.label }}-${{ github.run_attempt }}
+          path: artifacts/native-descriptors/postgres-*-descriptors.json
+          if-no-files-found: warn
+          retention-days: 14
       - if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
