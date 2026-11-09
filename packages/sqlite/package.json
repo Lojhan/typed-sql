@@ -32,7 +32,8 @@
     "developmentEntrypoints": [
       "./analysis",
       "./node-sqlite-contracts",
-      "./reconciliation"
+      "./reconciliation",
+      "./analysis/core"
     ]
   },
   "sideEffects": false,
@@ -51,7 +52,8 @@
     "./analysis": "./dist/packages/sqlite/src/analysis.js",
     "./contract-profile": "./dist/packages/sqlite/src/contract-profile.js",
     "./node-sqlite-contracts": "./dist/packages/sqlite/src/node-sqlite-contracts.js",
-    "./reconciliation": "./dist/packages/sqlite/src/reconciliation.js"
+    "./reconciliation": "./dist/packages/sqlite/src/reconciliation.js",
+    "./analysis/core": "./dist/packages/sqlite/src/analysis/core.js"
   },
   "dependencies": {
     "@typed-sql/ast": "workspace:*",

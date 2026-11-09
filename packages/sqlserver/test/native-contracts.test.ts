@@ -544,6 +544,7 @@ await describe("guarded SQL Server contract acquisition", async () => {
     const contribution = createSqlServerContractReconciler();
     for (const [code, severity, status] of [
       ["TSQ105", "error", "unsupported"],
+      ["TSQ408", "error", "unsupported"],
       ["TSQ202", "error", "invalid"],
       ["TSQ202", "warning", "resolved"],
     ] as const)

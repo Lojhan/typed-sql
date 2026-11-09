@@ -17,6 +17,7 @@ through explicit execution and native-preparation adapters.
 - `@typed-sql/sqlite/query` — portable `sql`, renderer, and runtime value descriptors for buffered adapters.
 
 - `@typed-sql/sqlite` — `sql`, runtime plan primitives, renderer and type policy.
+- `@typed-sql/sqlite/analysis/core` — portable offline analyzer retaining maintained rules and requesting qualified query contracts for unmapped functions.
 - `@typed-sql/sqlite/analysis` — explicit eager analyzer and compatibility exports, including introspection over an injected queryable.
 - `@typed-sql/sqlite/runtime` — driver-neutral rendering and executable adapter contracts.
 - `@typed-sql/sqlite/node-sqlite` — lazy `node:sqlite` loading, schema provider, and executable database adapter.
@@ -27,6 +28,21 @@ through explicit execution and native-preparation adapters.
 The package has no dependency, optional dependency, or peer dependency on an SQLite driver.
 `node:sqlite` is part of Node itself. The adapter supports Node 22 from 22.13 onward, Node 24, and
 Node 26. Odd-numbered and unlisted future Node lines fail closed until they enter the tested matrix.
+
+## Offline core and query generation
+
+Development tooling can import `sqlite` from `@typed-sql/sqlite/analysis/core`.
+The core retains all maintained functions, operators and type rules, including their version
+and environment guards. Unmapped scalar functions preserve argument evidence and produce
+`TSQ408`, with guidance to generate a qualified exact-query contract. Explicit generation or
+configured live analysis can acquire that evidence within the native adapter's declared scope.
+Normal offline checks do not initiate database connections.
+
+There are no additional version data packs: one maintained catalog already covers the supported
+range through explicit availability rules. Existing analyzer imports keep their diagnostics.
+Application queries continue importing `sql` from `@typed-sql/sqlite`.
+
+SQLite preparation retains broad storage-class bounds and nullable results when precise expression metadata is unavailable. Generation does not infer a general function rule or sample a result by executing the query.
 
 ## Supported versions
 

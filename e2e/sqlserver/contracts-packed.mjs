@@ -96,7 +96,7 @@ const connectionContext="0".repeat(64);
 export default {
  dialect:{...sqlserverProfile(),async loadAnalyzer(){
   if(mode!=="live")throw Error("Recorded SQL Server checking initialized an analyzer");
-  return (await import("@typed-sql/sqlserver/analysis")).sqlserver();
+  return (await import("@typed-sql/sqlserver/analysis/core")).sqlserver();
  }},schema:{file:"schema.json"},outDir:"generated",projects:["tsconfig.json"],
  analysis:{mode,identity:sqlServerContractIdentity(),contractsDir:"contracts",
  cache:{connectionContext,adapter:{id:"@typed-sql/sqlserver/native-contracts",version:sqlServerContractAdapterVersion}},

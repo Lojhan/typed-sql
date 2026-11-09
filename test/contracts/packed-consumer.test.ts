@@ -367,6 +367,10 @@ await describe("packed public packages", async () => {
           if(!refused)throw Error("Selected MySQL core accepted missing series evidence");
         }
 
+        const sqliteCore=await import("@typed-sql/sqlite/analysis/core");
+        const sqlServerCore=await import("@typed-sql/sqlserver/analysis/core");
+        if(Object.keys(sqliteCore).join(",")!=="sqlite"||Object.keys(sqlServerCore).join(",")!=="sqlserver")throw Error("Portable core exports changed");
+        assertDialectPlugin(sqliteCore.sqlite());assertDialectPlugin(sqlServerCore.sqlserver());
         if (sqlserver().id !== "sqlserver" || sqlserver().sqlModule !== "@typed-sql/sqlserver") throw new Error("SQL Server public grammar contract failed");
         if (duckdb().id !== "duckdb" || duckdb().sqlModule !== "@typed-sql/duckdb") throw new Error("DuckDB public grammar contract failed");
         for (const version of DUCKDB_SUPPORT_POLICY.qualifiedEngines) {

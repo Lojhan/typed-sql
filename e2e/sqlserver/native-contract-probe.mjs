@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { sqlserver } from "@typed-sql/sqlserver/analysis";
+import { sqlserver } from "@typed-sql/sqlserver/analysis/core";
 import { sqlServerContractReconciliationOwner } from "@typed-sql/sqlserver/contract-profile";
 import { createSqlServerNativeContractAdapter } from "@typed-sql/sqlserver/native-contracts";
 import { createSqlServerOdbcDatabase } from "@typed-sql/sqlserver/odbc";

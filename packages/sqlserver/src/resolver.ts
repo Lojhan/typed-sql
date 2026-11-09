@@ -159,6 +159,7 @@ function numericConstant(expression: Expression): number | undefined {
   return undefined;
 }
 export interface ResolveSqlServerOptions {
+  readonly unknownRoutineRequiresContract?: boolean;
   readonly typePolicy?: SqlServerTypePolicy;
   readonly runtimeValidation?: boolean;
 }
@@ -981,7 +982,14 @@ class Resolver {
           (!expression.name.parts.at(-2) || this.same(fn.schema ?? "dbo", expression.name.parts.at(-2)!)),
       );
       if (candidates.length !== 1) {
-        this.diagnostic("TSQ105", `Unknown or ambiguous function ${expression.name.parts.join(".")}`, expression.range);
+        const unmapped = this.options.unknownRoutineRequiresContract === true && candidates.length === 0;
+        this.diagnostic(
+          unmapped ? "TSQ408" : "TSQ105",
+          unmapped
+            ? `No offline rule for function ${expression.name.parts.join(".")}; generate a qualified query contract.`
+            : `Unknown or ambiguous function ${expression.name.parts.join(".")}`,
+          expression.range,
+        );
         for (const argument of expression.arguments) this.expression(argument, scope, ctes);
         return unknown;
       }
@@ -1002,12 +1010,16 @@ class Resolver {
     if (
       expression.arguments.length < builtin.minimumArguments ||
       expression.arguments.length > builtin.maximumArguments
-    )
+    ) {
       this.diagnostic(
         "TSQ202",
         `${name} expects ${builtin.minimumArguments}–${builtin.maximumArguments} arguments`,
         expression.range,
       );
+      if (builtin.since) this.requireVersion(builtin.since, expression.range, name, builtin.compatibility);
+      for (const argument of expression.arguments) this.expression(argument, scope, ctes);
+      return unknown;
+    }
     if (builtin.since) this.requireVersion(builtin.since, expression.range, name, builtin.compatibility);
     if (builtin.kind === "window" && !expression.over)
       this.diagnostic("TSQ203", `${name} requires OVER`, expression.range);

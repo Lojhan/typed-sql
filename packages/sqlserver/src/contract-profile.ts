@@ -4,7 +4,7 @@ import { defaultSqlServerTypePolicy, type SqlServerTypePolicy, validateSqlServer
 export const sqlServerContractAdapterVersion = "sqlserver-log-guarded-describe-v2";
 export const sqlServerContractReconciliationOwner = Object.freeze({
   id: "@typed-sql/sqlserver/reconciliation",
-  version: "sqlserver-contract-reconciliation-v1",
+  version: "sqlserver-contract-reconciliation-v2",
 });
 export function sqlServerContractPolicy(input: SqlServerTypePolicy = defaultSqlServerTypePolicy): SqlServerTypePolicy {
   const value = JSON.parse(canonicalContractData(input));

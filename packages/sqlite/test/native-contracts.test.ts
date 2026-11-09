@@ -12,6 +12,7 @@ import {
 } from "@typed-sql/analysis";
 import { sql, withQueryValuePlan } from "@typed-sql/core";
 import { describe, it, strict } from "poku";
+import { sqlite as sqliteCore } from "../src/analysis/core.js";
 import { sqlite } from "../src/analysis.js";
 import {
   sqliteContractIdentity,
@@ -264,6 +265,44 @@ await describe("SQLite owned read-only native query contracts", async () => {
       sqliteContractIdentity(),
       sqliteContractIdentity({ ...defaultSqliteTypePolicy, integer: "number" }),
     );
+  });
+  await it("qualifies an unmapped builtin conservatively without inventing a result declaration", async () => {
+    await temporary(async (path) => {
+      const sql = "SELECT subtype(CAST(? AS TEXT)) AS value";
+      const analysis = sqliteCore().analyze(sql, schema);
+      strict.ok(analysis.diagnostics.some((item) => item.code === "TSQ408"));
+      strict.equal(analysis.parameters[0]?.tsType, "string");
+      const contract = await acquire(path, sql);
+      const contribution = createSqliteContractReconciler();
+      const policy = {
+        mode: "native-required" as const,
+        owner: sqliteContractReconciliationOwner,
+        requiredNativeFacets: ["runtime-type" as const],
+      };
+      const result = reconcileQueryContract({
+        nativeContract: contract,
+        staticClaim: createStaticQueryClaim({ sql, context: contract.context, analysis }),
+        contribution,
+        policy,
+      });
+      strict.equal(result.status, "qualified");
+      if (result.status !== "qualified") throw Error("Unmapped SQLite routine did not qualify");
+      strict.deepEqual(result.contract.valuePlan, contract.valuePlan);
+      strict.equal(result.contract.valuePlan.columns[0]?.nullable, true);
+      strict.deepEqual(result.contract.nativeEvidence?.columns[0]?.nativeType, {
+        status: "known",
+        value: { name: "sqlite-storage-class", complete: false },
+      });
+      strict.equal(
+        reconcileQueryContract({
+          nativeContract: contract,
+          staticClaim: createStaticQueryClaim({ sql, context: contract.context, analysis }),
+          contribution,
+          policy: { ...policy, requiredNativeFacets: ["native-type"] },
+        }).status,
+        "incomplete",
+      );
+    });
   });
   await it("reconciles independent claims with broad native bounds and refuses unsupported precision requirements", async () => {
     await temporary(async (path) => {

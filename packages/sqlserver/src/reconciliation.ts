@@ -32,7 +32,7 @@ export function createSqlServerContractReconciler(
     grammar: { id: "sqlserver", version: SQLSERVER_DIALECT_VERSION },
     classify(claim) {
       const errors = claim.diagnostics.filter((item) => item.severity === "error");
-      return errors.some(({ code }) => code !== "TSQ105")
+      return errors.some(({ code }) => code !== "TSQ105" && code !== "TSQ408")
         ? {
             status: "invalid",
             rule: "static-errors-remain-blocking",

@@ -1011,3 +1011,42 @@ maintained package source 106,290 (+14,346), and maintained tests/E2E 107,186 (+
 exhaustive vendor catalog JSON and upstream registry remain absent. Category/package totals and
 all three Git physical-line comparisons independently agree; these are measured current costs,
 not estimates of the unfinished final architecture.
+
+## SQLite and SQL Server maintained offline cores
+
+SQLite and SQL Server expose portable `analysis/core` factories without eager introspection or
+native service imports. Both already have one small maintained catalog with explicit version,
+compile-option or compatibility-level gates. Core retains that catalog and every maintained
+rule rather than duplicating per-version data or creating additional compatibility packs.
+Existing analysis/browser imports preserve their diagnostic mode. Core's unmapped scalar calls
+produce TSQ408 with qualified-generation guidance and retain ordered argument evidence. SQLite
+CTE probes forward the diagnostic mode. Reconciliation v2 owners admit the new diagnostic while
+preserving their existing, separately qualified syntax/capability exceptions.
+
+Shared grammar-neutral test mechanics discover invocation names/arities from independent audit
+fixtures rather than another declared function list. SQLite exercises 2,436 invocations across
+live/reference inventories at supported-range endpoints, with additional compile-option, version,
+arity and CTE checks. SQL Server exercises 16,722 reference invocations across all ten supported
+engine/compatibility profiles. These are static comparisons, not execution of every overload or
+production-popularity evidence. Core graphs retain parser/resolver/catalog mechanics and exclude
+introspection, native acquisition and application drivers. Packed consumers import both paths
+without drivers. The installed SQLite CLI/editor/live/cache/frozen consumer now loads core.
+
+The SQLite 3.53.4 native proof describes unmapped subtype(CAST(? AS TEXT)) without evaluation.
+It retains the native nullable storage-class domain and incomplete logical type identity; requiring
+precise native-type evidence remains incomplete. Generation does not invent an integer return
+rule from this invocation. SQL Server native probes and installed-host fixtures now load core;
+local unit/inventory checks do not replace the required Linux x64 real-engine matrix.
+
+The expanded SQL Server inventory found a pre-existing crash on IIF() with no arguments. Invalid
+built-in arities now diagnose, resolve supplied argument evidence and return unknown before a
+semantic rule can read missing arguments. Regression assertions cover unknown row type, ordered
+boolean input metadata, placeholder spans and the arity diagnostic span.
+
+Validation passes clean build/types, all 18 SQLite files (94.20% statements, 88.16% branches,
+98.56% functions), all 25 SQL Server files (96.91% statements, 91.71% branches, 95.83% functions),
+all 49 repository contract files including the installed SQLite flow, nine soundness files,
+documentation check/build, quality and isolated performance. Preceding `a80effcc` main CI succeeds,
+including hosted performance and the repaired PostgreSQL capture path. The new core source still
+requires its own hosted matrix qualification. Representative workloads, native-qualified project
+payload/latency, reusable catalog/custom-type scope and the full acceptance audit remain open.

@@ -4,7 +4,7 @@ import { defaultSqliteTypePolicy, type SqliteTypePolicy } from "./type-policy.js
 export const sqliteContractAdapterVersion = "node-sqlite-readonly-prepare-v1";
 export const sqliteContractReconciliationOwner = Object.freeze({
   id: "@typed-sql/sqlite/reconciliation",
-  version: "sqlite-storage-domain-reconciliation-v1",
+  version: "sqlite-storage-domain-reconciliation-v2",
 });
 /** Validate the policy before transferring data into an owned native worker. */
 export function sqliteContractPolicy(input: SqliteTypePolicy = defaultSqliteTypePolicy): SqliteTypePolicy {

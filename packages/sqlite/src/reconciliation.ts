@@ -25,7 +25,7 @@ export function createSqliteContractReconciler(
     grammar: { id: "sqlite", version: SQLITE_DIALECT_VERSION },
     classify(claim) {
       const errors = claim.diagnostics.filter(({ severity }) => severity === "error");
-      return errors.some(({ code }) => code !== "TSQ402" && code !== "TSQ001")
+      return errors.some(({ code }) => code !== "TSQ402" && code !== "TSQ001" && code !== "TSQ408")
         ? {
             status: "invalid",
             rule: "static-errors-remain-blocking",

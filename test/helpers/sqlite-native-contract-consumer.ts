@@ -54,7 +54,7 @@ import {sqliteProfile} from "@typed-sql/sqlite/profile";
 import {sqliteContractIdentity,sqliteContractReconciliationOwner} from "@typed-sql/sqlite/contract-profile";
 import {queryContractDigest} from "@typed-sql/analysis";
 const connectionContext=queryContractDigest("packed-sqlite-native-target");
-export default {dialect:{...sqliteProfile(),async loadAnalyzer(){return (await import("@typed-sql/sqlite/analysis")).sqlite();}},
+export default {dialect:{...sqliteProfile(),async loadAnalyzer(){return (await import("@typed-sql/sqlite/analysis/core")).sqlite();}},
 schema:{file:"schema.json"},outDir:"generated",projects:["tsconfig.json"],analysis:{mode:"live",
 identity:sqliteContractIdentity(),qualification:{mode:"native-required",owner:sqliteContractReconciliationOwner,requiredNativeFacets:["runtime-type"]},
 cache:{connectionContext,adapter:{id:"@typed-sql/sqlite/node-sqlite-contracts",version:"node-sqlite-readonly-prepare-v1"}},
@@ -126,7 +126,7 @@ try{assert.deepEqual(await db.one(withQueryValuePlan(sql\`SELECT CAST(\${"hello"
     config
       .replace('mode:"live"', 'mode:"frozen"')
       .replace(
-        'async loadAnalyzer(){return (await import("@typed-sql/sqlite/analysis")).sqlite();}',
+        'async loadAnalyzer(){return (await import("@typed-sql/sqlite/analysis/core")).sqlite();}',
         'loadAnalyzer(){throw Error("Frozen SQLite analyzer must remain cold");}',
       )
       .replace(

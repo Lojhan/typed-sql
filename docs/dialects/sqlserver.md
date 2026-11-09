@@ -22,11 +22,25 @@ Native execution is qualified on Linux x64; grammar analysis and the browser ent
 | `@typed-sql/sqlserver/reconciliation` | Independent comparison of static claims with native descriptions. |
 | `@typed-sql/sqlserver/query` | Portable `sql`, renderer, compiler value plans and query types. |
 | `@typed-sql/sqlserver` | Lightweight `sql`, runtime plans, renderer and policies. |
+| `@typed-sql/sqlserver/analysis/core` | Portable offline analyzer retaining maintained rules and requesting qualified query contracts for unmapped scalar functions. |
 | `@typed-sql/sqlserver/analysis` | Explicit eager analyzer and compatibility exports, including the injected catalog provider. |
 | `@typed-sql/sqlserver/runtime` | Driver-neutral execution, live verification, plan inspection and connection ownership. |
 | `@typed-sql/sqlserver/odbc` | Exact application-owned direct ODBC execution and introspection. |
 | `@typed-sql/sqlserver/msnodesqlv8` | Explicit compatibility adapter with restricted text transport. |
 | `@typed-sql/sqlserver/browser` | Grammar surface without native adapters or catalog provider exports. |
+
+## Offline core and query generation
+
+Development tooling can import `sqlserver` from `@typed-sql/sqlserver/analysis/core`.
+The core retains all maintained functions, operators and type rules, including engine and
+compatibility-level guards. Unmapped scalar functions preserve argument evidence and produce
+`TSQ408`, with guidance to generate a qualified exact-query contract. Explicit generation or
+configured live analysis can acquire that evidence within the native adapter's declared scope.
+Normal offline checks do not initiate database connections.
+
+There are no additional per-engine data packs: one maintained catalog already covers the
+supported range through explicit availability rules. Existing analyzer imports keep their
+diagnostics. Application queries continue importing `sql` from `@typed-sql/sqlserver`.
 
 ## Compatibility
 

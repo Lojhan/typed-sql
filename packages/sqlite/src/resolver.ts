@@ -104,6 +104,7 @@ export interface ResolveSqliteOptions {
   readonly runtimeValidation?: boolean;
   readonly typePolicy?: SqliteTypePolicy;
   readonly strictExpressions?: boolean;
+  readonly unknownRoutineRequiresContract?: boolean;
 }
 
 function name(identifier: Identifier): string {
@@ -186,6 +187,7 @@ class Resolver {
   readonly #schema: SchemaSnapshot;
   readonly #policy: SqliteTypePolicy;
   readonly #strict: boolean;
+  readonly #unknownRoutineRequiresContract: boolean;
   readonly #diagnostics: SqlDiagnostic[] = [];
   readonly #parameters = new ParameterCollector();
   readonly #index: ResolverSchemaIndex;
@@ -202,6 +204,7 @@ class Resolver {
     this.#index = ResolverSchemaIndex.for(schema, sqliteAsciiFold);
     this.#policy = options.typePolicy ?? defaultSqliteTypePolicy;
     this.#strict = options.strictExpressions ?? true;
+    this.#unknownRoutineRequiresContract = options.unknownRoutineRequiresContract === true;
   }
 
   resolve(statement: Statement): ResolvedSqliteQuery {
@@ -683,7 +686,12 @@ class Resolver {
     for (const statement of statements) {
       const probe = new Resolver(
         this.#schema,
-        { typePolicy: this.#policy, strictExpressions: false, runtimeValidation: this.#runtimeValidation },
+        {
+          typePolicy: this.#policy,
+          strictExpressions: false,
+          runtimeValidation: this.#runtimeValidation,
+          unknownRoutineRequiresContract: this.#unknownRoutineRequiresContract,
+        },
         this.#projections,
       );
       const columns = probe.#select(statement, outer, inherited, false);
@@ -1462,7 +1470,15 @@ class Resolver {
       );
       return { tsType: "unknown", nullable: true };
     }
-    this.#diagnostic("TSQ202", `Unknown function ${expression.name.name}`, expression.range, undefined, "warning");
+    this.#diagnostic(
+      this.#unknownRoutineRequiresContract ? "TSQ408" : "TSQ202",
+      this.#unknownRoutineRequiresContract
+        ? `No offline rule for function ${expression.name.name}; generate a qualified query contract.`
+        : `Unknown function ${expression.name.name}`,
+      expression.range,
+      undefined,
+      this.#unknownRoutineRequiresContract ? "error" : "warning",
+    );
     return { tsType: "unknown", nullable: true };
   }
 
