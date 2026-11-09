@@ -56,6 +56,7 @@ export async function recordNativeCosts(input) {
   await rm(destination, { force: true });
   const temporary = await mkdtemp(join(directory, ".native-cost-"));
   const samples = [];
+  const facetObservations = {};
   const run = createNativeLiveAnalysisRunner({ adapter: input.adapter, contribution: input.contribution });
   try {
     for (let sample = 0; sample < 3; sample++) {
@@ -100,6 +101,15 @@ export async function recordNativeCosts(input) {
       const loaded = await elapsed(() => loadQueryContracts(closure));
       assert.equal(loaded.value.length, 1);
       assert.equal(loaded.value[0].digest, outcome.contract.digest);
+      const validated = loaded.value[0];
+      assert.ok(validated.nativeEvidence && validated.qualification);
+      const facetObservation = {
+        sqlLength: validated.sqlLength,
+        nativeEvidence: validated.nativeEvidence,
+        qualification: validated.qualification,
+      };
+      const facetObservationDigest = queryContractDigest(facetObservation);
+      facetObservations[facetObservationDigest] = facetObservation;
       const cacheOptions = {
         directory: join(temporary, `cache-${sample}`),
         workspaceContext: queryContractDigest("owned-native-cost-workspace"),
@@ -132,6 +142,7 @@ export async function recordNativeCosts(input) {
         attempts,
         contractDigest: outcome.contract.digest,
         contextDigest: queryContractDigest(outcome.contract.context),
+        facetObservationDigest,
         canonicalContractBytes: Buffer.byteLength(serializeQueryContract(outcome.contract)),
         nativeEvidenceBytes: Buffer.byteLength(JSON.stringify(outcome.contract.nativeEvidence)),
         valuePlanBytes: Buffer.byteLength(JSON.stringify(outcome.contract.valuePlan)),
@@ -145,7 +156,7 @@ export async function recordNativeCosts(input) {
       });
     }
     const report = {
-      formatVersion: 1,
+      formatVersion: 2,
       sourceRevision: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
       toolDigest: createHash("sha256")
         .update(await readFile(new URL(import.meta.url)))
@@ -173,6 +184,7 @@ export async function recordNativeCosts(input) {
         environment:
           "Owner fixtures may already have warmed driver/server state; SDK ownership and transport boundaries remain adapter-specific. Compare only the declared environment, not engines as universal performance rankings.",
       },
+      facetObservations,
       samples,
     };
     const staged = join(temporary, "report.json");

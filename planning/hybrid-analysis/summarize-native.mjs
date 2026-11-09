@@ -4,6 +4,11 @@ import { createHash } from "node:crypto";
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  parseNativeQueryContractEvidence,
+  parseQueryContractQualification,
+  queryContractDigest,
+} from "../../packages/analysis/dist/packages/analysis/src/index.js";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
@@ -37,7 +42,22 @@ for (const directory of roots)
       report = JSON.parse(bytes);
     // An enclosing hosted artifact also contains correctness probes with different schemas.
     if (!Object.hasOwn(report, "samples") || !Object.hasOwn(report, "toolDigest")) continue;
-    assert.equal(report.formatVersion, 1);
+    assert.ok([1, 2].includes(report.formatVersion));
+    if (report.formatVersion === 2) {
+      assert.ok(report.facetObservations && Object.keys(report.facetObservations).length > 0);
+      for (const [identity, observation] of Object.entries(report.facetObservations)) {
+        assert.equal(queryContractDigest(observation), identity, "Facet evidence identity differs");
+        assert.ok(Number.isSafeInteger(observation.sqlLength) && observation.sqlLength > 0);
+        const evidence = parseNativeQueryContractEvidence(observation.nativeEvidence, observation.sqlLength);
+        assert.deepEqual(evidence.adapter, report.adapter, "Facet evidence uses a different native adapter");
+        parseQueryContractQualification(observation.qualification, evidence);
+      }
+      assert.deepEqual(
+        [...new Set(report.samples.map((sample) => sample.facetObservationDigest))].sort(),
+        Object.keys(report.facetObservations).sort(),
+        "Facet observations must exactly cover recorded acquisitions",
+      );
+    }
     assert.match(report.sourceRevision, /^[a-f0-9]{40}$/u);
     assert.match(report.toolDigest, /^[a-f0-9]{64}$/u);
     assert.match(report.label, /^[a-z0-9._-]{1,160}$/iu);
@@ -150,6 +170,25 @@ const timingRows = profiles.map(
   (profile) =>
     `| ${profile.label} | ${median(profile, "contextInspectionMs").toFixed(1)} | ${median(profile, "acquisitionAndReconciliationMs").toFixed(1)} | ${median(profile, "coldCacheObjectLookupMs").toFixed(1)} | ${median(profile, "warmLookupMs").toFixed(1)} |`,
 );
+const facetRows = profiles.flatMap((profile) => {
+  const observations = Object.values(profile.facetObservations ?? {});
+  return ["column", "parameter"].map((target) => {
+    const values = observations.flatMap((observation) =>
+      observation.qualification.comparisons.filter((item) => item.target === target),
+    );
+    const counts = (facet) => {
+      if (!observations.length) return "not recorded";
+      const selected = values.filter((item) => item.facet === facet);
+      if (!selected.length) return "none in fixture";
+      return ["complete", "partial", "unknown"]
+        .map((status) => [status, selected.filter((item) => item.nativeStatus === status).length])
+        .filter(([, count]) => count > 0)
+        .map(([status, count]) => `${status}: ${count}`)
+        .join(", ");
+    };
+    return `| ${profile.label} | ${target} | ${counts("native-type")} | ${counts("runtime-type")} | ${counts("nullability")} |`;
+  });
+});
 const revisions = [...new Set(profiles.map((profile) => profile.sourceRevision))].sort();
 const environments = [
   ...new Set(
@@ -210,6 +249,21 @@ SDK ownership and background load depend on the owning fixture; capture details 
 server/driver state may already be warm. These conditions do not support engine rankings or
 percentile estimates. Opening a new cache object does not drop OS page caches. Recorded cache
 reads retain unverified freshness and perform no native refresh.
+
+## Observed native facets
+
+These are counts across distinct validated evidence observations for each fixture, not support
+percentages. Repeated identical acquisitions share one observation. A successful qualification
+does not make every facet complete: policy may require only runtime type, while native type
+modifiers or nullability remain partial or unknown. Absence of parameters in a fixture does not
+establish parameter support. Version 1 reports did not retain this evidence and say "not recorded".
+The JSON retains column/parameter descriptors and each qualification comparison, including its
+rule, status, evidence identity and required-facet policy. This table does not establish facet
+availability for every query, type, function or database configuration on the listed engine.
+
+| Profile | Target | Native type | Runtime type | Nullability |
+| --- | --- | --- | --- | --- |
+${facetRows.join("\n")}
 
 ## Reproduction
 
