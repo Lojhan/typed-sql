@@ -1,6 +1,6 @@
 {
   "formatVersion": 1,
-  "sourceRevision": "1a3785d5513125452f83e3e7b233687348e6fbd7",
+  "sourceRevision": "c6d71ccff0827ae915900e6ac474e81ec965ce14",
   "nodeVersion": "v24.22.2",
   "esbuildVersion": "0.28.2",
   "toolDigest": "ab3abb097c057b711415e2f32269d6a95908f09e1c200935e548377dc4b17ec6",
@@ -251,9 +251,9 @@
           "durableFileBytes": 14801,
           "durableClosure": {
             "bytes": 15566,
-            "gzipBytes": 2492,
-            "brotliBytes": 2049,
-            "digest": "27dccca1d5229ecee05bbf4a8886b0647ac7bf21a15e8b8d56b8a8109e5db9d7"
+            "gzipBytes": 2491,
+            "brotliBytes": 2069,
+            "digest": "73b6e5837185b8dca41690aa279c6214fa95a2f54159d7015c2205ea26c7aae4"
           },
           "valuePlans": {
             "bytes": 6476,
@@ -300,9 +300,9 @@
           "durableFileBytes": 141422,
           "durableClosure": {
             "bytes": 148164,
-            "gzipBytes": 12613,
-            "brotliBytes": 7848,
-            "digest": "e00abc986421f67d3196ff714550a8703984dee9e14fdc494a347fb65e5331a7"
+            "gzipBytes": 12259,
+            "brotliBytes": 7844,
+            "digest": "0403d9574fbe1b35ba34f59fb51b07b8ea7269e22b9110ef2147528508c9e5a1"
           },
           "valuePlans": {
             "bytes": 64751,
@@ -349,9 +349,9 @@
           "durableFileBytes": 704182,
           "durableClosure": {
             "bytes": 737485,
-            "gzipBytes": 57825,
-            "brotliBytes": 32589,
-            "digest": "ffba07ce463f270ce457e1f482f2cb20f8422d28883483cfc0256e41d2396769"
+            "gzipBytes": 58199,
+            "brotliBytes": 32580,
+            "digest": "6dadfdd516e2a4a1cce6dfab941d1ff5018c5df4921a0f61ea9252c0e018c604"
           },
           "valuePlans": {
             "bytes": 323751,
@@ -611,9 +611,9 @@
           "durableFileBytes": 11590,
           "durableClosure": {
             "bytes": 12272,
-            "gzipBytes": 2060,
-            "brotliBytes": 1689,
-            "digest": "5072a8b1836b70793ed5e3c1a6e9ac7ef4b050a381e10d97b1df6289e8236237"
+            "gzipBytes": 2072,
+            "brotliBytes": 1709,
+            "digest": "30134bab430a32453df3f89fc84120f266f8ce19cdf1a2d2c1311c29d0fc9938"
           },
           "valuePlans": {
             "bytes": 4443,
@@ -660,9 +660,9 @@
           "durableFileBytes": 109330,
           "durableClosure": {
             "bytes": 115242,
-            "gzipBytes": 10026,
-            "brotliBytes": 6734,
-            "digest": "1fab7170756c7a0664222a234043f065b73354a5a1727f9fae6e4c9505270e79"
+            "gzipBytes": 10076,
+            "brotliBytes": 6755,
+            "digest": "c09350db2e8fa2f89e93eb2eb37d7f5f0afa66c4b9a7cf32da6f2f854f76cc86"
           },
           "valuePlans": {
             "bytes": 44421,
@@ -709,9 +709,9 @@
           "durableFileBytes": 543730,
           "durableClosure": {
             "bytes": 572883,
-            "gzipBytes": 47823,
-            "brotliBytes": 28617,
-            "digest": "0765342b620cbc71bf6d45bed17cef05a0c7f2cfcaebfce4124249393d0fb10d"
+            "gzipBytes": 47878,
+            "brotliBytes": 28628,
+            "digest": "aea884ea7832bbf6d4434ef3cc1167aacf787df4a7d2861f259a18cd897eef03"
           },
           "valuePlans": {
             "bytes": 222101,
@@ -971,9 +971,9 @@
           "durableFileBytes": 12390,
           "durableClosure": {
             "bytes": 13072,
-            "gzipBytes": 2085,
-            "brotliBytes": 1707,
-            "digest": "1b291db6703775c05ebdb686d463b37f2398ff2021f37cde8b5b8c703797225f"
+            "gzipBytes": 2077,
+            "brotliBytes": 1704,
+            "digest": "f3b2dcaeaa9d4b4609a2b2d054e8028cb074068793a9b54f6214abe4fcc4b01b"
           },
           "valuePlans": {
             "bytes": 5045,
@@ -1020,9 +1020,9 @@
           "durableFileBytes": 117294,
           "durableClosure": {
             "bytes": 123206,
-            "gzipBytes": 10356,
-            "brotliBytes": 6740,
-            "digest": "82aabdeb9a4525be58eaed66b0de65efdd08b0a180ab532183a86a3581122b9e"
+            "gzipBytes": 10364,
+            "brotliBytes": 6763,
+            "digest": "6d3ab7b39f8664ed267e1fb1f9e654f825964282ab739ead575da66449dd800c"
           },
           "valuePlans": {
             "bytes": 50441,
@@ -1069,9 +1069,9 @@
           "durableFileBytes": 583534,
           "durableClosure": {
             "bytes": 612687,
-            "gzipBytes": 48236,
-            "brotliBytes": 28729,
-            "digest": "ce53debc3399bc0c07aded14877f4466197343282383a4fe14e178c36f31b1a6"
+            "gzipBytes": 48732,
+            "brotliBytes": 28721,
+            "digest": "3d1a6ac34b89032d6a5a993ab869d648dc4ca9014e6e3574ba1dbbcda7b2a1ea"
           },
           "valuePlans": {
             "bytes": 252201,
@@ -1331,9 +1331,9 @@
           "durableFileBytes": 12135,
           "durableClosure": {
             "bytes": 12817,
-            "gzipBytes": 1943,
-            "brotliBytes": 1617,
-            "digest": "e103c09659c52a43f6709d8ba0a518c2f7e576dfb08708db3839effdaaf3be9a"
+            "gzipBytes": 1950,
+            "brotliBytes": 1603,
+            "digest": "b4f882a67456b70966027eed3dcc6f63d18d95d18e5b4d852d6d832038c721e1"
           },
           "valuePlans": {
             "bytes": 4806,
@@ -1380,9 +1380,9 @@
           "durableFileBytes": 114762,
           "durableClosure": {
             "bytes": 120674,
-            "gzipBytes": 10053,
-            "brotliBytes": 6661,
-            "digest": "e8320ca3cbfbed1b23a64a1bc6828fdf2ab590dbdfd7300d133669cd0155c3cd"
+            "gzipBytes": 10143,
+            "brotliBytes": 6648,
+            "digest": "627031c52649223b2c22712f70bb65b3fd0782bc5355fe898b3e7bf2613f88eb"
           },
           "valuePlans": {
             "bytes": 48051,
@@ -1429,9 +1429,9 @@
           "durableFileBytes": 570882,
           "durableClosure": {
             "bytes": 600035,
-            "gzipBytes": 47874,
-            "brotliBytes": 28195,
-            "digest": "8eb0220fa7e0fbb8f1b342a6cbdfc53a5946adac55ccd780720fec62a703a26c"
+            "gzipBytes": 48394,
+            "brotliBytes": 28639,
+            "digest": "55a2f142649619ba41236f5650de1b0abb14a955e49f8f4dab0e59387a2f8fbf"
           },
           "valuePlans": {
             "bytes": 240251,
@@ -1715,9 +1715,9 @@
           "durableFileBytes": 13795,
           "durableClosure": {
             "bytes": 14560,
-            "gzipBytes": 2024,
-            "brotliBytes": 1693,
-            "digest": "370614795341745560e4c927a51e513ded2373ba063e890f98a7e4a4f21175d7"
+            "gzipBytes": 2020,
+            "brotliBytes": 1690,
+            "digest": "997916e4d19afb1b9ef7c058266fc5e3a99f0eba91d3cf1063f0722661b49bdd"
           },
           "valuePlans": {
             "bytes": 5509,
@@ -1764,9 +1764,9 @@
           "durableFileBytes": 131335,
           "durableClosure": {
             "bytes": 138077,
-            "gzipBytes": 11386,
-            "brotliBytes": 7467,
-            "digest": "1357d3a7556e81c529dfad1575e3e8fb9182ef956be67088b2cad72bf196f146"
+            "gzipBytes": 11253,
+            "brotliBytes": 7385,
+            "digest": "69c205efff3e34fe1444817a229b795c7f06691bea82ca1260b08c78dfcdf0dd"
           },
           "valuePlans": {
             "bytes": 55081,
@@ -1813,9 +1813,9 @@
           "durableFileBytes": 653735,
           "durableClosure": {
             "bytes": 687038,
-            "gzipBytes": 54833,
-            "brotliBytes": 32588,
-            "digest": "8cce4b445933c7d0ebfe9791e157714ff08af74e3d11655149c2c6d1091c9868"
+            "gzipBytes": 55104,
+            "brotliBytes": 32520,
+            "digest": "bf6cd9a1a010188a0275f0c14319c00482c963ee7a3b34b7094046db08dd79c2"
           },
           "valuePlans": {
             "bytes": 275401,

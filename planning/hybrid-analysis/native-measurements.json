@@ -1677,12 +1677,12 @@
     },
     {
       "formatVersion": 2,
-      "sourceRevision": "b24cedd87f74e756265aa8d80477e162eea23f7a",
+      "sourceRevision": "b054a1a344a3e30c3ea4eab6e8f9b3de5ea379ea",
       "toolDigest": "f001eb36771bbcd97a474da387f52f741ba33846e4670339f4d09ab8ecfbcbfd",
       "label": "sqlserver-14.0.3560.2-compat-140",
       "serverVersion": "14.0.3560.2",
       "grammar": { "id": "sqlserver", "version": "1.0.0" },
-      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v3" },
+      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v4" },
       "sqlDigest": "19693d330c1a76f7ab048138effdc367c76b9db95c9a046b28b0dc694401eb01",
       "parameterOccurrences": 1,
       "fixtureSchema": {
@@ -1691,12 +1691,12 @@
       },
       "environment": { "node": "v24.22.2", "platform": "linux", "architecture": "x64" },
       "facetObservations": {
-        "46cc22e2388ae6fc4cc67e75432102b499f58c3cefdae7e55a5556b1b62b34ce": {
+        "dc6e2090e08136d9b90c0d4fc3884d1897782cee30ac3a013cb139e91f00bf69": {
           "sqlLength": 46,
           "nativeEvidence": {
             "adapter": {
               "id": "@typed-sql/sqlserver/native-contracts",
-              "version": "sqlserver-log-guarded-describe-v3"
+              "version": "sqlserver-log-guarded-describe-v4"
             },
             "columns": [
               {
@@ -1837,7 +1837,7 @@
                 "target": "parameter"
               }
             ],
-            "nativeEvidenceHash": "b7d4e0dd6386aa80b5ea9a0eff3705281583a57d03ed1c8c978bea5a827dfd28",
+            "nativeEvidenceHash": "dfa6678f412f300ee6a14c0c5c3855eb92fb8d5fca4e64721e5958dc3d6c0beb",
             "policy": {
               "mode": "native-required",
               "owner": {
@@ -1847,8 +1847,8 @@
               "requiredNativeFacets": ["runtime-type"]
             },
             "policyHash": "d757a99a0c6fbb14feed0d3d61c64708bcaf0284bcf411d22c72c2eb484be431",
-            "sourceContractHash": "789d5ba88963e7b656e443d52f7d8ca61b1761790ddbd3c345f0507d1280b9c9",
-            "staticClaimHash": "4cce2e7d6f32af0766258f250129aedf906cf583e7d97cea73440b53211bf8eb"
+            "sourceContractHash": "f1381eebf810ba6d6722334eed2c306f0b81bda52333c193b88de10889656435",
+            "staticClaimHash": "5001d684de09bd02d384886f7dda8a56b9f9d2862400efe73be9de2926814629"
           }
         }
       },
@@ -1856,137 +1856,142 @@
         {
           "attempts": [
             {
-              "contextInspectionMs": 189.44687199999998,
-              "staticAnalysisMs": 1.5538979999996627,
-              "acquisitionAndReconciliationMs": 213.3099040000002,
+              "contextInspectionMs": 179.83560399999988,
+              "staticAnalysisMs": 0.976278000000093,
+              "acquisitionAndReconciliationMs": 201.82864000000018,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "3d3948230b477d4d1ed1d2817014403e382cb3a7413091c3b485447d07d4f8b9",
-          "contextDigest": "6db93edb9d267d2554718ef50ffd4be5d517122bfa795ca128a51fdcc436bc4c",
-          "facetObservationDigest": "46cc22e2388ae6fc4cc67e75432102b499f58c3cefdae7e55a5556b1b62b34ce",
+          "contractDigest": "7518e45a4e2ac039142fba24112dfd779b712e923b0397388b5f2f52937cc4ec",
+          "contextDigest": "9c1408ae0f98a26a1e2010726b2c20acc34ed1d0cc904e6fa69507dbd4913371",
+          "facetObservationDigest": "dc6e2090e08136d9b90c0d4fc3884d1897782cee30ac3a013cb139e91f00bf69",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 15.736214000000018,
-          "durableReloadMs": 10.007268999999724,
-          "cachePublishMs": 25.499229999999898,
-          "coldCacheObjectLookupMs": 50.94136100000014,
-          "warmLookupMs": [30.44433200000003, 20.86517700000013, 21.30880500000012]
+          "durableExportMs": 14.614496000000145,
+          "durableReloadMs": 8.787166999999954,
+          "cachePublishMs": 15.493093000000044,
+          "coldCacheObjectLookupMs": 36.22122300000001,
+          "warmLookupMs": [10.207919999999831, 15.668548999999985, 27.632612000000336]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 215.64536399999997,
-              "staticAnalysisMs": 5.620707999999922,
-              "acquisitionAndReconciliationMs": 217.1039139999998,
+              "contextInspectionMs": 210.1141300000004,
+              "staticAnalysisMs": 5.344262000000072,
+              "acquisitionAndReconciliationMs": 203.7499560000001,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "3d3948230b477d4d1ed1d2817014403e382cb3a7413091c3b485447d07d4f8b9",
-          "contextDigest": "6db93edb9d267d2554718ef50ffd4be5d517122bfa795ca128a51fdcc436bc4c",
-          "facetObservationDigest": "46cc22e2388ae6fc4cc67e75432102b499f58c3cefdae7e55a5556b1b62b34ce",
+          "contractDigest": "7518e45a4e2ac039142fba24112dfd779b712e923b0397388b5f2f52937cc4ec",
+          "contextDigest": "9c1408ae0f98a26a1e2010726b2c20acc34ed1d0cc904e6fa69507dbd4913371",
+          "facetObservationDigest": "dc6e2090e08136d9b90c0d4fc3884d1897782cee30ac3a013cb139e91f00bf69",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 7.785335000000032,
-          "durableReloadMs": 7.98992300000009,
-          "cachePublishMs": 20.413073000000168,
-          "coldCacheObjectLookupMs": 45.06752099999994,
-          "warmLookupMs": [21.20238500000005, 22.178294000000278, 17.63085000000001]
+          "durableExportMs": 6.898907999999665,
+          "durableReloadMs": 4.289597999999842,
+          "cachePublishMs": 24.88183700000036,
+          "coldCacheObjectLookupMs": 26.273708999999144,
+          "warmLookupMs": [23.733406000000286, 26.61891199999991, 27.113806999999724]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 196.1784050000001,
-              "staticAnalysisMs": 6.032106999999996,
-              "acquisitionAndReconciliationMs": 226.31694200000038,
+              "contextInspectionMs": 177.73184499999934,
+              "staticAnalysisMs": 4.8508130000000165,
+              "acquisitionAndReconciliationMs": 197.39080300000023,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "3d3948230b477d4d1ed1d2817014403e382cb3a7413091c3b485447d07d4f8b9",
-          "contextDigest": "6db93edb9d267d2554718ef50ffd4be5d517122bfa795ca128a51fdcc436bc4c",
-          "facetObservationDigest": "46cc22e2388ae6fc4cc67e75432102b499f58c3cefdae7e55a5556b1b62b34ce",
+          "contractDigest": "7518e45a4e2ac039142fba24112dfd779b712e923b0397388b5f2f52937cc4ec",
+          "contextDigest": "9c1408ae0f98a26a1e2010726b2c20acc34ed1d0cc904e6fa69507dbd4913371",
+          "facetObservationDigest": "dc6e2090e08136d9b90c0d4fc3884d1897782cee30ac3a013cb139e91f00bf69",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 7.415788999999677,
-          "durableReloadMs": 10.041229999999814,
-          "cachePublishMs": 23.338558999999805,
-          "coldCacheObjectLookupMs": 60.24275200000011,
-          "warmLookupMs": [20.81400399999984, 16.402391999999963, 28.816187999999784]
+          "durableExportMs": 7.316378000000441,
+          "durableReloadMs": 9.318324000000757,
+          "cachePublishMs": 13.72231499999998,
+          "coldCacheObjectLookupMs": 40.09441700000025,
+          "warmLookupMs": [23.360913999999866, 24.425457999999708, 19.504523000000518]
         }
       ],
-      "reportDigest": "3c7c27f23188be3387a1568e7c20715d1c90ceffe95288ef0ef90c5ee2c26b5c",
+      "reportDigest": "ab44f1ca9f315ae02446b4178e24860b2f0724f6942a991ac3f53a4ceb9e0e93",
       "summary": {
         "canonicalContractBytes": { "count": 3, "min": 5064, "median": 5064, "max": 5064 },
         "durableFileBytes": { "count": 3, "min": 5866, "median": 5866, "max": 5866 },
         "cacheFileBytes": { "count": 3, "min": 6513, "median": 6513, "max": 6513 },
         "contextInspectionMs": {
           "count": 3,
-          "min": 189.44687199999998,
-          "median": 196.1784050000001,
-          "max": 215.64536399999997
+          "min": 177.73184499999934,
+          "median": 179.83560399999988,
+          "max": 210.1141300000004
         },
         "staticAnalysisMs": {
           "count": 3,
-          "min": 1.5538979999996627,
-          "median": 5.620707999999922,
-          "max": 6.032106999999996
+          "min": 0.976278000000093,
+          "median": 4.8508130000000165,
+          "max": 5.344262000000072
         },
         "acquisitionAndReconciliationMs": {
           "count": 3,
-          "min": 213.3099040000002,
-          "median": 217.1039139999998,
-          "max": 226.31694200000038
+          "min": 197.39080300000023,
+          "median": 201.82864000000018,
+          "max": 203.7499560000001
         },
         "sumOfQualificationStagesMs": {
           "count": 3,
-          "min": 404.31067399999984,
-          "median": 428.5274540000005,
-          "max": 438.3699859999997
+          "min": 379.9734609999996,
+          "median": 382.64052200000015,
+          "max": 419.20834800000057
         },
         "durableExportMs": {
           "count": 3,
-          "min": 7.415788999999677,
-          "median": 7.785335000000032,
-          "max": 15.736214000000018
+          "min": 6.898907999999665,
+          "median": 7.316378000000441,
+          "max": 14.614496000000145
         },
         "durableReloadMs": {
           "count": 3,
-          "min": 7.98992300000009,
-          "median": 10.007268999999724,
-          "max": 10.041229999999814
+          "min": 4.289597999999842,
+          "median": 8.787166999999954,
+          "max": 9.318324000000757
         },
         "cachePublishMs": {
           "count": 3,
-          "min": 20.413073000000168,
-          "median": 23.338558999999805,
-          "max": 25.499229999999898
+          "min": 13.72231499999998,
+          "median": 15.493093000000044,
+          "max": 24.88183700000036
         },
         "coldCacheObjectLookupMs": {
           "count": 3,
-          "min": 45.06752099999994,
-          "median": 50.94136100000014,
-          "max": 60.24275200000011
+          "min": 26.273708999999144,
+          "median": 36.22122300000001,
+          "max": 40.09441700000025
         },
-        "warmLookupMs": { "count": 9, "min": 16.402391999999963, "median": 21.20238500000005, "max": 30.44433200000003 }
+        "warmLookupMs": {
+          "count": 9,
+          "min": 10.207919999999831,
+          "median": 23.733406000000286,
+          "max": 27.632612000000336
+        }
       }
     },
     {
       "formatVersion": 2,
-      "sourceRevision": "b24cedd87f74e756265aa8d80477e162eea23f7a",
+      "sourceRevision": "b054a1a344a3e30c3ea4eab6e8f9b3de5ea379ea",
       "toolDigest": "f001eb36771bbcd97a474da387f52f741ba33846e4670339f4d09ab8ecfbcbfd",
       "label": "sqlserver-15.0.4500.2-compat-140",
       "serverVersion": "15.0.4500.2",
       "grammar": { "id": "sqlserver", "version": "1.0.0" },
-      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v3" },
+      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v4" },
       "sqlDigest": "19693d330c1a76f7ab048138effdc367c76b9db95c9a046b28b0dc694401eb01",
       "parameterOccurrences": 1,
       "fixtureSchema": {
@@ -1995,12 +2000,12 @@
       },
       "environment": { "node": "v24.22.2", "platform": "linux", "architecture": "x64" },
       "facetObservations": {
-        "dd295373071dae5a471bf55acad1a47ecfdfa7de282d78081c5500b8d4d1a249": {
+        "b632d5d2d939155122f0ec2013903e838548cfc331d640ea51f0310d2691d50f": {
           "sqlLength": 46,
           "nativeEvidence": {
             "adapter": {
               "id": "@typed-sql/sqlserver/native-contracts",
-              "version": "sqlserver-log-guarded-describe-v3"
+              "version": "sqlserver-log-guarded-describe-v4"
             },
             "columns": [
               {
@@ -2141,7 +2146,7 @@
                 "target": "parameter"
               }
             ],
-            "nativeEvidenceHash": "b7d4e0dd6386aa80b5ea9a0eff3705281583a57d03ed1c8c978bea5a827dfd28",
+            "nativeEvidenceHash": "dfa6678f412f300ee6a14c0c5c3855eb92fb8d5fca4e64721e5958dc3d6c0beb",
             "policy": {
               "mode": "native-required",
               "owner": {
@@ -2151,8 +2156,8 @@
               "requiredNativeFacets": ["runtime-type"]
             },
             "policyHash": "d757a99a0c6fbb14feed0d3d61c64708bcaf0284bcf411d22c72c2eb484be431",
-            "sourceContractHash": "cce5e7b07dfa2e533cfcbb0f89b27a5c9edb1217f1030c7477901c3eebc75b4c",
-            "staticClaimHash": "4a3fd69c46619a411d8ce11e42de9aa0560aa1831eab645acd17a73fd8464a9e"
+            "sourceContractHash": "9d2d5611086b4389c1ca263371dcce9aee5e9e5ce39f2792230194dc145f7ae3",
+            "staticClaimHash": "cbc832ec34df28dde46fcb96a2e03c363c6cf9d1a93e8050910620a9a79de539"
           }
         }
       },
@@ -2160,137 +2165,137 @@
         {
           "attempts": [
             {
-              "contextInspectionMs": 199.574842,
-              "staticAnalysisMs": 1.20254900000009,
-              "acquisitionAndReconciliationMs": 222.92983700000013,
+              "contextInspectionMs": 209.79193499999974,
+              "staticAnalysisMs": 0.8798229999997602,
+              "acquisitionAndReconciliationMs": 233.41307000000006,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "eeb17daea9ae1f8a675bae2c02a4767ace84918b1a4682acf96864b916d5f499",
-          "contextDigest": "6f9fe1b5d40a5f13878014f4ecf27c854de9496c3a266050dcbf2cf3fd735a1b",
-          "facetObservationDigest": "dd295373071dae5a471bf55acad1a47ecfdfa7de282d78081c5500b8d4d1a249",
+          "contractDigest": "16ff22d4e1994e6f81635b8dee71b9b5382e69a82fa64389fa8b9db5970bca6e",
+          "contextDigest": "ef82e268b810f111d244c89939d01fdca55f3394a6287182a9df7305c0bc6ea5",
+          "facetObservationDigest": "b632d5d2d939155122f0ec2013903e838548cfc331d640ea51f0310d2691d50f",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 15.891046000000188,
-          "durableReloadMs": 10.302371000000221,
-          "cachePublishMs": 25.120961999999963,
-          "coldCacheObjectLookupMs": 56.416271999999935,
-          "warmLookupMs": [26.61938999999984, 26.288824000000204, 22.519846000000143]
+          "durableExportMs": 15.083534999999756,
+          "durableReloadMs": 10.443892000000233,
+          "cachePublishMs": 20.493957000000137,
+          "coldCacheObjectLookupMs": 56.10891100000026,
+          "warmLookupMs": [22.171340000000328, 25.08373500000016, 34.838852999999744]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 216.66020400000025,
-              "staticAnalysisMs": 5.608361000000059,
-              "acquisitionAndReconciliationMs": 220.00879799999984,
+              "contextInspectionMs": 247.88254000000006,
+              "staticAnalysisMs": 4.7765199999994365,
+              "acquisitionAndReconciliationMs": 229.01970900000015,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "eeb17daea9ae1f8a675bae2c02a4767ace84918b1a4682acf96864b916d5f499",
-          "contextDigest": "6f9fe1b5d40a5f13878014f4ecf27c854de9496c3a266050dcbf2cf3fd735a1b",
-          "facetObservationDigest": "dd295373071dae5a471bf55acad1a47ecfdfa7de282d78081c5500b8d4d1a249",
+          "contractDigest": "16ff22d4e1994e6f81635b8dee71b9b5382e69a82fa64389fa8b9db5970bca6e",
+          "contextDigest": "ef82e268b810f111d244c89939d01fdca55f3394a6287182a9df7305c0bc6ea5",
+          "facetObservationDigest": "b632d5d2d939155122f0ec2013903e838548cfc331d640ea51f0310d2691d50f",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 7.50174700000025,
-          "durableReloadMs": 3.530181999999968,
-          "cachePublishMs": 26.35677399999986,
-          "coldCacheObjectLookupMs": 29.659255999999914,
-          "warmLookupMs": [23.364210000000185, 23.850978000000396, 24.594509000000016]
+          "durableExportMs": 6.641161999999895,
+          "durableReloadMs": 5.777613000000201,
+          "cachePublishMs": 20.1423020000002,
+          "coldCacheObjectLookupMs": 42.38460100000066,
+          "warmLookupMs": [11.63908900000024, 26.287535999999818, 37.18382999999994]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 198.26380900000004,
-              "staticAnalysisMs": 5.545194000000265,
-              "acquisitionAndReconciliationMs": 211.43153400000028,
+              "contextInspectionMs": 207.9015669999999,
+              "staticAnalysisMs": 5.157279999999446,
+              "acquisitionAndReconciliationMs": 224.7337209999996,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "eeb17daea9ae1f8a675bae2c02a4767ace84918b1a4682acf96864b916d5f499",
-          "contextDigest": "6f9fe1b5d40a5f13878014f4ecf27c854de9496c3a266050dcbf2cf3fd735a1b",
-          "facetObservationDigest": "dd295373071dae5a471bf55acad1a47ecfdfa7de282d78081c5500b8d4d1a249",
+          "contractDigest": "16ff22d4e1994e6f81635b8dee71b9b5382e69a82fa64389fa8b9db5970bca6e",
+          "contextDigest": "ef82e268b810f111d244c89939d01fdca55f3394a6287182a9df7305c0bc6ea5",
+          "facetObservationDigest": "b632d5d2d939155122f0ec2013903e838548cfc331d640ea51f0310d2691d50f",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 8.305708999999297,
-          "durableReloadMs": 9.443310999999994,
-          "cachePublishMs": 23.544076000000132,
-          "coldCacheObjectLookupMs": 35.22670199999993,
-          "warmLookupMs": [20.271139999999832, 25.47587999999996, 18.67788400000063]
+          "durableExportMs": 6.991939999999886,
+          "durableReloadMs": 9.631136999999399,
+          "cachePublishMs": 23.92818299999999,
+          "coldCacheObjectLookupMs": 53.07157999999981,
+          "warmLookupMs": [32.30337000000054, 32.9162239999996, 37.50047699999959]
         }
       ],
-      "reportDigest": "0237f92766a684beaf74f43bbe430c2d714c330fd322739edd9d0477e8c4e92f",
+      "reportDigest": "8ac4ac1a45049b1076716ce5bfa956f23cdb29c444ece58c16d802f6aa24c98e",
       "summary": {
         "canonicalContractBytes": { "count": 3, "min": 5064, "median": 5064, "max": 5064 },
         "durableFileBytes": { "count": 3, "min": 5866, "median": 5866, "max": 5866 },
         "cacheFileBytes": { "count": 3, "min": 6513, "median": 6513, "max": 6513 },
         "contextInspectionMs": {
           "count": 3,
-          "min": 198.26380900000004,
-          "median": 199.574842,
-          "max": 216.66020400000025
+          "min": 207.9015669999999,
+          "median": 209.79193499999974,
+          "max": 247.88254000000006
         },
         "staticAnalysisMs": {
           "count": 3,
-          "min": 1.20254900000009,
-          "median": 5.545194000000265,
-          "max": 5.608361000000059
+          "min": 0.8798229999997602,
+          "median": 4.7765199999994365,
+          "max": 5.157279999999446
         },
         "acquisitionAndReconciliationMs": {
           "count": 3,
-          "min": 211.43153400000028,
-          "median": 220.00879799999984,
-          "max": 222.92983700000013
+          "min": 224.7337209999996,
+          "median": 229.01970900000015,
+          "max": 233.41307000000006
         },
         "sumOfQualificationStagesMs": {
           "count": 3,
-          "min": 415.2405370000006,
-          "median": 423.7072280000002,
-          "max": 442.27736300000015
+          "min": 437.79256799999894,
+          "median": 444.08482799999956,
+          "max": 481.67876899999965
         },
         "durableExportMs": {
           "count": 3,
-          "min": 7.50174700000025,
-          "median": 8.305708999999297,
-          "max": 15.891046000000188
+          "min": 6.641161999999895,
+          "median": 6.991939999999886,
+          "max": 15.083534999999756
         },
         "durableReloadMs": {
           "count": 3,
-          "min": 3.530181999999968,
-          "median": 9.443310999999994,
-          "max": 10.302371000000221
+          "min": 5.777613000000201,
+          "median": 9.631136999999399,
+          "max": 10.443892000000233
         },
         "cachePublishMs": {
           "count": 3,
-          "min": 23.544076000000132,
-          "median": 25.120961999999963,
-          "max": 26.35677399999986
+          "min": 20.1423020000002,
+          "median": 20.493957000000137,
+          "max": 23.92818299999999
         },
         "coldCacheObjectLookupMs": {
           "count": 3,
-          "min": 29.659255999999914,
-          "median": 35.22670199999993,
-          "max": 56.416271999999935
+          "min": 42.38460100000066,
+          "median": 53.07157999999981,
+          "max": 56.10891100000026
         },
-        "warmLookupMs": { "count": 9, "min": 18.67788400000063, "median": 23.850978000000396, "max": 26.61938999999984 }
+        "warmLookupMs": { "count": 9, "min": 11.63908900000024, "median": 32.30337000000054, "max": 37.50047699999959 }
       }
     },
     {
       "formatVersion": 2,
-      "sourceRevision": "b24cedd87f74e756265aa8d80477e162eea23f7a",
+      "sourceRevision": "b054a1a344a3e30c3ea4eab6e8f9b3de5ea379ea",
       "toolDigest": "f001eb36771bbcd97a474da387f52f741ba33846e4670339f4d09ab8ecfbcbfd",
       "label": "sqlserver-15.0.4500.2-compat-150",
       "serverVersion": "15.0.4500.2",
       "grammar": { "id": "sqlserver", "version": "1.0.0" },
-      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v3" },
+      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v4" },
       "sqlDigest": "19693d330c1a76f7ab048138effdc367c76b9db95c9a046b28b0dc694401eb01",
       "parameterOccurrences": 1,
       "fixtureSchema": {
@@ -2299,12 +2304,12 @@
       },
       "environment": { "node": "v24.22.2", "platform": "linux", "architecture": "x64" },
       "facetObservations": {
-        "38eab748c7781ce292a32ee37c87a0c31d65ca69d3bd4693a653a951028b6781": {
+        "b87bf386c022bee231b41fb1bb9b2859eda746a316c8be920646bd8c579d47fa": {
           "sqlLength": 46,
           "nativeEvidence": {
             "adapter": {
               "id": "@typed-sql/sqlserver/native-contracts",
-              "version": "sqlserver-log-guarded-describe-v3"
+              "version": "sqlserver-log-guarded-describe-v4"
             },
             "columns": [
               {
@@ -2445,7 +2450,7 @@
                 "target": "parameter"
               }
             ],
-            "nativeEvidenceHash": "b7d4e0dd6386aa80b5ea9a0eff3705281583a57d03ed1c8c978bea5a827dfd28",
+            "nativeEvidenceHash": "dfa6678f412f300ee6a14c0c5c3855eb92fb8d5fca4e64721e5958dc3d6c0beb",
             "policy": {
               "mode": "native-required",
               "owner": {
@@ -2455,8 +2460,8 @@
               "requiredNativeFacets": ["runtime-type"]
             },
             "policyHash": "d757a99a0c6fbb14feed0d3d61c64708bcaf0284bcf411d22c72c2eb484be431",
-            "sourceContractHash": "113b9b90829bbdb546fe0b695be8d56e3927f1e486eef771b8b7fa6dea780eab",
-            "staticClaimHash": "2ec9fa782234c21b97a32625f3f059673b26830a91224ba27daa2fed763999da"
+            "sourceContractHash": "31db9e4a9fc24c4d21cf584955a21b9b8143e0dec428619663ab0dea585c34b1",
+            "staticClaimHash": "6bc4bdbdb281ca9a4f2caf4e041e285a3148d19257b2b6735417baa5458cdb22"
           }
         }
       },
@@ -2464,137 +2469,137 @@
         {
           "attempts": [
             {
-              "contextInspectionMs": 186.45410699999957,
-              "staticAnalysisMs": 0.7919339999989461,
-              "acquisitionAndReconciliationMs": 216.38081199999942,
+              "contextInspectionMs": 203.78500799999892,
+              "staticAnalysisMs": 0.9407260000007227,
+              "acquisitionAndReconciliationMs": 227.4847580000005,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "073be94f8ec1f7a82d3d7f500c94c22d0960cd5e66eb63637764089e5b16aff3",
-          "contextDigest": "51eb50831842da9439f3c7e528df5561753dabacd2e41c570251b20e55910bc9",
-          "facetObservationDigest": "38eab748c7781ce292a32ee37c87a0c31d65ca69d3bd4693a653a951028b6781",
+          "contractDigest": "7f6f955b98a57f4dec094b43d0868fca1988aec4e042f8dd89fab5ea4e59a6ee",
+          "contextDigest": "904d53660f9b2eb731bf34e148c4aaf45bbc95895cd08565ae0c6e25c69d0522",
+          "facetObservationDigest": "b87bf386c022bee231b41fb1bb9b2859eda746a316c8be920646bd8c579d47fa",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 7.341914999999062,
-          "durableReloadMs": 5.167677999999796,
-          "cachePublishMs": 11.112413000000743,
-          "coldCacheObjectLookupMs": 41.66620999999941,
-          "warmLookupMs": [20.979427000000214, 18.533314000000246, 13.49242200000117]
+          "durableExportMs": 6.684939000000668,
+          "durableReloadMs": 3.0665090000002238,
+          "cachePublishMs": 34.55816400000003,
+          "coldCacheObjectLookupMs": 36.33792100000028,
+          "warmLookupMs": [26.66251899999952, 20.645446000000447, 16.056703000000198]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 197.58793500000138,
-              "staticAnalysisMs": 3.0710159999998723,
-              "acquisitionAndReconciliationMs": 206.41823600000134,
+              "contextInspectionMs": 207.58835100000033,
+              "staticAnalysisMs": 2.709088999999949,
+              "acquisitionAndReconciliationMs": 218.59845599999971,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "073be94f8ec1f7a82d3d7f500c94c22d0960cd5e66eb63637764089e5b16aff3",
-          "contextDigest": "51eb50831842da9439f3c7e528df5561753dabacd2e41c570251b20e55910bc9",
-          "facetObservationDigest": "38eab748c7781ce292a32ee37c87a0c31d65ca69d3bd4693a653a951028b6781",
+          "contractDigest": "7f6f955b98a57f4dec094b43d0868fca1988aec4e042f8dd89fab5ea4e59a6ee",
+          "contextDigest": "904d53660f9b2eb731bf34e148c4aaf45bbc95895cd08565ae0c6e25c69d0522",
+          "facetObservationDigest": "b87bf386c022bee231b41fb1bb9b2859eda746a316c8be920646bd8c579d47fa",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 6.518915000000561,
-          "durableReloadMs": 6.5271689999990485,
-          "cachePublishMs": 11.337231000001339,
-          "coldCacheObjectLookupMs": 38.111861999999746,
-          "warmLookupMs": [28.118635000000722, 29.75143399999979, 23.953272000000652]
+          "durableExportMs": 6.2174919999997655,
+          "durableReloadMs": 3.014035000000149,
+          "cachePublishMs": 25.389279999999417,
+          "coldCacheObjectLookupMs": 45.98847800000112,
+          "warmLookupMs": [35.70753499999955, 28.01533500000005, 25.149280999999974]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 195.23731700000098,
-              "staticAnalysisMs": 2.560003999999026,
-              "acquisitionAndReconciliationMs": 212.43790900000022,
+              "contextInspectionMs": 208.9843860000001,
+              "staticAnalysisMs": 2.688364999999976,
+              "acquisitionAndReconciliationMs": 220.63013200000023,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "073be94f8ec1f7a82d3d7f500c94c22d0960cd5e66eb63637764089e5b16aff3",
-          "contextDigest": "51eb50831842da9439f3c7e528df5561753dabacd2e41c570251b20e55910bc9",
-          "facetObservationDigest": "38eab748c7781ce292a32ee37c87a0c31d65ca69d3bd4693a653a951028b6781",
+          "contractDigest": "7f6f955b98a57f4dec094b43d0868fca1988aec4e042f8dd89fab5ea4e59a6ee",
+          "contextDigest": "904d53660f9b2eb731bf34e148c4aaf45bbc95895cd08565ae0c6e25c69d0522",
+          "facetObservationDigest": "b87bf386c022bee231b41fb1bb9b2859eda746a316c8be920646bd8c579d47fa",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 6.693175000000338,
-          "durableReloadMs": 3.2798949999996694,
-          "cachePublishMs": 24.04855899999893,
-          "coldCacheObjectLookupMs": 53.41316299999926,
-          "warmLookupMs": [27.896155999998882, 24.527200000000448, 28.609104999999545]
+          "durableExportMs": 6.3494879999998375,
+          "durableReloadMs": 3.6485800000009476,
+          "cachePublishMs": 29.033097000001362,
+          "coldCacheObjectLookupMs": 31.629577000001518,
+          "warmLookupMs": [30.12232099999892, 21.80931799999962, 28.14636099999916]
         }
       ],
-      "reportDigest": "ac2855b94ecdbb23fa27200c03e1d674f9c58432bbc8bd54d325cfe627fa6eea",
+      "reportDigest": "eb2239d45df05e2fa5858b57e5c3c626fe91bbcde7f05a6e0de854417773cda1",
       "summary": {
         "canonicalContractBytes": { "count": 3, "min": 5064, "median": 5064, "max": 5064 },
         "durableFileBytes": { "count": 3, "min": 5866, "median": 5866, "max": 5866 },
         "cacheFileBytes": { "count": 3, "min": 6513, "median": 6513, "max": 6513 },
         "contextInspectionMs": {
           "count": 3,
-          "min": 186.45410699999957,
-          "median": 195.23731700000098,
-          "max": 197.58793500000138
+          "min": 203.78500799999892,
+          "median": 207.58835100000033,
+          "max": 208.9843860000001
         },
         "staticAnalysisMs": {
           "count": 3,
-          "min": 0.7919339999989461,
-          "median": 2.560003999999026,
-          "max": 3.0710159999998723
+          "min": 0.9407260000007227,
+          "median": 2.688364999999976,
+          "max": 2.709088999999949
         },
         "acquisitionAndReconciliationMs": {
           "count": 3,
-          "min": 206.41823600000134,
-          "median": 212.43790900000022,
-          "max": 216.38081199999942
+          "min": 218.59845599999971,
+          "median": 220.63013200000023,
+          "max": 227.4847580000005
         },
         "sumOfQualificationStagesMs": {
           "count": 3,
-          "min": 403.62685299999794,
-          "median": 407.0771870000026,
-          "max": 410.23523000000023
+          "min": 428.895896,
+          "median": 432.21049200000016,
+          "max": 432.3028830000003
         },
         "durableExportMs": {
           "count": 3,
-          "min": 6.518915000000561,
-          "median": 6.693175000000338,
-          "max": 7.341914999999062
+          "min": 6.2174919999997655,
+          "median": 6.3494879999998375,
+          "max": 6.684939000000668
         },
         "durableReloadMs": {
           "count": 3,
-          "min": 3.2798949999996694,
-          "median": 5.167677999999796,
-          "max": 6.5271689999990485
+          "min": 3.014035000000149,
+          "median": 3.0665090000002238,
+          "max": 3.6485800000009476
         },
         "cachePublishMs": {
           "count": 3,
-          "min": 11.112413000000743,
-          "median": 11.337231000001339,
-          "max": 24.04855899999893
+          "min": 25.389279999999417,
+          "median": 29.033097000001362,
+          "max": 34.55816400000003
         },
         "coldCacheObjectLookupMs": {
           "count": 3,
-          "min": 38.111861999999746,
-          "median": 41.66620999999941,
-          "max": 53.41316299999926
+          "min": 31.629577000001518,
+          "median": 36.33792100000028,
+          "max": 45.98847800000112
         },
-        "warmLookupMs": { "count": 9, "min": 13.49242200000117, "median": 24.527200000000448, "max": 29.75143399999979 }
+        "warmLookupMs": { "count": 9, "min": 16.056703000000198, "median": 26.66251899999952, "max": 35.70753499999955 }
       }
     },
     {
       "formatVersion": 2,
-      "sourceRevision": "b24cedd87f74e756265aa8d80477e162eea23f7a",
+      "sourceRevision": "b054a1a344a3e30c3ea4eab6e8f9b3de5ea379ea",
       "toolDigest": "f001eb36771bbcd97a474da387f52f741ba33846e4670339f4d09ab8ecfbcbfd",
       "label": "sqlserver-16.0.4305.5-compat-140",
       "serverVersion": "16.0.4305.5",
       "grammar": { "id": "sqlserver", "version": "1.0.0" },
-      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v3" },
+      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v4" },
       "sqlDigest": "19693d330c1a76f7ab048138effdc367c76b9db95c9a046b28b0dc694401eb01",
       "parameterOccurrences": 1,
       "fixtureSchema": {
@@ -2603,12 +2608,12 @@
       },
       "environment": { "node": "v24.22.2", "platform": "linux", "architecture": "x64" },
       "facetObservations": {
-        "58aa76ffa7703b6a2859c16a9d2e295360fec1b8cb72728809876a08f76a5698": {
+        "87f7130ebf4405ed684119ed7f2b5d8b95fe89c55c344aa98fc6956648e73393": {
           "sqlLength": 46,
           "nativeEvidence": {
             "adapter": {
               "id": "@typed-sql/sqlserver/native-contracts",
-              "version": "sqlserver-log-guarded-describe-v3"
+              "version": "sqlserver-log-guarded-describe-v4"
             },
             "columns": [
               {
@@ -2749,7 +2754,7 @@
                 "target": "parameter"
               }
             ],
-            "nativeEvidenceHash": "b7d4e0dd6386aa80b5ea9a0eff3705281583a57d03ed1c8c978bea5a827dfd28",
+            "nativeEvidenceHash": "dfa6678f412f300ee6a14c0c5c3855eb92fb8d5fca4e64721e5958dc3d6c0beb",
             "policy": {
               "mode": "native-required",
               "owner": {
@@ -2759,8 +2764,8 @@
               "requiredNativeFacets": ["runtime-type"]
             },
             "policyHash": "d757a99a0c6fbb14feed0d3d61c64708bcaf0284bcf411d22c72c2eb484be431",
-            "sourceContractHash": "d703cec7f16834a32fea46d13fa647a681d74f9498bbd0837e1bd537a6d4a11e",
-            "staticClaimHash": "2d8390638081ec1effe5c7ddb9e85060d1336cef02a81952d40423c221f1363f"
+            "sourceContractHash": "bc14a86ba9ca8c142fe02d16a3e51413a9df45e57e701e5e864a503065e428b4",
+            "staticClaimHash": "73539ea5f946e9ddd542a4fe45346bd469f50a9db3e5a115e888cbb3baad44ff"
           }
         }
       },
@@ -2768,142 +2773,142 @@
         {
           "attempts": [
             {
-              "contextInspectionMs": 212.92561400000022,
-              "staticAnalysisMs": 1.0811749999998028,
-              "acquisitionAndReconciliationMs": 231.44752700000026,
+              "contextInspectionMs": 134.74210700000003,
+              "staticAnalysisMs": 0.8648050000001604,
+              "acquisitionAndReconciliationMs": 150.33408499999996,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "77e00d7c581da2d60a78bcf75360393a10cb23711d8c5de4dcb3379ba675c0c1",
-          "contextDigest": "6f1a864ac3b109d8583b1bcce8ae6af542efe63286ee6db834c5a7498a90fae3",
-          "facetObservationDigest": "58aa76ffa7703b6a2859c16a9d2e295360fec1b8cb72728809876a08f76a5698",
+          "contractDigest": "4cebae89f17576003307c1e4f0453a3cc4a39b9d966ff1f90b403f1317b331e8",
+          "contextDigest": "35bc37f7d718ba5a96d620b88fea62236a898081c9852d8dec5316b415e86c79",
+          "facetObservationDigest": "87f7130ebf4405ed684119ed7f2b5d8b95fe89c55c344aa98fc6956648e73393",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 16.80297500000006,
-          "durableReloadMs": 14.812996000000112,
-          "cachePublishMs": 19.596630000000005,
-          "coldCacheObjectLookupMs": 49.931011000000126,
-          "warmLookupMs": [18.029250000000047, 20.421948000000157, 27.130290999999943]
+          "durableExportMs": 11.106057999999848,
+          "durableReloadMs": 10.726215000000138,
+          "cachePublishMs": 14.653141000000232,
+          "coldCacheObjectLookupMs": 31.115099999999984,
+          "warmLookupMs": [10.74808800000028, 9.815209999999752, 19.279512000000068]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 231.37773199999992,
-              "staticAnalysisMs": 5.481995999999981,
-              "acquisitionAndReconciliationMs": 245.4936200000002,
+              "contextInspectionMs": 153.09978699999965,
+              "staticAnalysisMs": 3.03807500000039,
+              "acquisitionAndReconciliationMs": 151.72469200000023,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "77e00d7c581da2d60a78bcf75360393a10cb23711d8c5de4dcb3379ba675c0c1",
-          "contextDigest": "6f1a864ac3b109d8583b1bcce8ae6af542efe63286ee6db834c5a7498a90fae3",
-          "facetObservationDigest": "58aa76ffa7703b6a2859c16a9d2e295360fec1b8cb72728809876a08f76a5698",
+          "contractDigest": "4cebae89f17576003307c1e4f0453a3cc4a39b9d966ff1f90b403f1317b331e8",
+          "contextDigest": "35bc37f7d718ba5a96d620b88fea62236a898081c9852d8dec5316b415e86c79",
+          "facetObservationDigest": "87f7130ebf4405ed684119ed7f2b5d8b95fe89c55c344aa98fc6956648e73393",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 7.320381999999881,
-          "durableReloadMs": 7.510957999999846,
-          "cachePublishMs": 26.10855700000002,
-          "coldCacheObjectLookupMs": 43.019422000000304,
-          "warmLookupMs": [19.570983000000524, 27.074697999999444, 22.98304199999984]
+          "durableExportMs": 5.041688000000249,
+          "durableReloadMs": 2.0392769999998563,
+          "cachePublishMs": 17.119101999999657,
+          "coldCacheObjectLookupMs": 18.584401999999955,
+          "warmLookupMs": [14.136781000000155, 18.869082000000162, 16.055717000000186]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 213.6890400000002,
-              "staticAnalysisMs": 5.251477000000705,
-              "acquisitionAndReconciliationMs": 248.13516399999935,
+              "contextInspectionMs": 148.10031400000025,
+              "staticAnalysisMs": 3.591649999999845,
+              "acquisitionAndReconciliationMs": 150.9874189999996,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "77e00d7c581da2d60a78bcf75360393a10cb23711d8c5de4dcb3379ba675c0c1",
-          "contextDigest": "6f1a864ac3b109d8583b1bcce8ae6af542efe63286ee6db834c5a7498a90fae3",
-          "facetObservationDigest": "58aa76ffa7703b6a2859c16a9d2e295360fec1b8cb72728809876a08f76a5698",
+          "contractDigest": "4cebae89f17576003307c1e4f0453a3cc4a39b9d966ff1f90b403f1317b331e8",
+          "contextDigest": "35bc37f7d718ba5a96d620b88fea62236a898081c9852d8dec5316b415e86c79",
+          "facetObservationDigest": "87f7130ebf4405ed684119ed7f2b5d8b95fe89c55c344aa98fc6956648e73393",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 8.981511999999384,
-          "durableReloadMs": 5.399271999999655,
-          "cachePublishMs": 22.864150000000336,
-          "coldCacheObjectLookupMs": 37.65389300000061,
-          "warmLookupMs": [27.911627000000408, 23.64960500000052, 29.511223999999856]
+          "durableExportMs": 5.521552000000156,
+          "durableReloadMs": 2.1773550000002615,
+          "cachePublishMs": 16.082057000000077,
+          "coldCacheObjectLookupMs": 27.422439000000395,
+          "warmLookupMs": [16.151761999999962, 18.264310000000023, 15.775384000000031]
         }
       ],
-      "reportDigest": "eaf8fb03d613894516ee42322eeaf7f77a049c15409c1e1c4113335380d8dd2a",
+      "reportDigest": "1872f6088d8c9bfb64584bb9503c35d1da1cbe4f03e8930f401e7cefce41baa5",
       "summary": {
         "canonicalContractBytes": { "count": 3, "min": 5064, "median": 5064, "max": 5064 },
         "durableFileBytes": { "count": 3, "min": 5866, "median": 5866, "max": 5866 },
         "cacheFileBytes": { "count": 3, "min": 6513, "median": 6513, "max": 6513 },
         "contextInspectionMs": {
           "count": 3,
-          "min": 212.92561400000022,
-          "median": 213.6890400000002,
-          "max": 231.37773199999992
+          "min": 134.74210700000003,
+          "median": 148.10031400000025,
+          "max": 153.09978699999965
         },
         "staticAnalysisMs": {
           "count": 3,
-          "min": 1.0811749999998028,
-          "median": 5.251477000000705,
-          "max": 5.481995999999981
+          "min": 0.8648050000001604,
+          "median": 3.03807500000039,
+          "max": 3.591649999999845
         },
         "acquisitionAndReconciliationMs": {
           "count": 3,
-          "min": 231.44752700000026,
-          "median": 245.4936200000002,
-          "max": 248.13516399999935
+          "min": 150.33408499999996,
+          "median": 150.9874189999996,
+          "max": 151.72469200000023
         },
         "sumOfQualificationStagesMs": {
           "count": 3,
-          "min": 445.4543160000003,
-          "median": 467.07568100000026,
-          "max": 482.3533480000001
+          "min": 285.94099700000015,
+          "median": 302.6793829999997,
+          "max": 307.8625540000003
         },
         "durableExportMs": {
           "count": 3,
-          "min": 7.320381999999881,
-          "median": 8.981511999999384,
-          "max": 16.80297500000006
+          "min": 5.041688000000249,
+          "median": 5.521552000000156,
+          "max": 11.106057999999848
         },
         "durableReloadMs": {
           "count": 3,
-          "min": 5.399271999999655,
-          "median": 7.510957999999846,
-          "max": 14.812996000000112
+          "min": 2.0392769999998563,
+          "median": 2.1773550000002615,
+          "max": 10.726215000000138
         },
         "cachePublishMs": {
           "count": 3,
-          "min": 19.596630000000005,
-          "median": 22.864150000000336,
-          "max": 26.10855700000002
+          "min": 14.653141000000232,
+          "median": 16.082057000000077,
+          "max": 17.119101999999657
         },
         "coldCacheObjectLookupMs": {
           "count": 3,
-          "min": 37.65389300000061,
-          "median": 43.019422000000304,
-          "max": 49.931011000000126
+          "min": 18.584401999999955,
+          "median": 27.422439000000395,
+          "max": 31.115099999999984
         },
         "warmLookupMs": {
           "count": 9,
-          "min": 18.029250000000047,
-          "median": 23.64960500000052,
-          "max": 29.511223999999856
+          "min": 9.815209999999752,
+          "median": 16.055717000000186,
+          "max": 19.279512000000068
         }
       }
     },
     {
       "formatVersion": 2,
-      "sourceRevision": "b24cedd87f74e756265aa8d80477e162eea23f7a",
+      "sourceRevision": "b054a1a344a3e30c3ea4eab6e8f9b3de5ea379ea",
       "toolDigest": "f001eb36771bbcd97a474da387f52f741ba33846e4670339f4d09ab8ecfbcbfd",
       "label": "sqlserver-16.0.4305.5-compat-150",
       "serverVersion": "16.0.4305.5",
       "grammar": { "id": "sqlserver", "version": "1.0.0" },
-      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v3" },
+      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v4" },
       "sqlDigest": "19693d330c1a76f7ab048138effdc367c76b9db95c9a046b28b0dc694401eb01",
       "parameterOccurrences": 1,
       "fixtureSchema": {
@@ -2912,12 +2917,12 @@
       },
       "environment": { "node": "v24.22.2", "platform": "linux", "architecture": "x64" },
       "facetObservations": {
-        "6f88c615f9012971a7f82304fdb28985acff99a3962c7a13d20ef3d1325f6cf6": {
+        "7bae92a04d2e1d3a1b903eedf93ef1d5dda6086670734ba515a0913158d811f0": {
           "sqlLength": 46,
           "nativeEvidence": {
             "adapter": {
               "id": "@typed-sql/sqlserver/native-contracts",
-              "version": "sqlserver-log-guarded-describe-v3"
+              "version": "sqlserver-log-guarded-describe-v4"
             },
             "columns": [
               {
@@ -3058,7 +3063,7 @@
                 "target": "parameter"
               }
             ],
-            "nativeEvidenceHash": "b7d4e0dd6386aa80b5ea9a0eff3705281583a57d03ed1c8c978bea5a827dfd28",
+            "nativeEvidenceHash": "dfa6678f412f300ee6a14c0c5c3855eb92fb8d5fca4e64721e5958dc3d6c0beb",
             "policy": {
               "mode": "native-required",
               "owner": {
@@ -3068,8 +3073,8 @@
               "requiredNativeFacets": ["runtime-type"]
             },
             "policyHash": "d757a99a0c6fbb14feed0d3d61c64708bcaf0284bcf411d22c72c2eb484be431",
-            "sourceContractHash": "61e98957fe109665421028c88e594ded903dfd838471aaa4fa913afbe3aa094a",
-            "staticClaimHash": "4a2584e86f2e36e6a64114caf43bca9d20479921e3c2176c5592b56705563188"
+            "sourceContractHash": "44c96a3ba8677f93d613725dab0f13754c6ee20a656d42c4a80b05a438f1e78f",
+            "staticClaimHash": "9ffd8b932e103cf2273fa9f1ddc2df494aead5ccea931d331abf11f2890f67f3"
           }
         }
       },
@@ -3077,142 +3082,142 @@
         {
           "attempts": [
             {
-              "contextInspectionMs": 203.6830460000001,
-              "staticAnalysisMs": 1.057329999999638,
-              "acquisitionAndReconciliationMs": 257.1370650000008,
+              "contextInspectionMs": 135.1551499999996,
+              "staticAnalysisMs": 0.6452440000002753,
+              "acquisitionAndReconciliationMs": 146.49371900000006,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "df36839ae12275ca0c92e513a75b8c01be0e0ea75d48443b4e16f8271cfc5ab1",
-          "contextDigest": "5b4ac6129653131b4e562a27ce9bdf63d0eba190793282cd5d65833eb917eb4a",
-          "facetObservationDigest": "6f88c615f9012971a7f82304fdb28985acff99a3962c7a13d20ef3d1325f6cf6",
+          "contractDigest": "0cd641053837d3b14ab0325307fdcab063dfd90a5b2760fd52c12c344f68057b",
+          "contextDigest": "937da5168092a9502d4c590eeffe3338a393defeeefa21c376fd02752091e734",
+          "facetObservationDigest": "7bae92a04d2e1d3a1b903eedf93ef1d5dda6086670734ba515a0913158d811f0",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 7.23732199999904,
-          "durableReloadMs": 6.482905999999275,
-          "cachePublishMs": 14.045747999998639,
-          "coldCacheObjectLookupMs": 37.97403099999974,
-          "warmLookupMs": [16.865342000000965, 32.862890000000334, 30.54846499999985]
+          "durableExportMs": 5.002428999999211,
+          "durableReloadMs": 3.6630379999996876,
+          "cachePublishMs": 13.279927999999927,
+          "coldCacheObjectLookupMs": 20.413934000000154,
+          "warmLookupMs": [21.41190899999947, 18.49032999999963, 21.18181200000072]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 208.07707300000038,
-              "staticAnalysisMs": 3.0464460000002873,
-              "acquisitionAndReconciliationMs": 233.14065800000026,
+              "contextInspectionMs": 142.0592540000007,
+              "staticAnalysisMs": 1.738433000000441,
+              "acquisitionAndReconciliationMs": 149.84954500000094,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "df36839ae12275ca0c92e513a75b8c01be0e0ea75d48443b4e16f8271cfc5ab1",
-          "contextDigest": "5b4ac6129653131b4e562a27ce9bdf63d0eba190793282cd5d65833eb917eb4a",
-          "facetObservationDigest": "6f88c615f9012971a7f82304fdb28985acff99a3962c7a13d20ef3d1325f6cf6",
+          "contractDigest": "0cd641053837d3b14ab0325307fdcab063dfd90a5b2760fd52c12c344f68057b",
+          "contextDigest": "937da5168092a9502d4c590eeffe3338a393defeeefa21c376fd02752091e734",
+          "facetObservationDigest": "7bae92a04d2e1d3a1b903eedf93ef1d5dda6086670734ba515a0913158d811f0",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 6.716288000001441,
-          "durableReloadMs": 3.530747999999221,
-          "cachePublishMs": 9.846498000000793,
-          "coldCacheObjectLookupMs": 53.6308799999988,
-          "warmLookupMs": [29.464386999999988, 32.12009600000056, 21.51336900000024]
+          "durableExportMs": 5.075017999999545,
+          "durableReloadMs": 1.820467000001372,
+          "cachePublishMs": 18.994150000000445,
+          "coldCacheObjectLookupMs": 32.94282699999894,
+          "warmLookupMs": [22.701352999998562, 11.656648000000132, 18.782420999999886]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 221.8563240000003,
-              "staticAnalysisMs": 2.9730899999995017,
-              "acquisitionAndReconciliationMs": 228.9584470000009,
+              "contextInspectionMs": 142.3115199999993,
+              "staticAnalysisMs": 2.2862499999991996,
+              "acquisitionAndReconciliationMs": 146.69068799999877,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "df36839ae12275ca0c92e513a75b8c01be0e0ea75d48443b4e16f8271cfc5ab1",
-          "contextDigest": "5b4ac6129653131b4e562a27ce9bdf63d0eba190793282cd5d65833eb917eb4a",
-          "facetObservationDigest": "6f88c615f9012971a7f82304fdb28985acff99a3962c7a13d20ef3d1325f6cf6",
+          "contractDigest": "0cd641053837d3b14ab0325307fdcab063dfd90a5b2760fd52c12c344f68057b",
+          "contextDigest": "937da5168092a9502d4c590eeffe3338a393defeeefa21c376fd02752091e734",
+          "facetObservationDigest": "7bae92a04d2e1d3a1b903eedf93ef1d5dda6086670734ba515a0913158d811f0",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 6.682189999999537,
-          "durableReloadMs": 6.839201999999204,
-          "cachePublishMs": 24.92487699999947,
-          "coldCacheObjectLookupMs": 18.79592799999955,
-          "warmLookupMs": [20.856567999999243, 27.777788999999757, 23.97121100000004]
+          "durableExportMs": 4.851581000000806,
+          "durableReloadMs": 5.271915000001172,
+          "cachePublishMs": 6.26354099999844,
+          "coldCacheObjectLookupMs": 30.554924000000028,
+          "warmLookupMs": [18.6062550000006, 21.31214700000055, 19.08287299999938]
         }
       ],
-      "reportDigest": "87fdc5fce4edc2138307d2a4ced61b748b540ece13928b0fab561021e0e839ed",
+      "reportDigest": "769f2ac2183d1e82f5a4746176b533c71fa7c5accb3a135a82b17fb63ab15e6b",
       "summary": {
         "canonicalContractBytes": { "count": 3, "min": 5064, "median": 5064, "max": 5064 },
         "durableFileBytes": { "count": 3, "min": 5866, "median": 5866, "max": 5866 },
         "cacheFileBytes": { "count": 3, "min": 6513, "median": 6513, "max": 6513 },
         "contextInspectionMs": {
           "count": 3,
-          "min": 203.6830460000001,
-          "median": 208.07707300000038,
-          "max": 221.8563240000003
+          "min": 135.1551499999996,
+          "median": 142.0592540000007,
+          "max": 142.3115199999993
         },
         "staticAnalysisMs": {
           "count": 3,
-          "min": 1.057329999999638,
-          "median": 2.9730899999995017,
-          "max": 3.0464460000002873
+          "min": 0.6452440000002753,
+          "median": 1.738433000000441,
+          "max": 2.2862499999991996
         },
         "acquisitionAndReconciliationMs": {
           "count": 3,
-          "min": 228.9584470000009,
-          "median": 233.14065800000026,
-          "max": 257.1370650000008
+          "min": 146.49371900000006,
+          "median": 146.69068799999877,
+          "max": 149.84954500000094
         },
         "sumOfQualificationStagesMs": {
           "count": 3,
-          "min": 444.2641770000009,
-          "median": 453.7878610000007,
-          "max": 461.87744100000054
+          "min": 282.2941129999999,
+          "median": 291.28845799999726,
+          "max": 293.6472320000021
         },
         "durableExportMs": {
           "count": 3,
-          "min": 6.682189999999537,
-          "median": 6.716288000001441,
-          "max": 7.23732199999904
+          "min": 4.851581000000806,
+          "median": 5.002428999999211,
+          "max": 5.075017999999545
         },
         "durableReloadMs": {
           "count": 3,
-          "min": 3.530747999999221,
-          "median": 6.482905999999275,
-          "max": 6.839201999999204
+          "min": 1.820467000001372,
+          "median": 3.6630379999996876,
+          "max": 5.271915000001172
         },
         "cachePublishMs": {
           "count": 3,
-          "min": 9.846498000000793,
-          "median": 14.045747999998639,
-          "max": 24.92487699999947
+          "min": 6.26354099999844,
+          "median": 13.279927999999927,
+          "max": 18.994150000000445
         },
         "coldCacheObjectLookupMs": {
           "count": 3,
-          "min": 18.79592799999955,
-          "median": 37.97403099999974,
-          "max": 53.6308799999988
+          "min": 20.413934000000154,
+          "median": 30.554924000000028,
+          "max": 32.94282699999894
         },
         "warmLookupMs": {
           "count": 9,
-          "min": 16.865342000000965,
-          "median": 27.777788999999757,
-          "max": 32.862890000000334
+          "min": 11.656648000000132,
+          "median": 19.08287299999938,
+          "max": 22.701352999998562
         }
       }
     },
     {
       "formatVersion": 2,
-      "sourceRevision": "b24cedd87f74e756265aa8d80477e162eea23f7a",
+      "sourceRevision": "b054a1a344a3e30c3ea4eab6e8f9b3de5ea379ea",
       "toolDigest": "f001eb36771bbcd97a474da387f52f741ba33846e4670339f4d09ab8ecfbcbfd",
       "label": "sqlserver-16.0.4305.5-compat-160",
       "serverVersion": "16.0.4305.5",
       "grammar": { "id": "sqlserver", "version": "1.0.0" },
-      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v3" },
+      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v4" },
       "sqlDigest": "19693d330c1a76f7ab048138effdc367c76b9db95c9a046b28b0dc694401eb01",
       "parameterOccurrences": 1,
       "fixtureSchema": {
@@ -3221,12 +3226,12 @@
       },
       "environment": { "node": "v24.22.2", "platform": "linux", "architecture": "x64" },
       "facetObservations": {
-        "3b638aca3cb7a4943b4402075ec6f2f876c2661f4b6370ffc107245e1b4e8624": {
+        "ffb8f95a4ec6a6bbe621acf9435e0a65c8d12eb465fc812d3d0adc2db5c0e926": {
           "sqlLength": 46,
           "nativeEvidence": {
             "adapter": {
               "id": "@typed-sql/sqlserver/native-contracts",
-              "version": "sqlserver-log-guarded-describe-v3"
+              "version": "sqlserver-log-guarded-describe-v4"
             },
             "columns": [
               {
@@ -3367,7 +3372,7 @@
                 "target": "parameter"
               }
             ],
-            "nativeEvidenceHash": "b7d4e0dd6386aa80b5ea9a0eff3705281583a57d03ed1c8c978bea5a827dfd28",
+            "nativeEvidenceHash": "dfa6678f412f300ee6a14c0c5c3855eb92fb8d5fca4e64721e5958dc3d6c0beb",
             "policy": {
               "mode": "native-required",
               "owner": {
@@ -3377,8 +3382,8 @@
               "requiredNativeFacets": ["runtime-type"]
             },
             "policyHash": "d757a99a0c6fbb14feed0d3d61c64708bcaf0284bcf411d22c72c2eb484be431",
-            "sourceContractHash": "7eed775cd1d9dc5389ab41f04f2d1460b0d44e02abb13bcd6c66f6d51d2ae86f",
-            "staticClaimHash": "67fe9fe92859bf1aaabd9ac6c218061c5f34673c17dd87f58b3630a00f07528f"
+            "sourceContractHash": "30a99ac6ae1d20d0f2c03c9a39514639dd7b3c25211b8faef539961a55d43e3c",
+            "staticClaimHash": "60047f06eeae4b26888faf8d408aa82fb00c7a68c45797b10d16c20bf3e3d0b4"
           }
         }
       },
@@ -3386,142 +3391,142 @@
         {
           "attempts": [
             {
-              "contextInspectionMs": 207.51321299999836,
-              "staticAnalysisMs": 0.7689820000014151,
-              "acquisitionAndReconciliationMs": 226.42534200000227,
+              "contextInspectionMs": 127.6610440000004,
+              "staticAnalysisMs": 0.5232890000006591,
+              "acquisitionAndReconciliationMs": 141.29816000000028,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "cdb1f1345b7190fe7ae3141edf30ca5915dd3469cd8069bc4e28e40727731d51",
-          "contextDigest": "9fe2a0a520a450365eaed0f06d8200be429dc981e23694141a2e3133e3dd2471",
-          "facetObservationDigest": "3b638aca3cb7a4943b4402075ec6f2f876c2661f4b6370ffc107245e1b4e8624",
+          "contractDigest": "71c60be2d95b226cfd2a51241fcbf228f6d55a7672fc0d0d2ad7b7a0e5d9853e",
+          "contextDigest": "023e20439cc86f32430f79f577427e9d35acc154d5988881538f74b52256dac5",
+          "facetObservationDigest": "ffb8f95a4ec6a6bbe621acf9435e0a65c8d12eb465fc812d3d0adc2db5c0e926",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 6.940112999996927,
-          "durableReloadMs": 3.031654999998864,
-          "cachePublishMs": 33.36405800000284,
-          "coldCacheObjectLookupMs": 36.72840200000064,
-          "warmLookupMs": [16.41994199999681, 33.151692000003095, 25.880285999999614]
+          "durableExportMs": 4.981788000000961,
+          "durableReloadMs": 7.539726999999402,
+          "cachePublishMs": 18.077015999999276,
+          "coldCacheObjectLookupMs": 24.791047000000617,
+          "warmLookupMs": [18.263167000000976, 20.554575000000114, 18.541056000000026]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 222.9836499999983,
-              "staticAnalysisMs": 2.5965660000001662,
-              "acquisitionAndReconciliationMs": 225.80314599999838,
+              "contextInspectionMs": 136.4248580000003,
+              "staticAnalysisMs": 1.5220470000003843,
+              "acquisitionAndReconciliationMs": 145.80603300000075,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "cdb1f1345b7190fe7ae3141edf30ca5915dd3469cd8069bc4e28e40727731d51",
-          "contextDigest": "9fe2a0a520a450365eaed0f06d8200be429dc981e23694141a2e3133e3dd2471",
-          "facetObservationDigest": "3b638aca3cb7a4943b4402075ec6f2f876c2661f4b6370ffc107245e1b4e8624",
+          "contractDigest": "71c60be2d95b226cfd2a51241fcbf228f6d55a7672fc0d0d2ad7b7a0e5d9853e",
+          "contextDigest": "023e20439cc86f32430f79f577427e9d35acc154d5988881538f74b52256dac5",
+          "facetObservationDigest": "ffb8f95a4ec6a6bbe621acf9435e0a65c8d12eb465fc812d3d0adc2db5c0e926",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 6.612712999998621,
-          "durableReloadMs": 3.5547000000005937,
-          "cachePublishMs": 27.94709999999759,
-          "coldCacheObjectLookupMs": 32.13173200000165,
-          "warmLookupMs": [29.893404000002192, 25.332698999998684, 6.033439000002545]
+          "durableExportMs": 4.559248999999909,
+          "durableReloadMs": 7.821572000000742,
+          "cachePublishMs": 12.546672000000399,
+          "coldCacheObjectLookupMs": 30.194258999999875,
+          "warmLookupMs": [18.246721999999863, 3.616136999999071, 18.09745599999951]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 208.50192100000277,
-              "staticAnalysisMs": 2.833415999997669,
-              "acquisitionAndReconciliationMs": 228.1356620000006,
+              "contextInspectionMs": 134.73013100000026,
+              "staticAnalysisMs": 1.718312999999398,
+              "acquisitionAndReconciliationMs": 146.9930230000009,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "cdb1f1345b7190fe7ae3141edf30ca5915dd3469cd8069bc4e28e40727731d51",
-          "contextDigest": "9fe2a0a520a450365eaed0f06d8200be429dc981e23694141a2e3133e3dd2471",
-          "facetObservationDigest": "3b638aca3cb7a4943b4402075ec6f2f876c2661f4b6370ffc107245e1b4e8624",
+          "contractDigest": "71c60be2d95b226cfd2a51241fcbf228f6d55a7672fc0d0d2ad7b7a0e5d9853e",
+          "contextDigest": "023e20439cc86f32430f79f577427e9d35acc154d5988881538f74b52256dac5",
+          "facetObservationDigest": "ffb8f95a4ec6a6bbe621acf9435e0a65c8d12eb465fc812d3d0adc2db5c0e926",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 6.740551000002597,
-          "durableReloadMs": 2.871817999999621,
-          "cachePublishMs": 25.723244000000705,
-          "coldCacheObjectLookupMs": 46.08416399999987,
-          "warmLookupMs": [25.106831000000966, 15.678916000000754, 25.846219000002748]
+          "durableExportMs": 5.251263999998628,
+          "durableReloadMs": 11.483937999999398,
+          "cachePublishMs": 21.18815899999936,
+          "coldCacheObjectLookupMs": 28.51266300000134,
+          "warmLookupMs": [14.855223999998998, 20.979475999998613, 18.449086999999054]
         }
       ],
-      "reportDigest": "a4dccebe4a4fad7273abdd667bc41aa1c559a2203dbea7450f7e2e490e16f7fa",
+      "reportDigest": "c1d9e4cecca8ffa579e51b399d6a514b46de30bd234bceb5f74e1df852917e8b",
       "summary": {
         "canonicalContractBytes": { "count": 3, "min": 5064, "median": 5064, "max": 5064 },
         "durableFileBytes": { "count": 3, "min": 5866, "median": 5866, "max": 5866 },
         "cacheFileBytes": { "count": 3, "min": 6513, "median": 6513, "max": 6513 },
         "contextInspectionMs": {
           "count": 3,
-          "min": 207.51321299999836,
-          "median": 208.50192100000277,
-          "max": 222.9836499999983
+          "min": 127.6610440000004,
+          "median": 134.73013100000026,
+          "max": 136.4248580000003
         },
         "staticAnalysisMs": {
           "count": 3,
-          "min": 0.7689820000014151,
-          "median": 2.5965660000001662,
-          "max": 2.833415999997669
+          "min": 0.5232890000006591,
+          "median": 1.5220470000003843,
+          "max": 1.718312999999398
         },
         "acquisitionAndReconciliationMs": {
           "count": 3,
-          "min": 225.80314599999838,
-          "median": 226.42534200000227,
-          "max": 228.1356620000006
+          "min": 141.29816000000028,
+          "median": 145.80603300000075,
+          "max": 146.9930230000009
         },
         "sumOfQualificationStagesMs": {
           "count": 3,
-          "min": 434.70753700000205,
-          "median": 439.47099900000103,
-          "max": 451.38336199999685
+          "min": 269.48249300000134,
+          "median": 283.44146700000056,
+          "max": 283.75293800000145
         },
         "durableExportMs": {
           "count": 3,
-          "min": 6.612712999998621,
-          "median": 6.740551000002597,
-          "max": 6.940112999996927
+          "min": 4.559248999999909,
+          "median": 4.981788000000961,
+          "max": 5.251263999998628
         },
         "durableReloadMs": {
           "count": 3,
-          "min": 2.871817999999621,
-          "median": 3.031654999998864,
-          "max": 3.5547000000005937
+          "min": 7.539726999999402,
+          "median": 7.821572000000742,
+          "max": 11.483937999999398
         },
         "cachePublishMs": {
           "count": 3,
-          "min": 25.723244000000705,
-          "median": 27.94709999999759,
-          "max": 33.36405800000284
+          "min": 12.546672000000399,
+          "median": 18.077015999999276,
+          "max": 21.18815899999936
         },
         "coldCacheObjectLookupMs": {
           "count": 3,
-          "min": 32.13173200000165,
-          "median": 36.72840200000064,
-          "max": 46.08416399999987
+          "min": 24.791047000000617,
+          "median": 28.51266300000134,
+          "max": 30.194258999999875
         },
         "warmLookupMs": {
           "count": 9,
-          "min": 6.033439000002545,
-          "median": 25.332698999998684,
-          "max": 33.151692000003095
+          "min": 3.616136999999071,
+          "median": 18.263167000000976,
+          "max": 20.979475999998613
         }
       }
     },
     {
       "formatVersion": 2,
-      "sourceRevision": "b24cedd87f74e756265aa8d80477e162eea23f7a",
+      "sourceRevision": "b054a1a344a3e30c3ea4eab6e8f9b3de5ea379ea",
       "toolDigest": "f001eb36771bbcd97a474da387f52f741ba33846e4670339f4d09ab8ecfbcbfd",
       "label": "sqlserver-17.0.5035.5-compat-140",
       "serverVersion": "17.0.5035.5",
       "grammar": { "id": "sqlserver", "version": "1.0.0" },
-      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v3" },
+      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v4" },
       "sqlDigest": "19693d330c1a76f7ab048138effdc367c76b9db95c9a046b28b0dc694401eb01",
       "parameterOccurrences": 1,
       "fixtureSchema": {
@@ -3530,12 +3535,12 @@
       },
       "environment": { "node": "v24.22.2", "platform": "linux", "architecture": "x64" },
       "facetObservations": {
-        "9249b695a281335b3f0294d03073d11aa0bbbd6ced67db518c08058b6f9541e5": {
+        "406143d51e955dff473708a23437e1efaaf96b271460d21c2ed77b6a0bcf3f5f": {
           "sqlLength": 46,
           "nativeEvidence": {
             "adapter": {
               "id": "@typed-sql/sqlserver/native-contracts",
-              "version": "sqlserver-log-guarded-describe-v3"
+              "version": "sqlserver-log-guarded-describe-v4"
             },
             "columns": [
               {
@@ -3676,7 +3681,7 @@
                 "target": "parameter"
               }
             ],
-            "nativeEvidenceHash": "b7d4e0dd6386aa80b5ea9a0eff3705281583a57d03ed1c8c978bea5a827dfd28",
+            "nativeEvidenceHash": "dfa6678f412f300ee6a14c0c5c3855eb92fb8d5fca4e64721e5958dc3d6c0beb",
             "policy": {
               "mode": "native-required",
               "owner": {
@@ -3686,8 +3691,8 @@
               "requiredNativeFacets": ["runtime-type"]
             },
             "policyHash": "d757a99a0c6fbb14feed0d3d61c64708bcaf0284bcf411d22c72c2eb484be431",
-            "sourceContractHash": "54f17642f168423897e314c20245411e5589e96ae71edb31b2e36cc46bbe9fbc",
-            "staticClaimHash": "6411a4250ae050ad594a93d2b3fbcdc5a8c62b1980afd4e96397f6a5d2ed437c"
+            "sourceContractHash": "15978be897739d88a2ef49602252a0e6b01c0cbd781463ef8c0f5705f113d9dd",
+            "staticClaimHash": "512e8e675c9687a5895af1d10c9a2091cd357cf36084e5435c4406b8aff039ab"
           }
         }
       },
@@ -3695,142 +3700,142 @@
         {
           "attempts": [
             {
-              "contextInspectionMs": 319.3106280000002,
-              "staticAnalysisMs": 0.9716400000006615,
-              "acquisitionAndReconciliationMs": 341.94393799999943,
+              "contextInspectionMs": 235.791698,
+              "staticAnalysisMs": 0.7152589999996053,
+              "acquisitionAndReconciliationMs": 246.09089399999993,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "38287463949f3b1c4514a46e043407fe1afab7a9941680ffbf20bd3283c09a9c",
-          "contextDigest": "b1d671898f4668421f032e84078ec320c123127943c40cd5fc428553817b6f38",
-          "facetObservationDigest": "9249b695a281335b3f0294d03073d11aa0bbbd6ced67db518c08058b6f9541e5",
+          "contractDigest": "d7e2b4bc2ae5b5a4386a85dba933f6d337ca8bb371a38e7c219f2eebae745786",
+          "contextDigest": "c47595207b8588052a1fec4a517f9a727f31a17f23db1ad4b1260cecc341236d",
+          "facetObservationDigest": "406143d51e955dff473708a23437e1efaaf96b271460d21c2ed77b6a0bcf3f5f",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 15.368612000000212,
-          "durableReloadMs": 10.696656000000075,
-          "cachePublishMs": 22.537076999999954,
-          "coldCacheObjectLookupMs": 52.27974300000005,
-          "warmLookupMs": [20.420436000000336, 22.805325000000266, 22.904827999999725]
+          "durableExportMs": 12.644079000000602,
+          "durableReloadMs": 8.061824000000342,
+          "cachePublishMs": 26.414780999999493,
+          "coldCacheObjectLookupMs": 39.0807360000008,
+          "warmLookupMs": [17.165273000000525, 23.176559000000452, 13.438498999999865]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 343.12980700000026,
-              "staticAnalysisMs": 5.005396999999903,
-              "acquisitionAndReconciliationMs": 345.1166140000005,
+              "contextInspectionMs": 235.63618700000006,
+              "staticAnalysisMs": 3.4188500000000204,
+              "acquisitionAndReconciliationMs": 255.9285149999996,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "38287463949f3b1c4514a46e043407fe1afab7a9941680ffbf20bd3283c09a9c",
-          "contextDigest": "b1d671898f4668421f032e84078ec320c123127943c40cd5fc428553817b6f38",
-          "facetObservationDigest": "9249b695a281335b3f0294d03073d11aa0bbbd6ced67db518c08058b6f9541e5",
+          "contractDigest": "d7e2b4bc2ae5b5a4386a85dba933f6d337ca8bb371a38e7c219f2eebae745786",
+          "contextDigest": "c47595207b8588052a1fec4a517f9a727f31a17f23db1ad4b1260cecc341236d",
+          "facetObservationDigest": "406143d51e955dff473708a23437e1efaaf96b271460d21c2ed77b6a0bcf3f5f",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 7.6958629999999175,
-          "durableReloadMs": 4.975333000000319,
-          "cachePublishMs": 25.924167999999554,
-          "coldCacheObjectLookupMs": 38.46552799999972,
-          "warmLookupMs": [28.71730000000025, 27.302456000000348, 12.63576600000033]
+          "durableExportMs": 7.082534000000123,
+          "durableReloadMs": 3.4847520000002987,
+          "cachePublishMs": 22.877736999999797,
+          "coldCacheObjectLookupMs": 33.678601999999955,
+          "warmLookupMs": [23.615272000000004, 25.908125999999356, 23.527461000000585]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 325.998525,
-              "staticAnalysisMs": 5.136880000000019,
-              "acquisitionAndReconciliationMs": 347.1653070000002,
+              "contextInspectionMs": 256.4347829999997,
+              "staticAnalysisMs": 3.9747809999998935,
+              "acquisitionAndReconciliationMs": 267.90948000000026,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "38287463949f3b1c4514a46e043407fe1afab7a9941680ffbf20bd3283c09a9c",
-          "contextDigest": "b1d671898f4668421f032e84078ec320c123127943c40cd5fc428553817b6f38",
-          "facetObservationDigest": "9249b695a281335b3f0294d03073d11aa0bbbd6ced67db518c08058b6f9541e5",
+          "contractDigest": "d7e2b4bc2ae5b5a4386a85dba933f6d337ca8bb371a38e7c219f2eebae745786",
+          "contextDigest": "c47595207b8588052a1fec4a517f9a727f31a17f23db1ad4b1260cecc341236d",
+          "facetObservationDigest": "406143d51e955dff473708a23437e1efaaf96b271460d21c2ed77b6a0bcf3f5f",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 7.250418999999965,
-          "durableReloadMs": 11.737661000000116,
-          "cachePublishMs": 31.086765000000014,
-          "coldCacheObjectLookupMs": 56.27331999999933,
-          "warmLookupMs": [30.412607000000207, 22.844647000000805, 17.54858400000012]
+          "durableExportMs": 6.626518000000033,
+          "durableReloadMs": 10.29059799999959,
+          "cachePublishMs": 22.695676999999705,
+          "coldCacheObjectLookupMs": 44.3877650000004,
+          "warmLookupMs": [23.501727999999275, 24.545304999999644, 23.597600000000057]
         }
       ],
-      "reportDigest": "07a42eeee935886f1a5c7599dbea30506b593dc3bde08aa27ca428ce8fef6bd0",
+      "reportDigest": "f287b65185123f0afe8f9d29bad8b28fe11b7a17ca3bea4098d3a043b96ee157",
       "summary": {
         "canonicalContractBytes": { "count": 3, "min": 5064, "median": 5064, "max": 5064 },
         "durableFileBytes": { "count": 3, "min": 5866, "median": 5866, "max": 5866 },
         "cacheFileBytes": { "count": 3, "min": 6513, "median": 6513, "max": 6513 },
         "contextInspectionMs": {
           "count": 3,
-          "min": 319.3106280000002,
-          "median": 325.998525,
-          "max": 343.12980700000026
+          "min": 235.63618700000006,
+          "median": 235.791698,
+          "max": 256.4347829999997
         },
         "staticAnalysisMs": {
           "count": 3,
-          "min": 0.9716400000006615,
-          "median": 5.005396999999903,
-          "max": 5.136880000000019
+          "min": 0.7152589999996053,
+          "median": 3.4188500000000204,
+          "max": 3.9747809999998935
         },
         "acquisitionAndReconciliationMs": {
           "count": 3,
-          "min": 341.94393799999943,
-          "median": 345.1166140000005,
-          "max": 347.1653070000002
+          "min": 246.09089399999993,
+          "median": 255.9285149999996,
+          "max": 267.90948000000026
         },
         "sumOfQualificationStagesMs": {
           "count": 3,
-          "min": 662.2262060000003,
-          "median": 678.3007120000002,
-          "max": 693.2518180000006
+          "min": 482.59785099999954,
+          "median": 494.9835519999997,
+          "max": 528.3190439999998
         },
         "durableExportMs": {
           "count": 3,
-          "min": 7.250418999999965,
-          "median": 7.6958629999999175,
-          "max": 15.368612000000212
+          "min": 6.626518000000033,
+          "median": 7.082534000000123,
+          "max": 12.644079000000602
         },
         "durableReloadMs": {
           "count": 3,
-          "min": 4.975333000000319,
-          "median": 10.696656000000075,
-          "max": 11.737661000000116
+          "min": 3.4847520000002987,
+          "median": 8.061824000000342,
+          "max": 10.29059799999959
         },
         "cachePublishMs": {
           "count": 3,
-          "min": 22.537076999999954,
-          "median": 25.924167999999554,
-          "max": 31.086765000000014
+          "min": 22.695676999999705,
+          "median": 22.877736999999797,
+          "max": 26.414780999999493
         },
         "coldCacheObjectLookupMs": {
           "count": 3,
-          "min": 38.46552799999972,
-          "median": 52.27974300000005,
-          "max": 56.27331999999933
+          "min": 33.678601999999955,
+          "median": 39.0807360000008,
+          "max": 44.3877650000004
         },
         "warmLookupMs": {
           "count": 9,
-          "min": 12.63576600000033,
-          "median": 22.844647000000805,
-          "max": 30.412607000000207
+          "min": 13.438498999999865,
+          "median": 23.527461000000585,
+          "max": 25.908125999999356
         }
       }
     },
     {
       "formatVersion": 2,
-      "sourceRevision": "b24cedd87f74e756265aa8d80477e162eea23f7a",
+      "sourceRevision": "b054a1a344a3e30c3ea4eab6e8f9b3de5ea379ea",
       "toolDigest": "f001eb36771bbcd97a474da387f52f741ba33846e4670339f4d09ab8ecfbcbfd",
       "label": "sqlserver-17.0.5035.5-compat-150",
       "serverVersion": "17.0.5035.5",
       "grammar": { "id": "sqlserver", "version": "1.0.0" },
-      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v3" },
+      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v4" },
       "sqlDigest": "19693d330c1a76f7ab048138effdc367c76b9db95c9a046b28b0dc694401eb01",
       "parameterOccurrences": 1,
       "fixtureSchema": {
@@ -3839,12 +3844,12 @@
       },
       "environment": { "node": "v24.22.2", "platform": "linux", "architecture": "x64" },
       "facetObservations": {
-        "6f696695caeea97de331db4bd1888aac7c4c6c66bfde541e3adae980e89f46f6": {
+        "e329292f712ca0dba506288f8017c860f020f0e095c4b188f4d6597d7fb5c79e": {
           "sqlLength": 46,
           "nativeEvidence": {
             "adapter": {
               "id": "@typed-sql/sqlserver/native-contracts",
-              "version": "sqlserver-log-guarded-describe-v3"
+              "version": "sqlserver-log-guarded-describe-v4"
             },
             "columns": [
               {
@@ -3985,7 +3990,7 @@
                 "target": "parameter"
               }
             ],
-            "nativeEvidenceHash": "b7d4e0dd6386aa80b5ea9a0eff3705281583a57d03ed1c8c978bea5a827dfd28",
+            "nativeEvidenceHash": "dfa6678f412f300ee6a14c0c5c3855eb92fb8d5fca4e64721e5958dc3d6c0beb",
             "policy": {
               "mode": "native-required",
               "owner": {
@@ -3995,8 +4000,8 @@
               "requiredNativeFacets": ["runtime-type"]
             },
             "policyHash": "d757a99a0c6fbb14feed0d3d61c64708bcaf0284bcf411d22c72c2eb484be431",
-            "sourceContractHash": "0ce8e9c6b771d081ca4bb6e0673dbd4bf6ea59124c4c9392430ef6dfeb905e55",
-            "staticClaimHash": "88c35d852a2c25c3e3832329c2179b9e2dff3bc08e37e7e8f6daade8ce02b340"
+            "sourceContractHash": "8ed34fa3f2a7ce7b223ec7deff906ec9425c38082fc8e116dc449b51a453dab1",
+            "staticClaimHash": "49f182538c5735c5bda6d690dcb1ae5a5e210e110345230e12f22d668dc7c690"
           }
         }
       },
@@ -4004,137 +4009,137 @@
         {
           "attempts": [
             {
-              "contextInspectionMs": 311.1717759999992,
-              "staticAnalysisMs": 0.7829700000002049,
-              "acquisitionAndReconciliationMs": 338.88093300000037,
+              "contextInspectionMs": 244.89593500000046,
+              "staticAnalysisMs": 0.737714999999298,
+              "acquisitionAndReconciliationMs": 259.26996899999904,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "b23207933fc76d2db369f24e8156e4e56e154b191e8d969ea7f5dd586d3e6d37",
-          "contextDigest": "ba5d769b03fc9f83f1847850fb9991aa6085fc5a6cffee8b642caad590d40c41",
-          "facetObservationDigest": "6f696695caeea97de331db4bd1888aac7c4c6c66bfde541e3adae980e89f46f6",
+          "contractDigest": "492fab23ab713dafb8159d9fbdac33ef555f38af006923599034dd394e4f9543",
+          "contextDigest": "0cc86c5ae672ec47b919ac031bad69e7e8db534674b45897b049c2f527a8949a",
+          "facetObservationDigest": "e329292f712ca0dba506288f8017c860f020f0e095c4b188f4d6597d7fb5c79e",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 7.172357999999804,
-          "durableReloadMs": 11.260159999999814,
-          "cachePublishMs": 25.63020200000028,
-          "coldCacheObjectLookupMs": 37.83661299999949,
-          "warmLookupMs": [9.199579000000085, 17.85961800000041, 23.156613000001016]
+          "durableExportMs": 14.217631999999867,
+          "durableReloadMs": 5.399300999999468,
+          "cachePublishMs": 32.498107999999775,
+          "coldCacheObjectLookupMs": 26.402224000001297,
+          "warmLookupMs": [21.852751000000353, 33.47622599999886, 19.181910999999673]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 316.78925400000116,
-              "staticAnalysisMs": 2.2882730000001175,
-              "acquisitionAndReconciliationMs": 332.6496850000003,
+              "contextInspectionMs": 247.92933000000085,
+              "staticAnalysisMs": 2.1598009999997885,
+              "acquisitionAndReconciliationMs": 243.45345300000008,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "b23207933fc76d2db369f24e8156e4e56e154b191e8d969ea7f5dd586d3e6d37",
-          "contextDigest": "ba5d769b03fc9f83f1847850fb9991aa6085fc5a6cffee8b642caad590d40c41",
-          "facetObservationDigest": "6f696695caeea97de331db4bd1888aac7c4c6c66bfde541e3adae980e89f46f6",
+          "contractDigest": "492fab23ab713dafb8159d9fbdac33ef555f38af006923599034dd394e4f9543",
+          "contextDigest": "0cc86c5ae672ec47b919ac031bad69e7e8db534674b45897b049c2f527a8949a",
+          "facetObservationDigest": "e329292f712ca0dba506288f8017c860f020f0e095c4b188f4d6597d7fb5c79e",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 6.368393999999171,
-          "durableReloadMs": 7.186053000001266,
-          "cachePublishMs": 8.184663,
-          "coldCacheObjectLookupMs": 42.309424999999464,
-          "warmLookupMs": [29.973163999999088, 23.356918999998015, 21.42779000000155]
+          "durableExportMs": 5.748932000000423,
+          "durableReloadMs": 4.833673000000999,
+          "cachePublishMs": 22.968351999999868,
+          "coldCacheObjectLookupMs": 47.81167999999889,
+          "warmLookupMs": [15.518549000000348, 26.18755300000157, 13.35443099999975]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 317.64608699999735,
-              "staticAnalysisMs": 2.5223839999998745,
-              "acquisitionAndReconciliationMs": 335.71480500000325,
+              "contextInspectionMs": 219.85714299999927,
+              "staticAnalysisMs": 1.9281969999992725,
+              "acquisitionAndReconciliationMs": 234.32445999999982,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "b23207933fc76d2db369f24e8156e4e56e154b191e8d969ea7f5dd586d3e6d37",
-          "contextDigest": "ba5d769b03fc9f83f1847850fb9991aa6085fc5a6cffee8b642caad590d40c41",
-          "facetObservationDigest": "6f696695caeea97de331db4bd1888aac7c4c6c66bfde541e3adae980e89f46f6",
+          "contractDigest": "492fab23ab713dafb8159d9fbdac33ef555f38af006923599034dd394e4f9543",
+          "contextDigest": "0cc86c5ae672ec47b919ac031bad69e7e8db534674b45897b049c2f527a8949a",
+          "facetObservationDigest": "e329292f712ca0dba506288f8017c860f020f0e095c4b188f4d6597d7fb5c79e",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 6.389015000000654,
-          "durableReloadMs": 4.03630499999781,
-          "cachePublishMs": 25.68266399999993,
-          "coldCacheObjectLookupMs": 46.79589200000191,
-          "warmLookupMs": [24.299599000001763, 25.316305999996985, 22.8823020000018]
+          "durableExportMs": 6.854291999999987,
+          "durableReloadMs": 5.450193000000581,
+          "cachePublishMs": 21.499050000000352,
+          "coldCacheObjectLookupMs": 35.97981599999912,
+          "warmLookupMs": [24.4754580000008, 20.34479199999987, 25.366485000000466]
         }
       ],
-      "reportDigest": "eef7783b33fd1fa4e53cefc2933cb18a2d9e7bf97332e3b18f81c846b99f42d7",
+      "reportDigest": "4e190ae6e1d8f031397245fbb9262d5e87d284896decf15dd24c99cfe390885c",
       "summary": {
         "canonicalContractBytes": { "count": 3, "min": 5064, "median": 5064, "max": 5064 },
         "durableFileBytes": { "count": 3, "min": 5866, "median": 5866, "max": 5866 },
         "cacheFileBytes": { "count": 3, "min": 6513, "median": 6513, "max": 6513 },
         "contextInspectionMs": {
           "count": 3,
-          "min": 311.1717759999992,
-          "median": 316.78925400000116,
-          "max": 317.64608699999735
+          "min": 219.85714299999927,
+          "median": 244.89593500000046,
+          "max": 247.92933000000085
         },
         "staticAnalysisMs": {
           "count": 3,
-          "min": 0.7829700000002049,
-          "median": 2.2882730000001175,
-          "max": 2.5223839999998745
+          "min": 0.737714999999298,
+          "median": 1.9281969999992725,
+          "max": 2.1598009999997885
         },
         "acquisitionAndReconciliationMs": {
           "count": 3,
-          "min": 332.6496850000003,
-          "median": 335.71480500000325,
-          "max": 338.88093300000037
+          "min": 234.32445999999982,
+          "median": 243.45345300000008,
+          "max": 259.26996899999904
         },
         "sumOfQualificationStagesMs": {
           "count": 3,
-          "min": 650.8356789999998,
-          "median": 651.7272120000016,
-          "max": 655.8832760000005
+          "min": 456.10979999999836,
+          "median": 493.5425840000007,
+          "max": 504.9036189999988
         },
         "durableExportMs": {
           "count": 3,
-          "min": 6.368393999999171,
-          "median": 6.389015000000654,
-          "max": 7.172357999999804
+          "min": 5.748932000000423,
+          "median": 6.854291999999987,
+          "max": 14.217631999999867
         },
         "durableReloadMs": {
           "count": 3,
-          "min": 4.03630499999781,
-          "median": 7.186053000001266,
-          "max": 11.260159999999814
+          "min": 4.833673000000999,
+          "median": 5.399300999999468,
+          "max": 5.450193000000581
         },
-        "cachePublishMs": { "count": 3, "min": 8.184663, "median": 25.63020200000028, "max": 25.68266399999993 },
+        "cachePublishMs": {
+          "count": 3,
+          "min": 21.499050000000352,
+          "median": 22.968351999999868,
+          "max": 32.498107999999775
+        },
         "coldCacheObjectLookupMs": {
           "count": 3,
-          "min": 37.83661299999949,
-          "median": 42.309424999999464,
-          "max": 46.79589200000191
+          "min": 26.402224000001297,
+          "median": 35.97981599999912,
+          "max": 47.81167999999889
         },
-        "warmLookupMs": {
-          "count": 9,
-          "min": 9.199579000000085,
-          "median": 23.156613000001016,
-          "max": 29.973163999999088
-        }
+        "warmLookupMs": { "count": 9, "min": 13.35443099999975, "median": 21.852751000000353, "max": 33.47622599999886 }
       }
     },
     {
       "formatVersion": 2,
-      "sourceRevision": "b24cedd87f74e756265aa8d80477e162eea23f7a",
+      "sourceRevision": "b054a1a344a3e30c3ea4eab6e8f9b3de5ea379ea",
       "toolDigest": "f001eb36771bbcd97a474da387f52f741ba33846e4670339f4d09ab8ecfbcbfd",
       "label": "sqlserver-17.0.5035.5-compat-160",
       "serverVersion": "17.0.5035.5",
       "grammar": { "id": "sqlserver", "version": "1.0.0" },
-      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v3" },
+      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v4" },
       "sqlDigest": "19693d330c1a76f7ab048138effdc367c76b9db95c9a046b28b0dc694401eb01",
       "parameterOccurrences": 1,
       "fixtureSchema": {
@@ -4143,12 +4148,12 @@
       },
       "environment": { "node": "v24.22.2", "platform": "linux", "architecture": "x64" },
       "facetObservations": {
-        "55054f72a08cb926be379ac48613ff59eb722e35231051e80c32684ae05e4b81": {
+        "495006b706493d2ae753101a396311c4c4677b4f3de7ab8094c447ffdc7c842a": {
           "sqlLength": 46,
           "nativeEvidence": {
             "adapter": {
               "id": "@typed-sql/sqlserver/native-contracts",
-              "version": "sqlserver-log-guarded-describe-v3"
+              "version": "sqlserver-log-guarded-describe-v4"
             },
             "columns": [
               {
@@ -4289,7 +4294,7 @@
                 "target": "parameter"
               }
             ],
-            "nativeEvidenceHash": "b7d4e0dd6386aa80b5ea9a0eff3705281583a57d03ed1c8c978bea5a827dfd28",
+            "nativeEvidenceHash": "dfa6678f412f300ee6a14c0c5c3855eb92fb8d5fca4e64721e5958dc3d6c0beb",
             "policy": {
               "mode": "native-required",
               "owner": {
@@ -4299,8 +4304,8 @@
               "requiredNativeFacets": ["runtime-type"]
             },
             "policyHash": "d757a99a0c6fbb14feed0d3d61c64708bcaf0284bcf411d22c72c2eb484be431",
-            "sourceContractHash": "e736fdaa0489891f66fd3f3418a9739ef98f7607bdaf1dec7651309ac5e7678b",
-            "staticClaimHash": "4eb2f41025d8088506a0a6c6b61a19417c1116a1c79eabeafbb8e74b60e9ff61"
+            "sourceContractHash": "743e0fc8f431ddb27e01bfbadadfea7dd1defa448b2a61fc6dc6f847876fa93d",
+            "staticClaimHash": "5b413f3f6c8b10301a5e0547b389ba423cab27fff74cdb0263a18304ef498970"
           }
         }
       },
@@ -4308,142 +4313,137 @@
         {
           "attempts": [
             {
-              "contextInspectionMs": 316.2846139999965,
-              "staticAnalysisMs": 0.6580460000004678,
-              "acquisitionAndReconciliationMs": 330.28274500000043,
+              "contextInspectionMs": 213.87535099999877,
+              "staticAnalysisMs": 0.6133669999981066,
+              "acquisitionAndReconciliationMs": 225.9678500000009,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "6a6634e191d0a083d821f8c0062483918671c5f32074fb9efddf4a3e7372d987",
-          "contextDigest": "ec2091d0f3f9d20ea6e8d6a2e81b79b90cebc0fb27bcf45d564a98c87a61044f",
-          "facetObservationDigest": "55054f72a08cb926be379ac48613ff59eb722e35231051e80c32684ae05e4b81",
+          "contractDigest": "33d9b49bb9dbdcd5b796836da5e2d51e4731da5e63d223b788e396e6511576ed",
+          "contextDigest": "57f69711e8ec7853f990071a7c33738d615d4b40ee95a6f28ca063b3006e9976",
+          "facetObservationDigest": "495006b706493d2ae753101a396311c4c4677b4f3de7ab8094c447ffdc7c842a",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 6.636737000000721,
-          "durableReloadMs": 8.364161999998032,
-          "cachePublishMs": 31.959514999998646,
-          "coldCacheObjectLookupMs": 37.13786400000026,
-          "warmLookupMs": [27.34233399999721, 30.297099999999773, 23.79946999999811]
+          "durableExportMs": 6.914640999999392,
+          "durableReloadMs": 11.561971999999514,
+          "cachePublishMs": 18.32162099999914,
+          "coldCacheObjectLookupMs": 49.19377899999745,
+          "warmLookupMs": [24.15766799999983, 26.65369599999758, 17.658886999997776]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 320.93872399999964,
-              "staticAnalysisMs": 2.547452999999223,
-              "acquisitionAndReconciliationMs": 331.1380710000012,
+              "contextInspectionMs": 221.34387499999866,
+              "staticAnalysisMs": 1.9073690000004717,
+              "acquisitionAndReconciliationMs": 227.66377799999827,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "6a6634e191d0a083d821f8c0062483918671c5f32074fb9efddf4a3e7372d987",
-          "contextDigest": "ec2091d0f3f9d20ea6e8d6a2e81b79b90cebc0fb27bcf45d564a98c87a61044f",
-          "facetObservationDigest": "55054f72a08cb926be379ac48613ff59eb722e35231051e80c32684ae05e4b81",
+          "contractDigest": "33d9b49bb9dbdcd5b796836da5e2d51e4731da5e63d223b788e396e6511576ed",
+          "contextDigest": "57f69711e8ec7853f990071a7c33738d615d4b40ee95a6f28ca063b3006e9976",
+          "facetObservationDigest": "495006b706493d2ae753101a396311c4c4677b4f3de7ab8094c447ffdc7c842a",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 6.969271999998455,
-          "durableReloadMs": 4.658391000000847,
-          "cachePublishMs": 32.5599140000013,
-          "coldCacheObjectLookupMs": 36.05764099999942,
-          "warmLookupMs": [29.69897900000069, 23.264098999999987, 35.706663000000844]
+          "durableExportMs": 6.675801000001229,
+          "durableReloadMs": 5.20686299999943,
+          "cachePublishMs": 30.39417499999763,
+          "coldCacheObjectLookupMs": 27.95028000000093,
+          "warmLookupMs": [25.12220299999899, 25.48681299999953, 4.504155999999057]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 305.8427330000013,
-              "staticAnalysisMs": 2.5327649999999267,
-              "acquisitionAndReconciliationMs": 329.19155200000023,
+              "contextInspectionMs": 220.00233099999969,
+              "staticAnalysisMs": 1.7824470000014117,
+              "acquisitionAndReconciliationMs": 230.92602899999838,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "6a6634e191d0a083d821f8c0062483918671c5f32074fb9efddf4a3e7372d987",
-          "contextDigest": "ec2091d0f3f9d20ea6e8d6a2e81b79b90cebc0fb27bcf45d564a98c87a61044f",
-          "facetObservationDigest": "55054f72a08cb926be379ac48613ff59eb722e35231051e80c32684ae05e4b81",
+          "contractDigest": "33d9b49bb9dbdcd5b796836da5e2d51e4731da5e63d223b788e396e6511576ed",
+          "contextDigest": "57f69711e8ec7853f990071a7c33738d615d4b40ee95a6f28ca063b3006e9976",
+          "facetObservationDigest": "495006b706493d2ae753101a396311c4c4677b4f3de7ab8094c447ffdc7c842a",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 7.5728500000004715,
-          "durableReloadMs": 6.863690999998653,
-          "cachePublishMs": 26.28862400000071,
-          "coldCacheObjectLookupMs": 32.433382999999594,
-          "warmLookupMs": [22.048643999998603, 19.902298000000883, 26.495883999999933]
+          "durableExportMs": 7.077566999996634,
+          "durableReloadMs": 2.671912000001612,
+          "cachePublishMs": 20.165291999997862,
+          "coldCacheObjectLookupMs": 37.11603300000206,
+          "warmLookupMs": [21.794803000000684, 26.973900999997568, 24.03153200000088]
         }
       ],
-      "reportDigest": "283f5161328c30973fd2dd6e1deae90c89b53f66c29dbc5714d13f7b8a61cec8",
+      "reportDigest": "e6f7fa66f5fca6fce4c7576ac3f1fc7eb44cf0bc138d1ebc11c2d12a0be86840",
       "summary": {
         "canonicalContractBytes": { "count": 3, "min": 5064, "median": 5064, "max": 5064 },
         "durableFileBytes": { "count": 3, "min": 5866, "median": 5866, "max": 5866 },
         "cacheFileBytes": { "count": 3, "min": 6513, "median": 6513, "max": 6513 },
         "contextInspectionMs": {
           "count": 3,
-          "min": 305.8427330000013,
-          "median": 316.2846139999965,
-          "max": 320.93872399999964
+          "min": 213.87535099999877,
+          "median": 220.00233099999969,
+          "max": 221.34387499999866
         },
         "staticAnalysisMs": {
           "count": 3,
-          "min": 0.6580460000004678,
-          "median": 2.5327649999999267,
-          "max": 2.547452999999223
+          "min": 0.6133669999981066,
+          "median": 1.7824470000014117,
+          "max": 1.9073690000004717
         },
         "acquisitionAndReconciliationMs": {
           "count": 3,
-          "min": 329.19155200000023,
-          "median": 330.28274500000043,
-          "max": 331.1380710000012
+          "min": 225.9678500000009,
+          "median": 227.66377799999827,
+          "max": 230.92602899999838
         },
         "sumOfQualificationStagesMs": {
           "count": 3,
-          "min": 637.5670500000015,
-          "median": 647.2254049999974,
-          "max": 654.6242480000001
+          "min": 440.4565679999978,
+          "median": 450.9150219999974,
+          "max": 452.7108069999995
         },
         "durableExportMs": {
           "count": 3,
-          "min": 6.636737000000721,
-          "median": 6.969271999998455,
-          "max": 7.5728500000004715
+          "min": 6.675801000001229,
+          "median": 6.914640999999392,
+          "max": 7.077566999996634
         },
         "durableReloadMs": {
           "count": 3,
-          "min": 4.658391000000847,
-          "median": 6.863690999998653,
-          "max": 8.364161999998032
+          "min": 2.671912000001612,
+          "median": 5.20686299999943,
+          "max": 11.561971999999514
         },
         "cachePublishMs": {
           "count": 3,
-          "min": 26.28862400000071,
-          "median": 31.959514999998646,
-          "max": 32.5599140000013
+          "min": 18.32162099999914,
+          "median": 20.165291999997862,
+          "max": 30.39417499999763
         },
         "coldCacheObjectLookupMs": {
           "count": 3,
-          "min": 32.433382999999594,
-          "median": 36.05764099999942,
-          "max": 37.13786400000026
+          "min": 27.95028000000093,
+          "median": 37.11603300000206,
+          "max": 49.19377899999745
         },
-        "warmLookupMs": {
-          "count": 9,
-          "min": 19.902298000000883,
-          "median": 26.495883999999933,
-          "max": 35.706663000000844
-        }
+        "warmLookupMs": { "count": 9, "min": 4.504155999999057, "median": 24.15766799999983, "max": 26.973900999997568 }
       }
     },
     {
       "formatVersion": 2,
-      "sourceRevision": "b24cedd87f74e756265aa8d80477e162eea23f7a",
+      "sourceRevision": "b054a1a344a3e30c3ea4eab6e8f9b3de5ea379ea",
       "toolDigest": "f001eb36771bbcd97a474da387f52f741ba33846e4670339f4d09ab8ecfbcbfd",
       "label": "sqlserver-17.0.5035.5-compat-170",
       "serverVersion": "17.0.5035.5",
       "grammar": { "id": "sqlserver", "version": "1.0.0" },
-      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v3" },
+      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v4" },
       "sqlDigest": "19693d330c1a76f7ab048138effdc367c76b9db95c9a046b28b0dc694401eb01",
       "parameterOccurrences": 1,
       "fixtureSchema": {
@@ -4452,12 +4452,12 @@
       },
       "environment": { "node": "v24.22.2", "platform": "linux", "architecture": "x64" },
       "facetObservations": {
-        "7f091b69fe4b64df0100cb42aa70e09ad0d1a9372fe527c6e80427b6ed996253": {
+        "9eadab7218ae934530d5db6ff48c618473072356df28695d7dfbaf3cae3f4390": {
           "sqlLength": 46,
           "nativeEvidence": {
             "adapter": {
               "id": "@typed-sql/sqlserver/native-contracts",
-              "version": "sqlserver-log-guarded-describe-v3"
+              "version": "sqlserver-log-guarded-describe-v4"
             },
             "columns": [
               {
@@ -4598,7 +4598,7 @@
                 "target": "parameter"
               }
             ],
-            "nativeEvidenceHash": "b7d4e0dd6386aa80b5ea9a0eff3705281583a57d03ed1c8c978bea5a827dfd28",
+            "nativeEvidenceHash": "dfa6678f412f300ee6a14c0c5c3855eb92fb8d5fca4e64721e5958dc3d6c0beb",
             "policy": {
               "mode": "native-required",
               "owner": {
@@ -4608,8 +4608,8 @@
               "requiredNativeFacets": ["runtime-type"]
             },
             "policyHash": "d757a99a0c6fbb14feed0d3d61c64708bcaf0284bcf411d22c72c2eb484be431",
-            "sourceContractHash": "de628bac6d9d87272f0822b72e732d7e7a3807ab5ec7137794a338d20b885c7c",
-            "staticClaimHash": "bcd2fae43fe118b692f0db1198196c5def74a1bfccc6413c08c6272afcaf0fab"
+            "sourceContractHash": "d377e18928c617d34ddc3a33dc23958b4d199d481e8448188028ec803a1dc58c",
+            "staticClaimHash": "b3e3979865134e315817afc8acfac69f80e8f3006f6b4123f2e94cb668443d0f"
           }
         }
       },
@@ -4617,131 +4617,131 @@
         {
           "attempts": [
             {
-              "contextInspectionMs": 310.55026499999803,
-              "staticAnalysisMs": 0.6651469999997062,
-              "acquisitionAndReconciliationMs": 327.99520499999926,
+              "contextInspectionMs": 218.87778799999796,
+              "staticAnalysisMs": 0.6456169999983103,
+              "acquisitionAndReconciliationMs": 229.8188680000021,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "9d02c1e0465cdc3cb0ec77c31c2e266cd64dd14ecf7dc1d8b8e89e7bfbf1c3f5",
-          "contextDigest": "197fac274a7eb4d8355760e9ec155496692e6b7f3a77f922d081beb437e80d96",
-          "facetObservationDigest": "7f091b69fe4b64df0100cb42aa70e09ad0d1a9372fe527c6e80427b6ed996253",
+          "contractDigest": "a042e1db1ab5fdd187ad2fe36aab9296ef68de0a1da02a9af1eb5e95477d7a31",
+          "contextDigest": "b53633eb01c38f2334141c93d9ddfcd97b60bc481e599320f90a21b839b6128d",
+          "facetObservationDigest": "9eadab7218ae934530d5db6ff48c618473072356df28695d7dfbaf3cae3f4390",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 6.393482999999833,
-          "durableReloadMs": 11.602155000000494,
-          "cachePublishMs": 24.677390999997442,
-          "coldCacheObjectLookupMs": 33.406190000001516,
-          "warmLookupMs": [19.46301400000084, 32.34543799999665, 32.81453799999872]
+          "durableExportMs": 6.425295000000915,
+          "durableReloadMs": 5.197290000000066,
+          "cachePublishMs": 27.36987600000066,
+          "coldCacheObjectLookupMs": 30.127994000002218,
+          "warmLookupMs": [16.67546599999696, 16.579517999998643, 17.23251700000037]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 310.64628000000084,
-              "staticAnalysisMs": 2.3847740000055637,
-              "acquisitionAndReconciliationMs": 329.44652200000564,
+              "contextInspectionMs": 234.39932100000078,
+              "staticAnalysisMs": 1.8065010000027542,
+              "acquisitionAndReconciliationMs": 226.66362599999775,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "9d02c1e0465cdc3cb0ec77c31c2e266cd64dd14ecf7dc1d8b8e89e7bfbf1c3f5",
-          "contextDigest": "197fac274a7eb4d8355760e9ec155496692e6b7f3a77f922d081beb437e80d96",
-          "facetObservationDigest": "7f091b69fe4b64df0100cb42aa70e09ad0d1a9372fe527c6e80427b6ed996253",
+          "contractDigest": "a042e1db1ab5fdd187ad2fe36aab9296ef68de0a1da02a9af1eb5e95477d7a31",
+          "contextDigest": "b53633eb01c38f2334141c93d9ddfcd97b60bc481e599320f90a21b839b6128d",
+          "facetObservationDigest": "9eadab7218ae934530d5db6ff48c618473072356df28695d7dfbaf3cae3f4390",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 7.199870000004012,
-          "durableReloadMs": 4.023662999999942,
-          "cachePublishMs": 21.86292400000093,
-          "coldCacheObjectLookupMs": 31.726142999999865,
-          "warmLookupMs": [28.888447000004817, 12.338555000002088, 13.688067999995837]
+          "durableExportMs": 5.9057959999991,
+          "durableReloadMs": 5.154708999998547,
+          "cachePublishMs": 23.23508700000093,
+          "coldCacheObjectLookupMs": 41.42154899999878,
+          "warmLookupMs": [4.6659790000012435, 25.16322200000286, 24.485775000001013]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 310.85951199999545,
-              "staticAnalysisMs": 2.5785409999953117,
-              "acquisitionAndReconciliationMs": 321.45832099999825,
+              "contextInspectionMs": 218.75134199999957,
+              "staticAnalysisMs": 1.7196490000023914,
+              "acquisitionAndReconciliationMs": 225.6284110000015,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "9d02c1e0465cdc3cb0ec77c31c2e266cd64dd14ecf7dc1d8b8e89e7bfbf1c3f5",
-          "contextDigest": "197fac274a7eb4d8355760e9ec155496692e6b7f3a77f922d081beb437e80d96",
-          "facetObservationDigest": "7f091b69fe4b64df0100cb42aa70e09ad0d1a9372fe527c6e80427b6ed996253",
+          "contractDigest": "a042e1db1ab5fdd187ad2fe36aab9296ef68de0a1da02a9af1eb5e95477d7a31",
+          "contextDigest": "b53633eb01c38f2334141c93d9ddfcd97b60bc481e599320f90a21b839b6128d",
+          "facetObservationDigest": "9eadab7218ae934530d5db6ff48c618473072356df28695d7dfbaf3cae3f4390",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 7.323429999996733,
-          "durableReloadMs": 4.000622999999905,
-          "cachePublishMs": 15.935146999996505,
-          "coldCacheObjectLookupMs": 27.557238000001234,
-          "warmLookupMs": [19.270658000001276, 18.654649999996764, 15.211324000003515]
+          "durableExportMs": 6.454494999998133,
+          "durableReloadMs": 2.816612000002351,
+          "cachePublishMs": 11.60259600000063,
+          "coldCacheObjectLookupMs": 23.823978000000352,
+          "warmLookupMs": [22.283065999999963, 28.237020000000484, 30.887283000000025]
         }
       ],
-      "reportDigest": "bdbe04a86040369759104e34d6505cdd60974b4d21ee1f46aa88f278439fa549",
+      "reportDigest": "92956221c63819afa31a00c2ba2359135eda804c60dbc4e24a4132ab4ee13dc5",
       "summary": {
         "canonicalContractBytes": { "count": 3, "min": 5064, "median": 5064, "max": 5064 },
         "durableFileBytes": { "count": 3, "min": 5866, "median": 5866, "max": 5866 },
         "cacheFileBytes": { "count": 3, "min": 6513, "median": 6513, "max": 6513 },
         "contextInspectionMs": {
           "count": 3,
-          "min": 310.55026499999803,
-          "median": 310.64628000000084,
-          "max": 310.85951199999545
+          "min": 218.75134199999957,
+          "median": 218.87778799999796,
+          "max": 234.39932100000078
         },
         "staticAnalysisMs": {
           "count": 3,
-          "min": 0.6651469999997062,
-          "median": 2.3847740000055637,
-          "max": 2.5785409999953117
+          "min": 0.6456169999983103,
+          "median": 1.7196490000023914,
+          "max": 1.8065010000027542
         },
         "acquisitionAndReconciliationMs": {
           "count": 3,
-          "min": 321.45832099999825,
-          "median": 327.99520499999926,
-          "max": 329.44652200000564
+          "min": 225.6284110000015,
+          "median": 226.66362599999775,
+          "max": 229.8188680000021
         },
         "sumOfQualificationStagesMs": {
           "count": 3,
-          "min": 634.896373999989,
-          "median": 639.210616999997,
-          "max": 642.477576000012
+          "min": 446.09940200000347,
+          "median": 449.3422729999984,
+          "max": 462.8694480000013
         },
         "durableExportMs": {
           "count": 3,
-          "min": 6.393482999999833,
-          "median": 7.199870000004012,
-          "max": 7.323429999996733
+          "min": 5.9057959999991,
+          "median": 6.425295000000915,
+          "max": 6.454494999998133
         },
         "durableReloadMs": {
           "count": 3,
-          "min": 4.000622999999905,
-          "median": 4.023662999999942,
-          "max": 11.602155000000494
+          "min": 2.816612000002351,
+          "median": 5.154708999998547,
+          "max": 5.197290000000066
         },
         "cachePublishMs": {
           "count": 3,
-          "min": 15.935146999996505,
-          "median": 21.86292400000093,
-          "max": 24.677390999997442
+          "min": 11.60259600000063,
+          "median": 23.23508700000093,
+          "max": 27.36987600000066
         },
         "coldCacheObjectLookupMs": {
           "count": 3,
-          "min": 27.557238000001234,
-          "median": 31.726142999999865,
-          "max": 33.406190000001516
+          "min": 23.823978000000352,
+          "median": 30.127994000002218,
+          "max": 41.42154899999878
         },
         "warmLookupMs": {
           "count": 9,
-          "min": 12.338555000002088,
-          "median": 19.270658000001276,
-          "max": 32.81453799999872
+          "min": 4.6659790000012435,
+          "median": 22.283065999999963,
+          "max": 30.887283000000025
         }
       }
     }

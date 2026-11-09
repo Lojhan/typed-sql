@@ -1,216 +1,84 @@
-# Bundle measurements and remaining boundaries
+# Bundle and installation measurements
 
-The [machine-readable report](./bundle-measurements.json) measures committed source at
-`191acf45c566881df0b2da5d45fabc8d86a44505`, compared with the earlier exhaustive-catalog revision
-`a1f27fc894e48021e91ce4c9a4b98929890f233d`. Both use the same measurement tool, esbuild 0.28.2,
-Node 24.22.2, minified ESM, Node platform, ES2022, tree-shaking, gzip level 9 and Brotli quality 11.
+The [bundle JSON](./bundle-measurements.json) and [installation JSON](./installation-measurements.json) measure committed source `c6d71ccff0827ae915900e6ac474e81ec965ce14`. Bundles compare against `a1f27fc894e48021e91ce4c9a4b98929890f233d` using the same tool, Node v24.22.2, esbuild 0.28.2, minified ESM, Node platform, ES2022, tree-shaking, gzip level 9 and Brotli quality 11. Sizes below use KiB (1,024 bytes) or MiB (1,048,576 bytes).
 
-## Analyzer comparison
+## Compatibility analyzers
 
-All sizes are KiB (1,024 bytes). These are complete grammar-factory exports, retaining dynamic
-version selection. They exclude a TypeScript project, driver implementation and database engine.
+These factory exports retain dynamic version selection and all existing maintained offline rules. Differences include source vocabulary, semantic fixes and package boundaries; they do not isolate savings attributable to contracts.
 
-| Grammar | Earlier analyzer minified | Current analyzer minified | Earlier gzip | Current gzip |
-| --- | ---: | ---: | ---: | ---: |
-| PostgreSQL | 1,649.9 | 387.3 | 131.8 | 68.6 |
-| MySQL | 180.6 | 185.4 | 43.2 | 44.1 |
-| SQLite | 154.7 | 148.8 | 39.5 | 39.6 |
-| SQL Server | 138.7 | 121.4 | 35.6 | 34.7 |
-| DuckDB | 1,340.3 | 627.8 | 101.4 | 78.0 |
+| Grammar | Earlier minified / gzip KiB | Current minified / gzip KiB |
+| --- | --- | --- |
+| duckdb | 1340.3 / 101.4 | 640.7 / 81.8 |
+| mysql | 180.6 / 43.2 | 201.0 / 49.3 |
+| postgres | 1649.9 / 131.8 | 415.8 / 74.7 |
+| sqlite | 154.7 / 39.5 | 161.4 / 42.5 |
+| sqlserver | 138.7 / 35.6 | 126.2 / 36.3 |
 
-This measures the net change between those revisions, including removal of the exhaustive
-pipeline, maintained semantic corrections and API separation. It does not isolate savings caused
-by query contracts. In particular, MySQL grows slightly. Maintained global semantics and version
-tables still contribute to analyzers. The following rows measure DuckDB core/pack distribution and MySQL/PostgreSQL version selection;
-representative workload selection remains open. SQLite and SQL Server retain one small catalog each.
+## Explicit analyzer selection
 
-## Version-specific DuckDB core and optional packs
+Selected cores request exact native query evidence for unmapped routines. PostgreSQL/MySQL cores retain their maintained families; DuckDB has complementary optional overload packs. SQLite/SQL Server each retain one maintained catalog with version/compatibility gates. These are measured distribution boundaries, not production popularity rankings.
 
-Explicit per-engine analyzers retain the selected engine's full existing rules. Compact
-`analysis/core/<version>` imports retain complete maintained core families and operators, together
-with shared cast/type mechanics. `analysis/packs/<version>/compatibility` supplies the complementary
-overload partition. Adding that installed pack restores full existing offline behavior; existing
-analyzer imports remain compatible. Every selected analyzer rejects another engine's snapshot.
+| Grammar | Import scenario | Minified KiB | Gzip KiB | Generated retained input KiB |
+| --- | --- | --- | --- | --- |
+| duckdb | `analyzer:1.5.6` | 369.0 | 57.9 | 249.8 |
+| duckdb | `analyzer:2.0.0` | 397.6 | 60.9 | 278.4 |
+| duckdb | `analyzer:core:1.5.6` | 243.3 | 50.6 | 123.1 |
+| duckdb | `analyzer:core:2.0.0` | 258.6 | 53.1 | 138.4 |
+| duckdb | `analyzer:core:1.5.6:compatibility` | 382.3 | 61.2 | 261.8 |
+| duckdb | `analyzer:core:2.0.0:compatibility` | 414.1 | 65.3 | 293.6 |
+| mysql | `analyzer:26.7` | 178.7 | 49.0 | 29.1 |
+| mysql | `analyzer:8.4` | 177.5 | 48.7 | 27.9 |
+| mysql | `analyzer:9.7` | 178.6 | 48.9 | 29.0 |
+| mysql | `analyzer:core:26.7` | 178.7 | 49.0 | 29.1 |
+| mysql | `analyzer:core:8.4` | 177.5 | 48.7 | 27.9 |
+| mysql | `analyzer:core:9.7` | 178.6 | 48.9 | 29.0 |
+| postgres | `analyzer:14` | 295.7 | 72.0 | 51.2 |
+| postgres | `analyzer:15` | 295.7 | 72.1 | 51.2 |
+| postgres | `analyzer:16` | 296.2 | 72.2 | 51.8 |
+| postgres | `analyzer:17` | 297.2 | 72.4 | 52.7 |
+| postgres | `analyzer:18` | 297.7 | 72.4 | 53.2 |
+| postgres | `analyzer:19` | 298.5 | 72.6 | 54.0 |
+| postgres | `analyzer:core:14` | 295.7 | 72.0 | 51.2 |
+| postgres | `analyzer:core:15` | 295.7 | 72.1 | 51.2 |
+| postgres | `analyzer:core:16` | 296.2 | 72.2 | 51.8 |
+| postgres | `analyzer:core:17` | 297.2 | 72.4 | 52.7 |
+| postgres | `analyzer:core:18` | 297.7 | 72.4 | 53.2 |
+| postgres | `analyzer:core:19` | 298.5 | 72.6 | 54.0 |
+| sqlite | `analyzer:core` | 161.4 | 42.5 | 10.2 |
+| sqlserver | `analyzer:core` | 126.2 | 36.3 | 3.0 |
 
-| DuckDB analyzer | Minified KiB | Gzip KiB | Generated input KiB, before compression |
-| --- | ---: | ---: | ---: |
-| Both engines, full | 627.8 | 78.0 | 509.4 |
-| 1.5.6 full | 360.0 | 55.0 | 242.2 |
-| 2.0.0 full | 385.0 | 57.1 | 267.2 |
-| 1.5.6 core | 234.3 | 48.0 | 115.5 |
-| 2.0.0 core | 246.0 | 49.7 | 127.2 |
-| 1.5.6 core + compatibility pack | 373.3 | 59.0 | 254.2 |
-| 2.0.0 core + compatibility pack | 401.4 | 61.6 | 282.4 |
+Generated input counts uncompressed attributed input bytes, not compressed savings. Core-plus-pack samples include composition/options overhead and can exceed a direct full selected-analyzer import. Selection does not remove other exports from an installed package.
 
-Compared with the matching full per-engine analyzer, core saves 34.9%/36.1% minified and
-12.8%/12.9% gzip. Against the two-engine full analyzer, core saves 62.7%/60.8% minified and
-38.4%/36.3% gzip. The core keeps the complete native-name vocabulary for binding/shadowing
-checks; it does not ship every routine's signatures. The maintained families are an initial
-explicit scope, not a representative production popularity ranking.
+## Consumer graphs
 
-Core+pack has composition, selection and vocabulary overhead relative to importing the full
-per-engine analyzer directly. Those rows also retain an options wrapper, whereas the factory-only
-rows reexport a factory; they are alternative API-use samples rather than isolated data deltas.
-The core/optional partitions own disjoint original rows, and every cast remains shared.
-Selecting the core does not reduce the installed package payload by the same amount: all
-published exports remain installed. Installation measurements below use a separate current-source pin and measure the new tarballs
-independently of these bundle graphs.
+| Grammar | Root tag minified / gzip KiB | Profile minified / gzip KiB | Frozen host minified / gzip KiB |
+| --- | --- | --- | --- |
+| duckdb | 17.1 / 5.4 | 64.0 / 18.1 | 149.2 / 42.9 |
+| mysql | 17.1 / 5.4 | 47.3 / 13.3 | 132.4 / 38.5 |
+| postgres | 17.1 / 5.4 | 43.8 / 12.2 | 129.0 / 37.4 |
+| sqlite | 17.1 / 5.4 | 50.2 / 13.5 | 135.3 / 38.9 |
+| sqlserver | 17.1 / 5.4 | 43.4 / 12.1 | 128.4 / 37.3 |
 
-The graphs exclude the other engine's data; core also excludes the optional partition, full
-catalog registry and native SDK. Runtime tags and frozen hosts retain zero global catalogs.
-Generated attribution recognizes both `Generated by` and native `Generated from` headers on
-baseline and current sources; it counts retained input bytes, not compressed savings.
+Root/query tags, profiles and frozen hosts retain zero global catalog inputs. Frozen hosts include contract loading and compiler helpers, so their bytes are not comparable functionality to an analyzer-only export. Ordinary tags already excluded large catalogs before this change. Runtime renderer/value plans and required codecs remain in application output. The [commerce report](./project-size.md) measures those actual used plans separately.
 
-## MySQL series selection and maintained core
+## Published installation payload
 
-The full maintained MySQL routine set fits the core scope. Each `analysis/core/<series>` import
-retains those rules and requests native query evidence for unmapped routines; full analyzer
-imports preserve their existing warning/unknown behavior. The core imports one series catalog,
-shared compact codec/type facts and a small cross-series availability vocabulary. It excludes
-other full catalogs and introspection services.
+| Grammar | Grammar files MiB | Grammar dependency closure MiB | With compiler/contracts MiB | Grammar tarball KiB |
+| --- | --- | --- | --- | --- |
+| duckdb | 2.11 | 3.66 | 4.38 | 256.9 |
+| mysql | 1.07 | 2.61 | 3.34 | 206.9 |
+| postgres | 2.19 | 6.61 | 7.34 | 341.9 |
+| sqlite | 0.76 | 2.30 | 3.03 | 142.7 |
+| sqlserver | 0.95 | 2.50 | 3.22 | 196.5 |
 
-| MySQL analyzer | Minified KiB | Gzip KiB |
-| --- | ---: | ---: |
-| All supported/canary series, full | 185.4 | 44.1 |
-| 8.4 full | 163.1 | 43.9 |
-| 8.4 core | 163.1 | 43.9 |
-| 9.7 full/core | 163.8 | 43.9 |
-| 26.7 full/core | 163.8 | 43.9 |
-
-Series selection reduces minified size by 11.6–12.0%, while gzip changes by only 0.3–0.5%.
-The parser, semantic families and shared type policy dominate; compression already deduplicates
-similar catalog content. The general analyzer grows slightly compared with the previous report
-because it retains explicit catalog ownership, factory and diagnostic mechanics. Runtime tags,
-execution factories, profiles and frozen hosts are unchanged.
-
-A prototype that split five small routine families into a token-based compatibility pack was
-larger than the full per-series analyzer. The final source retains all existing families in core
-and removes that pack machinery and extra partition modules. There is no MySQL data pack to install;
-its long tail uses qualified exact query contracts. This differs from DuckDB's larger catalog,
-where the disjoint optional partition provides a measured reduction. These measurements do not
-establish production popularity or the size of newly packed installations.
-
-## PostgreSQL major selection and maintained core
-
-The selected full and core analyzers retain every maintained rule for one major. Core requests
-qualified query evidence for unmapped functions; it does not generate a universal rule from a
-single native description. There is no additional PostgreSQL compatibility pack. Explicit
-selection rejects missing/mismatched snapshot majors and retains existing canary policy.
-
-| PostgreSQL analyzer | Minified KiB | Gzip KiB | Generated input KiB, before compression |
-| --- | ---: | ---: | ---: |
-| All six majors, full | 387.3 | 68.6 | 143.8 |
-| 14 full/core | 274.2 | 66.7 | 31.0 |
-| 15–17 full/core | 274.1 | 66.7 | 30.9 |
-| 18–19 full/core | 274.5 | 66.7 | 31.4 |
-
-Selecting one major saves 29.1–29.2% minified versus the current all-major factory, but only
-2.7% gzip. Shared parser/semantics remain, and compression already deduplicates much of the
-similar version data. The all-major analyzer grows from 383.8 to 387.3 KiB versus the preceding
-measurement because explicit ownership and factory mechanics remain in its compatibility graph.
-The selected graphs contain one full catalog and compact codec facts, excluding the registry,
-default wrappers, introspection and drivers. Runtime tags, execution factories, lightweight
-profiles and frozen hosts are byte-identical to the preceding report. Installation payloads
-are not inferred from these tree-shaken graphs.
-
-## SQLite and SQL Server core boundaries
-
-These grammars use one small maintained catalog with explicit version/compatibility gates.
-Their `analysis/core` exports retain those rules and diagnose unmapped scalar routines with
-qualified-generation guidance. No per-version data duplication or additional compatibility
-pack is introduced. The core dependency graphs exclude introspection and native adapters.
-
-| Analyzer | Default minified / gzip KiB | Core minified / gzip KiB |
-| --- | ---: | ---: |
-| SQLite | 148.8 / 39.6 | 148.8 / 39.6 |
-| SQL Server | 121.4 / 34.7 | 121.4 / 34.7 |
-
-These core exports establish the explicit long-tail generation workflow; they do not claim a
-bundle reduction. Compared with the preceding report, default analyzers add about 0.2/0.3 KiB
-minified for mode/diagnostic handling and SQL Server's invalid-arity guard. Runtime/profile/frozen
-rows are byte-identical. There is no generated package catalog added by either change. SQLite
-native evidence retains conservative storage bounds; these bytes do not imply precise return
-metadata for arbitrary SQLite functions or broader SQL Server native qualification.
-
-## Current consumer graphs
-
-| Grammar | Root query tag minified / gzip | Profile minified / gzip | Frozen host helpers minified / gzip |
-| --- | ---: | ---: | ---: |
-| PostgreSQL | 17.1 / 5.4 | 43.7 / 12.1 | 128.8 / 37.3 |
-| MySQL | 17.1 / 5.4 | 47.1 / 13.2 | 132.3 / 38.5 |
-| SQLite | 17.1 / 5.4 | 49.5 / 13.3 | 134.6 / 38.6 |
-| SQL Server | 17.1 / 5.4 | 43.4 / 12.1 | 128.4 / 37.3 |
-| DuckDB | 17.1 / 5.4 | 63.0 / 17.8 | 148.1 / 42.6 |
-
-Root tags, `/query` tags, profiles and frozen hosts contain zero global grammar catalog inputs
-in these measurements. Frozen hosts export `createContractDialect`, `loadQueryContracts`,
-`compileSource` and a grammar profile. They include compiler/contract loading work absent from
-the analyzer-only sample, so subtracting those columns is not an equal-functionality comparison.
-SQL Server's frozen helper sample is slightly larger than its analyzer-only sample.
-
-Ordinary query tags already had no large generated catalog in the earlier measurement. The
-main isolation benefit is contract-only compilation without the global analyzer, rather than
-another megabyte-scale production tag reduction. Runtime value plans and compact codec/type
-facts remain necessary. Unbundled module isolation is separately exercised by the packed
-consumer test, which removes semantic catalogs and development entrypoints before imports.
+Installation uses fresh isolated offline pnpm installs of built tarballs at the named revision. It counts published file contents once per package name/version, including declarations/maps; it excludes filesystem allocation, pnpm store, application-installed drivers and engine binaries. It is neither bundle size nor total disk usage. Full package exports remain installed even when a consumer imports one core.
 
 ## Reproduction
 
-Run from an installed repository with Node 24.22.2:
-
 ```sh
-node planning/hybrid-analysis/measure-bundles.mjs a1f27fc894e48021e91ce4c9a4b98929890f233d /tmp/typed-sql-bundle-baseline.json
-node planning/hybrid-analysis/measure-bundles.mjs 191acf45c566881df0b2da5d45fabc8d86a44505 planning/hybrid-analysis/bundle-measurements.json /tmp/typed-sql-bundle-baseline.json
-```
-
-The tool discovers grammars from the committed feature ledger and public entrypoints from package
-exports. Workspace contents come from Git blobs at the named revision, including files absent
-from the current worktree. It honors `sideEffects: false` and never substitutes empty catalogs.
-The baseline has four public scenarios per grammar; the current revision adds profile/frozen
-scenarios and discovers per-version/core analyzers and matching compatibility packs from package
-exports. Factories are reexported directly; core+pack scenarios retain an explicit options wrapper. The report includes byte counts, output digests, source/lockfile/tool hashes, input
-attribution and whole-output compression. Generated attribution counts explicit generation
-headers. Input contributions are minified bytes, not proportional compressed savings.
-
-These are synthetic public-entry graphs. The separate [commerce project report](./project-size.md)
-adds maintained application queries, exact artifact/value-plan growth, synthetic schema expansion
-and selected-module tree shaking. Native-qualified project artifact overhead, production workload
-telemetry and other acceptance requirements remain separate; no source-graph measurement proves
-complete architecture acceptance.
-
-## Published dependency payloads
-
-The separate [installation report](./installation-measurements.json) measures a fresh, isolated,
-offline pnpm installation of built tarballs from source revision
-`3f4defff369904b4637840f4d6c69f5afb398114`, on Node 24.22.2 / Darwin arm64. External versions
-are pinned to the repository installation. These are sums of published file contents once per
-package name/version, not filesystem blocks or pnpm store usage. Driver/engine binaries, optional
-peers and application toolchains are excluded. Source maps and declaration files are included.
-
-| Grammar | Compressed grammar tarball, KiB | Grammar package payload, MiB | Grammar + mandatory dependencies, MiB | With compiler/contract packages, MiB |
-| --- | ---: | ---: | ---: | ---: |
-| PostgreSQL | 317.7 | 2.07 | 6.49 | 7.22 |
-| MySQL | 181.4 | 0.96 | 2.50 | 3.23 |
-| SQLite | 132.9 | 0.70 | 2.24 | 2.97 |
-| SQL Server | 189.3 | 0.92 | 2.47 | 3.19 |
-| DuckDB | 244.4 | 2.05 | 3.59 | 4.32 |
-
-The grammar payload includes its public analysis and optional adapter implementations even when
-a bundle does not retain them. PostgreSQL's dependency closure also includes its declared type
-dependencies. Smaller import graphs therefore do not imply equally small installation payloads.
-The compiler/contract column includes published package dependencies, not an entire TypeScript,
-editor or bundler installation. The report records every package, file-category totals, content
-digests, archive hashes and resolved dependency edges; it is not an earlier-versus-current
-installation comparison.
-
-To reproduce from a clean package worktree with the repository's Node/pnpm versions:
-
-```sh
-pnpm install --frozen-lockfile
-pnpm build
+node planning/hybrid-analysis/measure-bundles.mjs HEAD planning/hybrid-analysis/bundle-measurements.json <same-tool-baseline.json>
 node planning/hybrid-analysis/measure-installation.mjs
+node planning/hybrid-analysis/render-measurements.mjs
 ```
 
-The tool discovers grammars from the feature ledger, recursively packs workspace dependencies,
-pins external dependencies and installs outside the workspace with lifecycle scripts disabled.
-It removes the owned installation after measurement. A dirty package input fails before packing.
+Use the exact named code revision and repository-pinned dependencies; installation additionally requires its built publication artifacts. JSON retains source/tool/lockfile identities, output digests, attribution and external dependency versions. Measurements are byte evidence, not native query qualification. Architecture acceptance remains tracked in the [acceptance audit](./acceptance-audit.md).

@@ -1,69 +1,43 @@
 # Repository topology and tracked-line accounting
 
-The [machine-readable inventory](./repository-measurements.json) measures committed source
-`191acf45c566881df0b2da5d45fabc8d86a44505` against PR base `3753571154bb3acf460a2a2031e9b20f88e21ea8` and the exact
-`e194abb4f55523f435995a74d7d8ab58c2c42977` proposal that produced +486,674 / −67,823.
-These are physical UTF-8 lines, including comments and blanks. They are not semantic statements,
-maintenance effort, bundle bytes or an estimate of the unfinished architecture.
+The [JSON inventory](./repository-measurements.json) measures `c6d71ccff0827ae915900e6ac474e81ec965ce14` against PR base `3753571154bb3acf460a2a2031e9b20f88e21ea8` and exhaustive proposal `e194abb4f55523f435995a74d7d8ab58c2c42977`. Physical UTF-8 lines include comments and blanks. They are not semantic statements, maintenance effort, installed payload or bundle bytes.
 
-## What the direction change removes
+The direction change removes **337,321 tracked text lines** relative to the exhaustive proposal. Captured vendor catalog JSON is absent. That proposal's +486,674 / −67,823 diff is reproduced independently by Git numstat. At this source pin the replacement diff is **+98,702 / −17,172**.
 
-The current source has **370,785 fewer tracked text lines** than the exhaustive proposal.
-That proposal's five `grammar/*/facts/catalog.json` files contribute 175,882 lines / 24,929,359
-bytes and are absent now. Its separate `grammar/catalog/upstream.json` has another 165,165 lines
-and is also absent. Other audit/fixture/report data falls by 225,195 lines overall, including
-that upstream registry. Required reviewed reference/native-audit fixtures remain.
-
-Most of the original giant addition was captured data and reports, rather than committed
-TypeScript. Build-emitted code is outside this inventory. Restoring the pre-existing offline
-catalogs means generated package source is present again; that is compatible behavior retained
-from the PR base, not a new exhaustive generated pipeline.
-
-| Tracked content | PR base | Exhaustive proposal | Current source | Current minus base |
-| --- | ---: | ---: | ---: | ---: |
-| Tracked physical text lines | 457,258 | 876,109 | 505,324 | +48,066 |
-| Maintained package source | 91,944 | 99,619 | 106,350 | +14,406 |
-| Generated package source | 23,439 | 0 | 26,156 | +2,717 |
-| Maintained test/E2E source | 88,353 | 101,778 | 107,443 | +19,090 |
+| Tracked content | PR base | Exhaustive proposal | Current | Current − base |
+| --- | --- | --- | --- | --- |
+| All tracked text | 457,258 | 876,109 | 538,788 | +81,530 |
+| Maintained package source | 91,944 | 99,619 | 107,217 | +15,273 |
+| Generated package source | 23,439 | 0 | 29,163 | +5,724 |
+| Tests / E2E source | 88,353 | 101,778 | 110,529 | +22,176 |
+| Tooling source | 9,007 | 17,479 | 11,095 | +2,088 |
+| Other source, including planning tools | 15,833 | 16,310 | 18,757 | +2,924 |
 | Captured vendor catalog JSON | 0 | 175,882 | 0 | +0 |
-| Other audit/fixture/report data | 105,432 | 335,870 | 110,675 | +5,243 |
+| Other audit / fixture / report data | 105,432 | 335,870 | 131,127 | +25,695 |
+| Documentation | 21,435 | 27,000 | 27,985 | +6,550 |
 
-Maintained package source grows by **14,406 lines** over the base; maintained tests/E2E grow by
-**19,090 lines**. Generated package source grows by **2,717 lines**. Existing generated example
-schema inputs add another 4,082 lines in every compared revision. Keeping these categories
-separate avoids calling tests, captured metadata or retained baseline catalogs newly generated
-application code. The complete inventory also accounts for tooling, application/editor/website
-source, other source, documentation, configuration/data, other text and binary bytes.
+Maintained package source grows by 15,273 lines; generated package source grows by 5,724. The total includes restored baseline catalogs plus compact vocabulary/codec projections, not a new exhaustive function corpus. Tests and retained audit metadata are separate categories. Existing generated example schemas contribute 4,082 lines in every compared revision.
 
 ## Package source ownership
 
-These rows include every package with changed maintained source or current generated source.
-The JSON report also retains unchanged package totals. A generated header must appear in the
-leading comment preamble; ordinary comments discussing generation do not classify a file as
-generated. Mixed generated blocks inside maintained files are not split.
-
-| Package | Maintained lines | Maintained delta from base | Generated lines | Generated delta from base |
-| --- | ---: | ---: | ---: | ---: |
-| `analysis` | 5,773 | +5,773 | 0 | +0 |
+| Package | Maintained lines | Maintained Δ | Generated lines | Generated Δ |
+| --- | --- | --- | --- | --- |
+| `analysis` | 5,786 | +5,786 | 0 | +0 |
 | `build` | 1,608 | +286 | 0 | +0 |
 | `cli` | 3,347 | +864 | 0 | +0 |
 | `compiler` | 8,661 | +672 | 0 | +0 |
 | `config` | 285 | +114 | 0 | +0 |
 | `core` | 6,276 | +170 | 0 | +0 |
-| `duckdb` | 8,729 | +1,028 | 13,309 | +2,056 |
+| `duckdb` | 8,825 | +1,124 | 14,242 | +2,989 |
 | `language-server` | 2,854 | +461 | 0 | +0 |
-| `mysql` | 11,339 | +1,315 | 181 | +157 |
-| `postgres` | 19,829 | +1,979 | 12,666 | +504 |
-| `sqlite` | 8,621 | +603 | 0 | +0 |
-| `sqlserver` | 10,385 | +1,141 | 0 | +0 |
+| `mysql` | 11,589 | +1,565 | 1,054 | +1,030 |
+| `postgres` | 20,031 | +2,181 | 13,363 | +1,201 |
+| `sqlite` | 8,806 | +788 | 284 | +284 |
+| `sqlserver` | 10,506 | +1,262 | 220 | +220 |
 
-`analysis` owns shared contracts, evidence, cache lifecycle and orchestration. Grammar packages
-own interpretation, native admission and codecs. Host packages consume prepared views and
-contracts. Source counts include whole packages, including optional development/native paths;
-they do not imply those paths enter application bundles.
+A generated header must occur in the leading comment preamble; mixed generated blocks inside maintained files are not separated. Package counts include optional development/native paths and do not imply those paths enter application bundles. Complete category totals, binary bytes, largest inputs and independent Git diff reconciliation remain in JSON.
 
 ## Current topology
-
 ```text
 packages/
   core/src/                    neutral query, runtime plan and shared resolver contracts
@@ -102,48 +76,13 @@ planning/hybrid-analysis/       design, qualification evidence and measurement t
 packages/*/test/ + test/ + e2e/ ownership, conformance and installed-consumer checks
 ```
 
-Snapshot/schema files and durable query contracts are compiler inputs. Disposable `.typed-sql`
-state is local cache data. Per-query value plans enter used application queries where decoding
-needs them. No global audit corpus is required during normal builds or application execution.
-The [project-size report](./project-size.md), [bundle report](./bundle-size.md) and installation
-measurements quantify those separate costs.
+Each grammar also owns compact source-derived vocabulary under `src/vocabulary/`; its pure compatibility identity stays outside the vocabulary dependency graph. Pinned source facts/locks and qualification deltas live under `grammar/<grammar>/`. Ordinary builds use checked-in facts and do not fetch vendor sources. Metadata discovery and native qualification remain independent from the maintained semantic rules.
 
-## Remaining target topology
-
-DuckDB now has explicit core/pack modules, immutable installed-pack identities and exact-engine
-selection. Its core and optional signature partitions reconstruct the original native rows and
-ordering exactly; signatures and casts are not copied into a second full vendor catalog. The
-native data digests remain unchanged. The generated source increase includes the compact
-builtin-name vocabulary needed for binding/shadowing checks, selection metadata and provenance.
-The commit moves existing generated rows, so added/deleted diff counts exceed the net growth.
-
-This measured revision includes core boundaries for all five grammars: DuckDB's disjoint
-optional overload packs, MySQL series selection, PostgreSQL major selection, and small complete
-maintained SQLite/SQL Server catalogs with explicit long-tail diagnostics. SQLite/SQL Server
-add 60 maintained package lines in total through shared factories, guards and core wrappers;
-their existing semantic implementation is moved, not copied, and generated package counts do
-not increase. Public exports do not expand native qualification ranges.
-
-Representative workload selection, native-qualified project payload/latency, reusable
-catalog/custom-type interpretation beyond PostgreSQL and qualified selection merging remain
-open. This accounting is not the final LOC result for those unfinished parts. [The bundle
-report](./bundle-size.md) measures distribution separately from tracked source, while its
-installation table retains its independently measured source pin.
-
-The measured prototype establishes the maintenance cost and removed corpus. It does not justify
-an invented numerical prediction for the remaining architecture work. Later measurements
-can repeat the same exact-reference comparison after that work lands.
-
-## Reproduction and validation
-
-Use a clone containing all three named commits; the tool performs no fetch or source mutation:
+## Reproduction
 
 ```sh
 node planning/hybrid-analysis/measure-repository.mjs HEAD planning/hybrid-analysis/repository-measurements.json
+node planning/hybrid-analysis/render-measurements.mjs
 ```
 
-The tool reads Git trees/blobs rather than working files, excludes binary content from line counts,
-records classifier/source identities and lists the largest generated sources and data files.
-All tracked-file/category/package sums agree. For all three comparisons, independent Git numstat
-additions minus deletions equal the physical text-line delta. The original proposal reproduces
-+486,674 / −67,823 exactly. Scope/classification details and binary file/byte counts remain in JSON.
+The collector reads exact Git trees/blobs, excluding build output and installed files. The revision pin avoids treating later edits to these measurement reports as measured source. This is current accounting, not a prediction for unfinished work. See [bundle/install costs](./bundle-size.md), [project costs](./project-size.md) and the [acceptance audit](./acceptance-audit.md).

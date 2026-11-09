@@ -1,12 +1,12 @@
 {
   "formatVersion": 1,
-  "sourceRevision": "3f4defff369904b4637840f4d6c69f5afb398114",
+  "sourceRevision": "c6d71ccff0827ae915900e6ac474e81ec965ce14",
   "nodeVersion": "v24.22.2",
   "platform": "darwin",
   "arch": "arm64",
   "pnpmVersion": "10.32.1",
   "repositoryLockfileDigest": "3dd42212226234b44678b68d5c169e8fac598db1268227bc9738e65885f198f1",
-  "installationLockfileDigest": "7477844a5cbcae23385880dcbbe2ea447afb88e6e265bd463f0d6e1d32ea6cde",
+  "installationLockfileDigest": "a6263d66a03dc8d867ccbb65b8b1a6719230a1ab8d3637daf1fe74731b9c7774",
   "measurementToolDigest": "24ffdeece34a0a38cc8015e595d170898fd49be915c5587559725a3668bea6e0",
   "method": "Fresh isolated offline pnpm install of built tarballs. External dependency versions are pinned to the repository installation. Payload counts published file contents once per package name/version, excluding node_modules, filesystem blocks, pnpm store, optional peers and application-installed drivers/toolchains. This is not bundle size or total disk usage.",
   "externalVersions": {
@@ -30,111 +30,111 @@
     {
       "grammar": "duckdb",
       "grammarPackage": {
-        "fileCount": 208,
-        "bytes": 2147911,
+        "fileCount": 237,
+        "bytes": 2216497,
         "sizes": {
-          "javascript": 1044306,
-          "declarations": 42999,
-          "sourceMaps": 1054430,
-          "other": 6176
+          "javascript": 1066253,
+          "declarations": 58377,
+          "sourceMaps": 1081815,
+          "other": 10052
         },
-        "digest": "6d5380ccc0e3d21987927662180e9a2c6d999cf1ec02fb59fc4cf43072eeff74"
+        "digest": "03ea7da529933d0ef814ea308e276cdcc19c672c72b36a14fa0f3e6b70475152"
       },
       "grammarClosure": {
         "packages": 9,
-        "payloadBytes": 3767731
+        "payloadBytes": 3837222
       },
       "withCompilerAndContracts": {
         "packages": 10,
-        "payloadBytes": 4527432
+        "payloadBytes": 4596923
       }
     },
     {
       "grammar": "mysql",
       "grammarPackage": {
-        "fileCount": 200,
-        "bytes": 1005149,
+        "fileCount": 245,
+        "bytes": 1120948,
         "sizes": {
-          "javascript": 459927,
-          "declarations": 58603,
-          "sourceMaps": 444470,
-          "other": 42149
+          "javascript": 489553,
+          "declarations": 82254,
+          "sourceMaps": 484876,
+          "other": 64265
         },
-        "digest": "d90e69694d8ffc088404ee560ce40b2b327e8d0705affa0427e82d34234c5a07"
+        "digest": "446851096b1d4522603e3642318daefb249ae9c868c11d141fc6becd349e7acb"
       },
       "grammarClosure": {
         "packages": 9,
-        "payloadBytes": 2624969
+        "payloadBytes": 2741673
       },
       "withCompilerAndContracts": {
         "packages": 10,
-        "payloadBytes": 3384670
+        "payloadBytes": 3501374
       }
     },
     {
       "grammar": "postgres",
       "grammarPackage": {
-        "fileCount": 312,
-        "bytes": 2172920,
+        "fileCount": 361,
+        "bytes": 2297359,
         "sizes": {
-          "javascript": 1075406,
-          "declarations": 105197,
-          "sourceMaps": 933727,
-          "other": 58590
+          "javascript": 1120481,
+          "declarations": 137350,
+          "sourceMaps": 979666,
+          "other": 59862
         },
-        "digest": "49fe2fdc0b579e7c421f0a37874c7f5b68ac1d4517e7197258c33387fdf5755c"
+        "digest": "1290cedc22726b63d0e47a1b80c2030375189c6efbcfe3370728eff9309ba00d"
       },
       "grammarClosure": {
         "packages": 20,
-        "payloadBytes": 6809262
+        "payloadBytes": 6934606
       },
       "withCompilerAndContracts": {
         "packages": 21,
-        "payloadBytes": 7568963
+        "payloadBytes": 7694307
       }
     },
     {
       "grammar": "sqlite",
       "grammarPackage": {
-        "fileCount": 156,
-        "bytes": 730949,
+        "fileCount": 177,
+        "bytes": 795954,
         "sizes": {
-          "javascript": 318267,
-          "declarations": 43754,
-          "sourceMaps": 348192,
-          "other": 20736
+          "javascript": 340805,
+          "declarations": 47344,
+          "sourceMaps": 379015,
+          "other": 28790
         },
-        "digest": "0e0c157a429268fec6c17734bc215e133433c18791e17318aced3d37835f5350"
+        "digest": "b07ab2ba7f7cd25abaac3d2772f8c3b04f74e28d953c6539e46b6f0e4d117bd3"
       },
       "grammarClosure": {
         "packages": 9,
-        "payloadBytes": 2350769
+        "payloadBytes": 2416679
       },
       "withCompilerAndContracts": {
         "packages": 10,
-        "payloadBytes": 3110470
+        "payloadBytes": 3176380
       }
     },
     {
       "grammar": "sqlserver",
       "grammarPackage": {
-        "fileCount": 188,
-        "bytes": 967614,
+        "fileCount": 213,
+        "bytes": 1001195,
         "sizes": {
-          "javascript": 434842,
-          "declarations": 66725,
-          "sourceMaps": 461729,
-          "other": 4318
+          "javascript": 446020,
+          "declarations": 73980,
+          "sourceMaps": 475566,
+          "other": 5629
         },
-        "digest": "dd949a5fb330b23fb80830dc57dbc3c130cae1e8bf95f41effd9ffed16a69d9a"
+        "digest": "4146d567e5ddb65f6f2aa1b4db021dc1411ef08b5ef80ad7f0fdfe8cca7bf2cf"
       },
       "grammarClosure": {
         "packages": 9,
-        "payloadBytes": 2587434
+        "payloadBytes": 2621920
       },
       "withCompilerAndContracts": {
         "packages": 10,
-        "payloadBytes": 3347135
+        "payloadBytes": 3381621
       }
     }
   ],
@@ -144,20 +144,20 @@
       "version": "2.5.0",
       "payload": {
         "fileCount": 112,
-        "bytes": 531280,
+        "bytes": 532185,
         "sizes": {
-          "javascript": 232017,
+          "javascript": 232451,
           "declarations": 49749,
-          "sourceMaps": 246822,
+          "sourceMaps": 247293,
           "other": 2692
         },
-        "digest": "ecec996d38ec40c7d4ddba8d46230e99a7b13c7c3b7b071a8cca8d28cd4e569e"
+        "digest": "78c02735eabf5b51483d32ec774262abb3cfeb26094a66de64088456298ee705"
       },
       "dependencies": ["@typed-sql/core@2.5.0", "@typed-sql/schema@2.5.0", "proper-lockfile@4.1.2"],
       "unavailableOptionalDependencies": [],
       "tarball": {
-        "bytes": 102341,
-        "digest": "9d9d5ead949057d6eb15b724db892a31f63db11d29293fcf35c8167400ebed72"
+        "bytes": 102498,
+        "digest": "3d3a875fdc06fd62da907d287169ad7ba4d9bed406d90f6b13e030e029f3b625"
       }
     },
     "@typed-sql/ast@2.5.0": {
@@ -227,15 +227,15 @@
       "name": "@typed-sql/duckdb",
       "version": "2.5.0",
       "payload": {
-        "fileCount": 208,
-        "bytes": 2147911,
+        "fileCount": 237,
+        "bytes": 2216497,
         "sizes": {
-          "javascript": 1044306,
-          "declarations": 42999,
-          "sourceMaps": 1054430,
-          "other": 6176
+          "javascript": 1066253,
+          "declarations": 58377,
+          "sourceMaps": 1081815,
+          "other": 10052
         },
-        "digest": "6d5380ccc0e3d21987927662180e9a2c6d999cf1ec02fb59fc4cf43072eeff74"
+        "digest": "03ea7da529933d0ef814ea308e276cdcc19c672c72b36a14fa0f3e6b70475152"
       },
       "dependencies": [
         "@typed-sql/analysis@2.5.0",
@@ -245,23 +245,23 @@
       ],
       "unavailableOptionalDependencies": [],
       "tarball": {
-        "bytes": 250236,
-        "digest": "1d6bf8527d0ee7ba745f4553cfab34ee3e4a39d7b089148d1dc757d54f7592c5"
+        "bytes": 263083,
+        "digest": "2960fc80c16588ea518a645633208e9a01b43c15efddb97a162f582c713b0560"
       }
     },
     "@typed-sql/mysql@2.5.0": {
       "name": "@typed-sql/mysql",
       "version": "2.5.0",
       "payload": {
-        "fileCount": 200,
-        "bytes": 1005149,
+        "fileCount": 245,
+        "bytes": 1120948,
         "sizes": {
-          "javascript": 459927,
-          "declarations": 58603,
-          "sourceMaps": 444470,
-          "other": 42149
+          "javascript": 489553,
+          "declarations": 82254,
+          "sourceMaps": 484876,
+          "other": 64265
         },
-        "digest": "d90e69694d8ffc088404ee560ce40b2b327e8d0705affa0427e82d34234c5a07"
+        "digest": "446851096b1d4522603e3642318daefb249ae9c868c11d141fc6becd349e7acb"
       },
       "dependencies": [
         "@typed-sql/analysis@2.5.0",
@@ -271,23 +271,23 @@
       ],
       "unavailableOptionalDependencies": [],
       "tarball": {
-        "bytes": 185731,
-        "digest": "aa83826c587a92052fefcee57bf791ce612ed5f8ef988aa64894602ecff24526"
+        "bytes": 211883,
+        "digest": "ccde453011177ee41d48ffd63fdd7d60bcd3ca5373874f7e3ba7f9c688530ec0"
       }
     },
     "@typed-sql/postgres@2.5.0": {
       "name": "@typed-sql/postgres",
       "version": "2.5.0",
       "payload": {
-        "fileCount": 312,
-        "bytes": 2172920,
+        "fileCount": 361,
+        "bytes": 2297359,
         "sizes": {
-          "javascript": 1075406,
-          "declarations": 105197,
-          "sourceMaps": 933727,
-          "other": 58590
+          "javascript": 1120481,
+          "declarations": 137350,
+          "sourceMaps": 979666,
+          "other": 59862
         },
-        "digest": "49fe2fdc0b579e7c421f0a37874c7f5b68ac1d4517e7197258c33387fdf5755c"
+        "digest": "1290cedc22726b63d0e47a1b80c2030375189c6efbcfe3370728eff9309ba00d"
       },
       "dependencies": [
         "@typed-sql/analysis@2.5.0",
@@ -298,8 +298,8 @@
       ],
       "unavailableOptionalDependencies": [],
       "tarball": {
-        "bytes": 325356,
-        "digest": "5f34ce2298644322224ca8212c2a417198a0360b857acae5e691e789d29720c2"
+        "bytes": 350064,
+        "digest": "b5321958e3c03c7013ab8a0509fd3c96a09c436d8733cd456d044270a860ee1a"
       }
     },
     "@typed-sql/schema@2.5.0": {
@@ -327,15 +327,15 @@
       "name": "@typed-sql/sqlite",
       "version": "2.5.0",
       "payload": {
-        "fileCount": 156,
-        "bytes": 730949,
+        "fileCount": 177,
+        "bytes": 795954,
         "sizes": {
-          "javascript": 318267,
-          "declarations": 43754,
-          "sourceMaps": 348192,
-          "other": 20736
+          "javascript": 340805,
+          "declarations": 47344,
+          "sourceMaps": 379015,
+          "other": 28790
         },
-        "digest": "0e0c157a429268fec6c17734bc215e133433c18791e17318aced3d37835f5350"
+        "digest": "b07ab2ba7f7cd25abaac3d2772f8c3b04f74e28d953c6539e46b6f0e4d117bd3"
       },
       "dependencies": [
         "@typed-sql/analysis@2.5.0",
@@ -345,23 +345,23 @@
       ],
       "unavailableOptionalDependencies": [],
       "tarball": {
-        "bytes": 136076,
-        "digest": "636374c18cdb9af504f6317f9cd4a251ccfafadf625b6dd6249a08c391ff6311"
+        "bytes": 146162,
+        "digest": "21041f32f60c538cdf0a67078b225a680ad516b66e8063979d3440ad33d48b2f"
       }
     },
     "@typed-sql/sqlserver@2.5.0": {
       "name": "@typed-sql/sqlserver",
       "version": "2.5.0",
       "payload": {
-        "fileCount": 188,
-        "bytes": 967614,
+        "fileCount": 213,
+        "bytes": 1001195,
         "sizes": {
-          "javascript": 434842,
-          "declarations": 66725,
-          "sourceMaps": 461729,
-          "other": 4318
+          "javascript": 446020,
+          "declarations": 73980,
+          "sourceMaps": 475566,
+          "other": 5629
         },
-        "digest": "dd949a5fb330b23fb80830dc57dbc3c130cae1e8bf95f41effd9ffed16a69d9a"
+        "digest": "4146d567e5ddb65f6f2aa1b4db021dc1411ef08b5ef80ad7f0fdfe8cca7bf2cf"
       },
       "dependencies": [
         "@typed-sql/analysis@2.5.0",
@@ -371,8 +371,8 @@
       ],
       "unavailableOptionalDependencies": [],
       "tarball": {
-        "bytes": 193848,
-        "digest": "2644ec57ac21741cd5dc64bddb0205f11d5f4859c13ffcc219f43a97bbe0d30e"
+        "bytes": 201238,
+        "digest": "01fc9548c7974255f80824d95b3bd26a6e1a92783d8ee2d652da9599827f4497"
       }
     },
     "@types/node@24.19.2": {

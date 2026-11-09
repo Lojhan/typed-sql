@@ -554,7 +554,7 @@ selected-core or schema/plan-growth measurements. A separate fresh tarball insta
 records published dependency payloads for every grammar, with maps/declarations, archive hashes,
 package content digests and dependency edges. It excludes optional peers and application-installed
 drivers/toolchains, and does not claim total filesystem/store usage or a historical installation
-comparison. See the [installation method and limits](./bundle-size.md#published-dependency-payloads).
+comparison. See the [installation method and limits](./bundle-size.md#published-installation-payload).
 
 ## Generated SQL-file tree-shaking
 
@@ -1850,3 +1850,44 @@ the owned database/login and records failure if either cannot be removed. These 
 require hosted qualification on every supported engine/compatibility pair; local unit coverage
 does not establish those results. The broader mutation matrix and descriptor-family review
 remain open.
+
+## Qualified login identity and refreshed measurements
+
+All four SQL Server jobs pass in [run 42610820237](https://github.com/Lojhan/typed-sql/actions/runs/42610820237).
+Downloaded transport artifacts 13670273321 (14), 13670333072 (15), 13669484427 (16) and
+13669813927 (17) retain 15/30/45/60 passed native cases respectively. Every compatibility pair
+includes actual distinct-login impersonation and DATEFIRST cases alongside permission/codec
+mutations. Case and database/login cleanup statuses are passed. The measured merge producer
+is `b054a1a344a3e30c3ea4eab6e8f9b3de5ea379ea`, incorporating production head `c6d71ccf`.
+The native cost aggregator verifies its committed producer and refreshes all ten SQL Server
+profiles to adapter v4, retaining the six separately pinned local owner-fixture profiles.
+
+Bundle, installation, repository and offline commerce measurements now share production-source
+pin `c6d71ccff0827ae915900e6ac474e81ec965ce14`. The actual collectors complete successfully.
+They measure different costs: emitted minified/gzip/Brotli graphs with attributed inputs;
+published installed file closures; Git-tracked maintained/generated source and audit data;
+and actual exported/reopened project contracts, schema growth and used runtime plans.
+All 37 maintained finite candidates retain complete selected-core/compatibility analysis equality.
+Runtime/profile/frozen graphs retain zero global catalogs.
+
+The source inventory contains 337,321 fewer tracked text lines than the exhaustive proposal.
+Relative to the PR base, maintained package source grows 15,273 lines, generated package source
+5,724 lines and tests/E2E source 22,176 lines. The measured PR diff is +98,702 / −17,172;
+captured vendor catalog JSON is absent. Retained baseline catalogs, generated vocabulary/codec
+projections, tests and audit/report data remain separately classified. These are measurements
+of the exact named revision, not a claim that later edits to report files were included.
+
+The report renderer derives all three cost-document tables from JSON, asserts common code pins
+and matching grammar sets, and checks catalog isolation. Its `--check` mode is part of root
+quality and opens no native services. Native workload measurements keep their own explicit
+source pins and unsupported/partial outcomes. Descriptor-family review, remaining applicable
+context boundaries and current-head aggregate CI remain open.
+
+The [full aggregate at `c6d71ccf`](https://github.com/Lojhan/typed-sql/actions/runs/42610820237)
+now passes every required gate, including source quality, types/coverage, documentation,
+packed/editor/build integration, all required database jobs and unchanged hosted performance.
+Compiler semantic-metadata p50 is 19.9836 ms against the 20 ms hosted budget; the pass does not
+provide a large performance margin. The optional MySQL canary remains unqualified. The report
+refresh and root quality integration still need their own current-head aggregate after publication.
+Local quality/docs checks pass; a deliberately stale derived table fails `--check` and exact
+restoration passes. No native services are loaded by that check.
