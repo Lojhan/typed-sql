@@ -1,7 +1,10 @@
 import type { Pool } from "pg";
 import { strict } from "poku";
 import { acquireNativeQueryContract } from "../../packages/analysis/src/index.js";
-import { createPgNativeContractAdapter } from "../../packages/postgres/src/pg-contracts.js";
+import {
+  createPgNativeContractAdapter,
+  PostgresContractAcquisitionError,
+} from "../../packages/postgres/src/pg-contracts.js";
 import { defaultPostgresTypePolicy } from "../../packages/postgres/src/type-policy.js";
 
 /** Real PostgreSQL 18 mutations on the caller's disposable, exclusively owned fixture. */
@@ -38,6 +41,25 @@ export async function assertPostgresContextMutations(
     sql: "SELECT $1::bigint AS value",
     parameterOccurrences: [{ index: 1, start: 7, end: 9 }],
   };
+  const rejectsPriorContext = async (
+    selected: ReturnType<typeof adapter>,
+    before: Awaited<ReturnType<ReturnType<typeof adapter>["inspectContext"]>>,
+    message: string,
+  ) => {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        strict.deepEqual(
+          await acquireNativeQueryContract({ adapter: selected, context: before, candidate }),
+          { status: "unavailable", reason: "context-mismatch" },
+          message,
+        );
+        return;
+      } catch (error) {
+        if (!(error instanceof PostgresContractAcquisitionError) || error.reason !== "context-changed" || attempt >= 2)
+          throw error;
+      }
+    }
+  };
   await pool.query(`CREATE ROLE ${role} NOLOGIN`);
   try {
     const base = adapter();
@@ -51,18 +73,14 @@ export async function assertPostgresContextMutations(
       const after = await selected.inspectContext();
       strict.notEqual(after.databaseContextHash, before.databaseContextHash, `${name} changes native context`);
       strict.equal(after.schemaHash, before.schemaHash, `${name} proof keeps the compiler schema fixed`);
-      strict.deepEqual(
-        await acquireNativeQueryContract({ adapter: selected, context: before, candidate }),
-        { status: "unavailable", reason: "context-mismatch" },
-        `${name} cannot reuse the old context`,
-      );
+      await rejectsPriorContext(selected, before, `${name} cannot reuse the old context`);
     }
     await pool.query(`GRANT SELECT ON ${namespace}.calls TO ${role}`);
     const granted = await base.inspectContext();
     strict.notEqual(granted.databaseContextHash, before.databaseContextHash, "Permission grants change native context");
-    strict.deepEqual(
-      await acquireNativeQueryContract({ adapter: base, context: before, candidate }),
-      { status: "unavailable", reason: "context-mismatch" },
+    await rejectsPriorContext(
+      base,
+      before,
       "A permission change cannot reuse the old context even for the same principal",
     );
     const selected = adapter([], { ...defaultPostgresTypePolicy, bigint: "string" });
@@ -70,11 +88,7 @@ export async function assertPostgresContextMutations(
     strict.equal(changedPolicy.databaseContextHash, granted.databaseContextHash);
     strict.notEqual(changedPolicy.typePolicyHash, granted.typePolicyHash, "Decoding policy changes its identity");
     strict.notEqual(changedPolicy.codecHash, granted.codecHash, "Decoding policy changes codec identity");
-    strict.deepEqual(
-      await acquireNativeQueryContract({ adapter: selected, context: granted, candidate }),
-      { status: "unavailable", reason: "context-mismatch" },
-      "A different codec policy cannot reuse the old context",
-    );
+    await rejectsPriorContext(selected, granted, "A different codec policy cannot reuse the old context");
   } finally {
     await pool.query(`REVOKE ALL ON ${namespace}.calls FROM ${role}`);
     await pool.query(`DROP ROLE ${role}`);

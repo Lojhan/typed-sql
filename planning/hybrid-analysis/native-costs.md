@@ -8,7 +8,7 @@ none.
 
 Each profile records its actual engine version, adapter/grammar identities, client environment,
 SQL digest, raw observations and exact committed measurement-tool hash. Source revisions:
-[12f93112](https://github.com/Lojhan/typed-sql/commit/12f93112ca31725c5f8a2698f30f357dd88a1b67), [7bb092a8](https://github.com/Lojhan/typed-sql/commit/7bb092a83804cc85501a3b808bc281119c927439).
+[7bb092a8](https://github.com/Lojhan/typed-sql/commit/7bb092a83804cc85501a3b808bc281119c927439), [b24cedd8](https://github.com/Lojhan/typed-sql/commit/b24cedd87f74e756265aa8d80477e162eea23f7a), [b601d85c](https://github.com/Lojhan/typed-sql/commit/b601d85c81f5681eead3a596b2afd6c63db5687a).
 Hosted artifact provenance is recorded in [implementation evidence](./implementation.md).
 These are selected qualified fixtures, not a complete application workload or all supported
 engine versions, and do not establish production popularity or latency guarantees.
@@ -58,20 +58,20 @@ The sum-of-timed-stages statistic excludes untimed caller and fixture overhead.
 | --- | ---: | ---: | ---: | ---: |
 | duckdb-1.5.6 | 29.6 | 39.5 | 6.3 | 3.7 |
 | duckdb-2.0.0 | 47.5 | 58.3 | 7.7 | 4.5 |
-| mysql-8.4.11 | 9.9 | 16.2 | 8.7 | 4.8 |
-| mysql-9.7.2 | 11.1 | 18.1 | 8.1 | 5.3 |
+| mysql-8.4.11 | 9.0 | 15.9 | 12.0 | 4.7 |
+| mysql-9.7.2 | 11.5 | 17.8 | 12.1 | 4.8 |
 | postgres-18.3 | 92.7 | 182.3 | 7.0 | 5.1 |
 | sqlite-3.53.4 | 54.8 | 58.8 | 8.2 | 5.4 |
-| sqlserver-14.0.3560.2-compat-140 | 211.2 | 230.3 | 43.2 | 25.4 |
-| sqlserver-15.0.4500.2-compat-140 | 158.8 | 176.3 | 42.7 | 21.8 |
-| sqlserver-15.0.4500.2-compat-150 | 153.1 | 167.7 | 32.2 | 20.1 |
-| sqlserver-16.0.4305.5-compat-140 | 140.5 | 137.6 | 31.0 | 15.5 |
-| sqlserver-16.0.4305.5-compat-150 | 120.5 | 129.0 | 26.2 | 17.5 |
-| sqlserver-16.0.4305.5-compat-160 | 121.3 | 130.2 | 30.9 | 17.5 |
-| sqlserver-17.0.5035.5-compat-140 | 304.5 | 324.0 | 42.3 | 29.4 |
-| sqlserver-17.0.5035.5-compat-150 | 293.1 | 310.0 | 36.4 | 30.8 |
-| sqlserver-17.0.5035.5-compat-160 | 290.1 | 307.8 | 39.1 | 30.6 |
-| sqlserver-17.0.5035.5-compat-170 | 304.1 | 308.5 | 40.7 | 27.1 |
+| sqlserver-14.0.3560.2-compat-140 | 196.2 | 217.1 | 50.9 | 21.2 |
+| sqlserver-15.0.4500.2-compat-140 | 199.6 | 220.0 | 35.2 | 23.9 |
+| sqlserver-15.0.4500.2-compat-150 | 195.2 | 212.4 | 41.7 | 24.5 |
+| sqlserver-16.0.4305.5-compat-140 | 213.7 | 245.5 | 43.0 | 23.6 |
+| sqlserver-16.0.4305.5-compat-150 | 208.1 | 233.1 | 38.0 | 27.8 |
+| sqlserver-16.0.4305.5-compat-160 | 208.5 | 226.4 | 36.7 | 25.3 |
+| sqlserver-17.0.5035.5-compat-140 | 326.0 | 345.1 | 52.3 | 22.8 |
+| sqlserver-17.0.5035.5-compat-150 | 316.8 | 335.7 | 42.3 | 23.2 |
+| sqlserver-17.0.5035.5-compat-160 | 316.3 | 330.3 | 36.1 | 26.5 |
+| sqlserver-17.0.5035.5-compat-170 | 310.6 | 328.0 | 31.7 | 19.3 |
 
 Observed client environments: darwin/arm64, Node v24.22.2; linux/x64, Node v24.22.2. Connection placement, containerization,
 SDK ownership and background load depend on the owning fixture; capture details remain in
@@ -105,26 +105,26 @@ availability for every query, type, function or database configuration on the li
 | postgres-18.3 | parameter | complete: 1 | complete: 1 | unknown: 1 |
 | sqlite-3.53.4 | column | partial: 1 | complete: 1 | partial: 1 |
 | sqlite-3.53.4 | parameter | partial: 1 | complete: 1 | partial: 1 |
-| sqlserver-14.0.3560.2-compat-140 | column | not recorded | not recorded | not recorded |
-| sqlserver-14.0.3560.2-compat-140 | parameter | not recorded | not recorded | not recorded |
-| sqlserver-15.0.4500.2-compat-140 | column | not recorded | not recorded | not recorded |
-| sqlserver-15.0.4500.2-compat-140 | parameter | not recorded | not recorded | not recorded |
-| sqlserver-15.0.4500.2-compat-150 | column | not recorded | not recorded | not recorded |
-| sqlserver-15.0.4500.2-compat-150 | parameter | not recorded | not recorded | not recorded |
-| sqlserver-16.0.4305.5-compat-140 | column | not recorded | not recorded | not recorded |
-| sqlserver-16.0.4305.5-compat-140 | parameter | not recorded | not recorded | not recorded |
-| sqlserver-16.0.4305.5-compat-150 | column | not recorded | not recorded | not recorded |
-| sqlserver-16.0.4305.5-compat-150 | parameter | not recorded | not recorded | not recorded |
-| sqlserver-16.0.4305.5-compat-160 | column | not recorded | not recorded | not recorded |
-| sqlserver-16.0.4305.5-compat-160 | parameter | not recorded | not recorded | not recorded |
-| sqlserver-17.0.5035.5-compat-140 | column | not recorded | not recorded | not recorded |
-| sqlserver-17.0.5035.5-compat-140 | parameter | not recorded | not recorded | not recorded |
-| sqlserver-17.0.5035.5-compat-150 | column | not recorded | not recorded | not recorded |
-| sqlserver-17.0.5035.5-compat-150 | parameter | not recorded | not recorded | not recorded |
-| sqlserver-17.0.5035.5-compat-160 | column | not recorded | not recorded | not recorded |
-| sqlserver-17.0.5035.5-compat-160 | parameter | not recorded | not recorded | not recorded |
-| sqlserver-17.0.5035.5-compat-170 | column | not recorded | not recorded | not recorded |
-| sqlserver-17.0.5035.5-compat-170 | parameter | not recorded | not recorded | not recorded |
+| sqlserver-14.0.3560.2-compat-140 | column | complete: 1 | complete: 1 | partial: 1 |
+| sqlserver-14.0.3560.2-compat-140 | parameter | complete: 1 | complete: 1 | partial: 1 |
+| sqlserver-15.0.4500.2-compat-140 | column | complete: 1 | complete: 1 | partial: 1 |
+| sqlserver-15.0.4500.2-compat-140 | parameter | complete: 1 | complete: 1 | partial: 1 |
+| sqlserver-15.0.4500.2-compat-150 | column | complete: 1 | complete: 1 | partial: 1 |
+| sqlserver-15.0.4500.2-compat-150 | parameter | complete: 1 | complete: 1 | partial: 1 |
+| sqlserver-16.0.4305.5-compat-140 | column | complete: 1 | complete: 1 | partial: 1 |
+| sqlserver-16.0.4305.5-compat-140 | parameter | complete: 1 | complete: 1 | partial: 1 |
+| sqlserver-16.0.4305.5-compat-150 | column | complete: 1 | complete: 1 | partial: 1 |
+| sqlserver-16.0.4305.5-compat-150 | parameter | complete: 1 | complete: 1 | partial: 1 |
+| sqlserver-16.0.4305.5-compat-160 | column | complete: 1 | complete: 1 | partial: 1 |
+| sqlserver-16.0.4305.5-compat-160 | parameter | complete: 1 | complete: 1 | partial: 1 |
+| sqlserver-17.0.5035.5-compat-140 | column | complete: 1 | complete: 1 | partial: 1 |
+| sqlserver-17.0.5035.5-compat-140 | parameter | complete: 1 | complete: 1 | partial: 1 |
+| sqlserver-17.0.5035.5-compat-150 | column | complete: 1 | complete: 1 | partial: 1 |
+| sqlserver-17.0.5035.5-compat-150 | parameter | complete: 1 | complete: 1 | partial: 1 |
+| sqlserver-17.0.5035.5-compat-160 | column | complete: 1 | complete: 1 | partial: 1 |
+| sqlserver-17.0.5035.5-compat-160 | parameter | complete: 1 | complete: 1 | partial: 1 |
+| sqlserver-17.0.5035.5-compat-170 | column | complete: 1 | complete: 1 | partial: 1 |
+| sqlserver-17.0.5035.5-compat-170 | parameter | complete: 1 | complete: 1 | partial: 1 |
 
 ## Reproduction
 

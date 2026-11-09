@@ -1698,3 +1698,50 @@ edit-storm p50 is 5.58 ms; the historical hosted 15.26/15 ms failure is not repr
 The invalidation matrix records these native proofs and retains engine-replacement/other-profile
 gaps. Hosted MySQL qualification, SQL Server permission/facet capture, native application
 workload scaling and final measurements remain outstanding.
+
+## Complete measured native facet capture
+
+The focused [SQL Server run at `b24cedd8`](https://github.com/Lojhan/typed-sql/actions/runs/42597621667)
+passes all four engine jobs. Downloaded transport artifacts are:
+
+| Major | Artifact ID | Local audit directory | Passed cases |
+| --- | --- | --- | --- |
+| 14 | 13663159848 | `/tmp/typed-sql-context-b24-14` | 13 |
+| 15 | 13663568908 | `/tmp/typed-sql-context-b24-15` | 26 |
+| 16 | 13663603925 | `/tmp/typed-sql-context-b24-16` | 39 |
+| 17 | 13664726668 | `/tmp/typed-sql-context-b24-17` | 52 |
+
+Each native-contract artifact reports passed cases and cleanup, includes the exact compatibility
+pairs from the pinned vocabulary profile, and records codec-policy and permission-grant
+context mismatch proofs for every pair. Each engine's first baseline observation records one
+`context-changed` rejection followed by a stable observation on attempt two. Subsequent baseline,
+codec and grant observations succeed on their first attempt. Inconsistent observations are not
+accepted. All 130 cases pass; no deadline or budget changes are used.
+
+All ten SQL Server cost records now contain version 2 facet observations with three independently
+qualified acquisitions per pair. The aggregator verifies committed producer hashes, native
+evidence, qualification closures, adapter identity, canonical evidence hashes and sample coverage.
+For the selected BIGINT column/parameter invocation, native and runtime types are complete;
+nullability remains partial. This does not generalize the invocation into a universal function
+rule or establish every descriptor family.
+
+The refreshed [native report](./native-costs.md) retains all 16 measured profiles with recorded
+column and parameter facets; no current row lacks facet capture. MySQL costs are refreshed from
+`b601d85c` after adding grant/role metadata, using complete passing native helpers on 8.4.11 and
+9.7.2 (`/tmp/typed-sql-native-facets-b601`). Four unchanged local profiles retain their exact
+`7bb092a8` observations, selected separately to avoid conflicting duplicate inputs. Source
+revisions and environments remain explicit. This closes the SQL Server capture/import gap;
+descriptor-family review, remaining applicable context mutations, native application workloads,
+current-head aggregate CI and final repository/bundle/install measurements remain open.
+
+The full [PR run at `b24cedd8`](https://github.com/Lojhan/typed-sql/actions/runs/42597611355)
+passes source verification, including unchanged hosted performance budgets. It fails its PostgreSQL
+18.6 mutation helper when a fresh post-grant context capture reports `context-changed`, before
+the old-context mismatch assertion can run. The optional MySQL canary also remains unqualified;
+the full aggregate is not green.
+
+The PostgreSQL mutation proof now retries only that capture error within the same three-attempt
+bound. It retains the original expected context on every attempt, must still obtain a stable
+capture and assert `context-mismatch`, and immediately fails on other errors or exhaustion.
+Root types and the actual local PostgreSQL 18.3 mutation helper pass. Production acquisition
+guards and performance budgets are unchanged; fresh hosted qualification remains required.

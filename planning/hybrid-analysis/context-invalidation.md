@@ -11,7 +11,7 @@ authorization, schema or session settings to manufacture a compatible context.
 | MySQL 8.4.11 / 9.7.2 | Actual principal, direct grant, active role and effective role grant changes reject prior context | Actual selected-database change rejects prior context | Actual time-zone change rejects prior context; changed SQL mode declines qualification | Actual BIGINT policy change changes identities and rejects reuse on both engines | Both exact engines run independently; replacement using an old context remains unverified |
 | DuckDB 1.5.6 / 2.0.0 | The supported owned embedded connection has no database-user authorization API; host file authorization is outside native metadata | Nondefault search paths are declined; actual path mutation remains unverified | Owned connection settings are guarded; actual setting mutation remains unverified | Actual BIGINT policy change changes identities and rejects reuse on both engines | Both SDK engines run independently; cross-engine reuse remains unverified |
 | SQLite 3.53.4, Node 24.22.2 | The supported embedded connection has no database-user authorization API; host file authorization is outside native metadata | Worker authorizer admits the main database only; arbitrary attachments/search paths are outside the profile | Owned worker forces its declared read-only settings; setting mutation is outside the worker protocol | Actual integer policy change changes identities and rejects reuse | Actual version/source/compile-option evidence is fingerprinted; engine replacement remains unverified |
-| SQL Server 14–17, ten compatibility pairs | New explicit/effective permission fingerprints and native grant/revoke regression await hosted qualification | Two-part ordinary local tables only; default-schema mutation remains unverified | Exact server evidence is checked; actual setting mutation remains unverified | New BIGINT policy mutation regression awaits hosted qualification on all ten pairs | Each exact engine/compatibility pair runs independently; replacement using an old context remains unverified |
+| SQL Server 14–17, ten compatibility pairs | Actual grant/revoke changes reject prior context on all ten pairs; principal mutation remains unverified | Two-part ordinary local tables only; default-schema mutation remains unverified | Exact server evidence is checked; actual setting mutation remains unverified | Actual BIGINT policy mutation rejects prior context on all ten pairs | Each exact engine/compatibility pair runs independently; replacement using an old context remains unverified |
 
 PostgreSQL mutation proof is in [postgres-context-mutations.ts](../../test/helpers/postgres-context-mutations.ts).
 It keeps the compiler schema fixed while changing the actual native environment, then attempts
@@ -39,7 +39,7 @@ Policy isolation is also asserted in the [MySQL native helper](../../test/helper
 [DuckDB native suite](../../packages/duckdb/test/native-contracts.test.ts) and
 [SQL Server native probe](../../e2e/sqlserver/native-contract-probe.mjs). Local complete helpers pass
 on PostgreSQL 18.3 and MySQL 8.4.11/9.7.2; embedded suites pass on both DuckDB SDKs and SQLite.
-The new SQL Server cases still require hosted execution.
+SQL Server permission/codec mutation cases and cleanup pass on all ten pairs in [run 42597621667](https://github.com/Lojhan/typed-sql/actions/runs/42597621667).
 
 SQL Server source review exposed a missing explicit-permission fingerprint: the principal token
 alone did not account for a grant that left the principal and schema unchanged. Native contexts

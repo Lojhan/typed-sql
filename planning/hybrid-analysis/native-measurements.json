@@ -8,13 +8,6 @@
   },
   "conditions": "Local profiles may run concurrently on the same host. Hosted profiles use their declared runner environment. Three observations and reused owner fixtures do not establish workload latency percentiles, engine rankings or production popularity. Sum of timed qualification stages excludes untimed caller/fixture overhead.",
   "methods": {
-    "6df0f7c0342a6e74386714c96d110ae9d15d5a5c292eefdf1d7c34b213d75d16": {
-      "scope": "Three actual acquisitions of an existing owner-qualified fixture; not an application corpus, popularity sample or latency service-level guarantee.",
-      "acquisition": "Fresh context inspection, offline analysis, native acquisition and reconciliation measured separately. Up to three bounded attempts; stale attempts remain in the report. No candidate execution or application-value sampling.",
-      "bytes": "Canonical contract, native evidence and plan serialization plus actual exported one-query closure and disposable cache file contents. Filesystem blocks, install payloads and connection credentials are excluded.",
-      "cache": "Cold lookup opens a new cache object against existing files; warm lookups reuse an object. Neither drops OS page caches or claims current remote freshness. All recorded lookups must remain unverified.",
-      "environment": "Owner fixtures may already have warmed driver/server state; SDK ownership and transport boundaries remain adapter-specific. Compare only the declared environment, not engines as universal performance rankings."
-    },
     "f001eb36771bbcd97a474da387f52f741ba33846e4670339f4d09ab8ecfbcbfd": {
       "scope": "Three actual acquisitions of an existing owner-qualified fixture; not an application corpus, popularity sample or latency service-level guarantee.",
       "acquisition": "Fresh context inspection, offline analysis, native acquisition and reconciliation measured separately. Up to three bounded attempts; stale attempts remain in the report. No candidate execution or application-value sampling.",
@@ -580,12 +573,12 @@
     },
     {
       "formatVersion": 2,
-      "sourceRevision": "7bb092a83804cc85501a3b808bc281119c927439",
+      "sourceRevision": "b601d85c81f5681eead3a596b2afd6c63db5687a",
       "toolDigest": "f001eb36771bbcd97a474da387f52f741ba33846e4670339f4d09ab8ecfbcbfd",
       "label": "mysql-8.4.11",
       "serverVersion": "8.4.11",
       "grammar": { "id": "mysql", "version": "1.0.0" },
-      "adapter": { "id": "@typed-sql/mysql/mysql2-contracts", "version": "mysql-backup-locked-prepare-v2" },
+      "adapter": { "id": "@typed-sql/mysql/mysql2-contracts", "version": "mysql-backup-locked-prepare-v3" },
       "sqlDigest": "8287314a14187f5cc17866a5cde4243941e671bede31c74caa622117b4a44b1e",
       "parameterOccurrences": 1,
       "fixtureSchema": {
@@ -594,10 +587,10 @@
       },
       "environment": { "node": "v24.22.2", "platform": "darwin", "architecture": "arm64" },
       "facetObservations": {
-        "561e8e33ce3d3d9467973ea337e809cded7400457f4fee40d42a7a43104333b9": {
+        "e81102ee14b012c968841e80a146767f62435e46f2c7edd7a5a81bba9d26abc1": {
           "sqlLength": 49,
           "nativeEvidence": {
-            "adapter": { "id": "@typed-sql/mysql/mysql2-contracts", "version": "mysql-backup-locked-prepare-v2" },
+            "adapter": { "id": "@typed-sql/mysql/mysql2-contracts", "version": "mysql-backup-locked-prepare-v3" },
             "columns": [
               {
                 "descriptor": { "characterSet": 63, "columnLength": 23, "decimals": 31, "flags": 128, "type": 5 },
@@ -713,15 +706,15 @@
                 "target": "parameter"
               }
             ],
-            "nativeEvidenceHash": "7acc7279e30c7b318fb6c6f6cc91f00556c082ee30f095113d1e38d15277e5c3",
+            "nativeEvidenceHash": "119402b90a8ef533e44905273f9bb8210f2baedfc3071ad24e0dbbfbe9941188",
             "policy": {
               "mode": "native-required",
               "owner": { "id": "@typed-sql/mysql/reconciliation", "version": "mysql-contract-reconciliation-v3" },
               "requiredNativeFacets": ["runtime-type"]
             },
             "policyHash": "d154e36286af5e22a17ca497357e5034e297a03ff31f77dab9d2f51ae8f8c57d",
-            "sourceContractHash": "02bea23413e3cadaf7d21748995b4e4e7b4af0e7493b8cb392026ab826fd9418",
-            "staticClaimHash": "ee18de5e07de655b49dd878c16a68260ee17a655dfe6d647f31c7f4b22ffd8c3"
+            "sourceContractHash": "5a0835f4e910e57a7dc790cd32ab83d9befd663aecab2242bf8ddbba26f55a50",
+            "staticClaimHash": "c953a1aa6113d60a618eee6da96c07d58f06654ecbcaf3504e82f89f6fb63478"
           }
         }
       },
@@ -729,137 +722,132 @@
         {
           "attempts": [
             {
-              "contextInspectionMs": 8.811083999999937,
-              "staticAnalysisMs": 0.6198329999999714,
-              "acquisitionAndReconciliationMs": 15.650916000000052,
+              "contextInspectionMs": 8.98037499999964,
+              "staticAnalysisMs": 0.5792499999997744,
+              "acquisitionAndReconciliationMs": 14.789792000000034,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "b5b4b6dc7bee0a7122e5755ddd65013a947e0b59bb1a36c2bc6fe6e24ede4f1f",
-          "contextDigest": "e4bd3998734079325497b3ec089bc643e87c28342ef2721da4dc1a7f5ba00b65",
-          "facetObservationDigest": "561e8e33ce3d3d9467973ea337e809cded7400457f4fee40d42a7a43104333b9",
+          "contractDigest": "a8d8851e621b2b7abc045c39330015d6e32a36e3d5f59bd0ea38b7a5452d2d55",
+          "contextDigest": "a966e60faea9f9aa884ac9570300223bd56dc9fbdc6cdf9c810dcda8d56a755d",
+          "facetObservationDigest": "e81102ee14b012c968841e80a146767f62435e46f2c7edd7a5a81bba9d26abc1",
           "canonicalContractBytes": 4734,
           "nativeEvidenceBytes": 911,
           "valuePlanBytes": 279,
           "durable": { "bytes": 5532, "files": 3 },
           "cache": { "bytes": 6179, "files": 5 },
-          "durableExportMs": 16.48695799999996,
-          "durableReloadMs": 1.4776659999999993,
-          "cachePublishMs": 16.59504199999992,
-          "coldCacheObjectLookupMs": 7.911082999999962,
-          "warmLookupMs": [4.84900000000016, 3.4778329999999187, 6.204999999999927]
+          "durableExportMs": 20.236457999999857,
+          "durableReloadMs": 2.71612499999992,
+          "cachePublishMs": 15.527459000000363,
+          "coldCacheObjectLookupMs": 15.364000000000033,
+          "warmLookupMs": [2.54162499999984, 4.698958999999832, 4.706709000000046]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 10.534583999999995,
-              "staticAnalysisMs": 2.437167000000045,
-              "acquisitionAndReconciliationMs": 17.464125000000195,
+              "contextInspectionMs": 8.921875,
+              "staticAnalysisMs": 2.4385839999999916,
+              "acquisitionAndReconciliationMs": 15.868249999999989,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "b5b4b6dc7bee0a7122e5755ddd65013a947e0b59bb1a36c2bc6fe6e24ede4f1f",
-          "contextDigest": "e4bd3998734079325497b3ec089bc643e87c28342ef2721da4dc1a7f5ba00b65",
-          "facetObservationDigest": "561e8e33ce3d3d9467973ea337e809cded7400457f4fee40d42a7a43104333b9",
+          "contractDigest": "a8d8851e621b2b7abc045c39330015d6e32a36e3d5f59bd0ea38b7a5452d2d55",
+          "contextDigest": "a966e60faea9f9aa884ac9570300223bd56dc9fbdc6cdf9c810dcda8d56a755d",
+          "facetObservationDigest": "e81102ee14b012c968841e80a146767f62435e46f2c7edd7a5a81bba9d26abc1",
           "canonicalContractBytes": 4734,
           "nativeEvidenceBytes": 911,
           "valuePlanBytes": 279,
           "durable": { "bytes": 5532, "files": 3 },
           "cache": { "bytes": 6179, "files": 5 },
-          "durableExportMs": 10.72020899999984,
-          "durableReloadMs": 1.5342500000001564,
-          "cachePublishMs": 16.768916999999874,
-          "coldCacheObjectLookupMs": 9.542500000000018,
-          "warmLookupMs": [4.9322910000000775, 4.728207999999995, 5.8657499999999345]
+          "durableExportMs": 8.289291999999932,
+          "durableReloadMs": 1.3357080000000678,
+          "cachePublishMs": 17.906790999999885,
+          "coldCacheObjectLookupMs": 9.244707999999719,
+          "warmLookupMs": [4.957792000000154, 3.5232919999998558, 4.968207999999777]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 9.862959000000046,
-              "staticAnalysisMs": 2.4435419999999795,
-              "acquisitionAndReconciliationMs": 16.240458000000217,
+              "contextInspectionMs": 13.405541999999969,
+              "staticAnalysisMs": 2.68224999999984,
+              "acquisitionAndReconciliationMs": 18.07491700000037,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "b5b4b6dc7bee0a7122e5755ddd65013a947e0b59bb1a36c2bc6fe6e24ede4f1f",
-          "contextDigest": "e4bd3998734079325497b3ec089bc643e87c28342ef2721da4dc1a7f5ba00b65",
-          "facetObservationDigest": "561e8e33ce3d3d9467973ea337e809cded7400457f4fee40d42a7a43104333b9",
+          "contractDigest": "a8d8851e621b2b7abc045c39330015d6e32a36e3d5f59bd0ea38b7a5452d2d55",
+          "contextDigest": "a966e60faea9f9aa884ac9570300223bd56dc9fbdc6cdf9c810dcda8d56a755d",
+          "facetObservationDigest": "e81102ee14b012c968841e80a146767f62435e46f2c7edd7a5a81bba9d26abc1",
           "canonicalContractBytes": 4734,
           "nativeEvidenceBytes": 911,
           "valuePlanBytes": 279,
           "durable": { "bytes": 5532, "files": 3 },
           "cache": { "bytes": 6179, "files": 5 },
-          "durableExportMs": 13.065832999999657,
-          "durableReloadMs": 1.5078340000000026,
-          "cachePublishMs": 19.8876250000003,
-          "coldCacheObjectLookupMs": 8.683207999999922,
-          "warmLookupMs": [6.857042000000092, 4.677541999999903, 3.968666999999641]
+          "durableExportMs": 15.696750000000065,
+          "durableReloadMs": 1.4863329999998314,
+          "cachePublishMs": 27.368375000000015,
+          "coldCacheObjectLookupMs": 12.040459000000283,
+          "warmLookupMs": [5.304625000000215, 3.276082999999744, 5.199040999999852]
         }
       ],
-      "reportDigest": "a4c8f5cd73bd19d364920ce3a29a5616d6400e10b6205bfd4d3768c09cfd6b64",
+      "reportDigest": "6bca748a453c6e2c343aba3849e790f83710dd1dfdde4e9223e6b5c8f5ad0207",
       "summary": {
         "canonicalContractBytes": { "count": 3, "min": 4734, "median": 4734, "max": 4734 },
         "durableFileBytes": { "count": 3, "min": 5532, "median": 5532, "max": 5532 },
         "cacheFileBytes": { "count": 3, "min": 6179, "median": 6179, "max": 6179 },
-        "contextInspectionMs": {
-          "count": 3,
-          "min": 8.811083999999937,
-          "median": 9.862959000000046,
-          "max": 10.534583999999995
-        },
+        "contextInspectionMs": { "count": 3, "min": 8.921875, "median": 8.98037499999964, "max": 13.405541999999969 },
         "staticAnalysisMs": {
           "count": 3,
-          "min": 0.6198329999999714,
-          "median": 2.437167000000045,
-          "max": 2.4435419999999795
+          "min": 0.5792499999997744,
+          "median": 2.4385839999999916,
+          "max": 2.68224999999984
         },
         "acquisitionAndReconciliationMs": {
           "count": 3,
-          "min": 15.650916000000052,
-          "median": 16.240458000000217,
-          "max": 17.464125000000195
+          "min": 14.789792000000034,
+          "median": 15.868249999999989,
+          "max": 18.07491700000037
         },
         "sumOfQualificationStagesMs": {
           "count": 3,
-          "min": 25.08183299999996,
-          "median": 28.546959000000243,
-          "max": 30.435876000000235
+          "min": 24.34941699999945,
+          "median": 27.22870899999998,
+          "max": 34.16270900000018
         },
         "durableExportMs": {
           "count": 3,
-          "min": 10.72020899999984,
-          "median": 13.065832999999657,
-          "max": 16.48695799999996
+          "min": 8.289291999999932,
+          "median": 15.696750000000065,
+          "max": 20.236457999999857
         },
         "durableReloadMs": {
           "count": 3,
-          "min": 1.4776659999999993,
-          "median": 1.5078340000000026,
-          "max": 1.5342500000001564
+          "min": 1.3357080000000678,
+          "median": 1.4863329999998314,
+          "max": 2.71612499999992
         },
         "cachePublishMs": {
           "count": 3,
-          "min": 16.59504199999992,
-          "median": 16.768916999999874,
-          "max": 19.8876250000003
+          "min": 15.527459000000363,
+          "median": 17.906790999999885,
+          "max": 27.368375000000015
         },
         "coldCacheObjectLookupMs": {
           "count": 3,
-          "min": 7.911082999999962,
-          "median": 8.683207999999922,
-          "max": 9.542500000000018
+          "min": 9.244707999999719,
+          "median": 12.040459000000283,
+          "max": 15.364000000000033
         },
-        "warmLookupMs": { "count": 9, "min": 3.4778329999999187, "median": 4.84900000000016, "max": 6.857042000000092 }
+        "warmLookupMs": { "count": 9, "min": 2.54162499999984, "median": 4.706709000000046, "max": 5.304625000000215 }
       }
     },
     {
       "formatVersion": 2,
-      "sourceRevision": "7bb092a83804cc85501a3b808bc281119c927439",
+      "sourceRevision": "b601d85c81f5681eead3a596b2afd6c63db5687a",
       "toolDigest": "f001eb36771bbcd97a474da387f52f741ba33846e4670339f4d09ab8ecfbcbfd",
       "label": "mysql-9.7.2",
       "serverVersion": "9.7.2",
       "grammar": { "id": "mysql", "version": "1.0.0" },
-      "adapter": { "id": "@typed-sql/mysql/mysql2-contracts", "version": "mysql-backup-locked-prepare-v2" },
+      "adapter": { "id": "@typed-sql/mysql/mysql2-contracts", "version": "mysql-backup-locked-prepare-v3" },
       "sqlDigest": "8287314a14187f5cc17866a5cde4243941e671bede31c74caa622117b4a44b1e",
       "parameterOccurrences": 1,
       "fixtureSchema": {
@@ -868,10 +856,10 @@
       },
       "environment": { "node": "v24.22.2", "platform": "darwin", "architecture": "arm64" },
       "facetObservations": {
-        "6ad8f8008c8f0665e5156afc56ef1298592e09a3ee17026ed9f860e35691e7f6": {
+        "1e593dfeff18c078f8da011d3f5abda86e3a807836087a7c131100abb35ee540": {
           "sqlLength": 49,
           "nativeEvidence": {
-            "adapter": { "id": "@typed-sql/mysql/mysql2-contracts", "version": "mysql-backup-locked-prepare-v2" },
+            "adapter": { "id": "@typed-sql/mysql/mysql2-contracts", "version": "mysql-backup-locked-prepare-v3" },
             "columns": [
               {
                 "descriptor": { "characterSet": 63, "columnLength": 23, "decimals": 31, "flags": 128, "type": 5 },
@@ -987,15 +975,15 @@
                 "target": "parameter"
               }
             ],
-            "nativeEvidenceHash": "7acc7279e30c7b318fb6c6f6cc91f00556c082ee30f095113d1e38d15277e5c3",
+            "nativeEvidenceHash": "119402b90a8ef533e44905273f9bb8210f2baedfc3071ad24e0dbbfbe9941188",
             "policy": {
               "mode": "native-required",
               "owner": { "id": "@typed-sql/mysql/reconciliation", "version": "mysql-contract-reconciliation-v3" },
               "requiredNativeFacets": ["runtime-type"]
             },
             "policyHash": "d154e36286af5e22a17ca497357e5034e297a03ff31f77dab9d2f51ae8f8c57d",
-            "sourceContractHash": "9dd70a5bc7ca3fe506b76eaf4c1e59b2f53c36b5468e1da7d027b73999075204",
-            "staticClaimHash": "e15aebcefccb2e5a8a036de95d8e41d3b9b1bbe5b34b3ea3ef231bf8c0c4d329"
+            "sourceContractHash": "c93e5006b484efeb1e41ec1e2a11dbaf2cb4dac86f2f6ff28689095c7ceb4333",
+            "staticClaimHash": "8bc42e1554ac473c7903e494b5dd90365b20f797bb903ff6450979a72d44177f"
           }
         }
       },
@@ -1003,127 +991,127 @@
         {
           "attempts": [
             {
-              "contextInspectionMs": 11.030749999999898,
-              "staticAnalysisMs": 0.6619170000003578,
-              "acquisitionAndReconciliationMs": 17.39845800000012,
+              "contextInspectionMs": 8.381709000000228,
+              "staticAnalysisMs": 0.635124999999789,
+              "acquisitionAndReconciliationMs": 16.630499999999756,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "ce89784974d279203e93ed884d50463a9edc3b525181e1f415afec7c35d20b6d",
-          "contextDigest": "66808dc497dde4eb29a72579a7c2d78b715e870c667fa474d48377943c8fc6a1",
-          "facetObservationDigest": "6ad8f8008c8f0665e5156afc56ef1298592e09a3ee17026ed9f860e35691e7f6",
+          "contractDigest": "bad3924f39fc88551b566d2ce470650f83b9a5edc08b5a3beaa72cda16f2c6f6",
+          "contextDigest": "e128139d87868ed5cf16f1749bf0ea344c332f329b252a32807afa3953d3d585",
+          "facetObservationDigest": "1e593dfeff18c078f8da011d3f5abda86e3a807836087a7c131100abb35ee540",
           "canonicalContractBytes": 4734,
           "nativeEvidenceBytes": 911,
           "valuePlanBytes": 279,
           "durable": { "bytes": 5532, "files": 3 },
           "cache": { "bytes": 6179, "files": 5 },
-          "durableExportMs": 15.483708000000206,
-          "durableReloadMs": 1.6998749999997926,
-          "cachePublishMs": 15.36933399999998,
-          "coldCacheObjectLookupMs": 16.51166699999976,
-          "warmLookupMs": [8.960167000000183, 5.723165999999765, 4.315167000000201]
+          "durableExportMs": 15.063500000000204,
+          "durableReloadMs": 3.117833999999675,
+          "cachePublishMs": 18.373207999999977,
+          "coldCacheObjectLookupMs": 16.880333999999948,
+          "warmLookupMs": [3.561333000000104, 5.201708000000053, 5.592000000000098]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 11.104957999999897,
-              "staticAnalysisMs": 2.6434580000000096,
-              "acquisitionAndReconciliationMs": 18.146708000000217,
+              "contextInspectionMs": 12.50441600000022,
+              "staticAnalysisMs": 2.4845000000000255,
+              "acquisitionAndReconciliationMs": 18.593374999999924,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "ce89784974d279203e93ed884d50463a9edc3b525181e1f415afec7c35d20b6d",
-          "contextDigest": "66808dc497dde4eb29a72579a7c2d78b715e870c667fa474d48377943c8fc6a1",
-          "facetObservationDigest": "6ad8f8008c8f0665e5156afc56ef1298592e09a3ee17026ed9f860e35691e7f6",
+          "contractDigest": "bad3924f39fc88551b566d2ce470650f83b9a5edc08b5a3beaa72cda16f2c6f6",
+          "contextDigest": "e128139d87868ed5cf16f1749bf0ea344c332f329b252a32807afa3953d3d585",
+          "facetObservationDigest": "1e593dfeff18c078f8da011d3f5abda86e3a807836087a7c131100abb35ee540",
           "canonicalContractBytes": 4734,
           "nativeEvidenceBytes": 911,
           "valuePlanBytes": 279,
           "durable": { "bytes": 5532, "files": 3 },
           "cache": { "bytes": 6179, "files": 5 },
-          "durableExportMs": 11.176832999999988,
-          "durableReloadMs": 1.6030000000000655,
-          "cachePublishMs": 19.32770900000014,
-          "coldCacheObjectLookupMs": 6.976250000000164,
-          "warmLookupMs": [8.034208999999919, 5.403250000000298, 2.8480839999997443]
+          "durableExportMs": 11.888500000000022,
+          "durableReloadMs": 1.4321250000002692,
+          "cachePublishMs": 28.231667000000016,
+          "coldCacheObjectLookupMs": 12.072791999999936,
+          "warmLookupMs": [4.838708000000224, 4.8230829999997695, 5.723375000000033]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 13.981624999999894,
-              "staticAnalysisMs": 2.628374999999778,
-              "acquisitionAndReconciliationMs": 19.923750000000382,
+              "contextInspectionMs": 11.484916999999768,
+              "staticAnalysisMs": 2.451042000000143,
+              "acquisitionAndReconciliationMs": 17.758832999999868,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "ce89784974d279203e93ed884d50463a9edc3b525181e1f415afec7c35d20b6d",
-          "contextDigest": "66808dc497dde4eb29a72579a7c2d78b715e870c667fa474d48377943c8fc6a1",
-          "facetObservationDigest": "6ad8f8008c8f0665e5156afc56ef1298592e09a3ee17026ed9f860e35691e7f6",
+          "contractDigest": "bad3924f39fc88551b566d2ce470650f83b9a5edc08b5a3beaa72cda16f2c6f6",
+          "contextDigest": "e128139d87868ed5cf16f1749bf0ea344c332f329b252a32807afa3953d3d585",
+          "facetObservationDigest": "1e593dfeff18c078f8da011d3f5abda86e3a807836087a7c131100abb35ee540",
           "canonicalContractBytes": 4734,
           "nativeEvidenceBytes": 911,
           "valuePlanBytes": 279,
           "durable": { "bytes": 5532, "files": 3 },
           "cache": { "bytes": 6179, "files": 5 },
-          "durableExportMs": 14.224957999999788,
-          "durableReloadMs": 1.3807499999998072,
-          "cachePublishMs": 15.839707999999973,
-          "coldCacheObjectLookupMs": 8.098833000000013,
-          "warmLookupMs": [5.28020800000013, 4.7827079999997295, 4.61712499999976]
+          "durableExportMs": 12.405916000000161,
+          "durableReloadMs": 1.4598329999998896,
+          "cachePublishMs": 20.62691700000005,
+          "coldCacheObjectLookupMs": 5.65604200000007,
+          "warmLookupMs": [2.5571249999998145, 3.4752079999998386, 2.501125000000229]
         }
       ],
-      "reportDigest": "ca2115bb974f8e8156341d559ecb0d6f350aaec8afb8266edc5db76820b5b82c",
+      "reportDigest": "7a2fd8a153473be8018e76f5b25ae90317a9366d3cddfc21e46ef39e3ee586ca",
       "summary": {
         "canonicalContractBytes": { "count": 3, "min": 4734, "median": 4734, "max": 4734 },
         "durableFileBytes": { "count": 3, "min": 5532, "median": 5532, "max": 5532 },
         "cacheFileBytes": { "count": 3, "min": 6179, "median": 6179, "max": 6179 },
         "contextInspectionMs": {
           "count": 3,
-          "min": 11.030749999999898,
-          "median": 11.104957999999897,
-          "max": 13.981624999999894
+          "min": 8.381709000000228,
+          "median": 11.484916999999768,
+          "max": 12.50441600000022
         },
         "staticAnalysisMs": {
           "count": 3,
-          "min": 0.6619170000003578,
-          "median": 2.628374999999778,
-          "max": 2.6434580000000096
+          "min": 0.635124999999789,
+          "median": 2.451042000000143,
+          "max": 2.4845000000000255
         },
         "acquisitionAndReconciliationMs": {
           "count": 3,
-          "min": 17.39845800000012,
-          "median": 18.146708000000217,
-          "max": 19.923750000000382
+          "min": 16.630499999999756,
+          "median": 17.758832999999868,
+          "max": 18.593374999999924
         },
         "sumOfQualificationStagesMs": {
           "count": 3,
-          "min": 29.091125000000375,
-          "median": 31.895124000000123,
-          "max": 36.533750000000055
+          "min": 25.647333999999773,
+          "median": 31.69479199999978,
+          "max": 33.58229100000017
         },
         "durableExportMs": {
           "count": 3,
-          "min": 11.176832999999988,
-          "median": 14.224957999999788,
-          "max": 15.483708000000206
+          "min": 11.888500000000022,
+          "median": 12.405916000000161,
+          "max": 15.063500000000204
         },
         "durableReloadMs": {
           "count": 3,
-          "min": 1.3807499999998072,
-          "median": 1.6030000000000655,
-          "max": 1.6998749999997926
+          "min": 1.4321250000002692,
+          "median": 1.4598329999998896,
+          "max": 3.117833999999675
         },
         "cachePublishMs": {
           "count": 3,
-          "min": 15.36933399999998,
-          "median": 15.839707999999973,
-          "max": 19.32770900000014
+          "min": 18.373207999999977,
+          "median": 20.62691700000005,
+          "max": 28.231667000000016
         },
         "coldCacheObjectLookupMs": {
           "count": 3,
-          "min": 6.976250000000164,
-          "median": 8.098833000000013,
-          "max": 16.51166699999976
+          "min": 5.65604200000007,
+          "median": 12.072791999999936,
+          "max": 16.880333999999948
         },
-        "warmLookupMs": { "count": 9, "min": 2.8480839999997443, "median": 5.28020800000013, "max": 8.960167000000183 }
+        "warmLookupMs": { "count": 9, "min": 2.501125000000229, "median": 4.8230829999997695, "max": 5.723375000000033 }
       }
     },
     {
@@ -1688,13 +1676,13 @@
       }
     },
     {
-      "formatVersion": 1,
-      "sourceRevision": "12f93112ca31725c5f8a2698f30f357dd88a1b67",
-      "toolDigest": "6df0f7c0342a6e74386714c96d110ae9d15d5a5c292eefdf1d7c34b213d75d16",
+      "formatVersion": 2,
+      "sourceRevision": "b24cedd87f74e756265aa8d80477e162eea23f7a",
+      "toolDigest": "f001eb36771bbcd97a474da387f52f741ba33846e4670339f4d09ab8ecfbcbfd",
       "label": "sqlserver-14.0.3560.2-compat-140",
       "serverVersion": "14.0.3560.2",
       "grammar": { "id": "sqlserver", "version": "1.0.0" },
-      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v2" },
+      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v3" },
       "sqlDigest": "19693d330c1a76f7ab048138effdc367c76b9db95c9a046b28b0dc694401eb01",
       "parameterOccurrences": 1,
       "fixtureSchema": {
@@ -1702,143 +1690,303 @@
         "scope": "Owner-fixture compiler input; not a complete server catalog or application workload"
       },
       "environment": { "node": "v24.22.2", "platform": "linux", "architecture": "x64" },
+      "facetObservations": {
+        "46cc22e2388ae6fc4cc67e75432102b499f58c3cefdae7e55a5556b1b62b34ce": {
+          "sqlLength": 46,
+          "nativeEvidence": {
+            "adapter": {
+              "id": "@typed-sql/sqlserver/native-contracts",
+              "version": "sqlserver-log-guarded-describe-v3"
+            },
+            "columns": [
+              {
+                "descriptor": {
+                  "bindingIdentityKnown": true,
+                  "caseSensitive": false,
+                  "fixedLengthClrType": false,
+                  "maxLength": 8,
+                  "precision": 19,
+                  "scale": 0,
+                  "source": "dm_exec_describe_first_result_set",
+                  "systemTypeId": 127,
+                  "systemTypeName": "bigint",
+                  "xmlDocument": false
+                },
+                "name": "value",
+                "nativeType": { "status": "known", "value": { "complete": true, "name": "bigint" } },
+                "nullable": { "precision": "upper-bound", "status": "known", "value": true },
+                "runtimeType": { "status": "known", "value": "bigint" }
+              }
+            ],
+            "consistency": { "mechanism": "guarded", "scope": "sqlserver-exclusive-log-quiescent-guarded-select-v2" },
+            "parameterOccurrences": [{ "end": 26, "index": 1, "start": 12 }],
+            "parameters": [
+              {
+                "descriptor": {
+                  "bindingIdentityKnown": true,
+                  "caseSensitive": false,
+                  "fixedLengthClrType": false,
+                  "maxLength": 8,
+                  "name": "@__typed_sql_1",
+                  "nativeOrdinal": 1,
+                  "precision": 19,
+                  "scale": 0,
+                  "source": "sp_describe_undeclared_parameters",
+                  "systemTypeId": 127,
+                  "systemTypeName": "bigint",
+                  "xmlDocument": false
+                },
+                "index": 1,
+                "nativeType": { "status": "known", "value": { "complete": true, "name": "bigint" } },
+                "nullable": { "precision": "upper-bound", "status": "known", "value": true },
+                "runtimeType": { "status": "known", "value": "bigint" }
+              }
+            ],
+            "resultKind": "rows"
+          },
+          "qualification": {
+            "comparisons": [
+              {
+                "facet": "acceptance",
+                "index": 0,
+                "nativeStatus": "complete",
+                "reason": "Compare every available successful static claim",
+                "rule": "independent-static-analysis",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "query"
+              },
+              {
+                "facet": "result-shape",
+                "index": 0,
+                "nativeStatus": "complete",
+                "reason": "Compare ordered column labels and parameter slot counts",
+                "rule": "ordered-result-parameter-shape",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "query"
+              },
+              {
+                "facet": "result-kind",
+                "index": 0,
+                "nativeStatus": "complete",
+                "reason": "Statement result kind is independently compared when available",
+                "rule": "native-result-kind",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "query"
+              },
+              {
+                "facet": "native-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Preserve dimensions and explicit collation while retaining incomplete native identity",
+                "rule": "native-system-type-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "column"
+              },
+              {
+                "facet": "runtime-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Compare policy-controlled representations; retain the native bound for JSON shape",
+                "rule": "runtime-representation-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "column"
+              },
+              {
+                "facet": "nullability",
+                "index": 1,
+                "nativeStatus": "partial",
+                "reason": "Unknown or conservative native nullability remains nullable",
+                "rule": "native-nullable-bound",
+                "staticStatus": "known",
+                "status": "widened",
+                "target": "column"
+              },
+              {
+                "facet": "native-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Preserve dimensions and explicit collation while retaining incomplete native identity",
+                "rule": "native-system-type-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "parameter"
+              },
+              {
+                "facet": "runtime-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Compare policy-controlled representations; retain the native bound for JSON shape",
+                "rule": "runtime-representation-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "parameter"
+              },
+              {
+                "facet": "nullability",
+                "index": 1,
+                "nativeStatus": "partial",
+                "reason": "Unknown or conservative native nullability remains nullable",
+                "rule": "native-nullable-bound",
+                "staticStatus": "known",
+                "status": "widened",
+                "target": "parameter"
+              }
+            ],
+            "nativeEvidenceHash": "b7d4e0dd6386aa80b5ea9a0eff3705281583a57d03ed1c8c978bea5a827dfd28",
+            "policy": {
+              "mode": "native-required",
+              "owner": {
+                "id": "@typed-sql/sqlserver/reconciliation",
+                "version": "sqlserver-contract-reconciliation-v3"
+              },
+              "requiredNativeFacets": ["runtime-type"]
+            },
+            "policyHash": "d757a99a0c6fbb14feed0d3d61c64708bcaf0284bcf411d22c72c2eb484be431",
+            "sourceContractHash": "789d5ba88963e7b656e443d52f7d8ca61b1761790ddbd3c345f0507d1280b9c9",
+            "staticClaimHash": "4cce2e7d6f32af0766258f250129aedf906cf583e7d97cea73440b53211bf8eb"
+          }
+        }
+      },
       "samples": [
         {
           "attempts": [
             {
-              "contextInspectionMs": 189.68727000000013,
-              "staticAnalysisMs": 1.0563459999998486,
-              "acquisitionAndReconciliationMs": 202.63637799999992,
+              "contextInspectionMs": 189.44687199999998,
+              "staticAnalysisMs": 1.5538979999996627,
+              "acquisitionAndReconciliationMs": 213.3099040000002,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "4010ba4a934c8d949593fb88edf10b98ecef7fea07fb0d2fa05cc8da5cda35a1",
-          "contextDigest": "3168a50a7d5e5bdcb504f71137de651e80489023e2d3899c0baa768f881e4476",
+          "contractDigest": "3d3948230b477d4d1ed1d2817014403e382cb3a7413091c3b485447d07d4f8b9",
+          "contextDigest": "6db93edb9d267d2554718ef50ffd4be5d517122bfa795ca128a51fdcc436bc4c",
+          "facetObservationDigest": "46cc22e2388ae6fc4cc67e75432102b499f58c3cefdae7e55a5556b1b62b34ce",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 16.574039999999968,
-          "durableReloadMs": 3.892071999999871,
-          "cachePublishMs": 24.77954099999988,
-          "coldCacheObjectLookupMs": 54.56454899999994,
-          "warmLookupMs": [25.181099999999788, 32.280095000000074, 23.20124799999985]
+          "durableExportMs": 15.736214000000018,
+          "durableReloadMs": 10.007268999999724,
+          "cachePublishMs": 25.499229999999898,
+          "coldCacheObjectLookupMs": 50.94136100000014,
+          "warmLookupMs": [30.44433200000003, 20.86517700000013, 21.30880500000012]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 258.64513799999986,
-              "staticAnalysisMs": 6.682369999999992,
-              "acquisitionAndReconciliationMs": 230.3391029999998,
+              "contextInspectionMs": 215.64536399999997,
+              "staticAnalysisMs": 5.620707999999922,
+              "acquisitionAndReconciliationMs": 217.1039139999998,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "4010ba4a934c8d949593fb88edf10b98ecef7fea07fb0d2fa05cc8da5cda35a1",
-          "contextDigest": "3168a50a7d5e5bdcb504f71137de651e80489023e2d3899c0baa768f881e4476",
+          "contractDigest": "3d3948230b477d4d1ed1d2817014403e382cb3a7413091c3b485447d07d4f8b9",
+          "contextDigest": "6db93edb9d267d2554718ef50ffd4be5d517122bfa795ca128a51fdcc436bc4c",
+          "facetObservationDigest": "46cc22e2388ae6fc4cc67e75432102b499f58c3cefdae7e55a5556b1b62b34ce",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 7.5150870000002215,
-          "durableReloadMs": 3.5714130000001205,
-          "cachePublishMs": 32.55907799999977,
-          "coldCacheObjectLookupMs": 35.99445399999968,
-          "warmLookupMs": [25.375296000000162, 32.75488299999961, 20.253713999999945]
+          "durableExportMs": 7.785335000000032,
+          "durableReloadMs": 7.98992300000009,
+          "cachePublishMs": 20.413073000000168,
+          "coldCacheObjectLookupMs": 45.06752099999994,
+          "warmLookupMs": [21.20238500000005, 22.178294000000278, 17.63085000000001]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 211.15294900000026,
-              "staticAnalysisMs": 6.547815999999784,
-              "acquisitionAndReconciliationMs": 231.42612899999995,
+              "contextInspectionMs": 196.1784050000001,
+              "staticAnalysisMs": 6.032106999999996,
+              "acquisitionAndReconciliationMs": 226.31694200000038,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "4010ba4a934c8d949593fb88edf10b98ecef7fea07fb0d2fa05cc8da5cda35a1",
-          "contextDigest": "3168a50a7d5e5bdcb504f71137de651e80489023e2d3899c0baa768f881e4476",
+          "contractDigest": "3d3948230b477d4d1ed1d2817014403e382cb3a7413091c3b485447d07d4f8b9",
+          "contextDigest": "6db93edb9d267d2554718ef50ffd4be5d517122bfa795ca128a51fdcc436bc4c",
+          "facetObservationDigest": "46cc22e2388ae6fc4cc67e75432102b499f58c3cefdae7e55a5556b1b62b34ce",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 7.448876000000382,
-          "durableReloadMs": 16.062161999999716,
-          "cachePublishMs": 38.636757999999645,
-          "coldCacheObjectLookupMs": 43.23566299999993,
-          "warmLookupMs": [38.79828899999984, 22.803415000000314, 38.52250499999991]
+          "durableExportMs": 7.415788999999677,
+          "durableReloadMs": 10.041229999999814,
+          "cachePublishMs": 23.338558999999805,
+          "coldCacheObjectLookupMs": 60.24275200000011,
+          "warmLookupMs": [20.81400399999984, 16.402391999999963, 28.816187999999784]
         }
       ],
-      "reportDigest": "69f383c4bcfda24f4804f5764b82104e6ef37058e8a19a5876cf26897d5f5536",
+      "reportDigest": "3c7c27f23188be3387a1568e7c20715d1c90ceffe95288ef0ef90c5ee2c26b5c",
       "summary": {
         "canonicalContractBytes": { "count": 3, "min": 5064, "median": 5064, "max": 5064 },
         "durableFileBytes": { "count": 3, "min": 5866, "median": 5866, "max": 5866 },
         "cacheFileBytes": { "count": 3, "min": 6513, "median": 6513, "max": 6513 },
         "contextInspectionMs": {
           "count": 3,
-          "min": 189.68727000000013,
-          "median": 211.15294900000026,
-          "max": 258.64513799999986
+          "min": 189.44687199999998,
+          "median": 196.1784050000001,
+          "max": 215.64536399999997
         },
         "staticAnalysisMs": {
           "count": 3,
-          "min": 1.0563459999998486,
-          "median": 6.547815999999784,
-          "max": 6.682369999999992
+          "min": 1.5538979999996627,
+          "median": 5.620707999999922,
+          "max": 6.032106999999996
         },
         "acquisitionAndReconciliationMs": {
           "count": 3,
-          "min": 202.63637799999992,
-          "median": 230.3391029999998,
-          "max": 231.42612899999995
+          "min": 213.3099040000002,
+          "median": 217.1039139999998,
+          "max": 226.31694200000038
         },
         "sumOfQualificationStagesMs": {
           "count": 3,
-          "min": 393.3799939999999,
-          "median": 449.126894,
-          "max": 495.66661099999965
+          "min": 404.31067399999984,
+          "median": 428.5274540000005,
+          "max": 438.3699859999997
         },
         "durableExportMs": {
           "count": 3,
-          "min": 7.448876000000382,
-          "median": 7.5150870000002215,
-          "max": 16.574039999999968
+          "min": 7.415788999999677,
+          "median": 7.785335000000032,
+          "max": 15.736214000000018
         },
         "durableReloadMs": {
           "count": 3,
-          "min": 3.5714130000001205,
-          "median": 3.892071999999871,
-          "max": 16.062161999999716
+          "min": 7.98992300000009,
+          "median": 10.007268999999724,
+          "max": 10.041229999999814
         },
         "cachePublishMs": {
           "count": 3,
-          "min": 24.77954099999988,
-          "median": 32.55907799999977,
-          "max": 38.636757999999645
+          "min": 20.413073000000168,
+          "median": 23.338558999999805,
+          "max": 25.499229999999898
         },
         "coldCacheObjectLookupMs": {
           "count": 3,
-          "min": 35.99445399999968,
-          "median": 43.23566299999993,
-          "max": 54.56454899999994
+          "min": 45.06752099999994,
+          "median": 50.94136100000014,
+          "max": 60.24275200000011
         },
-        "warmLookupMs": {
-          "count": 9,
-          "min": 20.253713999999945,
-          "median": 25.375296000000162,
-          "max": 38.79828899999984
-        }
+        "warmLookupMs": { "count": 9, "min": 16.402391999999963, "median": 21.20238500000005, "max": 30.44433200000003 }
       }
     },
     {
-      "formatVersion": 1,
-      "sourceRevision": "12f93112ca31725c5f8a2698f30f357dd88a1b67",
-      "toolDigest": "6df0f7c0342a6e74386714c96d110ae9d15d5a5c292eefdf1d7c34b213d75d16",
+      "formatVersion": 2,
+      "sourceRevision": "b24cedd87f74e756265aa8d80477e162eea23f7a",
+      "toolDigest": "f001eb36771bbcd97a474da387f52f741ba33846e4670339f4d09ab8ecfbcbfd",
       "label": "sqlserver-15.0.4500.2-compat-140",
       "serverVersion": "15.0.4500.2",
       "grammar": { "id": "sqlserver", "version": "1.0.0" },
-      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v2" },
+      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v3" },
       "sqlDigest": "19693d330c1a76f7ab048138effdc367c76b9db95c9a046b28b0dc694401eb01",
       "parameterOccurrences": 1,
       "fixtureSchema": {
@@ -1846,143 +1994,303 @@
         "scope": "Owner-fixture compiler input; not a complete server catalog or application workload"
       },
       "environment": { "node": "v24.22.2", "platform": "linux", "architecture": "x64" },
+      "facetObservations": {
+        "dd295373071dae5a471bf55acad1a47ecfdfa7de282d78081c5500b8d4d1a249": {
+          "sqlLength": 46,
+          "nativeEvidence": {
+            "adapter": {
+              "id": "@typed-sql/sqlserver/native-contracts",
+              "version": "sqlserver-log-guarded-describe-v3"
+            },
+            "columns": [
+              {
+                "descriptor": {
+                  "bindingIdentityKnown": true,
+                  "caseSensitive": false,
+                  "fixedLengthClrType": false,
+                  "maxLength": 8,
+                  "precision": 19,
+                  "scale": 0,
+                  "source": "dm_exec_describe_first_result_set",
+                  "systemTypeId": 127,
+                  "systemTypeName": "bigint",
+                  "xmlDocument": false
+                },
+                "name": "value",
+                "nativeType": { "status": "known", "value": { "complete": true, "name": "bigint" } },
+                "nullable": { "precision": "upper-bound", "status": "known", "value": true },
+                "runtimeType": { "status": "known", "value": "bigint" }
+              }
+            ],
+            "consistency": { "mechanism": "guarded", "scope": "sqlserver-exclusive-log-quiescent-guarded-select-v2" },
+            "parameterOccurrences": [{ "end": 26, "index": 1, "start": 12 }],
+            "parameters": [
+              {
+                "descriptor": {
+                  "bindingIdentityKnown": true,
+                  "caseSensitive": false,
+                  "fixedLengthClrType": false,
+                  "maxLength": 8,
+                  "name": "@__typed_sql_1",
+                  "nativeOrdinal": 1,
+                  "precision": 19,
+                  "scale": 0,
+                  "source": "sp_describe_undeclared_parameters",
+                  "systemTypeId": 127,
+                  "systemTypeName": "bigint",
+                  "xmlDocument": false
+                },
+                "index": 1,
+                "nativeType": { "status": "known", "value": { "complete": true, "name": "bigint" } },
+                "nullable": { "precision": "upper-bound", "status": "known", "value": true },
+                "runtimeType": { "status": "known", "value": "bigint" }
+              }
+            ],
+            "resultKind": "rows"
+          },
+          "qualification": {
+            "comparisons": [
+              {
+                "facet": "acceptance",
+                "index": 0,
+                "nativeStatus": "complete",
+                "reason": "Compare every available successful static claim",
+                "rule": "independent-static-analysis",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "query"
+              },
+              {
+                "facet": "result-shape",
+                "index": 0,
+                "nativeStatus": "complete",
+                "reason": "Compare ordered column labels and parameter slot counts",
+                "rule": "ordered-result-parameter-shape",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "query"
+              },
+              {
+                "facet": "result-kind",
+                "index": 0,
+                "nativeStatus": "complete",
+                "reason": "Statement result kind is independently compared when available",
+                "rule": "native-result-kind",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "query"
+              },
+              {
+                "facet": "native-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Preserve dimensions and explicit collation while retaining incomplete native identity",
+                "rule": "native-system-type-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "column"
+              },
+              {
+                "facet": "runtime-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Compare policy-controlled representations; retain the native bound for JSON shape",
+                "rule": "runtime-representation-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "column"
+              },
+              {
+                "facet": "nullability",
+                "index": 1,
+                "nativeStatus": "partial",
+                "reason": "Unknown or conservative native nullability remains nullable",
+                "rule": "native-nullable-bound",
+                "staticStatus": "known",
+                "status": "widened",
+                "target": "column"
+              },
+              {
+                "facet": "native-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Preserve dimensions and explicit collation while retaining incomplete native identity",
+                "rule": "native-system-type-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "parameter"
+              },
+              {
+                "facet": "runtime-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Compare policy-controlled representations; retain the native bound for JSON shape",
+                "rule": "runtime-representation-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "parameter"
+              },
+              {
+                "facet": "nullability",
+                "index": 1,
+                "nativeStatus": "partial",
+                "reason": "Unknown or conservative native nullability remains nullable",
+                "rule": "native-nullable-bound",
+                "staticStatus": "known",
+                "status": "widened",
+                "target": "parameter"
+              }
+            ],
+            "nativeEvidenceHash": "b7d4e0dd6386aa80b5ea9a0eff3705281583a57d03ed1c8c978bea5a827dfd28",
+            "policy": {
+              "mode": "native-required",
+              "owner": {
+                "id": "@typed-sql/sqlserver/reconciliation",
+                "version": "sqlserver-contract-reconciliation-v3"
+              },
+              "requiredNativeFacets": ["runtime-type"]
+            },
+            "policyHash": "d757a99a0c6fbb14feed0d3d61c64708bcaf0284bcf411d22c72c2eb484be431",
+            "sourceContractHash": "cce5e7b07dfa2e533cfcbb0f89b27a5c9edb1217f1030c7477901c3eebc75b4c",
+            "staticClaimHash": "4a3fd69c46619a411d8ce11e42de9aa0560aa1831eab645acd17a73fd8464a9e"
+          }
+        }
+      },
       "samples": [
         {
           "attempts": [
             {
-              "contextInspectionMs": 158.768871,
-              "staticAnalysisMs": 0.9401629999999841,
-              "acquisitionAndReconciliationMs": 176.344834,
+              "contextInspectionMs": 199.574842,
+              "staticAnalysisMs": 1.20254900000009,
+              "acquisitionAndReconciliationMs": 222.92983700000013,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "0d8f8ac91da851568dae92afd72e6e1f6df1f7098b865e60ed43c47bf60a1e7a",
-          "contextDigest": "4739c0baf3ba35f6acc188a7400010196e6c20a1a9e726ef7eb8583c461f552a",
+          "contractDigest": "eeb17daea9ae1f8a675bae2c02a4767ace84918b1a4682acf96864b916d5f499",
+          "contextDigest": "6f9fe1b5d40a5f13878014f4ecf27c854de9496c3a266050dcbf2cf3fd735a1b",
+          "facetObservationDigest": "dd295373071dae5a471bf55acad1a47ecfdfa7de282d78081c5500b8d4d1a249",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 13.787784999999985,
-          "durableReloadMs": 9.172831000000087,
-          "cachePublishMs": 17.56442100000004,
-          "coldCacheObjectLookupMs": 42.72920299999987,
-          "warmLookupMs": [20.919607999999926, 21.265701000000035, 23.459591000000046]
+          "durableExportMs": 15.891046000000188,
+          "durableReloadMs": 10.302371000000221,
+          "cachePublishMs": 25.120961999999963,
+          "coldCacheObjectLookupMs": 56.416271999999935,
+          "warmLookupMs": [26.61938999999984, 26.288824000000204, 22.519846000000143]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 179.22510199999988,
-              "staticAnalysisMs": 3.8774680000001354,
-              "acquisitionAndReconciliationMs": 192.35667999999987,
+              "contextInspectionMs": 216.66020400000025,
+              "staticAnalysisMs": 5.608361000000059,
+              "acquisitionAndReconciliationMs": 220.00879799999984,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "0d8f8ac91da851568dae92afd72e6e1f6df1f7098b865e60ed43c47bf60a1e7a",
-          "contextDigest": "4739c0baf3ba35f6acc188a7400010196e6c20a1a9e726ef7eb8583c461f552a",
+          "contractDigest": "eeb17daea9ae1f8a675bae2c02a4767ace84918b1a4682acf96864b916d5f499",
+          "contextDigest": "6f9fe1b5d40a5f13878014f4ecf27c854de9496c3a266050dcbf2cf3fd735a1b",
+          "facetObservationDigest": "dd295373071dae5a471bf55acad1a47ecfdfa7de282d78081c5500b8d4d1a249",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 6.260849999999664,
-          "durableReloadMs": 6.043075000000044,
-          "cachePublishMs": 20.874790000000303,
-          "coldCacheObjectLookupMs": 24.306462999999894,
-          "warmLookupMs": [21.784406000000217, 27.79774600000019, 24.355055999999877]
+          "durableExportMs": 7.50174700000025,
+          "durableReloadMs": 3.530181999999968,
+          "cachePublishMs": 26.35677399999986,
+          "coldCacheObjectLookupMs": 29.659255999999914,
+          "warmLookupMs": [23.364210000000185, 23.850978000000396, 24.594509000000016]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 156.39732700000013,
-              "staticAnalysisMs": 3.9465119999999843,
-              "acquisitionAndReconciliationMs": 174.03752299999996,
+              "contextInspectionMs": 198.26380900000004,
+              "staticAnalysisMs": 5.545194000000265,
+              "acquisitionAndReconciliationMs": 211.43153400000028,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "0d8f8ac91da851568dae92afd72e6e1f6df1f7098b865e60ed43c47bf60a1e7a",
-          "contextDigest": "4739c0baf3ba35f6acc188a7400010196e6c20a1a9e726ef7eb8583c461f552a",
+          "contractDigest": "eeb17daea9ae1f8a675bae2c02a4767ace84918b1a4682acf96864b916d5f499",
+          "contextDigest": "6f9fe1b5d40a5f13878014f4ecf27c854de9496c3a266050dcbf2cf3fd735a1b",
+          "facetObservationDigest": "dd295373071dae5a471bf55acad1a47ecfdfa7de282d78081c5500b8d4d1a249",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 5.992389000000003,
-          "durableReloadMs": 4.013523999999961,
-          "cachePublishMs": 12.807831999999962,
-          "coldCacheObjectLookupMs": 46.46585700000014,
-          "warmLookupMs": [24.641149999999925, 18.09535399999959, 16.938943999999992]
+          "durableExportMs": 8.305708999999297,
+          "durableReloadMs": 9.443310999999994,
+          "cachePublishMs": 23.544076000000132,
+          "coldCacheObjectLookupMs": 35.22670199999993,
+          "warmLookupMs": [20.271139999999832, 25.47587999999996, 18.67788400000063]
         }
       ],
-      "reportDigest": "2ac32bea4e3eba859a3beee28fb80649597bcb51aa6b5f6deba660bb0a16b291",
+      "reportDigest": "0237f92766a684beaf74f43bbe430c2d714c330fd322739edd9d0477e8c4e92f",
       "summary": {
         "canonicalContractBytes": { "count": 3, "min": 5064, "median": 5064, "max": 5064 },
         "durableFileBytes": { "count": 3, "min": 5866, "median": 5866, "max": 5866 },
         "cacheFileBytes": { "count": 3, "min": 6513, "median": 6513, "max": 6513 },
         "contextInspectionMs": {
           "count": 3,
-          "min": 156.39732700000013,
-          "median": 158.768871,
-          "max": 179.22510199999988
+          "min": 198.26380900000004,
+          "median": 199.574842,
+          "max": 216.66020400000025
         },
         "staticAnalysisMs": {
           "count": 3,
-          "min": 0.9401629999999841,
-          "median": 3.8774680000001354,
-          "max": 3.9465119999999843
+          "min": 1.20254900000009,
+          "median": 5.545194000000265,
+          "max": 5.608361000000059
         },
         "acquisitionAndReconciliationMs": {
           "count": 3,
-          "min": 174.03752299999996,
-          "median": 176.344834,
-          "max": 192.35667999999987
+          "min": 211.43153400000028,
+          "median": 220.00879799999984,
+          "max": 222.92983700000013
         },
         "sumOfQualificationStagesMs": {
           "count": 3,
-          "min": 334.3813620000001,
-          "median": 336.05386799999997,
-          "max": 375.4592499999999
+          "min": 415.2405370000006,
+          "median": 423.7072280000002,
+          "max": 442.27736300000015
         },
         "durableExportMs": {
           "count": 3,
-          "min": 5.992389000000003,
-          "median": 6.260849999999664,
-          "max": 13.787784999999985
+          "min": 7.50174700000025,
+          "median": 8.305708999999297,
+          "max": 15.891046000000188
         },
         "durableReloadMs": {
           "count": 3,
-          "min": 4.013523999999961,
-          "median": 6.043075000000044,
-          "max": 9.172831000000087
+          "min": 3.530181999999968,
+          "median": 9.443310999999994,
+          "max": 10.302371000000221
         },
         "cachePublishMs": {
           "count": 3,
-          "min": 12.807831999999962,
-          "median": 17.56442100000004,
-          "max": 20.874790000000303
+          "min": 23.544076000000132,
+          "median": 25.120961999999963,
+          "max": 26.35677399999986
         },
         "coldCacheObjectLookupMs": {
           "count": 3,
-          "min": 24.306462999999894,
-          "median": 42.72920299999987,
-          "max": 46.46585700000014
+          "min": 29.659255999999914,
+          "median": 35.22670199999993,
+          "max": 56.416271999999935
         },
-        "warmLookupMs": {
-          "count": 9,
-          "min": 16.938943999999992,
-          "median": 21.784406000000217,
-          "max": 27.79774600000019
-        }
+        "warmLookupMs": { "count": 9, "min": 18.67788400000063, "median": 23.850978000000396, "max": 26.61938999999984 }
       }
     },
     {
-      "formatVersion": 1,
-      "sourceRevision": "12f93112ca31725c5f8a2698f30f357dd88a1b67",
-      "toolDigest": "6df0f7c0342a6e74386714c96d110ae9d15d5a5c292eefdf1d7c34b213d75d16",
+      "formatVersion": 2,
+      "sourceRevision": "b24cedd87f74e756265aa8d80477e162eea23f7a",
+      "toolDigest": "f001eb36771bbcd97a474da387f52f741ba33846e4670339f4d09ab8ecfbcbfd",
       "label": "sqlserver-15.0.4500.2-compat-150",
       "serverVersion": "15.0.4500.2",
       "grammar": { "id": "sqlserver", "version": "1.0.0" },
-      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v2" },
+      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v3" },
       "sqlDigest": "19693d330c1a76f7ab048138effdc367c76b9db95c9a046b28b0dc694401eb01",
       "parameterOccurrences": 1,
       "fixtureSchema": {
@@ -1990,143 +2298,303 @@
         "scope": "Owner-fixture compiler input; not a complete server catalog or application workload"
       },
       "environment": { "node": "v24.22.2", "platform": "linux", "architecture": "x64" },
+      "facetObservations": {
+        "38eab748c7781ce292a32ee37c87a0c31d65ca69d3bd4693a653a951028b6781": {
+          "sqlLength": 46,
+          "nativeEvidence": {
+            "adapter": {
+              "id": "@typed-sql/sqlserver/native-contracts",
+              "version": "sqlserver-log-guarded-describe-v3"
+            },
+            "columns": [
+              {
+                "descriptor": {
+                  "bindingIdentityKnown": true,
+                  "caseSensitive": false,
+                  "fixedLengthClrType": false,
+                  "maxLength": 8,
+                  "precision": 19,
+                  "scale": 0,
+                  "source": "dm_exec_describe_first_result_set",
+                  "systemTypeId": 127,
+                  "systemTypeName": "bigint",
+                  "xmlDocument": false
+                },
+                "name": "value",
+                "nativeType": { "status": "known", "value": { "complete": true, "name": "bigint" } },
+                "nullable": { "precision": "upper-bound", "status": "known", "value": true },
+                "runtimeType": { "status": "known", "value": "bigint" }
+              }
+            ],
+            "consistency": { "mechanism": "guarded", "scope": "sqlserver-exclusive-log-quiescent-guarded-select-v2" },
+            "parameterOccurrences": [{ "end": 26, "index": 1, "start": 12 }],
+            "parameters": [
+              {
+                "descriptor": {
+                  "bindingIdentityKnown": true,
+                  "caseSensitive": false,
+                  "fixedLengthClrType": false,
+                  "maxLength": 8,
+                  "name": "@__typed_sql_1",
+                  "nativeOrdinal": 1,
+                  "precision": 19,
+                  "scale": 0,
+                  "source": "sp_describe_undeclared_parameters",
+                  "systemTypeId": 127,
+                  "systemTypeName": "bigint",
+                  "xmlDocument": false
+                },
+                "index": 1,
+                "nativeType": { "status": "known", "value": { "complete": true, "name": "bigint" } },
+                "nullable": { "precision": "upper-bound", "status": "known", "value": true },
+                "runtimeType": { "status": "known", "value": "bigint" }
+              }
+            ],
+            "resultKind": "rows"
+          },
+          "qualification": {
+            "comparisons": [
+              {
+                "facet": "acceptance",
+                "index": 0,
+                "nativeStatus": "complete",
+                "reason": "Compare every available successful static claim",
+                "rule": "independent-static-analysis",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "query"
+              },
+              {
+                "facet": "result-shape",
+                "index": 0,
+                "nativeStatus": "complete",
+                "reason": "Compare ordered column labels and parameter slot counts",
+                "rule": "ordered-result-parameter-shape",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "query"
+              },
+              {
+                "facet": "result-kind",
+                "index": 0,
+                "nativeStatus": "complete",
+                "reason": "Statement result kind is independently compared when available",
+                "rule": "native-result-kind",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "query"
+              },
+              {
+                "facet": "native-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Preserve dimensions and explicit collation while retaining incomplete native identity",
+                "rule": "native-system-type-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "column"
+              },
+              {
+                "facet": "runtime-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Compare policy-controlled representations; retain the native bound for JSON shape",
+                "rule": "runtime-representation-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "column"
+              },
+              {
+                "facet": "nullability",
+                "index": 1,
+                "nativeStatus": "partial",
+                "reason": "Unknown or conservative native nullability remains nullable",
+                "rule": "native-nullable-bound",
+                "staticStatus": "known",
+                "status": "widened",
+                "target": "column"
+              },
+              {
+                "facet": "native-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Preserve dimensions and explicit collation while retaining incomplete native identity",
+                "rule": "native-system-type-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "parameter"
+              },
+              {
+                "facet": "runtime-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Compare policy-controlled representations; retain the native bound for JSON shape",
+                "rule": "runtime-representation-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "parameter"
+              },
+              {
+                "facet": "nullability",
+                "index": 1,
+                "nativeStatus": "partial",
+                "reason": "Unknown or conservative native nullability remains nullable",
+                "rule": "native-nullable-bound",
+                "staticStatus": "known",
+                "status": "widened",
+                "target": "parameter"
+              }
+            ],
+            "nativeEvidenceHash": "b7d4e0dd6386aa80b5ea9a0eff3705281583a57d03ed1c8c978bea5a827dfd28",
+            "policy": {
+              "mode": "native-required",
+              "owner": {
+                "id": "@typed-sql/sqlserver/reconciliation",
+                "version": "sqlserver-contract-reconciliation-v3"
+              },
+              "requiredNativeFacets": ["runtime-type"]
+            },
+            "policyHash": "d757a99a0c6fbb14feed0d3d61c64708bcaf0284bcf411d22c72c2eb484be431",
+            "sourceContractHash": "113b9b90829bbdb546fe0b695be8d56e3927f1e486eef771b8b7fa6dea780eab",
+            "staticClaimHash": "2ec9fa782234c21b97a32625f3f059673b26830a91224ba27daa2fed763999da"
+          }
+        }
+      },
       "samples": [
         {
           "attempts": [
             {
-              "contextInspectionMs": 150.29063599999972,
-              "staticAnalysisMs": 0.6723869999996168,
-              "acquisitionAndReconciliationMs": 161.65061799999967,
+              "contextInspectionMs": 186.45410699999957,
+              "staticAnalysisMs": 0.7919339999989461,
+              "acquisitionAndReconciliationMs": 216.38081199999942,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "c82eb50f5ab934def65dfc66b4651f4526abdc752dd84958e65e15f6926943f4",
-          "contextDigest": "e2f0188404ca316f513e8685b0af43e24e424d2c5834e5512416e97bc3786a05",
+          "contractDigest": "073be94f8ec1f7a82d3d7f500c94c22d0960cd5e66eb63637764089e5b16aff3",
+          "contextDigest": "51eb50831842da9439f3c7e528df5561753dabacd2e41c570251b20e55910bc9",
+          "facetObservationDigest": "38eab748c7781ce292a32ee37c87a0c31d65ca69d3bd4693a653a951028b6781",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 5.638633000000482,
-          "durableReloadMs": 11.588647000000492,
-          "cachePublishMs": 19.212044000000787,
-          "coldCacheObjectLookupMs": 32.17590199999995,
-          "warmLookupMs": [14.483338000000003, 22.828887000000577, 22.244322000000466]
+          "durableExportMs": 7.341914999999062,
+          "durableReloadMs": 5.167677999999796,
+          "cachePublishMs": 11.112413000000743,
+          "coldCacheObjectLookupMs": 41.66620999999941,
+          "warmLookupMs": [20.979427000000214, 18.533314000000246, 13.49242200000117]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 153.05767699999979,
-              "staticAnalysisMs": 2.365139000000454,
-              "acquisitionAndReconciliationMs": 167.71932600000036,
+              "contextInspectionMs": 197.58793500000138,
+              "staticAnalysisMs": 3.0710159999998723,
+              "acquisitionAndReconciliationMs": 206.41823600000134,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "c82eb50f5ab934def65dfc66b4651f4526abdc752dd84958e65e15f6926943f4",
-          "contextDigest": "e2f0188404ca316f513e8685b0af43e24e424d2c5834e5512416e97bc3786a05",
+          "contractDigest": "073be94f8ec1f7a82d3d7f500c94c22d0960cd5e66eb63637764089e5b16aff3",
+          "contextDigest": "51eb50831842da9439f3c7e528df5561753dabacd2e41c570251b20e55910bc9",
+          "facetObservationDigest": "38eab748c7781ce292a32ee37c87a0c31d65ca69d3bd4693a653a951028b6781",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 6.274956000000202,
-          "durableReloadMs": 2.735319000000345,
-          "cachePublishMs": 21.167472999999518,
-          "coldCacheObjectLookupMs": 39.71386999999959,
-          "warmLookupMs": [5.117965999999797, 20.148441000000275, 21.811267000000043]
+          "durableExportMs": 6.518915000000561,
+          "durableReloadMs": 6.5271689999990485,
+          "cachePublishMs": 11.337231000001339,
+          "coldCacheObjectLookupMs": 38.111861999999746,
+          "warmLookupMs": [28.118635000000722, 29.75143399999979, 23.953272000000652]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 158.3412790000002,
-              "staticAnalysisMs": 2.256444999999985,
-              "acquisitionAndReconciliationMs": 170.79988500000036,
+              "contextInspectionMs": 195.23731700000098,
+              "staticAnalysisMs": 2.560003999999026,
+              "acquisitionAndReconciliationMs": 212.43790900000022,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "c82eb50f5ab934def65dfc66b4651f4526abdc752dd84958e65e15f6926943f4",
-          "contextDigest": "e2f0188404ca316f513e8685b0af43e24e424d2c5834e5512416e97bc3786a05",
+          "contractDigest": "073be94f8ec1f7a82d3d7f500c94c22d0960cd5e66eb63637764089e5b16aff3",
+          "contextDigest": "51eb50831842da9439f3c7e528df5561753dabacd2e41c570251b20e55910bc9",
+          "facetObservationDigest": "38eab748c7781ce292a32ee37c87a0c31d65ca69d3bd4693a653a951028b6781",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 5.674367999999959,
-          "durableReloadMs": 6.6443349999999555,
-          "cachePublishMs": 22.972176999999647,
-          "coldCacheObjectLookupMs": 28.280620999999883,
-          "warmLookupMs": [22.664150999999947, 17.572935000000143, 19.711983000000146]
+          "durableExportMs": 6.693175000000338,
+          "durableReloadMs": 3.2798949999996694,
+          "cachePublishMs": 24.04855899999893,
+          "coldCacheObjectLookupMs": 53.41316299999926,
+          "warmLookupMs": [27.896155999998882, 24.527200000000448, 28.609104999999545]
         }
       ],
-      "reportDigest": "954a6f717a04fcc0a29d35ae21d8978bdc472af650a1790b20273357f91845d3",
+      "reportDigest": "ac2855b94ecdbb23fa27200c03e1d674f9c58432bbc8bd54d325cfe627fa6eea",
       "summary": {
         "canonicalContractBytes": { "count": 3, "min": 5064, "median": 5064, "max": 5064 },
         "durableFileBytes": { "count": 3, "min": 5866, "median": 5866, "max": 5866 },
         "cacheFileBytes": { "count": 3, "min": 6513, "median": 6513, "max": 6513 },
         "contextInspectionMs": {
           "count": 3,
-          "min": 150.29063599999972,
-          "median": 153.05767699999979,
-          "max": 158.3412790000002
+          "min": 186.45410699999957,
+          "median": 195.23731700000098,
+          "max": 197.58793500000138
         },
         "staticAnalysisMs": {
           "count": 3,
-          "min": 0.6723869999996168,
-          "median": 2.256444999999985,
-          "max": 2.365139000000454
+          "min": 0.7919339999989461,
+          "median": 2.560003999999026,
+          "max": 3.0710159999998723
         },
         "acquisitionAndReconciliationMs": {
           "count": 3,
-          "min": 161.65061799999967,
-          "median": 167.71932600000036,
-          "max": 170.79988500000036
+          "min": 206.41823600000134,
+          "median": 212.43790900000022,
+          "max": 216.38081199999942
         },
         "sumOfQualificationStagesMs": {
           "count": 3,
-          "min": 312.613640999999,
-          "median": 323.1421420000006,
-          "max": 331.39760900000056
+          "min": 403.62685299999794,
+          "median": 407.0771870000026,
+          "max": 410.23523000000023
         },
         "durableExportMs": {
           "count": 3,
-          "min": 5.638633000000482,
-          "median": 5.674367999999959,
-          "max": 6.274956000000202
+          "min": 6.518915000000561,
+          "median": 6.693175000000338,
+          "max": 7.341914999999062
         },
         "durableReloadMs": {
           "count": 3,
-          "min": 2.735319000000345,
-          "median": 6.6443349999999555,
-          "max": 11.588647000000492
+          "min": 3.2798949999996694,
+          "median": 5.167677999999796,
+          "max": 6.5271689999990485
         },
         "cachePublishMs": {
           "count": 3,
-          "min": 19.212044000000787,
-          "median": 21.167472999999518,
-          "max": 22.972176999999647
+          "min": 11.112413000000743,
+          "median": 11.337231000001339,
+          "max": 24.04855899999893
         },
         "coldCacheObjectLookupMs": {
           "count": 3,
-          "min": 28.280620999999883,
-          "median": 32.17590199999995,
-          "max": 39.71386999999959
+          "min": 38.111861999999746,
+          "median": 41.66620999999941,
+          "max": 53.41316299999926
         },
-        "warmLookupMs": {
-          "count": 9,
-          "min": 5.117965999999797,
-          "median": 20.148441000000275,
-          "max": 22.828887000000577
-        }
+        "warmLookupMs": { "count": 9, "min": 13.49242200000117, "median": 24.527200000000448, "max": 29.75143399999979 }
       }
     },
     {
-      "formatVersion": 1,
-      "sourceRevision": "12f93112ca31725c5f8a2698f30f357dd88a1b67",
-      "toolDigest": "6df0f7c0342a6e74386714c96d110ae9d15d5a5c292eefdf1d7c34b213d75d16",
+      "formatVersion": 2,
+      "sourceRevision": "b24cedd87f74e756265aa8d80477e162eea23f7a",
+      "toolDigest": "f001eb36771bbcd97a474da387f52f741ba33846e4670339f4d09ab8ecfbcbfd",
       "label": "sqlserver-16.0.4305.5-compat-140",
       "serverVersion": "16.0.4305.5",
       "grammar": { "id": "sqlserver", "version": "1.0.0" },
-      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v2" },
+      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v3" },
       "sqlDigest": "19693d330c1a76f7ab048138effdc367c76b9db95c9a046b28b0dc694401eb01",
       "parameterOccurrences": 1,
       "fixtureSchema": {
@@ -2134,143 +2602,308 @@
         "scope": "Owner-fixture compiler input; not a complete server catalog or application workload"
       },
       "environment": { "node": "v24.22.2", "platform": "linux", "architecture": "x64" },
+      "facetObservations": {
+        "58aa76ffa7703b6a2859c16a9d2e295360fec1b8cb72728809876a08f76a5698": {
+          "sqlLength": 46,
+          "nativeEvidence": {
+            "adapter": {
+              "id": "@typed-sql/sqlserver/native-contracts",
+              "version": "sqlserver-log-guarded-describe-v3"
+            },
+            "columns": [
+              {
+                "descriptor": {
+                  "bindingIdentityKnown": true,
+                  "caseSensitive": false,
+                  "fixedLengthClrType": false,
+                  "maxLength": 8,
+                  "precision": 19,
+                  "scale": 0,
+                  "source": "dm_exec_describe_first_result_set",
+                  "systemTypeId": 127,
+                  "systemTypeName": "bigint",
+                  "xmlDocument": false
+                },
+                "name": "value",
+                "nativeType": { "status": "known", "value": { "complete": true, "name": "bigint" } },
+                "nullable": { "precision": "upper-bound", "status": "known", "value": true },
+                "runtimeType": { "status": "known", "value": "bigint" }
+              }
+            ],
+            "consistency": { "mechanism": "guarded", "scope": "sqlserver-exclusive-log-quiescent-guarded-select-v2" },
+            "parameterOccurrences": [{ "end": 26, "index": 1, "start": 12 }],
+            "parameters": [
+              {
+                "descriptor": {
+                  "bindingIdentityKnown": true,
+                  "caseSensitive": false,
+                  "fixedLengthClrType": false,
+                  "maxLength": 8,
+                  "name": "@__typed_sql_1",
+                  "nativeOrdinal": 1,
+                  "precision": 19,
+                  "scale": 0,
+                  "source": "sp_describe_undeclared_parameters",
+                  "systemTypeId": 127,
+                  "systemTypeName": "bigint",
+                  "xmlDocument": false
+                },
+                "index": 1,
+                "nativeType": { "status": "known", "value": { "complete": true, "name": "bigint" } },
+                "nullable": { "precision": "upper-bound", "status": "known", "value": true },
+                "runtimeType": { "status": "known", "value": "bigint" }
+              }
+            ],
+            "resultKind": "rows"
+          },
+          "qualification": {
+            "comparisons": [
+              {
+                "facet": "acceptance",
+                "index": 0,
+                "nativeStatus": "complete",
+                "reason": "Compare every available successful static claim",
+                "rule": "independent-static-analysis",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "query"
+              },
+              {
+                "facet": "result-shape",
+                "index": 0,
+                "nativeStatus": "complete",
+                "reason": "Compare ordered column labels and parameter slot counts",
+                "rule": "ordered-result-parameter-shape",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "query"
+              },
+              {
+                "facet": "result-kind",
+                "index": 0,
+                "nativeStatus": "complete",
+                "reason": "Statement result kind is independently compared when available",
+                "rule": "native-result-kind",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "query"
+              },
+              {
+                "facet": "native-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Preserve dimensions and explicit collation while retaining incomplete native identity",
+                "rule": "native-system-type-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "column"
+              },
+              {
+                "facet": "runtime-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Compare policy-controlled representations; retain the native bound for JSON shape",
+                "rule": "runtime-representation-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "column"
+              },
+              {
+                "facet": "nullability",
+                "index": 1,
+                "nativeStatus": "partial",
+                "reason": "Unknown or conservative native nullability remains nullable",
+                "rule": "native-nullable-bound",
+                "staticStatus": "known",
+                "status": "widened",
+                "target": "column"
+              },
+              {
+                "facet": "native-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Preserve dimensions and explicit collation while retaining incomplete native identity",
+                "rule": "native-system-type-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "parameter"
+              },
+              {
+                "facet": "runtime-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Compare policy-controlled representations; retain the native bound for JSON shape",
+                "rule": "runtime-representation-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "parameter"
+              },
+              {
+                "facet": "nullability",
+                "index": 1,
+                "nativeStatus": "partial",
+                "reason": "Unknown or conservative native nullability remains nullable",
+                "rule": "native-nullable-bound",
+                "staticStatus": "known",
+                "status": "widened",
+                "target": "parameter"
+              }
+            ],
+            "nativeEvidenceHash": "b7d4e0dd6386aa80b5ea9a0eff3705281583a57d03ed1c8c978bea5a827dfd28",
+            "policy": {
+              "mode": "native-required",
+              "owner": {
+                "id": "@typed-sql/sqlserver/reconciliation",
+                "version": "sqlserver-contract-reconciliation-v3"
+              },
+              "requiredNativeFacets": ["runtime-type"]
+            },
+            "policyHash": "d757a99a0c6fbb14feed0d3d61c64708bcaf0284bcf411d22c72c2eb484be431",
+            "sourceContractHash": "d703cec7f16834a32fea46d13fa647a681d74f9498bbd0837e1bd537a6d4a11e",
+            "staticClaimHash": "2d8390638081ec1effe5c7ddb9e85060d1336cef02a81952d40423c221f1363f"
+          }
+        }
+      },
       "samples": [
         {
           "attempts": [
             {
-              "contextInspectionMs": 119.82195200000001,
-              "staticAnalysisMs": 0.743502000000035,
-              "acquisitionAndReconciliationMs": 137.6324189999998,
+              "contextInspectionMs": 212.92561400000022,
+              "staticAnalysisMs": 1.0811749999998028,
+              "acquisitionAndReconciliationMs": 231.44752700000026,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "78c4ecdbe53ee0a3551dfb300114db447cba2150bd6f3f27bda0ba95b8ad9690",
-          "contextDigest": "09fdf1b2f6f073c7dc805ca09db340e5c9baeaed310ee7f97668e8402ee2e492",
+          "contractDigest": "77e00d7c581da2d60a78bcf75360393a10cb23711d8c5de4dcb3379ba675c0c1",
+          "contextDigest": "6f1a864ac3b109d8583b1bcce8ae6af542efe63286ee6db834c5a7498a90fae3",
+          "facetObservationDigest": "58aa76ffa7703b6a2859c16a9d2e295360fec1b8cb72728809876a08f76a5698",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 10.530477999999903,
-          "durableReloadMs": 12.413379999999961,
-          "cachePublishMs": 15.057182000000012,
-          "coldCacheObjectLookupMs": 30.95399999999995,
-          "warmLookupMs": [8.715516999999863, 12.003531000000066, 14.45312899999999]
+          "durableExportMs": 16.80297500000006,
+          "durableReloadMs": 14.812996000000112,
+          "cachePublishMs": 19.596630000000005,
+          "coldCacheObjectLookupMs": 49.931011000000126,
+          "warmLookupMs": [18.029250000000047, 20.421948000000157, 27.130290999999943]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 140.480638,
-              "staticAnalysisMs": 4.067059999999856,
-              "acquisitionAndReconciliationMs": 131.88899800000013,
+              "contextInspectionMs": 231.37773199999992,
+              "staticAnalysisMs": 5.481995999999981,
+              "acquisitionAndReconciliationMs": 245.4936200000002,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "78c4ecdbe53ee0a3551dfb300114db447cba2150bd6f3f27bda0ba95b8ad9690",
-          "contextDigest": "09fdf1b2f6f073c7dc805ca09db340e5c9baeaed310ee7f97668e8402ee2e492",
+          "contractDigest": "77e00d7c581da2d60a78bcf75360393a10cb23711d8c5de4dcb3379ba675c0c1",
+          "contextDigest": "6f1a864ac3b109d8583b1bcce8ae6af542efe63286ee6db834c5a7498a90fae3",
+          "facetObservationDigest": "58aa76ffa7703b6a2859c16a9d2e295360fec1b8cb72728809876a08f76a5698",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 7.92728800000009,
-          "durableReloadMs": 1.8953809999998157,
-          "cachePublishMs": 15.499458999999888,
-          "coldCacheObjectLookupMs": 22.222739000000047,
-          "warmLookupMs": [17.274659000000156, 17.29879600000004, 15.500940999999784]
+          "durableExportMs": 7.320381999999881,
+          "durableReloadMs": 7.510957999999846,
+          "cachePublishMs": 26.10855700000002,
+          "coldCacheObjectLookupMs": 43.019422000000304,
+          "warmLookupMs": [19.570983000000524, 27.074697999999444, 22.98304199999984]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 150.79684300000008,
-              "staticAnalysisMs": 4.332108999999946,
-              "acquisitionAndReconciliationMs": 151.6987640000002,
+              "contextInspectionMs": 213.6890400000002,
+              "staticAnalysisMs": 5.251477000000705,
+              "acquisitionAndReconciliationMs": 248.13516399999935,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "78c4ecdbe53ee0a3551dfb300114db447cba2150bd6f3f27bda0ba95b8ad9690",
-          "contextDigest": "09fdf1b2f6f073c7dc805ca09db340e5c9baeaed310ee7f97668e8402ee2e492",
+          "contractDigest": "77e00d7c581da2d60a78bcf75360393a10cb23711d8c5de4dcb3379ba675c0c1",
+          "contextDigest": "6f1a864ac3b109d8583b1bcce8ae6af542efe63286ee6db834c5a7498a90fae3",
+          "facetObservationDigest": "58aa76ffa7703b6a2859c16a9d2e295360fec1b8cb72728809876a08f76a5698",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 5.181152000000111,
-          "durableReloadMs": 7.587174000000232,
-          "cachePublishMs": 16.42970400000013,
-          "coldCacheObjectLookupMs": 32.48410999999987,
-          "warmLookupMs": [22.007734000000255, 14.04742699999997, 21.01525599999968]
+          "durableExportMs": 8.981511999999384,
+          "durableReloadMs": 5.399271999999655,
+          "cachePublishMs": 22.864150000000336,
+          "coldCacheObjectLookupMs": 37.65389300000061,
+          "warmLookupMs": [27.911627000000408, 23.64960500000052, 29.511223999999856]
         }
       ],
-      "reportDigest": "84e8d1ebcb121cba9c261cd61025628183e648fa0380a31046694924988a4b9e",
+      "reportDigest": "eaf8fb03d613894516ee42322eeaf7f77a049c15409c1e1c4113335380d8dd2a",
       "summary": {
         "canonicalContractBytes": { "count": 3, "min": 5064, "median": 5064, "max": 5064 },
         "durableFileBytes": { "count": 3, "min": 5866, "median": 5866, "max": 5866 },
         "cacheFileBytes": { "count": 3, "min": 6513, "median": 6513, "max": 6513 },
         "contextInspectionMs": {
           "count": 3,
-          "min": 119.82195200000001,
-          "median": 140.480638,
-          "max": 150.79684300000008
+          "min": 212.92561400000022,
+          "median": 213.6890400000002,
+          "max": 231.37773199999992
         },
         "staticAnalysisMs": {
           "count": 3,
-          "min": 0.743502000000035,
-          "median": 4.067059999999856,
-          "max": 4.332108999999946
+          "min": 1.0811749999998028,
+          "median": 5.251477000000705,
+          "max": 5.481995999999981
         },
         "acquisitionAndReconciliationMs": {
           "count": 3,
-          "min": 131.88899800000013,
-          "median": 137.6324189999998,
-          "max": 151.6987640000002
+          "min": 231.44752700000026,
+          "median": 245.4936200000002,
+          "max": 248.13516399999935
         },
         "sumOfQualificationStagesMs": {
           "count": 3,
-          "min": 258.19787299999984,
-          "median": 276.436696,
-          "max": 306.82771600000024
+          "min": 445.4543160000003,
+          "median": 467.07568100000026,
+          "max": 482.3533480000001
         },
         "durableExportMs": {
           "count": 3,
-          "min": 5.181152000000111,
-          "median": 7.92728800000009,
-          "max": 10.530477999999903
+          "min": 7.320381999999881,
+          "median": 8.981511999999384,
+          "max": 16.80297500000006
         },
         "durableReloadMs": {
           "count": 3,
-          "min": 1.8953809999998157,
-          "median": 7.587174000000232,
-          "max": 12.413379999999961
+          "min": 5.399271999999655,
+          "median": 7.510957999999846,
+          "max": 14.812996000000112
         },
         "cachePublishMs": {
           "count": 3,
-          "min": 15.057182000000012,
-          "median": 15.499458999999888,
-          "max": 16.42970400000013
+          "min": 19.596630000000005,
+          "median": 22.864150000000336,
+          "max": 26.10855700000002
         },
         "coldCacheObjectLookupMs": {
           "count": 3,
-          "min": 22.222739000000047,
-          "median": 30.95399999999995,
-          "max": 32.48410999999987
+          "min": 37.65389300000061,
+          "median": 43.019422000000304,
+          "max": 49.931011000000126
         },
         "warmLookupMs": {
           "count": 9,
-          "min": 8.715516999999863,
-          "median": 15.500940999999784,
-          "max": 22.007734000000255
+          "min": 18.029250000000047,
+          "median": 23.64960500000052,
+          "max": 29.511223999999856
         }
       }
     },
     {
-      "formatVersion": 1,
-      "sourceRevision": "12f93112ca31725c5f8a2698f30f357dd88a1b67",
-      "toolDigest": "6df0f7c0342a6e74386714c96d110ae9d15d5a5c292eefdf1d7c34b213d75d16",
+      "formatVersion": 2,
+      "sourceRevision": "b24cedd87f74e756265aa8d80477e162eea23f7a",
+      "toolDigest": "f001eb36771bbcd97a474da387f52f741ba33846e4670339f4d09ab8ecfbcbfd",
       "label": "sqlserver-16.0.4305.5-compat-150",
       "serverVersion": "16.0.4305.5",
       "grammar": { "id": "sqlserver", "version": "1.0.0" },
-      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v2" },
+      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v3" },
       "sqlDigest": "19693d330c1a76f7ab048138effdc367c76b9db95c9a046b28b0dc694401eb01",
       "parameterOccurrences": 1,
       "fixtureSchema": {
@@ -2278,143 +2911,308 @@
         "scope": "Owner-fixture compiler input; not a complete server catalog or application workload"
       },
       "environment": { "node": "v24.22.2", "platform": "linux", "architecture": "x64" },
+      "facetObservations": {
+        "6f88c615f9012971a7f82304fdb28985acff99a3962c7a13d20ef3d1325f6cf6": {
+          "sqlLength": 46,
+          "nativeEvidence": {
+            "adapter": {
+              "id": "@typed-sql/sqlserver/native-contracts",
+              "version": "sqlserver-log-guarded-describe-v3"
+            },
+            "columns": [
+              {
+                "descriptor": {
+                  "bindingIdentityKnown": true,
+                  "caseSensitive": false,
+                  "fixedLengthClrType": false,
+                  "maxLength": 8,
+                  "precision": 19,
+                  "scale": 0,
+                  "source": "dm_exec_describe_first_result_set",
+                  "systemTypeId": 127,
+                  "systemTypeName": "bigint",
+                  "xmlDocument": false
+                },
+                "name": "value",
+                "nativeType": { "status": "known", "value": { "complete": true, "name": "bigint" } },
+                "nullable": { "precision": "upper-bound", "status": "known", "value": true },
+                "runtimeType": { "status": "known", "value": "bigint" }
+              }
+            ],
+            "consistency": { "mechanism": "guarded", "scope": "sqlserver-exclusive-log-quiescent-guarded-select-v2" },
+            "parameterOccurrences": [{ "end": 26, "index": 1, "start": 12 }],
+            "parameters": [
+              {
+                "descriptor": {
+                  "bindingIdentityKnown": true,
+                  "caseSensitive": false,
+                  "fixedLengthClrType": false,
+                  "maxLength": 8,
+                  "name": "@__typed_sql_1",
+                  "nativeOrdinal": 1,
+                  "precision": 19,
+                  "scale": 0,
+                  "source": "sp_describe_undeclared_parameters",
+                  "systemTypeId": 127,
+                  "systemTypeName": "bigint",
+                  "xmlDocument": false
+                },
+                "index": 1,
+                "nativeType": { "status": "known", "value": { "complete": true, "name": "bigint" } },
+                "nullable": { "precision": "upper-bound", "status": "known", "value": true },
+                "runtimeType": { "status": "known", "value": "bigint" }
+              }
+            ],
+            "resultKind": "rows"
+          },
+          "qualification": {
+            "comparisons": [
+              {
+                "facet": "acceptance",
+                "index": 0,
+                "nativeStatus": "complete",
+                "reason": "Compare every available successful static claim",
+                "rule": "independent-static-analysis",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "query"
+              },
+              {
+                "facet": "result-shape",
+                "index": 0,
+                "nativeStatus": "complete",
+                "reason": "Compare ordered column labels and parameter slot counts",
+                "rule": "ordered-result-parameter-shape",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "query"
+              },
+              {
+                "facet": "result-kind",
+                "index": 0,
+                "nativeStatus": "complete",
+                "reason": "Statement result kind is independently compared when available",
+                "rule": "native-result-kind",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "query"
+              },
+              {
+                "facet": "native-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Preserve dimensions and explicit collation while retaining incomplete native identity",
+                "rule": "native-system-type-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "column"
+              },
+              {
+                "facet": "runtime-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Compare policy-controlled representations; retain the native bound for JSON shape",
+                "rule": "runtime-representation-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "column"
+              },
+              {
+                "facet": "nullability",
+                "index": 1,
+                "nativeStatus": "partial",
+                "reason": "Unknown or conservative native nullability remains nullable",
+                "rule": "native-nullable-bound",
+                "staticStatus": "known",
+                "status": "widened",
+                "target": "column"
+              },
+              {
+                "facet": "native-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Preserve dimensions and explicit collation while retaining incomplete native identity",
+                "rule": "native-system-type-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "parameter"
+              },
+              {
+                "facet": "runtime-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Compare policy-controlled representations; retain the native bound for JSON shape",
+                "rule": "runtime-representation-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "parameter"
+              },
+              {
+                "facet": "nullability",
+                "index": 1,
+                "nativeStatus": "partial",
+                "reason": "Unknown or conservative native nullability remains nullable",
+                "rule": "native-nullable-bound",
+                "staticStatus": "known",
+                "status": "widened",
+                "target": "parameter"
+              }
+            ],
+            "nativeEvidenceHash": "b7d4e0dd6386aa80b5ea9a0eff3705281583a57d03ed1c8c978bea5a827dfd28",
+            "policy": {
+              "mode": "native-required",
+              "owner": {
+                "id": "@typed-sql/sqlserver/reconciliation",
+                "version": "sqlserver-contract-reconciliation-v3"
+              },
+              "requiredNativeFacets": ["runtime-type"]
+            },
+            "policyHash": "d757a99a0c6fbb14feed0d3d61c64708bcaf0284bcf411d22c72c2eb484be431",
+            "sourceContractHash": "61e98957fe109665421028c88e594ded903dfd838471aaa4fa913afbe3aa094a",
+            "staticClaimHash": "4a2584e86f2e36e6a64114caf43bca9d20479921e3c2176c5592b56705563188"
+          }
+        }
+      },
       "samples": [
         {
           "attempts": [
             {
-              "contextInspectionMs": 115.7144989999997,
-              "staticAnalysisMs": 0.6355189999994764,
-              "acquisitionAndReconciliationMs": 127.95299299999988,
+              "contextInspectionMs": 203.6830460000001,
+              "staticAnalysisMs": 1.057329999999638,
+              "acquisitionAndReconciliationMs": 257.1370650000008,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "0259c812f206c5a6250069e4c8416828c46da1758bed8245444e8944e54d1228",
-          "contextDigest": "66c7e6ec29615dc1fb65c3c483b431a0804b0b6d27e249cab99ad5372ad68e33",
+          "contractDigest": "df36839ae12275ca0c92e513a75b8c01be0e0ea75d48443b4e16f8271cfc5ab1",
+          "contextDigest": "5b4ac6129653131b4e562a27ce9bdf63d0eba190793282cd5d65833eb917eb4a",
+          "facetObservationDigest": "6f88c615f9012971a7f82304fdb28985acff99a3962c7a13d20ef3d1325f6cf6",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 4.468912000000273,
-          "durableReloadMs": 1.6072350000004008,
-          "cachePublishMs": 13.682622999999694,
-          "coldCacheObjectLookupMs": 25.916921000000002,
-          "warmLookupMs": [17.525770999999622, 19.197823999999855, 16.623829999999543]
+          "durableExportMs": 7.23732199999904,
+          "durableReloadMs": 6.482905999999275,
+          "cachePublishMs": 14.045747999998639,
+          "coldCacheObjectLookupMs": 37.97403099999974,
+          "warmLookupMs": [16.865342000000965, 32.862890000000334, 30.54846499999985]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 120.89188899999954,
-              "staticAnalysisMs": 2.0798380000005636,
-              "acquisitionAndReconciliationMs": 133.76802599999974,
+              "contextInspectionMs": 208.07707300000038,
+              "staticAnalysisMs": 3.0464460000002873,
+              "acquisitionAndReconciliationMs": 233.14065800000026,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "0259c812f206c5a6250069e4c8416828c46da1758bed8245444e8944e54d1228",
-          "contextDigest": "66c7e6ec29615dc1fb65c3c483b431a0804b0b6d27e249cab99ad5372ad68e33",
+          "contractDigest": "df36839ae12275ca0c92e513a75b8c01be0e0ea75d48443b4e16f8271cfc5ab1",
+          "contextDigest": "5b4ac6129653131b4e562a27ce9bdf63d0eba190793282cd5d65833eb917eb4a",
+          "facetObservationDigest": "6f88c615f9012971a7f82304fdb28985acff99a3962c7a13d20ef3d1325f6cf6",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 4.977640000000065,
-          "durableReloadMs": 4.540068999999676,
-          "cachePublishMs": 12.625519000000168,
-          "coldCacheObjectLookupMs": 31.368986000000405,
-          "warmLookupMs": [3.4760839999999007, 19.379939000000377, 19.15668099999948]
+          "durableExportMs": 6.716288000001441,
+          "durableReloadMs": 3.530747999999221,
+          "cachePublishMs": 9.846498000000793,
+          "coldCacheObjectLookupMs": 53.6308799999988,
+          "warmLookupMs": [29.464386999999988, 32.12009600000056, 21.51336900000024]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 120.47595300000012,
-              "staticAnalysisMs": 2.0289309999998295,
-              "acquisitionAndReconciliationMs": 129.00001299999985,
+              "contextInspectionMs": 221.8563240000003,
+              "staticAnalysisMs": 2.9730899999995017,
+              "acquisitionAndReconciliationMs": 228.9584470000009,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "0259c812f206c5a6250069e4c8416828c46da1758bed8245444e8944e54d1228",
-          "contextDigest": "66c7e6ec29615dc1fb65c3c483b431a0804b0b6d27e249cab99ad5372ad68e33",
+          "contractDigest": "df36839ae12275ca0c92e513a75b8c01be0e0ea75d48443b4e16f8271cfc5ab1",
+          "contextDigest": "5b4ac6129653131b4e562a27ce9bdf63d0eba190793282cd5d65833eb917eb4a",
+          "facetObservationDigest": "6f88c615f9012971a7f82304fdb28985acff99a3962c7a13d20ef3d1325f6cf6",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 4.610255999999936,
-          "durableReloadMs": 2.0897830000003523,
-          "cachePublishMs": 16.239019999999982,
-          "coldCacheObjectLookupMs": 26.23184500000025,
-          "warmLookupMs": [3.4108160000005228, 10.28060000000005, 21.634469999999965]
+          "durableExportMs": 6.682189999999537,
+          "durableReloadMs": 6.839201999999204,
+          "cachePublishMs": 24.92487699999947,
+          "coldCacheObjectLookupMs": 18.79592799999955,
+          "warmLookupMs": [20.856567999999243, 27.777788999999757, 23.97121100000004]
         }
       ],
-      "reportDigest": "8f0f4d1f08ec13f353ce03200d76a02203c91767cd95feb11ade3b54f90c4f47",
+      "reportDigest": "87fdc5fce4edc2138307d2a4ced61b748b540ece13928b0fab561021e0e839ed",
       "summary": {
         "canonicalContractBytes": { "count": 3, "min": 5064, "median": 5064, "max": 5064 },
         "durableFileBytes": { "count": 3, "min": 5866, "median": 5866, "max": 5866 },
         "cacheFileBytes": { "count": 3, "min": 6513, "median": 6513, "max": 6513 },
         "contextInspectionMs": {
           "count": 3,
-          "min": 115.7144989999997,
-          "median": 120.47595300000012,
-          "max": 120.89188899999954
+          "min": 203.6830460000001,
+          "median": 208.07707300000038,
+          "max": 221.8563240000003
         },
         "staticAnalysisMs": {
           "count": 3,
-          "min": 0.6355189999994764,
-          "median": 2.0289309999998295,
-          "max": 2.0798380000005636
+          "min": 1.057329999999638,
+          "median": 2.9730899999995017,
+          "max": 3.0464460000002873
         },
         "acquisitionAndReconciliationMs": {
           "count": 3,
-          "min": 127.95299299999988,
-          "median": 129.00001299999985,
-          "max": 133.76802599999974
+          "min": 228.9584470000009,
+          "median": 233.14065800000026,
+          "max": 257.1370650000008
         },
         "sumOfQualificationStagesMs": {
           "count": 3,
-          "min": 244.30301099999906,
-          "median": 251.5048969999998,
-          "max": 256.73975299999984
+          "min": 444.2641770000009,
+          "median": 453.7878610000007,
+          "max": 461.87744100000054
         },
         "durableExportMs": {
           "count": 3,
-          "min": 4.468912000000273,
-          "median": 4.610255999999936,
-          "max": 4.977640000000065
+          "min": 6.682189999999537,
+          "median": 6.716288000001441,
+          "max": 7.23732199999904
         },
         "durableReloadMs": {
           "count": 3,
-          "min": 1.6072350000004008,
-          "median": 2.0897830000003523,
-          "max": 4.540068999999676
+          "min": 3.530747999999221,
+          "median": 6.482905999999275,
+          "max": 6.839201999999204
         },
         "cachePublishMs": {
           "count": 3,
-          "min": 12.625519000000168,
-          "median": 13.682622999999694,
-          "max": 16.239019999999982
+          "min": 9.846498000000793,
+          "median": 14.045747999998639,
+          "max": 24.92487699999947
         },
         "coldCacheObjectLookupMs": {
           "count": 3,
-          "min": 25.916921000000002,
-          "median": 26.23184500000025,
-          "max": 31.368986000000405
+          "min": 18.79592799999955,
+          "median": 37.97403099999974,
+          "max": 53.6308799999988
         },
         "warmLookupMs": {
           "count": 9,
-          "min": 3.4108160000005228,
-          "median": 17.525770999999622,
-          "max": 21.634469999999965
+          "min": 16.865342000000965,
+          "median": 27.777788999999757,
+          "max": 32.862890000000334
         }
       }
     },
     {
-      "formatVersion": 1,
-      "sourceRevision": "12f93112ca31725c5f8a2698f30f357dd88a1b67",
-      "toolDigest": "6df0f7c0342a6e74386714c96d110ae9d15d5a5c292eefdf1d7c34b213d75d16",
+      "formatVersion": 2,
+      "sourceRevision": "b24cedd87f74e756265aa8d80477e162eea23f7a",
+      "toolDigest": "f001eb36771bbcd97a474da387f52f741ba33846e4670339f4d09ab8ecfbcbfd",
       "label": "sqlserver-16.0.4305.5-compat-160",
       "serverVersion": "16.0.4305.5",
       "grammar": { "id": "sqlserver", "version": "1.0.0" },
-      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v2" },
+      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v3" },
       "sqlDigest": "19693d330c1a76f7ab048138effdc367c76b9db95c9a046b28b0dc694401eb01",
       "parameterOccurrences": 1,
       "fixtureSchema": {
@@ -2422,277 +3220,617 @@
         "scope": "Owner-fixture compiler input; not a complete server catalog or application workload"
       },
       "environment": { "node": "v24.22.2", "platform": "linux", "architecture": "x64" },
+      "facetObservations": {
+        "3b638aca3cb7a4943b4402075ec6f2f876c2661f4b6370ffc107245e1b4e8624": {
+          "sqlLength": 46,
+          "nativeEvidence": {
+            "adapter": {
+              "id": "@typed-sql/sqlserver/native-contracts",
+              "version": "sqlserver-log-guarded-describe-v3"
+            },
+            "columns": [
+              {
+                "descriptor": {
+                  "bindingIdentityKnown": true,
+                  "caseSensitive": false,
+                  "fixedLengthClrType": false,
+                  "maxLength": 8,
+                  "precision": 19,
+                  "scale": 0,
+                  "source": "dm_exec_describe_first_result_set",
+                  "systemTypeId": 127,
+                  "systemTypeName": "bigint",
+                  "xmlDocument": false
+                },
+                "name": "value",
+                "nativeType": { "status": "known", "value": { "complete": true, "name": "bigint" } },
+                "nullable": { "precision": "upper-bound", "status": "known", "value": true },
+                "runtimeType": { "status": "known", "value": "bigint" }
+              }
+            ],
+            "consistency": { "mechanism": "guarded", "scope": "sqlserver-exclusive-log-quiescent-guarded-select-v2" },
+            "parameterOccurrences": [{ "end": 26, "index": 1, "start": 12 }],
+            "parameters": [
+              {
+                "descriptor": {
+                  "bindingIdentityKnown": true,
+                  "caseSensitive": false,
+                  "fixedLengthClrType": false,
+                  "maxLength": 8,
+                  "name": "@__typed_sql_1",
+                  "nativeOrdinal": 1,
+                  "precision": 19,
+                  "scale": 0,
+                  "source": "sp_describe_undeclared_parameters",
+                  "systemTypeId": 127,
+                  "systemTypeName": "bigint",
+                  "xmlDocument": false
+                },
+                "index": 1,
+                "nativeType": { "status": "known", "value": { "complete": true, "name": "bigint" } },
+                "nullable": { "precision": "upper-bound", "status": "known", "value": true },
+                "runtimeType": { "status": "known", "value": "bigint" }
+              }
+            ],
+            "resultKind": "rows"
+          },
+          "qualification": {
+            "comparisons": [
+              {
+                "facet": "acceptance",
+                "index": 0,
+                "nativeStatus": "complete",
+                "reason": "Compare every available successful static claim",
+                "rule": "independent-static-analysis",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "query"
+              },
+              {
+                "facet": "result-shape",
+                "index": 0,
+                "nativeStatus": "complete",
+                "reason": "Compare ordered column labels and parameter slot counts",
+                "rule": "ordered-result-parameter-shape",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "query"
+              },
+              {
+                "facet": "result-kind",
+                "index": 0,
+                "nativeStatus": "complete",
+                "reason": "Statement result kind is independently compared when available",
+                "rule": "native-result-kind",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "query"
+              },
+              {
+                "facet": "native-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Preserve dimensions and explicit collation while retaining incomplete native identity",
+                "rule": "native-system-type-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "column"
+              },
+              {
+                "facet": "runtime-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Compare policy-controlled representations; retain the native bound for JSON shape",
+                "rule": "runtime-representation-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "column"
+              },
+              {
+                "facet": "nullability",
+                "index": 1,
+                "nativeStatus": "partial",
+                "reason": "Unknown or conservative native nullability remains nullable",
+                "rule": "native-nullable-bound",
+                "staticStatus": "known",
+                "status": "widened",
+                "target": "column"
+              },
+              {
+                "facet": "native-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Preserve dimensions and explicit collation while retaining incomplete native identity",
+                "rule": "native-system-type-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "parameter"
+              },
+              {
+                "facet": "runtime-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Compare policy-controlled representations; retain the native bound for JSON shape",
+                "rule": "runtime-representation-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "parameter"
+              },
+              {
+                "facet": "nullability",
+                "index": 1,
+                "nativeStatus": "partial",
+                "reason": "Unknown or conservative native nullability remains nullable",
+                "rule": "native-nullable-bound",
+                "staticStatus": "known",
+                "status": "widened",
+                "target": "parameter"
+              }
+            ],
+            "nativeEvidenceHash": "b7d4e0dd6386aa80b5ea9a0eff3705281583a57d03ed1c8c978bea5a827dfd28",
+            "policy": {
+              "mode": "native-required",
+              "owner": {
+                "id": "@typed-sql/sqlserver/reconciliation",
+                "version": "sqlserver-contract-reconciliation-v3"
+              },
+              "requiredNativeFacets": ["runtime-type"]
+            },
+            "policyHash": "d757a99a0c6fbb14feed0d3d61c64708bcaf0284bcf411d22c72c2eb484be431",
+            "sourceContractHash": "7eed775cd1d9dc5389ab41f04f2d1460b0d44e02abb13bcd6c66f6d51d2ae86f",
+            "staticClaimHash": "67fe9fe92859bf1aaabd9ac6c218061c5f34673c17dd87f58b3630a00f07528f"
+          }
+        }
+      },
       "samples": [
         {
           "attempts": [
             {
-              "contextInspectionMs": 116.46796600000016,
-              "staticAnalysisMs": 0.5020569999996951,
-              "acquisitionAndReconciliationMs": 130.17349300000024,
+              "contextInspectionMs": 207.51321299999836,
+              "staticAnalysisMs": 0.7689820000014151,
+              "acquisitionAndReconciliationMs": 226.42534200000227,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "59d445aff9364c4c58b2fe647debf2012e156b5ed0b96b95aa8fac91b0944a0b",
-          "contextDigest": "bb4bea6ac8bfa3b437a314072514796d9b4e55ea1f9c8292aee3eb43d71e29bd",
+          "contractDigest": "cdb1f1345b7190fe7ae3141edf30ca5915dd3469cd8069bc4e28e40727731d51",
+          "contextDigest": "9fe2a0a520a450365eaed0f06d8200be429dc981e23694141a2e3133e3dd2471",
+          "facetObservationDigest": "3b638aca3cb7a4943b4402075ec6f2f876c2661f4b6370ffc107245e1b4e8624",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 4.5671000000002095,
-          "durableReloadMs": 3.6719300000004296,
-          "cachePublishMs": 16.466844000000492,
-          "coldCacheObjectLookupMs": 34.18765899999926,
-          "warmLookupMs": [20.096580000001268, 16.17225900000085, 18.695886999999857]
+          "durableExportMs": 6.940112999996927,
+          "durableReloadMs": 3.031654999998864,
+          "cachePublishMs": 33.36405800000284,
+          "coldCacheObjectLookupMs": 36.72840200000064,
+          "warmLookupMs": [16.41994199999681, 33.151692000003095, 25.880285999999614]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 133.5506580000001,
-              "staticAnalysisMs": 1.8674670000000333,
-              "acquisitionAndReconciliationMs": 133.28803200000038,
+              "contextInspectionMs": 222.9836499999983,
+              "staticAnalysisMs": 2.5965660000001662,
+              "acquisitionAndReconciliationMs": 225.80314599999838,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "59d445aff9364c4c58b2fe647debf2012e156b5ed0b96b95aa8fac91b0944a0b",
-          "contextDigest": "bb4bea6ac8bfa3b437a314072514796d9b4e55ea1f9c8292aee3eb43d71e29bd",
+          "contractDigest": "cdb1f1345b7190fe7ae3141edf30ca5915dd3469cd8069bc4e28e40727731d51",
+          "contextDigest": "9fe2a0a520a450365eaed0f06d8200be429dc981e23694141a2e3133e3dd2471",
+          "facetObservationDigest": "3b638aca3cb7a4943b4402075ec6f2f876c2661f4b6370ffc107245e1b4e8624",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 4.536373999999341,
-          "durableReloadMs": 1.8042619999996532,
-          "cachePublishMs": 16.361653999998452,
-          "coldCacheObjectLookupMs": 30.87467099999958,
-          "warmLookupMs": [17.33784800000103, 18.608244000000923, 9.85599000000002]
+          "durableExportMs": 6.612712999998621,
+          "durableReloadMs": 3.5547000000005937,
+          "cachePublishMs": 27.94709999999759,
+          "coldCacheObjectLookupMs": 32.13173200000165,
+          "warmLookupMs": [29.893404000002192, 25.332698999998684, 6.033439000002545]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 121.27745200000027,
-              "staticAnalysisMs": 1.9383839999991324,
-              "acquisitionAndReconciliationMs": 125.38095299999986,
+              "contextInspectionMs": 208.50192100000277,
+              "staticAnalysisMs": 2.833415999997669,
+              "acquisitionAndReconciliationMs": 228.1356620000006,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "59d445aff9364c4c58b2fe647debf2012e156b5ed0b96b95aa8fac91b0944a0b",
-          "contextDigest": "bb4bea6ac8bfa3b437a314072514796d9b4e55ea1f9c8292aee3eb43d71e29bd",
+          "contractDigest": "cdb1f1345b7190fe7ae3141edf30ca5915dd3469cd8069bc4e28e40727731d51",
+          "contextDigest": "9fe2a0a520a450365eaed0f06d8200be429dc981e23694141a2e3133e3dd2471",
+          "facetObservationDigest": "3b638aca3cb7a4943b4402075ec6f2f876c2661f4b6370ffc107245e1b4e8624",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 4.586568999999145,
-          "durableReloadMs": 1.6494179999990592,
-          "cachePublishMs": 18.78605299999981,
-          "coldCacheObjectLookupMs": 29.903856000000815,
-          "warmLookupMs": [17.513412000000244, 10.435883999998623, 23.778134000000136]
+          "durableExportMs": 6.740551000002597,
+          "durableReloadMs": 2.871817999999621,
+          "cachePublishMs": 25.723244000000705,
+          "coldCacheObjectLookupMs": 46.08416399999987,
+          "warmLookupMs": [25.106831000000966, 15.678916000000754, 25.846219000002748]
         }
       ],
-      "reportDigest": "07209a5cf6bf0f0e0fef0c95f4921e93db3e95618ae74d4c9b444bb9ec0be8cd",
+      "reportDigest": "a4dccebe4a4fad7273abdd667bc41aa1c559a2203dbea7450f7e2e490e16f7fa",
       "summary": {
         "canonicalContractBytes": { "count": 3, "min": 5064, "median": 5064, "max": 5064 },
         "durableFileBytes": { "count": 3, "min": 5866, "median": 5866, "max": 5866 },
         "cacheFileBytes": { "count": 3, "min": 6513, "median": 6513, "max": 6513 },
         "contextInspectionMs": {
           "count": 3,
-          "min": 116.46796600000016,
-          "median": 121.27745200000027,
-          "max": 133.5506580000001
+          "min": 207.51321299999836,
+          "median": 208.50192100000277,
+          "max": 222.9836499999983
         },
         "staticAnalysisMs": {
           "count": 3,
-          "min": 0.5020569999996951,
-          "median": 1.8674670000000333,
-          "max": 1.9383839999991324
+          "min": 0.7689820000014151,
+          "median": 2.5965660000001662,
+          "max": 2.833415999997669
         },
         "acquisitionAndReconciliationMs": {
           "count": 3,
-          "min": 125.38095299999986,
-          "median": 130.17349300000024,
-          "max": 133.28803200000038
+          "min": 225.80314599999838,
+          "median": 226.42534200000227,
+          "max": 228.1356620000006
         },
         "sumOfQualificationStagesMs": {
           "count": 3,
-          "min": 247.1435160000001,
-          "median": 248.59678899999926,
-          "max": 268.70615700000053
+          "min": 434.70753700000205,
+          "median": 439.47099900000103,
+          "max": 451.38336199999685
         },
         "durableExportMs": {
           "count": 3,
-          "min": 4.536373999999341,
-          "median": 4.5671000000002095,
-          "max": 4.586568999999145
+          "min": 6.612712999998621,
+          "median": 6.740551000002597,
+          "max": 6.940112999996927
         },
         "durableReloadMs": {
           "count": 3,
-          "min": 1.6494179999990592,
-          "median": 1.8042619999996532,
-          "max": 3.6719300000004296
+          "min": 2.871817999999621,
+          "median": 3.031654999998864,
+          "max": 3.5547000000005937
         },
         "cachePublishMs": {
           "count": 3,
-          "min": 16.361653999998452,
-          "median": 16.466844000000492,
-          "max": 18.78605299999981
+          "min": 25.723244000000705,
+          "median": 27.94709999999759,
+          "max": 33.36405800000284
         },
         "coldCacheObjectLookupMs": {
           "count": 3,
-          "min": 29.903856000000815,
-          "median": 30.87467099999958,
-          "max": 34.18765899999926
-        },
-        "warmLookupMs": { "count": 9, "min": 9.85599000000002, "median": 17.513412000000244, "max": 23.778134000000136 }
-      }
-    },
-    {
-      "formatVersion": 1,
-      "sourceRevision": "12f93112ca31725c5f8a2698f30f357dd88a1b67",
-      "toolDigest": "6df0f7c0342a6e74386714c96d110ae9d15d5a5c292eefdf1d7c34b213d75d16",
-      "label": "sqlserver-17.0.5035.5-compat-140",
-      "serverVersion": "17.0.5035.5",
-      "grammar": { "id": "sqlserver", "version": "1.0.0" },
-      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v2" },
-      "sqlDigest": "19693d330c1a76f7ab048138effdc367c76b9db95c9a046b28b0dc694401eb01",
-      "parameterOccurrences": 1,
-      "fixtureSchema": {
-        "bytes": 816,
-        "scope": "Owner-fixture compiler input; not a complete server catalog or application workload"
-      },
-      "environment": { "node": "v24.22.2", "platform": "linux", "architecture": "x64" },
-      "samples": [
-        {
-          "attempts": [
-            {
-              "contextInspectionMs": 304.4641710000001,
-              "staticAnalysisMs": 1.4476700000000164,
-              "acquisitionAndReconciliationMs": 324.0445759999998,
-              "outcome": "usable-recorded-context"
-            }
-          ],
-          "contractDigest": "55ea1e02d4a76bfc7959cf3c16bd711581ec1fc52644dd3903ea98f3d72873c0",
-          "contextDigest": "a2eb21f8ff5d4e992a50a7504a5f798e98491cc3df871cc78d6adccf677a1171",
-          "canonicalContractBytes": 5064,
-          "nativeEvidenceBytes": 1247,
-          "valuePlanBytes": 275,
-          "durable": { "bytes": 5866, "files": 3 },
-          "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 17.17936299999974,
-          "durableReloadMs": 9.91758899999968,
-          "cachePublishMs": 23.869799000000057,
-          "coldCacheObjectLookupMs": 42.299492999999984,
-          "warmLookupMs": [29.36075699999992, 30.126636999999846, 20.414839999999913]
-        },
-        {
-          "attempts": [
-            {
-              "contextInspectionMs": 321.368821,
-              "staticAnalysisMs": 5.357192999999825,
-              "acquisitionAndReconciliationMs": 339.04275499999994,
-              "outcome": "usable-recorded-context"
-            }
-          ],
-          "contractDigest": "55ea1e02d4a76bfc7959cf3c16bd711581ec1fc52644dd3903ea98f3d72873c0",
-          "contextDigest": "a2eb21f8ff5d4e992a50a7504a5f798e98491cc3df871cc78d6adccf677a1171",
-          "canonicalContractBytes": 5064,
-          "nativeEvidenceBytes": 1247,
-          "valuePlanBytes": 275,
-          "durable": { "bytes": 5866, "files": 3 },
-          "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 7.6434870000002775,
-          "durableReloadMs": 5.732594000000063,
-          "cachePublishMs": 31.2603509999999,
-          "coldCacheObjectLookupMs": 42.363292,
-          "warmLookupMs": [26.542601000000104, 21.846309999999903, 30.728789000000234]
-        },
-        {
-          "attempts": [
-            {
-              "contextInspectionMs": 300.6756569999998,
-              "staticAnalysisMs": 5.647313999999824,
-              "acquisitionAndReconciliationMs": 310.84523400000035,
-              "outcome": "usable-recorded-context"
-            }
-          ],
-          "contractDigest": "55ea1e02d4a76bfc7959cf3c16bd711581ec1fc52644dd3903ea98f3d72873c0",
-          "contextDigest": "a2eb21f8ff5d4e992a50a7504a5f798e98491cc3df871cc78d6adccf677a1171",
-          "canonicalContractBytes": 5064,
-          "nativeEvidenceBytes": 1247,
-          "valuePlanBytes": 275,
-          "durable": { "bytes": 5866, "files": 3 },
-          "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 7.002169000000322,
-          "durableReloadMs": 9.680397000000085,
-          "cachePublishMs": 16.235085999999683,
-          "coldCacheObjectLookupMs": 35.256914000000506,
-          "warmLookupMs": [29.763246000000436, 24.68503899999996, 29.905493999999635]
-        }
-      ],
-      "reportDigest": "be316c87ac0c0177dd67d47e681a96762203fd3bad7ab4652f1a2e1c7336e1cb",
-      "summary": {
-        "canonicalContractBytes": { "count": 3, "min": 5064, "median": 5064, "max": 5064 },
-        "durableFileBytes": { "count": 3, "min": 5866, "median": 5866, "max": 5866 },
-        "cacheFileBytes": { "count": 3, "min": 6513, "median": 6513, "max": 6513 },
-        "contextInspectionMs": { "count": 3, "min": 300.6756569999998, "median": 304.4641710000001, "max": 321.368821 },
-        "staticAnalysisMs": {
-          "count": 3,
-          "min": 1.4476700000000164,
-          "median": 5.357192999999825,
-          "max": 5.647313999999824
-        },
-        "acquisitionAndReconciliationMs": {
-          "count": 3,
-          "min": 310.84523400000035,
-          "median": 324.0445759999998,
-          "max": 339.04275499999994
-        },
-        "sumOfQualificationStagesMs": {
-          "count": 3,
-          "min": 617.168205,
-          "median": 629.9564169999999,
-          "max": 665.7687689999998
-        },
-        "durableExportMs": {
-          "count": 3,
-          "min": 7.002169000000322,
-          "median": 7.6434870000002775,
-          "max": 17.17936299999974
-        },
-        "durableReloadMs": {
-          "count": 3,
-          "min": 5.732594000000063,
-          "median": 9.680397000000085,
-          "max": 9.91758899999968
-        },
-        "cachePublishMs": {
-          "count": 3,
-          "min": 16.235085999999683,
-          "median": 23.869799000000057,
-          "max": 31.2603509999999
-        },
-        "coldCacheObjectLookupMs": {
-          "count": 3,
-          "min": 35.256914000000506,
-          "median": 42.299492999999984,
-          "max": 42.363292
+          "min": 32.13173200000165,
+          "median": 36.72840200000064,
+          "max": 46.08416399999987
         },
         "warmLookupMs": {
           "count": 9,
-          "min": 20.414839999999913,
-          "median": 29.36075699999992,
-          "max": 30.728789000000234
+          "min": 6.033439000002545,
+          "median": 25.332698999998684,
+          "max": 33.151692000003095
         }
       }
     },
     {
-      "formatVersion": 1,
-      "sourceRevision": "12f93112ca31725c5f8a2698f30f357dd88a1b67",
-      "toolDigest": "6df0f7c0342a6e74386714c96d110ae9d15d5a5c292eefdf1d7c34b213d75d16",
+      "formatVersion": 2,
+      "sourceRevision": "b24cedd87f74e756265aa8d80477e162eea23f7a",
+      "toolDigest": "f001eb36771bbcd97a474da387f52f741ba33846e4670339f4d09ab8ecfbcbfd",
+      "label": "sqlserver-17.0.5035.5-compat-140",
+      "serverVersion": "17.0.5035.5",
+      "grammar": { "id": "sqlserver", "version": "1.0.0" },
+      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v3" },
+      "sqlDigest": "19693d330c1a76f7ab048138effdc367c76b9db95c9a046b28b0dc694401eb01",
+      "parameterOccurrences": 1,
+      "fixtureSchema": {
+        "bytes": 816,
+        "scope": "Owner-fixture compiler input; not a complete server catalog or application workload"
+      },
+      "environment": { "node": "v24.22.2", "platform": "linux", "architecture": "x64" },
+      "facetObservations": {
+        "9249b695a281335b3f0294d03073d11aa0bbbd6ced67db518c08058b6f9541e5": {
+          "sqlLength": 46,
+          "nativeEvidence": {
+            "adapter": {
+              "id": "@typed-sql/sqlserver/native-contracts",
+              "version": "sqlserver-log-guarded-describe-v3"
+            },
+            "columns": [
+              {
+                "descriptor": {
+                  "bindingIdentityKnown": true,
+                  "caseSensitive": false,
+                  "fixedLengthClrType": false,
+                  "maxLength": 8,
+                  "precision": 19,
+                  "scale": 0,
+                  "source": "dm_exec_describe_first_result_set",
+                  "systemTypeId": 127,
+                  "systemTypeName": "bigint",
+                  "xmlDocument": false
+                },
+                "name": "value",
+                "nativeType": { "status": "known", "value": { "complete": true, "name": "bigint" } },
+                "nullable": { "precision": "upper-bound", "status": "known", "value": true },
+                "runtimeType": { "status": "known", "value": "bigint" }
+              }
+            ],
+            "consistency": { "mechanism": "guarded", "scope": "sqlserver-exclusive-log-quiescent-guarded-select-v2" },
+            "parameterOccurrences": [{ "end": 26, "index": 1, "start": 12 }],
+            "parameters": [
+              {
+                "descriptor": {
+                  "bindingIdentityKnown": true,
+                  "caseSensitive": false,
+                  "fixedLengthClrType": false,
+                  "maxLength": 8,
+                  "name": "@__typed_sql_1",
+                  "nativeOrdinal": 1,
+                  "precision": 19,
+                  "scale": 0,
+                  "source": "sp_describe_undeclared_parameters",
+                  "systemTypeId": 127,
+                  "systemTypeName": "bigint",
+                  "xmlDocument": false
+                },
+                "index": 1,
+                "nativeType": { "status": "known", "value": { "complete": true, "name": "bigint" } },
+                "nullable": { "precision": "upper-bound", "status": "known", "value": true },
+                "runtimeType": { "status": "known", "value": "bigint" }
+              }
+            ],
+            "resultKind": "rows"
+          },
+          "qualification": {
+            "comparisons": [
+              {
+                "facet": "acceptance",
+                "index": 0,
+                "nativeStatus": "complete",
+                "reason": "Compare every available successful static claim",
+                "rule": "independent-static-analysis",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "query"
+              },
+              {
+                "facet": "result-shape",
+                "index": 0,
+                "nativeStatus": "complete",
+                "reason": "Compare ordered column labels and parameter slot counts",
+                "rule": "ordered-result-parameter-shape",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "query"
+              },
+              {
+                "facet": "result-kind",
+                "index": 0,
+                "nativeStatus": "complete",
+                "reason": "Statement result kind is independently compared when available",
+                "rule": "native-result-kind",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "query"
+              },
+              {
+                "facet": "native-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Preserve dimensions and explicit collation while retaining incomplete native identity",
+                "rule": "native-system-type-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "column"
+              },
+              {
+                "facet": "runtime-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Compare policy-controlled representations; retain the native bound for JSON shape",
+                "rule": "runtime-representation-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "column"
+              },
+              {
+                "facet": "nullability",
+                "index": 1,
+                "nativeStatus": "partial",
+                "reason": "Unknown or conservative native nullability remains nullable",
+                "rule": "native-nullable-bound",
+                "staticStatus": "known",
+                "status": "widened",
+                "target": "column"
+              },
+              {
+                "facet": "native-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Preserve dimensions and explicit collation while retaining incomplete native identity",
+                "rule": "native-system-type-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "parameter"
+              },
+              {
+                "facet": "runtime-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Compare policy-controlled representations; retain the native bound for JSON shape",
+                "rule": "runtime-representation-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "parameter"
+              },
+              {
+                "facet": "nullability",
+                "index": 1,
+                "nativeStatus": "partial",
+                "reason": "Unknown or conservative native nullability remains nullable",
+                "rule": "native-nullable-bound",
+                "staticStatus": "known",
+                "status": "widened",
+                "target": "parameter"
+              }
+            ],
+            "nativeEvidenceHash": "b7d4e0dd6386aa80b5ea9a0eff3705281583a57d03ed1c8c978bea5a827dfd28",
+            "policy": {
+              "mode": "native-required",
+              "owner": {
+                "id": "@typed-sql/sqlserver/reconciliation",
+                "version": "sqlserver-contract-reconciliation-v3"
+              },
+              "requiredNativeFacets": ["runtime-type"]
+            },
+            "policyHash": "d757a99a0c6fbb14feed0d3d61c64708bcaf0284bcf411d22c72c2eb484be431",
+            "sourceContractHash": "54f17642f168423897e314c20245411e5589e96ae71edb31b2e36cc46bbe9fbc",
+            "staticClaimHash": "6411a4250ae050ad594a93d2b3fbcdc5a8c62b1980afd4e96397f6a5d2ed437c"
+          }
+        }
+      },
+      "samples": [
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 319.3106280000002,
+              "staticAnalysisMs": 0.9716400000006615,
+              "acquisitionAndReconciliationMs": 341.94393799999943,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "38287463949f3b1c4514a46e043407fe1afab7a9941680ffbf20bd3283c09a9c",
+          "contextDigest": "b1d671898f4668421f032e84078ec320c123127943c40cd5fc428553817b6f38",
+          "facetObservationDigest": "9249b695a281335b3f0294d03073d11aa0bbbd6ced67db518c08058b6f9541e5",
+          "canonicalContractBytes": 5064,
+          "nativeEvidenceBytes": 1247,
+          "valuePlanBytes": 275,
+          "durable": { "bytes": 5866, "files": 3 },
+          "cache": { "bytes": 6513, "files": 5 },
+          "durableExportMs": 15.368612000000212,
+          "durableReloadMs": 10.696656000000075,
+          "cachePublishMs": 22.537076999999954,
+          "coldCacheObjectLookupMs": 52.27974300000005,
+          "warmLookupMs": [20.420436000000336, 22.805325000000266, 22.904827999999725]
+        },
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 343.12980700000026,
+              "staticAnalysisMs": 5.005396999999903,
+              "acquisitionAndReconciliationMs": 345.1166140000005,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "38287463949f3b1c4514a46e043407fe1afab7a9941680ffbf20bd3283c09a9c",
+          "contextDigest": "b1d671898f4668421f032e84078ec320c123127943c40cd5fc428553817b6f38",
+          "facetObservationDigest": "9249b695a281335b3f0294d03073d11aa0bbbd6ced67db518c08058b6f9541e5",
+          "canonicalContractBytes": 5064,
+          "nativeEvidenceBytes": 1247,
+          "valuePlanBytes": 275,
+          "durable": { "bytes": 5866, "files": 3 },
+          "cache": { "bytes": 6513, "files": 5 },
+          "durableExportMs": 7.6958629999999175,
+          "durableReloadMs": 4.975333000000319,
+          "cachePublishMs": 25.924167999999554,
+          "coldCacheObjectLookupMs": 38.46552799999972,
+          "warmLookupMs": [28.71730000000025, 27.302456000000348, 12.63576600000033]
+        },
+        {
+          "attempts": [
+            {
+              "contextInspectionMs": 325.998525,
+              "staticAnalysisMs": 5.136880000000019,
+              "acquisitionAndReconciliationMs": 347.1653070000002,
+              "outcome": "usable-recorded-context"
+            }
+          ],
+          "contractDigest": "38287463949f3b1c4514a46e043407fe1afab7a9941680ffbf20bd3283c09a9c",
+          "contextDigest": "b1d671898f4668421f032e84078ec320c123127943c40cd5fc428553817b6f38",
+          "facetObservationDigest": "9249b695a281335b3f0294d03073d11aa0bbbd6ced67db518c08058b6f9541e5",
+          "canonicalContractBytes": 5064,
+          "nativeEvidenceBytes": 1247,
+          "valuePlanBytes": 275,
+          "durable": { "bytes": 5866, "files": 3 },
+          "cache": { "bytes": 6513, "files": 5 },
+          "durableExportMs": 7.250418999999965,
+          "durableReloadMs": 11.737661000000116,
+          "cachePublishMs": 31.086765000000014,
+          "coldCacheObjectLookupMs": 56.27331999999933,
+          "warmLookupMs": [30.412607000000207, 22.844647000000805, 17.54858400000012]
+        }
+      ],
+      "reportDigest": "07a42eeee935886f1a5c7599dbea30506b593dc3bde08aa27ca428ce8fef6bd0",
+      "summary": {
+        "canonicalContractBytes": { "count": 3, "min": 5064, "median": 5064, "max": 5064 },
+        "durableFileBytes": { "count": 3, "min": 5866, "median": 5866, "max": 5866 },
+        "cacheFileBytes": { "count": 3, "min": 6513, "median": 6513, "max": 6513 },
+        "contextInspectionMs": {
+          "count": 3,
+          "min": 319.3106280000002,
+          "median": 325.998525,
+          "max": 343.12980700000026
+        },
+        "staticAnalysisMs": {
+          "count": 3,
+          "min": 0.9716400000006615,
+          "median": 5.005396999999903,
+          "max": 5.136880000000019
+        },
+        "acquisitionAndReconciliationMs": {
+          "count": 3,
+          "min": 341.94393799999943,
+          "median": 345.1166140000005,
+          "max": 347.1653070000002
+        },
+        "sumOfQualificationStagesMs": {
+          "count": 3,
+          "min": 662.2262060000003,
+          "median": 678.3007120000002,
+          "max": 693.2518180000006
+        },
+        "durableExportMs": {
+          "count": 3,
+          "min": 7.250418999999965,
+          "median": 7.6958629999999175,
+          "max": 15.368612000000212
+        },
+        "durableReloadMs": {
+          "count": 3,
+          "min": 4.975333000000319,
+          "median": 10.696656000000075,
+          "max": 11.737661000000116
+        },
+        "cachePublishMs": {
+          "count": 3,
+          "min": 22.537076999999954,
+          "median": 25.924167999999554,
+          "max": 31.086765000000014
+        },
+        "coldCacheObjectLookupMs": {
+          "count": 3,
+          "min": 38.46552799999972,
+          "median": 52.27974300000005,
+          "max": 56.27331999999933
+        },
+        "warmLookupMs": {
+          "count": 9,
+          "min": 12.63576600000033,
+          "median": 22.844647000000805,
+          "max": 30.412607000000207
+        }
+      }
+    },
+    {
+      "formatVersion": 2,
+      "sourceRevision": "b24cedd87f74e756265aa8d80477e162eea23f7a",
+      "toolDigest": "f001eb36771bbcd97a474da387f52f741ba33846e4670339f4d09ab8ecfbcbfd",
       "label": "sqlserver-17.0.5035.5-compat-150",
       "serverVersion": "17.0.5035.5",
       "grammar": { "id": "sqlserver", "version": "1.0.0" },
-      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v2" },
+      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v3" },
       "sqlDigest": "19693d330c1a76f7ab048138effdc367c76b9db95c9a046b28b0dc694401eb01",
       "parameterOccurrences": 1,
       "fixtureSchema": {
@@ -2700,138 +3838,303 @@
         "scope": "Owner-fixture compiler input; not a complete server catalog or application workload"
       },
       "environment": { "node": "v24.22.2", "platform": "linux", "architecture": "x64" },
+      "facetObservations": {
+        "6f696695caeea97de331db4bd1888aac7c4c6c66bfde541e3adae980e89f46f6": {
+          "sqlLength": 46,
+          "nativeEvidence": {
+            "adapter": {
+              "id": "@typed-sql/sqlserver/native-contracts",
+              "version": "sqlserver-log-guarded-describe-v3"
+            },
+            "columns": [
+              {
+                "descriptor": {
+                  "bindingIdentityKnown": true,
+                  "caseSensitive": false,
+                  "fixedLengthClrType": false,
+                  "maxLength": 8,
+                  "precision": 19,
+                  "scale": 0,
+                  "source": "dm_exec_describe_first_result_set",
+                  "systemTypeId": 127,
+                  "systemTypeName": "bigint",
+                  "xmlDocument": false
+                },
+                "name": "value",
+                "nativeType": { "status": "known", "value": { "complete": true, "name": "bigint" } },
+                "nullable": { "precision": "upper-bound", "status": "known", "value": true },
+                "runtimeType": { "status": "known", "value": "bigint" }
+              }
+            ],
+            "consistency": { "mechanism": "guarded", "scope": "sqlserver-exclusive-log-quiescent-guarded-select-v2" },
+            "parameterOccurrences": [{ "end": 26, "index": 1, "start": 12 }],
+            "parameters": [
+              {
+                "descriptor": {
+                  "bindingIdentityKnown": true,
+                  "caseSensitive": false,
+                  "fixedLengthClrType": false,
+                  "maxLength": 8,
+                  "name": "@__typed_sql_1",
+                  "nativeOrdinal": 1,
+                  "precision": 19,
+                  "scale": 0,
+                  "source": "sp_describe_undeclared_parameters",
+                  "systemTypeId": 127,
+                  "systemTypeName": "bigint",
+                  "xmlDocument": false
+                },
+                "index": 1,
+                "nativeType": { "status": "known", "value": { "complete": true, "name": "bigint" } },
+                "nullable": { "precision": "upper-bound", "status": "known", "value": true },
+                "runtimeType": { "status": "known", "value": "bigint" }
+              }
+            ],
+            "resultKind": "rows"
+          },
+          "qualification": {
+            "comparisons": [
+              {
+                "facet": "acceptance",
+                "index": 0,
+                "nativeStatus": "complete",
+                "reason": "Compare every available successful static claim",
+                "rule": "independent-static-analysis",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "query"
+              },
+              {
+                "facet": "result-shape",
+                "index": 0,
+                "nativeStatus": "complete",
+                "reason": "Compare ordered column labels and parameter slot counts",
+                "rule": "ordered-result-parameter-shape",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "query"
+              },
+              {
+                "facet": "result-kind",
+                "index": 0,
+                "nativeStatus": "complete",
+                "reason": "Statement result kind is independently compared when available",
+                "rule": "native-result-kind",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "query"
+              },
+              {
+                "facet": "native-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Preserve dimensions and explicit collation while retaining incomplete native identity",
+                "rule": "native-system-type-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "column"
+              },
+              {
+                "facet": "runtime-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Compare policy-controlled representations; retain the native bound for JSON shape",
+                "rule": "runtime-representation-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "column"
+              },
+              {
+                "facet": "nullability",
+                "index": 1,
+                "nativeStatus": "partial",
+                "reason": "Unknown or conservative native nullability remains nullable",
+                "rule": "native-nullable-bound",
+                "staticStatus": "known",
+                "status": "widened",
+                "target": "column"
+              },
+              {
+                "facet": "native-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Preserve dimensions and explicit collation while retaining incomplete native identity",
+                "rule": "native-system-type-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "parameter"
+              },
+              {
+                "facet": "runtime-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Compare policy-controlled representations; retain the native bound for JSON shape",
+                "rule": "runtime-representation-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "parameter"
+              },
+              {
+                "facet": "nullability",
+                "index": 1,
+                "nativeStatus": "partial",
+                "reason": "Unknown or conservative native nullability remains nullable",
+                "rule": "native-nullable-bound",
+                "staticStatus": "known",
+                "status": "widened",
+                "target": "parameter"
+              }
+            ],
+            "nativeEvidenceHash": "b7d4e0dd6386aa80b5ea9a0eff3705281583a57d03ed1c8c978bea5a827dfd28",
+            "policy": {
+              "mode": "native-required",
+              "owner": {
+                "id": "@typed-sql/sqlserver/reconciliation",
+                "version": "sqlserver-contract-reconciliation-v3"
+              },
+              "requiredNativeFacets": ["runtime-type"]
+            },
+            "policyHash": "d757a99a0c6fbb14feed0d3d61c64708bcaf0284bcf411d22c72c2eb484be431",
+            "sourceContractHash": "0ce8e9c6b771d081ca4bb6e0673dbd4bf6ea59124c4c9392430ef6dfeb905e55",
+            "staticClaimHash": "88c35d852a2c25c3e3832329c2179b9e2dff3bc08e37e7e8f6daade8ce02b340"
+          }
+        }
+      },
       "samples": [
         {
           "attempts": [
             {
-              "contextInspectionMs": 291.107406000001,
-              "staticAnalysisMs": 0.8410380000004807,
-              "acquisitionAndReconciliationMs": 309.7548289999995,
+              "contextInspectionMs": 311.1717759999992,
+              "staticAnalysisMs": 0.7829700000002049,
+              "acquisitionAndReconciliationMs": 338.88093300000037,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "c6686b7d54154c385de5af46bf9dc661dad5eb33b0b08cf1eba737399b915a32",
-          "contextDigest": "824e08251ae0fd0ce120bc98bd060337c505fb4c6690704ec96054813224a5a7",
+          "contractDigest": "b23207933fc76d2db369f24e8156e4e56e154b191e8d969ea7f5dd586d3e6d37",
+          "contextDigest": "ba5d769b03fc9f83f1847850fb9991aa6085fc5a6cffee8b642caad590d40c41",
+          "facetObservationDigest": "6f696695caeea97de331db4bd1888aac7c4c6c66bfde541e3adae980e89f46f6",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 7.018541000001278,
-          "durableReloadMs": 3.1675180000002,
-          "cachePublishMs": 35.88786099999925,
-          "coldCacheObjectLookupMs": 36.39629700000114,
-          "warmLookupMs": [6.9028960000014195, 35.71014699999978, 30.76202800000101]
+          "durableExportMs": 7.172357999999804,
+          "durableReloadMs": 11.260159999999814,
+          "cachePublishMs": 25.63020200000028,
+          "coldCacheObjectLookupMs": 37.83661299999949,
+          "warmLookupMs": [9.199579000000085, 17.85961800000041, 23.156613000001016]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 293.1073669999987,
-              "staticAnalysisMs": 2.873870999999781,
-              "acquisitionAndReconciliationMs": 309.9661329999999,
+              "contextInspectionMs": 316.78925400000116,
+              "staticAnalysisMs": 2.2882730000001175,
+              "acquisitionAndReconciliationMs": 332.6496850000003,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "c6686b7d54154c385de5af46bf9dc661dad5eb33b0b08cf1eba737399b915a32",
-          "contextDigest": "824e08251ae0fd0ce120bc98bd060337c505fb4c6690704ec96054813224a5a7",
+          "contractDigest": "b23207933fc76d2db369f24e8156e4e56e154b191e8d969ea7f5dd586d3e6d37",
+          "contextDigest": "ba5d769b03fc9f83f1847850fb9991aa6085fc5a6cffee8b642caad590d40c41",
+          "facetObservationDigest": "6f696695caeea97de331db4bd1888aac7c4c6c66bfde541e3adae980e89f46f6",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 10.037749999999505,
-          "durableReloadMs": 3.6709370000007766,
-          "cachePublishMs": 10.072136999999202,
-          "coldCacheObjectLookupMs": 54.166682999999466,
-          "warmLookupMs": [16.624979000000167, 31.10919499999909, 16.88052499999867]
+          "durableExportMs": 6.368393999999171,
+          "durableReloadMs": 7.186053000001266,
+          "cachePublishMs": 8.184663,
+          "coldCacheObjectLookupMs": 42.309424999999464,
+          "warmLookupMs": [29.973163999999088, 23.356918999998015, 21.42779000000155]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 297.0205559999995,
-              "staticAnalysisMs": 2.550468000001274,
-              "acquisitionAndReconciliationMs": 313.27439500000037,
+              "contextInspectionMs": 317.64608699999735,
+              "staticAnalysisMs": 2.5223839999998745,
+              "acquisitionAndReconciliationMs": 335.71480500000325,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "c6686b7d54154c385de5af46bf9dc661dad5eb33b0b08cf1eba737399b915a32",
-          "contextDigest": "824e08251ae0fd0ce120bc98bd060337c505fb4c6690704ec96054813224a5a7",
+          "contractDigest": "b23207933fc76d2db369f24e8156e4e56e154b191e8d969ea7f5dd586d3e6d37",
+          "contextDigest": "ba5d769b03fc9f83f1847850fb9991aa6085fc5a6cffee8b642caad590d40c41",
+          "facetObservationDigest": "6f696695caeea97de331db4bd1888aac7c4c6c66bfde541e3adae980e89f46f6",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 6.624884000000748,
-          "durableReloadMs": 14.809133000000656,
-          "cachePublishMs": 21.731033000000025,
-          "coldCacheObjectLookupMs": 35.21428200000082,
-          "warmLookupMs": [32.27406499999961, 21.883386999999857, 34.75202999999965]
+          "durableExportMs": 6.389015000000654,
+          "durableReloadMs": 4.03630499999781,
+          "cachePublishMs": 25.68266399999993,
+          "coldCacheObjectLookupMs": 46.79589200000191,
+          "warmLookupMs": [24.299599000001763, 25.316305999996985, 22.8823020000018]
         }
       ],
-      "reportDigest": "6e1e595920f4890d35296c9316a3f790b9b48ce6e09ff0cd01288b1d86526dc2",
+      "reportDigest": "eef7783b33fd1fa4e53cefc2933cb18a2d9e7bf97332e3b18f81c846b99f42d7",
       "summary": {
         "canonicalContractBytes": { "count": 3, "min": 5064, "median": 5064, "max": 5064 },
         "durableFileBytes": { "count": 3, "min": 5866, "median": 5866, "max": 5866 },
         "cacheFileBytes": { "count": 3, "min": 6513, "median": 6513, "max": 6513 },
         "contextInspectionMs": {
           "count": 3,
-          "min": 291.107406000001,
-          "median": 293.1073669999987,
-          "max": 297.0205559999995
+          "min": 311.1717759999992,
+          "median": 316.78925400000116,
+          "max": 317.64608699999735
         },
         "staticAnalysisMs": {
           "count": 3,
-          "min": 0.8410380000004807,
-          "median": 2.550468000001274,
-          "max": 2.873870999999781
+          "min": 0.7829700000002049,
+          "median": 2.2882730000001175,
+          "max": 2.5223839999998745
         },
         "acquisitionAndReconciliationMs": {
           "count": 3,
-          "min": 309.7548289999995,
-          "median": 309.9661329999999,
-          "max": 313.27439500000037
+          "min": 332.6496850000003,
+          "median": 335.71480500000325,
+          "max": 338.88093300000037
         },
         "sumOfQualificationStagesMs": {
           "count": 3,
-          "min": 601.703273000001,
-          "median": 605.9473709999984,
-          "max": 612.8454190000011
+          "min": 650.8356789999998,
+          "median": 651.7272120000016,
+          "max": 655.8832760000005
         },
         "durableExportMs": {
           "count": 3,
-          "min": 6.624884000000748,
-          "median": 7.018541000001278,
-          "max": 10.037749999999505
+          "min": 6.368393999999171,
+          "median": 6.389015000000654,
+          "max": 7.172357999999804
         },
         "durableReloadMs": {
           "count": 3,
-          "min": 3.1675180000002,
-          "median": 3.6709370000007766,
-          "max": 14.809133000000656
+          "min": 4.03630499999781,
+          "median": 7.186053000001266,
+          "max": 11.260159999999814
         },
-        "cachePublishMs": {
-          "count": 3,
-          "min": 10.072136999999202,
-          "median": 21.731033000000025,
-          "max": 35.88786099999925
-        },
+        "cachePublishMs": { "count": 3, "min": 8.184663, "median": 25.63020200000028, "max": 25.68266399999993 },
         "coldCacheObjectLookupMs": {
           "count": 3,
-          "min": 35.21428200000082,
-          "median": 36.39629700000114,
-          "max": 54.166682999999466
+          "min": 37.83661299999949,
+          "median": 42.309424999999464,
+          "max": 46.79589200000191
         },
-        "warmLookupMs": { "count": 9, "min": 6.9028960000014195, "median": 30.76202800000101, "max": 35.71014699999978 }
+        "warmLookupMs": {
+          "count": 9,
+          "min": 9.199579000000085,
+          "median": 23.156613000001016,
+          "max": 29.973163999999088
+        }
       }
     },
     {
-      "formatVersion": 1,
-      "sourceRevision": "12f93112ca31725c5f8a2698f30f357dd88a1b67",
-      "toolDigest": "6df0f7c0342a6e74386714c96d110ae9d15d5a5c292eefdf1d7c34b213d75d16",
+      "formatVersion": 2,
+      "sourceRevision": "b24cedd87f74e756265aa8d80477e162eea23f7a",
+      "toolDigest": "f001eb36771bbcd97a474da387f52f741ba33846e4670339f4d09ab8ecfbcbfd",
       "label": "sqlserver-17.0.5035.5-compat-160",
       "serverVersion": "17.0.5035.5",
       "grammar": { "id": "sqlserver", "version": "1.0.0" },
-      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v2" },
+      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v3" },
       "sqlDigest": "19693d330c1a76f7ab048138effdc367c76b9db95c9a046b28b0dc694401eb01",
       "parameterOccurrences": 1,
       "fixtureSchema": {
@@ -2839,138 +4142,308 @@
         "scope": "Owner-fixture compiler input; not a complete server catalog or application workload"
       },
       "environment": { "node": "v24.22.2", "platform": "linux", "architecture": "x64" },
+      "facetObservations": {
+        "55054f72a08cb926be379ac48613ff59eb722e35231051e80c32684ae05e4b81": {
+          "sqlLength": 46,
+          "nativeEvidence": {
+            "adapter": {
+              "id": "@typed-sql/sqlserver/native-contracts",
+              "version": "sqlserver-log-guarded-describe-v3"
+            },
+            "columns": [
+              {
+                "descriptor": {
+                  "bindingIdentityKnown": true,
+                  "caseSensitive": false,
+                  "fixedLengthClrType": false,
+                  "maxLength": 8,
+                  "precision": 19,
+                  "scale": 0,
+                  "source": "dm_exec_describe_first_result_set",
+                  "systemTypeId": 127,
+                  "systemTypeName": "bigint",
+                  "xmlDocument": false
+                },
+                "name": "value",
+                "nativeType": { "status": "known", "value": { "complete": true, "name": "bigint" } },
+                "nullable": { "precision": "upper-bound", "status": "known", "value": true },
+                "runtimeType": { "status": "known", "value": "bigint" }
+              }
+            ],
+            "consistency": { "mechanism": "guarded", "scope": "sqlserver-exclusive-log-quiescent-guarded-select-v2" },
+            "parameterOccurrences": [{ "end": 26, "index": 1, "start": 12 }],
+            "parameters": [
+              {
+                "descriptor": {
+                  "bindingIdentityKnown": true,
+                  "caseSensitive": false,
+                  "fixedLengthClrType": false,
+                  "maxLength": 8,
+                  "name": "@__typed_sql_1",
+                  "nativeOrdinal": 1,
+                  "precision": 19,
+                  "scale": 0,
+                  "source": "sp_describe_undeclared_parameters",
+                  "systemTypeId": 127,
+                  "systemTypeName": "bigint",
+                  "xmlDocument": false
+                },
+                "index": 1,
+                "nativeType": { "status": "known", "value": { "complete": true, "name": "bigint" } },
+                "nullable": { "precision": "upper-bound", "status": "known", "value": true },
+                "runtimeType": { "status": "known", "value": "bigint" }
+              }
+            ],
+            "resultKind": "rows"
+          },
+          "qualification": {
+            "comparisons": [
+              {
+                "facet": "acceptance",
+                "index": 0,
+                "nativeStatus": "complete",
+                "reason": "Compare every available successful static claim",
+                "rule": "independent-static-analysis",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "query"
+              },
+              {
+                "facet": "result-shape",
+                "index": 0,
+                "nativeStatus": "complete",
+                "reason": "Compare ordered column labels and parameter slot counts",
+                "rule": "ordered-result-parameter-shape",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "query"
+              },
+              {
+                "facet": "result-kind",
+                "index": 0,
+                "nativeStatus": "complete",
+                "reason": "Statement result kind is independently compared when available",
+                "rule": "native-result-kind",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "query"
+              },
+              {
+                "facet": "native-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Preserve dimensions and explicit collation while retaining incomplete native identity",
+                "rule": "native-system-type-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "column"
+              },
+              {
+                "facet": "runtime-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Compare policy-controlled representations; retain the native bound for JSON shape",
+                "rule": "runtime-representation-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "column"
+              },
+              {
+                "facet": "nullability",
+                "index": 1,
+                "nativeStatus": "partial",
+                "reason": "Unknown or conservative native nullability remains nullable",
+                "rule": "native-nullable-bound",
+                "staticStatus": "known",
+                "status": "widened",
+                "target": "column"
+              },
+              {
+                "facet": "native-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Preserve dimensions and explicit collation while retaining incomplete native identity",
+                "rule": "native-system-type-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "parameter"
+              },
+              {
+                "facet": "runtime-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Compare policy-controlled representations; retain the native bound for JSON shape",
+                "rule": "runtime-representation-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "parameter"
+              },
+              {
+                "facet": "nullability",
+                "index": 1,
+                "nativeStatus": "partial",
+                "reason": "Unknown or conservative native nullability remains nullable",
+                "rule": "native-nullable-bound",
+                "staticStatus": "known",
+                "status": "widened",
+                "target": "parameter"
+              }
+            ],
+            "nativeEvidenceHash": "b7d4e0dd6386aa80b5ea9a0eff3705281583a57d03ed1c8c978bea5a827dfd28",
+            "policy": {
+              "mode": "native-required",
+              "owner": {
+                "id": "@typed-sql/sqlserver/reconciliation",
+                "version": "sqlserver-contract-reconciliation-v3"
+              },
+              "requiredNativeFacets": ["runtime-type"]
+            },
+            "policyHash": "d757a99a0c6fbb14feed0d3d61c64708bcaf0284bcf411d22c72c2eb484be431",
+            "sourceContractHash": "e736fdaa0489891f66fd3f3418a9739ef98f7607bdaf1dec7651309ac5e7678b",
+            "staticClaimHash": "4eb2f41025d8088506a0a6c6b61a19417c1116a1c79eabeafbb8e74b60e9ff61"
+          }
+        }
+      },
       "samples": [
         {
           "attempts": [
             {
-              "contextInspectionMs": 282.960192999999,
-              "staticAnalysisMs": 0.5951300000015181,
-              "acquisitionAndReconciliationMs": 306.85893600000054,
+              "contextInspectionMs": 316.2846139999965,
+              "staticAnalysisMs": 0.6580460000004678,
+              "acquisitionAndReconciliationMs": 330.28274500000043,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "79650be0c31d3d07ebe526f9809d609704c783603c190812faa0c2d136be8b14",
-          "contextDigest": "2b4071c8ecbd291e191cad36339d273306eff03dedd7fa53e752663c3cb23582",
+          "contractDigest": "6a6634e191d0a083d821f8c0062483918671c5f32074fb9efddf4a3e7372d987",
+          "contextDigest": "ec2091d0f3f9d20ea6e8d6a2e81b79b90cebc0fb27bcf45d564a98c87a61044f",
+          "facetObservationDigest": "55054f72a08cb926be379ac48613ff59eb722e35231051e80c32684ae05e4b81",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 6.991840999999113,
-          "durableReloadMs": 5.589083999999275,
-          "cachePublishMs": 35.161989000000176,
-          "coldCacheObjectLookupMs": 39.1316749999969,
-          "warmLookupMs": [30.458975000001374, 27.816311999999016, 32.255356999998185]
+          "durableExportMs": 6.636737000000721,
+          "durableReloadMs": 8.364161999998032,
+          "cachePublishMs": 31.959514999998646,
+          "coldCacheObjectLookupMs": 37.13786400000026,
+          "warmLookupMs": [27.34233399999721, 30.297099999999773, 23.79946999999811]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 301.264562999997,
-              "staticAnalysisMs": 2.8755630000014207,
-              "acquisitionAndReconciliationMs": 307.77130800000305,
+              "contextInspectionMs": 320.93872399999964,
+              "staticAnalysisMs": 2.547452999999223,
+              "acquisitionAndReconciliationMs": 331.1380710000012,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "79650be0c31d3d07ebe526f9809d609704c783603c190812faa0c2d136be8b14",
-          "contextDigest": "2b4071c8ecbd291e191cad36339d273306eff03dedd7fa53e752663c3cb23582",
+          "contractDigest": "6a6634e191d0a083d821f8c0062483918671c5f32074fb9efddf4a3e7372d987",
+          "contextDigest": "ec2091d0f3f9d20ea6e8d6a2e81b79b90cebc0fb27bcf45d564a98c87a61044f",
+          "facetObservationDigest": "55054f72a08cb926be379ac48613ff59eb722e35231051e80c32684ae05e4b81",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 6.964418999999907,
-          "durableReloadMs": 7.045299999997951,
-          "cachePublishMs": 20.85700999999972,
-          "coldCacheObjectLookupMs": 38.81025199999931,
-          "warmLookupMs": [32.730563999997685, 31.11420200000066, 25.28078000000096]
+          "durableExportMs": 6.969271999998455,
+          "durableReloadMs": 4.658391000000847,
+          "cachePublishMs": 32.5599140000013,
+          "coldCacheObjectLookupMs": 36.05764099999942,
+          "warmLookupMs": [29.69897900000069, 23.264098999999987, 35.706663000000844]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 290.1406029999998,
-              "staticAnalysisMs": 2.601683000000776,
-              "acquisitionAndReconciliationMs": 317.5296090000011,
+              "contextInspectionMs": 305.8427330000013,
+              "staticAnalysisMs": 2.5327649999999267,
+              "acquisitionAndReconciliationMs": 329.19155200000023,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "79650be0c31d3d07ebe526f9809d609704c783603c190812faa0c2d136be8b14",
-          "contextDigest": "2b4071c8ecbd291e191cad36339d273306eff03dedd7fa53e752663c3cb23582",
+          "contractDigest": "6a6634e191d0a083d821f8c0062483918671c5f32074fb9efddf4a3e7372d987",
+          "contextDigest": "ec2091d0f3f9d20ea6e8d6a2e81b79b90cebc0fb27bcf45d564a98c87a61044f",
+          "facetObservationDigest": "55054f72a08cb926be379ac48613ff59eb722e35231051e80c32684ae05e4b81",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 7.984390999998141,
-          "durableReloadMs": 4.1644469999992,
-          "cachePublishMs": 27.438583999999537,
-          "coldCacheObjectLookupMs": 43.813443999999436,
-          "warmLookupMs": [30.620859000002383, 25.58697100000063, 34.31341600000087]
+          "durableExportMs": 7.5728500000004715,
+          "durableReloadMs": 6.863690999998653,
+          "cachePublishMs": 26.28862400000071,
+          "coldCacheObjectLookupMs": 32.433382999999594,
+          "warmLookupMs": [22.048643999998603, 19.902298000000883, 26.495883999999933]
         }
       ],
-      "reportDigest": "c915e9fb4d6850e72b0b555a75b7c283e07b4c0c46830df36757e980a9f3d270",
+      "reportDigest": "283f5161328c30973fd2dd6e1deae90c89b53f66c29dbc5714d13f7b8a61cec8",
       "summary": {
         "canonicalContractBytes": { "count": 3, "min": 5064, "median": 5064, "max": 5064 },
         "durableFileBytes": { "count": 3, "min": 5866, "median": 5866, "max": 5866 },
         "cacheFileBytes": { "count": 3, "min": 6513, "median": 6513, "max": 6513 },
         "contextInspectionMs": {
           "count": 3,
-          "min": 282.960192999999,
-          "median": 290.1406029999998,
-          "max": 301.264562999997
+          "min": 305.8427330000013,
+          "median": 316.2846139999965,
+          "max": 320.93872399999964
         },
         "staticAnalysisMs": {
           "count": 3,
-          "min": 0.5951300000015181,
-          "median": 2.601683000000776,
-          "max": 2.8755630000014207
+          "min": 0.6580460000004678,
+          "median": 2.5327649999999267,
+          "max": 2.547452999999223
         },
         "acquisitionAndReconciliationMs": {
           "count": 3,
-          "min": 306.85893600000054,
-          "median": 307.77130800000305,
-          "max": 317.5296090000011
+          "min": 329.19155200000023,
+          "median": 330.28274500000043,
+          "max": 331.1380710000012
         },
         "sumOfQualificationStagesMs": {
           "count": 3,
-          "min": 590.414259000001,
-          "median": 610.2718950000017,
-          "max": 611.9114340000015
+          "min": 637.5670500000015,
+          "median": 647.2254049999974,
+          "max": 654.6242480000001
         },
         "durableExportMs": {
           "count": 3,
-          "min": 6.964418999999907,
-          "median": 6.991840999999113,
-          "max": 7.984390999998141
+          "min": 6.636737000000721,
+          "median": 6.969271999998455,
+          "max": 7.5728500000004715
         },
         "durableReloadMs": {
           "count": 3,
-          "min": 4.1644469999992,
-          "median": 5.589083999999275,
-          "max": 7.045299999997951
+          "min": 4.658391000000847,
+          "median": 6.863690999998653,
+          "max": 8.364161999998032
         },
         "cachePublishMs": {
           "count": 3,
-          "min": 20.85700999999972,
-          "median": 27.438583999999537,
-          "max": 35.161989000000176
+          "min": 26.28862400000071,
+          "median": 31.959514999998646,
+          "max": 32.5599140000013
         },
         "coldCacheObjectLookupMs": {
           "count": 3,
-          "min": 38.81025199999931,
-          "median": 39.1316749999969,
-          "max": 43.813443999999436
+          "min": 32.433382999999594,
+          "median": 36.05764099999942,
+          "max": 37.13786400000026
         },
-        "warmLookupMs": { "count": 9, "min": 25.28078000000096, "median": 30.620859000002383, "max": 34.31341600000087 }
+        "warmLookupMs": {
+          "count": 9,
+          "min": 19.902298000000883,
+          "median": 26.495883999999933,
+          "max": 35.706663000000844
+        }
       }
     },
     {
-      "formatVersion": 1,
-      "sourceRevision": "12f93112ca31725c5f8a2698f30f357dd88a1b67",
-      "toolDigest": "6df0f7c0342a6e74386714c96d110ae9d15d5a5c292eefdf1d7c34b213d75d16",
+      "formatVersion": 2,
+      "sourceRevision": "b24cedd87f74e756265aa8d80477e162eea23f7a",
+      "toolDigest": "f001eb36771bbcd97a474da387f52f741ba33846e4670339f4d09ab8ecfbcbfd",
       "label": "sqlserver-17.0.5035.5-compat-170",
       "serverVersion": "17.0.5035.5",
       "grammar": { "id": "sqlserver", "version": "1.0.0" },
-      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v2" },
+      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v3" },
       "sqlDigest": "19693d330c1a76f7ab048138effdc367c76b9db95c9a046b28b0dc694401eb01",
       "parameterOccurrences": 1,
       "fixtureSchema": {
@@ -2978,128 +4451,298 @@
         "scope": "Owner-fixture compiler input; not a complete server catalog or application workload"
       },
       "environment": { "node": "v24.22.2", "platform": "linux", "architecture": "x64" },
+      "facetObservations": {
+        "7f091b69fe4b64df0100cb42aa70e09ad0d1a9372fe527c6e80427b6ed996253": {
+          "sqlLength": 46,
+          "nativeEvidence": {
+            "adapter": {
+              "id": "@typed-sql/sqlserver/native-contracts",
+              "version": "sqlserver-log-guarded-describe-v3"
+            },
+            "columns": [
+              {
+                "descriptor": {
+                  "bindingIdentityKnown": true,
+                  "caseSensitive": false,
+                  "fixedLengthClrType": false,
+                  "maxLength": 8,
+                  "precision": 19,
+                  "scale": 0,
+                  "source": "dm_exec_describe_first_result_set",
+                  "systemTypeId": 127,
+                  "systemTypeName": "bigint",
+                  "xmlDocument": false
+                },
+                "name": "value",
+                "nativeType": { "status": "known", "value": { "complete": true, "name": "bigint" } },
+                "nullable": { "precision": "upper-bound", "status": "known", "value": true },
+                "runtimeType": { "status": "known", "value": "bigint" }
+              }
+            ],
+            "consistency": { "mechanism": "guarded", "scope": "sqlserver-exclusive-log-quiescent-guarded-select-v2" },
+            "parameterOccurrences": [{ "end": 26, "index": 1, "start": 12 }],
+            "parameters": [
+              {
+                "descriptor": {
+                  "bindingIdentityKnown": true,
+                  "caseSensitive": false,
+                  "fixedLengthClrType": false,
+                  "maxLength": 8,
+                  "name": "@__typed_sql_1",
+                  "nativeOrdinal": 1,
+                  "precision": 19,
+                  "scale": 0,
+                  "source": "sp_describe_undeclared_parameters",
+                  "systemTypeId": 127,
+                  "systemTypeName": "bigint",
+                  "xmlDocument": false
+                },
+                "index": 1,
+                "nativeType": { "status": "known", "value": { "complete": true, "name": "bigint" } },
+                "nullable": { "precision": "upper-bound", "status": "known", "value": true },
+                "runtimeType": { "status": "known", "value": "bigint" }
+              }
+            ],
+            "resultKind": "rows"
+          },
+          "qualification": {
+            "comparisons": [
+              {
+                "facet": "acceptance",
+                "index": 0,
+                "nativeStatus": "complete",
+                "reason": "Compare every available successful static claim",
+                "rule": "independent-static-analysis",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "query"
+              },
+              {
+                "facet": "result-shape",
+                "index": 0,
+                "nativeStatus": "complete",
+                "reason": "Compare ordered column labels and parameter slot counts",
+                "rule": "ordered-result-parameter-shape",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "query"
+              },
+              {
+                "facet": "result-kind",
+                "index": 0,
+                "nativeStatus": "complete",
+                "reason": "Statement result kind is independently compared when available",
+                "rule": "native-result-kind",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "query"
+              },
+              {
+                "facet": "native-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Preserve dimensions and explicit collation while retaining incomplete native identity",
+                "rule": "native-system-type-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "column"
+              },
+              {
+                "facet": "runtime-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Compare policy-controlled representations; retain the native bound for JSON shape",
+                "rule": "runtime-representation-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "column"
+              },
+              {
+                "facet": "nullability",
+                "index": 1,
+                "nativeStatus": "partial",
+                "reason": "Unknown or conservative native nullability remains nullable",
+                "rule": "native-nullable-bound",
+                "staticStatus": "known",
+                "status": "widened",
+                "target": "column"
+              },
+              {
+                "facet": "native-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Preserve dimensions and explicit collation while retaining incomplete native identity",
+                "rule": "native-system-type-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "parameter"
+              },
+              {
+                "facet": "runtime-type",
+                "index": 1,
+                "nativeStatus": "complete",
+                "reason": "Compare policy-controlled representations; retain the native bound for JSON shape",
+                "rule": "runtime-representation-equality",
+                "staticStatus": "known",
+                "status": "compatible",
+                "target": "parameter"
+              },
+              {
+                "facet": "nullability",
+                "index": 1,
+                "nativeStatus": "partial",
+                "reason": "Unknown or conservative native nullability remains nullable",
+                "rule": "native-nullable-bound",
+                "staticStatus": "known",
+                "status": "widened",
+                "target": "parameter"
+              }
+            ],
+            "nativeEvidenceHash": "b7d4e0dd6386aa80b5ea9a0eff3705281583a57d03ed1c8c978bea5a827dfd28",
+            "policy": {
+              "mode": "native-required",
+              "owner": {
+                "id": "@typed-sql/sqlserver/reconciliation",
+                "version": "sqlserver-contract-reconciliation-v3"
+              },
+              "requiredNativeFacets": ["runtime-type"]
+            },
+            "policyHash": "d757a99a0c6fbb14feed0d3d61c64708bcaf0284bcf411d22c72c2eb484be431",
+            "sourceContractHash": "de628bac6d9d87272f0822b72e732d7e7a3807ab5ec7137794a338d20b885c7c",
+            "staticClaimHash": "bcd2fae43fe118b692f0db1198196c5def74a1bfccc6413c08c6272afcaf0fab"
+          }
+        }
+      },
       "samples": [
         {
           "attempts": [
             {
-              "contextInspectionMs": 302.19766999999774,
-              "staticAnalysisMs": 0.5842689999990398,
-              "acquisitionAndReconciliationMs": 308.5364359999985,
+              "contextInspectionMs": 310.55026499999803,
+              "staticAnalysisMs": 0.6651469999997062,
+              "acquisitionAndReconciliationMs": 327.99520499999926,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "c33fd840a8799039b1b4b045c5dbf9a0e605d350dbd6e2457e0d61ebd7b92632",
-          "contextDigest": "ce4cd404e6a30a80b0e50f240d2a5ae4947c0354fc665ac50bf4a913c5e6c7fa",
+          "contractDigest": "9d02c1e0465cdc3cb0ec77c31c2e266cd64dd14ecf7dc1d8b8e89e7bfbf1c3f5",
+          "contextDigest": "197fac274a7eb4d8355760e9ec155496692e6b7f3a77f922d081beb437e80d96",
+          "facetObservationDigest": "7f091b69fe4b64df0100cb42aa70e09ad0d1a9372fe527c6e80427b6ed996253",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 7.543145999999979,
-          "durableReloadMs": 5.74096500000087,
-          "cachePublishMs": 38.93260000000009,
-          "coldCacheObjectLookupMs": 41.50650300000052,
-          "warmLookupMs": [27.07097199999771, 30.7944920000009, 27.134902999998303]
+          "durableExportMs": 6.393482999999833,
+          "durableReloadMs": 11.602155000000494,
+          "cachePublishMs": 24.677390999997442,
+          "coldCacheObjectLookupMs": 33.406190000001516,
+          "warmLookupMs": [19.46301400000084, 32.34543799999665, 32.81453799999872]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 305.7768929999984,
-              "staticAnalysisMs": 2.5520480000013777,
-              "acquisitionAndReconciliationMs": 307.677254000002,
+              "contextInspectionMs": 310.64628000000084,
+              "staticAnalysisMs": 2.3847740000055637,
+              "acquisitionAndReconciliationMs": 329.44652200000564,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "c33fd840a8799039b1b4b045c5dbf9a0e605d350dbd6e2457e0d61ebd7b92632",
-          "contextDigest": "ce4cd404e6a30a80b0e50f240d2a5ae4947c0354fc665ac50bf4a913c5e6c7fa",
+          "contractDigest": "9d02c1e0465cdc3cb0ec77c31c2e266cd64dd14ecf7dc1d8b8e89e7bfbf1c3f5",
+          "contextDigest": "197fac274a7eb4d8355760e9ec155496692e6b7f3a77f922d081beb437e80d96",
+          "facetObservationDigest": "7f091b69fe4b64df0100cb42aa70e09ad0d1a9372fe527c6e80427b6ed996253",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 6.739907999999559,
-          "durableReloadMs": 3.0923559999973804,
-          "cachePublishMs": 29.116243000000395,
-          "coldCacheObjectLookupMs": 40.746312999999645,
-          "warmLookupMs": [34.65709799999968, 26.277063000001363, 30.274865999999747]
+          "durableExportMs": 7.199870000004012,
+          "durableReloadMs": 4.023662999999942,
+          "cachePublishMs": 21.86292400000093,
+          "coldCacheObjectLookupMs": 31.726142999999865,
+          "warmLookupMs": [28.888447000004817, 12.338555000002088, 13.688067999995837]
         },
         {
           "attempts": [
             {
-              "contextInspectionMs": 304.06348699999944,
-              "staticAnalysisMs": 2.7525930000010703,
-              "acquisitionAndReconciliationMs": 309.06352100000004,
+              "contextInspectionMs": 310.85951199999545,
+              "staticAnalysisMs": 2.5785409999953117,
+              "acquisitionAndReconciliationMs": 321.45832099999825,
               "outcome": "usable-recorded-context"
             }
           ],
-          "contractDigest": "c33fd840a8799039b1b4b045c5dbf9a0e605d350dbd6e2457e0d61ebd7b92632",
-          "contextDigest": "ce4cd404e6a30a80b0e50f240d2a5ae4947c0354fc665ac50bf4a913c5e6c7fa",
+          "contractDigest": "9d02c1e0465cdc3cb0ec77c31c2e266cd64dd14ecf7dc1d8b8e89e7bfbf1c3f5",
+          "contextDigest": "197fac274a7eb4d8355760e9ec155496692e6b7f3a77f922d081beb437e80d96",
+          "facetObservationDigest": "7f091b69fe4b64df0100cb42aa70e09ad0d1a9372fe527c6e80427b6ed996253",
           "canonicalContractBytes": 5064,
           "nativeEvidenceBytes": 1247,
           "valuePlanBytes": 275,
           "durable": { "bytes": 5866, "files": 3 },
           "cache": { "bytes": 6513, "files": 5 },
-          "durableExportMs": 6.793517999998585,
-          "durableReloadMs": 7.1967509999994945,
-          "cachePublishMs": 27.282392999997683,
-          "coldCacheObjectLookupMs": 24.56425699999818,
-          "warmLookupMs": [17.340205000000424, 19.14735500000097, 6.008926000002248]
+          "durableExportMs": 7.323429999996733,
+          "durableReloadMs": 4.000622999999905,
+          "cachePublishMs": 15.935146999996505,
+          "coldCacheObjectLookupMs": 27.557238000001234,
+          "warmLookupMs": [19.270658000001276, 18.654649999996764, 15.211324000003515]
         }
       ],
-      "reportDigest": "1336451a49870679963610423ec13a49f39139e7020a6f81b3fdd53684b64d16",
+      "reportDigest": "bdbe04a86040369759104e34d6505cdd60974b4d21ee1f46aa88f278439fa549",
       "summary": {
         "canonicalContractBytes": { "count": 3, "min": 5064, "median": 5064, "max": 5064 },
         "durableFileBytes": { "count": 3, "min": 5866, "median": 5866, "max": 5866 },
         "cacheFileBytes": { "count": 3, "min": 6513, "median": 6513, "max": 6513 },
         "contextInspectionMs": {
           "count": 3,
-          "min": 302.19766999999774,
-          "median": 304.06348699999944,
-          "max": 305.7768929999984
+          "min": 310.55026499999803,
+          "median": 310.64628000000084,
+          "max": 310.85951199999545
         },
         "staticAnalysisMs": {
           "count": 3,
-          "min": 0.5842689999990398,
-          "median": 2.5520480000013777,
-          "max": 2.7525930000010703
+          "min": 0.6651469999997062,
+          "median": 2.3847740000055637,
+          "max": 2.5785409999953117
         },
         "acquisitionAndReconciliationMs": {
           "count": 3,
-          "min": 307.677254000002,
-          "median": 308.5364359999985,
-          "max": 309.06352100000004
+          "min": 321.45832099999825,
+          "median": 327.99520499999926,
+          "max": 329.44652200000564
         },
         "sumOfQualificationStagesMs": {
           "count": 3,
-          "min": 611.3183749999953,
-          "median": 615.8796010000005,
-          "max": 616.0061950000018
+          "min": 634.896373999989,
+          "median": 639.210616999997,
+          "max": 642.477576000012
         },
         "durableExportMs": {
           "count": 3,
-          "min": 6.739907999999559,
-          "median": 6.793517999998585,
-          "max": 7.543145999999979
+          "min": 6.393482999999833,
+          "median": 7.199870000004012,
+          "max": 7.323429999996733
         },
         "durableReloadMs": {
           "count": 3,
-          "min": 3.0923559999973804,
-          "median": 5.74096500000087,
-          "max": 7.1967509999994945
+          "min": 4.000622999999905,
+          "median": 4.023662999999942,
+          "max": 11.602155000000494
         },
         "cachePublishMs": {
           "count": 3,
-          "min": 27.282392999997683,
-          "median": 29.116243000000395,
-          "max": 38.93260000000009
+          "min": 15.935146999996505,
+          "median": 21.86292400000093,
+          "max": 24.677390999997442
         },
         "coldCacheObjectLookupMs": {
           "count": 3,
-          "min": 24.56425699999818,
-          "median": 40.746312999999645,
-          "max": 41.50650300000052
+          "min": 27.557238000001234,
+          "median": 31.726142999999865,
+          "max": 33.406190000001516
         },
-        "warmLookupMs": { "count": 9, "min": 6.008926000002248, "median": 27.07097199999771, "max": 34.65709799999968 }
+        "warmLookupMs": {
+          "count": 9,
+          "min": 12.338555000002088,
+          "median": 19.270658000001276,
+          "max": 32.81453799999872
+        }
       }
     }
   ]
