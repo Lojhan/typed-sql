@@ -124,7 +124,7 @@ acquire its own context and reject every other build’s context while compiler 
 policy and codec identities remain equal. The audit fingerprints actual SQLite version,
 source ID and compile options, requires distinct builds and checks the database bytes remain
 unchanged. Local Node 24.10.0 / 24.22.2 runs pass both 3.50.4 / 3.53.4 directions and cleanup;
-duplicate actual builds fail qualification. Required CI pairs its Node 24 and 26 executables
+duplicate actual builds fail qualification. The committed local capture identifies producer `eae1274d8debd90af9c4b2ffa1ab8cbd1e3227bd`; its collector digest matches that Git blob. Required CI pairs its Node 24 and 26 executables
 and uploads provenance plus the database digest. That new hosted pair remains pending.
 This establishes context separation across those builds, not arbitrary database-file upgrade
 compatibility or descriptor qualification of every build.

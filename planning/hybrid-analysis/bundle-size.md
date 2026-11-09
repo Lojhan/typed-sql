@@ -1,6 +1,6 @@
 # Bundle and installation measurements
 
-The [bundle JSON](./bundle-measurements.json) and [installation JSON](./installation-measurements.json) measure committed source `6e11aa023252a3f9be4d28a6a32ea4aed84a88ed`. Bundles compare against `a1f27fc894e48021e91ce4c9a4b98929890f233d` using the same tool, Node v24.22.2, esbuild 0.28.2, minified ESM, Node platform, ES2022, tree-shaking, gzip level 9 and Brotli quality 11. Sizes below use KiB (1,024 bytes) or MiB (1,048,576 bytes).
+The [bundle JSON](./bundle-measurements.json) and [installation JSON](./installation-measurements.json) measure committed source `eae1274d8debd90af9c4b2ffa1ab8cbd1e3227bd`. Bundles compare against `a1f27fc894e48021e91ce4c9a4b98929890f233d` using the same tool, Node v24.22.2, esbuild 0.28.2, minified ESM, Node platform, ES2022, tree-shaking, gzip level 9 and Brotli quality 11. Sizes below use KiB (1,024 bytes) or MiB (1,048,576 bytes).
 
 ## Compatibility analyzers
 
@@ -67,7 +67,7 @@ Root/query tags, profiles and frozen hosts retain zero global catalog inputs. Fr
 | --- | --- | --- | --- | --- |
 | duckdb | 2.11 | 3.66 | 4.39 | 257.0 |
 | mysql | 1.07 | 2.62 | 3.34 | 206.9 |
-| postgres | 2.19 | 6.61 | 7.34 | 341.9 |
+| postgres | 2.19 | 6.62 | 7.34 | 341.9 |
 | sqlite | 0.76 | 2.31 | 3.03 | 142.7 |
 | sqlserver | 0.95 | 2.50 | 3.23 | 196.5 |
 

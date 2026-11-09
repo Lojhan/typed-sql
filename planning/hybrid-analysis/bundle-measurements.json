@@ -1,6 +1,6 @@
 {
   "formatVersion": 2,
-  "sourceRevision": "6e11aa023252a3f9be4d28a6a32ea4aed84a88ed",
+  "sourceRevision": "eae1274d8debd90af9c4b2ffa1ab8cbd1e3227bd",
   "nodeVersion": "v24.22.2",
   "esbuildVersion": "0.28.2",
   "measurementToolDigest": "dc40a67dc6020756ad046212866c23512282904af1aba29c572d93170931ef5e",
@@ -1315,7 +1315,7 @@
     "packages/analysis/src/dialect.ts": "f67f6777ba6abb6f28d186a60949710d4c373090dd76ecb220b3b91bd04d9c1b",
     "packages/analysis/src/index.ts": "67bfb54e49a579f152f48f98d12908168cae047e0a9f12cf342d10c524423875",
     "packages/analysis/src/live-catalog.ts": "6f959ae34a530b1f1c838212bd51eda6302a19c52acd819edd586edd34d15b90",
-    "packages/analysis/src/live-session.ts": "c48968e6f7d821a8a03759fa33ecc560dab3872c9728f64cee24d482dbe00e4b",
+    "packages/analysis/src/live-session.ts": "fcfc53978d5b658219859b0c7ee60be724744e01d1f4feac47bcfdcfaae05270",
     "packages/analysis/src/live-view.ts": "a5a081c93cb1dde3efcf5a88b493bf3eb31ea3daacad66e09e8d0d9eb46e476d",
     "packages/analysis/src/live.ts": "f2de925e330710942bef2059194efeca533fecbd3cd832465c95e913b93dda9b",
     "packages/analysis/src/native-context.ts": "00fe5720a092ca70bae494fd886eb08b0a22d9d277b1094f8ba2063c4b6f5db0",
