@@ -88,7 +88,9 @@ runtime code:
   qualified subsets, rejection/unavailability reasons, timing and disconnected replay across
   sixteen owner profiles. The offline commerce result is not native statement admission.
 
-Each report identifies its committed producer. A later source change needs refreshed measurements
+Bundle, repository, installation and project reports now share committed production source
+`5e9f5ae7aaa96eac7f666827d3b6b0dc67f6a987`, including the cache-generation fix. The isolated
+performance gate also passes with unchanged budgets. Each report identifies its committed producer. A later source change needs refreshed measurements
 before its results can be called the final after-results. Root quality checks rendered tables
 against their JSON. Measured example coverage is not a production-popularity estimate.
 
