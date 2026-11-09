@@ -20,6 +20,7 @@ import { duckDBParameterOccurrences } from "../src/parser/parser.js";
 import { createDuckDBContractReconciler } from "../src/reconciliation.js";
 import type { DuckDBSchemaSnapshot } from "../src/snapshot.js";
 import { defaultDuckDBTypePolicy } from "../src/type-policy.js";
+import { captureDuckDBDescriptorInventory } from "./helpers/descriptor-inventory.js";
 import { fixtureEvidence } from "./helpers/evidence.js";
 
 const sdk: typeof import("@duckdb/node-api") = await import(
@@ -39,6 +40,15 @@ const candidate = (sql: string) => ({
 });
 
 await describe("DuckDB non-executing native query contracts", async () => {
+  await it("audits discovered native type names and constructed descriptors without executing candidates", async () => {
+    const report = await captureDuckDBDescriptorInventory(sdk);
+    strict.equal(report.engine, sdk.version());
+    strict.ok(report.inventory.length > 0);
+    strict.equal(
+      report.observations.filter(({ origin }) => origin === "catalog-bare-type").length,
+      report.inventory.length * 2,
+    );
+  });
   await it("matches complete pinned keyword inventories and source-owned identifier contexts", async () => {
     const instance = await sdk.DuckDBInstance.create();
     const connection = await instance.connect();
@@ -423,7 +433,11 @@ await describe("DuckDB non-executing native query contracts", async () => {
     // No input metadata is needed for this setting-dependent result descriptor.
     const sql = candidate("SELECT 5 / 2 AS value");
     const baseline = await acquireNativeQueryContract({ adapter: normal, context: before, candidate: sql });
-    strict.equal(baseline.status, "acquired", JSON.stringify(baseline));
+    strict.equal(
+      baseline.status,
+      "acquired",
+      baseline.status === "acquired" ? "Original context acquires" : JSON.stringify(baseline),
+    );
     const changed = createNodeDuckDBNativeContractAdapter({
       ...options,
       sdkImporter: async () => alteredSDK(["SET integer_division=true"]),

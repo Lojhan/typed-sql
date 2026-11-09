@@ -78,6 +78,14 @@ jobs:
       - run: pnpm verify
         env:
           TYPED_SQL_PERFORMANCE_ARTIFACT: artifacts/performance/ci.json
+          TYPED_SQL_NATIVE_DESCRIPTOR_DIRECTORY: ${{ github.workspace }}/artifacts/native-descriptors
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: typed-sql-native-descriptors-${{ github.run_attempt }}
+          path: artifacts/native-descriptors
+          if-no-files-found: warn
+          retention-days: 14
       - if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
