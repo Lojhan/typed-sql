@@ -254,6 +254,29 @@ await describe("owned disposable analysis cache", async () => {
       strict.equal((await cache.lookup(requests[1]!)).cached?.outcome.kind, "usable-recorded-context");
     });
   });
+  await it("does not starve concurrent cache handles within one process", async () => {
+    await temporary(async (directory) => {
+      await openAnalysisCache({ directory, workspaceContext: hash });
+      const writers = await Promise.all(
+        Array.from({ length: 16 }, () => openAnalysisCache({ directory, workspaceContext: hash })),
+      );
+      const results = await Promise.allSettled(
+        writers.map(async (cache, writer) => {
+          for (let item = 0; item < 8; item++) {
+            const request = fixture(`SELECT ${writer * 8 + item} AS value`);
+            const { token } = await cache.lookup(request);
+            strict.equal((await cache.publish({ token, request, outcome: negative })).status, "published");
+          }
+        }),
+      );
+      strict.deepEqual(
+        results.map(({ status }) => status),
+        Array.from({ length: 16 }, () => "fulfilled"),
+      );
+      for (let item = 0; item < 128; item++)
+        strict.equal((await writers[0]!.lookup(fixture(`SELECT ${item} AS value`))).cached?.outcome.kind, "rejected");
+    });
+  });
   await it("serializes real process writers and preserves all referenced objects during a competing prune", async () => {
     await temporary(async (directory) => {
       const cache = await openAnalysisCache({ directory, workspaceContext: hash });

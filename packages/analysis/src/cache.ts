@@ -258,6 +258,10 @@ async function names(path: string): Promise<string[]> {
   return result;
 }
 
+// The filesystem lock coordinates processes. A FIFO per resolved cache directory prevents handles
+// in one process from exhausting its retry budget by competing with each other.
+const publicationQueues = new Map<string, Promise<void>>();
+
 /** Opens owned disposable storage. It never connects, executes SQL, or writes durable compiler inputs. */
 export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<AnalysisCache> {
   hash(options.workspaceContext);
@@ -319,43 +323,55 @@ export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<
   await cacheDirectory(path.locks);
   let instance: string | undefined;
   const withLock = async <Value>(run: (assertLock: () => Promise<void>) => Promise<Value>): Promise<Value> => {
-    await cacheDirectory(root);
-    await cacheDirectory(path.locks);
-    const existing = await lstat(path.lock).catch((error) => {
-      if (!cacheMissing(error)) throw error;
-      return undefined;
+    const previous = publicationQueues.get(root) ?? Promise.resolve();
+    let releaseQueue!: () => void;
+    const queued = new Promise<void>((resolve) => {
+      releaseQueue = resolve;
     });
-    if (existing && (!existing.isDirectory() || existing.isSymbolicLink()))
-      throw new TypeError("Unsafe analysis cache lock");
-    let compromised: Error | undefined;
-    const { lock } = await import("proper-lockfile");
-    const release = await lock(root, {
-      realpath: false,
-      lockfilePath: path.lock,
-      stale: 10_000,
-      update: 2_000,
-      retries: { retries: 8, minTimeout: 10, maxTimeout: 100, factor: 1.5, randomize: true },
-      onCompromised: (error) => {
-        compromised = error;
-      },
-    });
+    publicationQueues.set(root, queued);
+    await previous;
     try {
-      const leased = await lstat(path.lock);
-      const assertLock = async () => {
-        if (compromised) throw new Error("Analysis cache publication lock lost", { cause: compromised });
-        const current = await lstat(path.lock);
-        if (
-          !current.isDirectory() ||
-          current.isSymbolicLink() ||
-          current.ino !== leased.ino ||
-          current.dev !== leased.dev
-        )
-          throw new Error("Analysis cache publication lock replaced");
-      };
-      await assertLock();
-      return await run(assertLock);
+      await cacheDirectory(root);
+      await cacheDirectory(path.locks);
+      const existing = await lstat(path.lock).catch((error) => {
+        if (!cacheMissing(error)) throw error;
+        return undefined;
+      });
+      if (existing && (!existing.isDirectory() || existing.isSymbolicLink()))
+        throw new TypeError("Unsafe analysis cache lock");
+      let compromised: Error | undefined;
+      const { lock } = await import("proper-lockfile");
+      const release = await lock(root, {
+        realpath: false,
+        lockfilePath: path.lock,
+        stale: 10_000,
+        update: 2_000,
+        retries: { retries: 8, minTimeout: 10, maxTimeout: 100, factor: 1.5, randomize: true },
+        onCompromised: (error) => {
+          compromised = error;
+        },
+      });
+      try {
+        const leased = await lstat(path.lock);
+        const assertLock = async () => {
+          if (compromised) throw new Error("Analysis cache publication lock lost", { cause: compromised });
+          const current = await lstat(path.lock);
+          if (
+            !current.isDirectory() ||
+            current.isSymbolicLink() ||
+            current.ino !== leased.ino ||
+            current.dev !== leased.dev
+          )
+            throw new Error("Analysis cache publication lock replaced");
+        };
+        await assertLock();
+        return await run(assertLock);
+      } finally {
+        await release();
+      }
     } finally {
-      await release();
+      releaseQueue();
+      if (publicationQueues.get(root) === queued) publicationQueues.delete(root);
     }
   };
   const layout = async () => {
