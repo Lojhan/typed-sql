@@ -73,6 +73,7 @@ function fixture() {
   let lsn = "00000001:00000001:0001",
     version = "17.0.5035.5",
     dateFirst = 7,
+    defaultSchema = "dbo",
     visible = 1;
   let hook = async (_sql: string, _values: readonly unknown[]) => {};
   let columns: readonly Record<string, unknown>[] = [column],
@@ -119,7 +120,13 @@ function fixture() {
           else {
             result = await base.query(sql, values);
             if (sql === sqlServerServerQueries.server)
-              result = result.map((row) => ({ ...row, version, date_first: dateFirst, can_view_definition: visible }));
+              result = result.map((row) => ({
+                ...row,
+                version,
+                date_first: dateFirst,
+                default_schema: defaultSchema,
+                can_view_definition: visible,
+              }));
           }
           return result as readonly Row[];
         },
@@ -144,6 +151,9 @@ function fixture() {
     },
     set lsn(value) {
       lsn = value;
+    },
+    set defaultSchema(value: string) {
+      defaultSchema = value;
     },
     set dateFirst(value: number) {
       dateFirst = value;
@@ -196,6 +206,31 @@ function tableFixture() {
 }
 
 await describe("guarded SQL Server contract acquisition", async () => {
+  await it("rejects prior contexts when only the native default schema changes", async () => {
+    const f = fixture();
+    const adapter = createSqlServerNativeContractAdapter({ pool: f.pool, schema });
+    const before = await adapter.inspectContext();
+    f.defaultSchema = "alternate";
+    const after = await adapter.inspectContext();
+    strict.equal(after.schemaHash, before.schemaHash);
+    strict.equal(after.codecHash, before.codecHash);
+    strict.notEqual(after.databaseContextHash, before.databaseContextHash);
+    let descriptions = 0;
+    f.hook = async (sql) => {
+      if (sql === sqlServerContractDescriptionQueries.columns || sql === sqlServerContractDescriptionQueries.parameters)
+        descriptions++;
+    };
+    strict.deepEqual(await acquireNativeQueryContract({ adapter, context: before, candidate: candidate() }), {
+      status: "unavailable",
+      reason: "context-mismatch",
+    });
+    strict.equal(descriptions, 0);
+    strict.equal(
+      (await acquireNativeQueryContract({ adapter, context: after, candidate: candidate() })).status,
+      "acquired",
+    );
+    strict.ok(descriptions > 0);
+  });
   await it("keeps login names and SIDs distinct even when database tokens and permissions match", async () => {
     for (const field of ["original_login", "current_login", "login_sid", "database_user", "database_user_sid"]) {
       const f = fixture();

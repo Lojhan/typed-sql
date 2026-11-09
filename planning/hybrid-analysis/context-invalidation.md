@@ -11,7 +11,7 @@ authorization, schema or session settings to manufacture a compatible context.
 | MySQL 8.4.11 / 9.7.2 | Actual principal, direct grant, active role and effective role grant changes reject prior context | Actual selected-database change rejects prior context | Actual time-zone change rejects prior context; changed SQL mode declines qualification | Actual BIGINT policy change changes identities and rejects reuse on both engines | Both exact engines run independently; replacement using an old context remains unverified |
 | DuckDB 1.5.6 / 2.0.0 | The supported owned embedded connection has no database-user authorization API; host file authorization is outside native metadata | Actual nondefault search-path mutation declines context inspection and old-context acquisition | Actual integer-division setting mutation changes the native result type and rejects prior context with unchanged compiler schema and codec policy | Actual BIGINT policy change changes identities and rejects reuse on both engines | Each engine acquires its own context and rejects the other engine's recorded context, in separate processes with the same compiler schema/policy |
 | SQLite 3.53.4, Node 24.22.2 | The supported embedded connection has no database-user authorization API; host file authorization is outside native metadata | Worker authorizer admits the main database only; arbitrary attachments/search paths are outside the profile | Owned worker forces its declared read-only settings; setting mutation is outside the worker protocol | Actual integer policy change changes identities and rejects reuse | Actual version/source/compile-option evidence is fingerprinted; engine replacement remains unverified |
-| SQL Server 14–17, ten compatibility pairs | Actual grant/revoke and distinct-login impersonation reject prior context on all ten pairs; login names and SIDs are fingerprinted | Two-part ordinary local tables only; default-schema mutation remains unverified | Actual DATEFIRST mutation declines inspection and old-context acquisition on all ten pairs | Actual BIGINT policy mutation rejects prior context on all ten pairs | Each exact engine/compatibility pair runs independently; replacement using an old context remains unverified |
+| SQL Server 14–17, ten compatibility pairs | Actual grant/revoke and distinct-login impersonation reject prior context on all ten pairs; login names and SIDs are fingerprinted | Two-part ordinary local tables only; same-principal default-schema mutation fixture is implemented, with hosted proof pending | Actual DATEFIRST mutation declines inspection and old-context acquisition on all ten pairs | Actual BIGINT policy mutation rejects prior context on all ten pairs | Each exact engine/compatibility pair runs independently; replacement using an old context remains unverified |
 
 PostgreSQL mutation proof is in [postgres-context-mutations.ts](../../test/helpers/postgres-context-mutations.ts).
 It keeps the compiler schema fixed while changing the actual native environment, then attempts
@@ -70,6 +70,20 @@ probe creates a disposable server login before baseline capture, impersonates it
 exclusive lease and requires old-context rejection with unchanged compiler schema and codec.
 It also changes DATEFIRST and requires unsupported-context failure. Login/database cleanup is
 recorded even on failure. All new cases pass on all ten hosted engine/compatibility pairs in [run 42610820237](https://github.com/Lojhan/typed-sql/actions/runs/42610820237). The artifacts record 150 passed native cases and successful database/login cleanup. The native cost/facet records are refreshed from the tested v4 producer; earlier v3 observations remain historical evidence.
+
+The default-schema regression now uses a separate non-sysadmin login with a mapped database
+user and owned metadata permissions. SQL Server ignores DEFAULT_SCHEMA for sysadmins
+([ALTER USER reference](https://learn.microsoft.com/en-us/sql/t-sql/statements/alter-user-transact-sql)),
+so changing the existing sysadmin fixture would not prove a resolution change. The fixture
+records the actual default schema, database user, current login and non-sysadmin status before
+and after ALTER USER; it requires that only the default schema changes in that evidence. It
+holds compiler schema/codec identities fixed, acquires before the change, rejects the old
+context after the change and acquires with the fresh context. The default schema is restored,
+and the owned login is dropped even on failure. Server-state permissions follow the actual
+engine requirement ([metadata API reference](https://learn.microsoft.com/en-us/sql/relational-databases/system-dynamic-management-objects/sys-dm-exec-connections-transact-sql)).
+A unit control changes only the native default-schema field and verifies rejection before any
+candidate-description call. This is implemented regression coverage; all ten actual hosted
+executions are still required before the mutation matrix can claim native proof.
 
 Schema/routine changes already have separate native evidence: PostgreSQL routine and table
 mutations, MySQL table DDL, SQLite schema-version changes, DuckDB macro/catalog changes, and

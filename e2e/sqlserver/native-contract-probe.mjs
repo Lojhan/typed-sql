@@ -49,6 +49,8 @@ async function stableContext(adapter, compatibility, stage) {
 }
 let created = false;
 let principalCreated = false;
+let resolutionPrincipalCreated = false;
+const resolutionPrincipal = `${name}_resolution`;
 const principal = `${name}_principal`;
 const failures = [];
 const profile = sqlserverProfile();
@@ -107,6 +109,23 @@ try {
   );
   principalCreated = true;
   await admin.queryable.all(`ALTER SERVER ROLE sysadmin ADD MEMBER [${principal}]`);
+  // DEFAULT_SCHEMA is ignored for sysadmin logins; use a distinct non-sysadmin with owned metadata access.
+  await admin.queryable.all(
+    `CREATE LOGIN [${resolutionPrincipal}] WITH PASSWORD='Audit_1_${randomBytes(24).toString("hex")}',CHECK_POLICY=OFF`,
+  );
+  resolutionPrincipalCreated = true;
+  await admin.queryable.all(`GRANT VIEW SERVER STATE TO [${resolutionPrincipal}]`);
+  if (major >= 16) await admin.queryable.all(`GRANT VIEW SERVER PERFORMANCE STATE TO [${resolutionPrincipal}]`);
+  const resolutionSetup = await createSqlServerOdbcDatabase({ connectionString: dsn(name) });
+  try {
+    await resolutionSetup.queryable.all("CREATE SCHEMA contract_resolution");
+    await resolutionSetup.queryable.all(
+      `CREATE USER [${resolutionPrincipal}] FOR LOGIN [${resolutionPrincipal}] WITH DEFAULT_SCHEMA=dbo`,
+    );
+    await resolutionSetup.queryable.all(`ALTER ROLE db_owner ADD MEMBER [${resolutionPrincipal}]`);
+  } finally {
+    await resolutionSetup.close();
+  }
   for (const compatibility of [140, 150, 160, 170].filter((level) => level <= major * 10)) {
     await admin.queryable.all(`ALTER DATABASE [${name}] SET COMPATIBILITY_LEVEL=${compatibility}`);
     const connection = await createSqlServerOdbcDatabase({ connectionString: dsn(name) });
@@ -149,6 +168,77 @@ try {
       "Distinct server logins cannot reuse context even when both map to dbo with sysadmin permissions",
     );
     evidence.cases.push({ compatibility, id: "principal-context-mismatch", status: "pass" });
+    const resolutionPool = servicePool([`EXECUTE AS LOGIN='${resolutionPrincipal}'`]);
+    const resolutionAdapter = createSqlServerNativeContractAdapter({ pool: resolutionPool, schema });
+    const resolutionFacts = async () => {
+      const lease = await resolutionPool.acquire();
+      try {
+        const rows = await lease.all(
+          "SELECT SCHEMA_NAME() AS default_schema,USER_NAME() AS database_user,SUSER_SNAME() AS current_login,IS_SRVROLEMEMBER('sysadmin') AS sysadmin",
+        );
+        assert.equal(rows.length, 1);
+        assert.equal(Number(rows[0].sysadmin), 0);
+        return rows[0];
+      } finally {
+        await lease.release();
+      }
+    };
+    const beforeResolution = await resolutionFacts();
+    assert.equal(beforeResolution.default_schema, "dbo");
+    const resolutionContext = await stableContext(resolutionAdapter, compatibility, "default-schema-before");
+    assert.equal(
+      (
+        await acquireNativeQueryContract({
+          adapter: resolutionAdapter,
+          context: resolutionContext,
+          candidate: candidate("SELECT CAST(@__typed_sql_1 AS bigint) AS value", schema),
+        })
+      ).status,
+      "acquired",
+    );
+    const resolutionMutation = await createSqlServerOdbcDatabase({ connectionString: dsn(name) });
+    try {
+      await resolutionMutation.queryable.all(
+        `ALTER USER [${resolutionPrincipal}] WITH DEFAULT_SCHEMA=contract_resolution`,
+      );
+      const afterResolution = await resolutionFacts();
+      assert.deepEqual(afterResolution, { ...beforeResolution, default_schema: "contract_resolution" });
+      const changedResolution = await stableContext(resolutionAdapter, compatibility, "default-schema-after");
+      assert.equal(changedResolution.schemaHash, resolutionContext.schemaHash);
+      assert.equal(changedResolution.codecHash, resolutionContext.codecHash);
+      assert.notEqual(changedResolution.databaseContextHash, resolutionContext.databaseContextHash);
+      assert.deepEqual(
+        await acquireNativeQueryContract({
+          adapter: resolutionAdapter,
+          context: resolutionContext,
+          candidate: candidate("SELECT CAST(@__typed_sql_1 AS bigint) AS value", schema),
+        }),
+        { status: "unavailable", reason: "context-mismatch" },
+      );
+      assert.equal(
+        (
+          await acquireNativeQueryContract({
+            adapter: resolutionAdapter,
+            context: changedResolution,
+            candidate: candidate("SELECT CAST(@__typed_sql_1 AS bigint) AS value", schema),
+          })
+        ).status,
+        "acquired",
+      );
+      evidence.cases.push({
+        compatibility,
+        id: "default-schema-context-mismatch",
+        status: "pass",
+        before: beforeResolution,
+        after: afterResolution,
+      });
+    } finally {
+      try {
+        await resolutionMutation.queryable.all(`ALTER USER [${resolutionPrincipal}] WITH DEFAULT_SCHEMA=dbo`);
+      } finally {
+        await resolutionMutation.close();
+      }
+    }
     const settingAdapter = createSqlServerNativeContractAdapter({ pool: servicePool(["SET DATEFIRST 1"]), schema });
     await assert.rejects(settingAdapter.inspectContext(), /unsupported-context/u);
     await assert.rejects(
@@ -284,7 +374,11 @@ const [cleanup] = await Promise.allSettled([
           await admin.queryable.all(`DROP DATABASE [${name}]`);
         }
       } finally {
-        if (principalCreated) await admin.queryable.all(`DROP LOGIN [${principal}]`);
+        try {
+          if (principalCreated) await admin.queryable.all(`DROP LOGIN [${principal}]`);
+        } finally {
+          if (resolutionPrincipalCreated) await admin.queryable.all(`DROP LOGIN [${resolutionPrincipal}]`);
+        }
       }
     } finally {
       await admin.close();
