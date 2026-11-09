@@ -12,6 +12,7 @@ import {
 } from "@typed-sql/analysis";
 import { describe, it, strict } from "poku";
 import { recordNativeCosts } from "../../../planning/hybrid-analysis/measure-native.mjs";
+import { assertDuckDBVocabulary } from "../../../scripts/vocabulary/duckdb-probes.mjs";
 import { duckdb } from "../src/browser.js";
 import { duckDBContractReconciliationOwner } from "../src/contract-profile.js";
 import { createNodeDuckDBNativeContractAdapter } from "../src/node-api-contracts.js";
@@ -37,6 +38,17 @@ const candidate = (sql: string) => ({
 });
 
 await describe("DuckDB non-executing native query contracts", async () => {
+  await it("matches complete pinned keyword inventories and source-owned identifier contexts", async () => {
+    const instance = await sdk.DuckDBInstance.create();
+    const connection = await instance.connect();
+    try {
+      const evidence = await assertDuckDBVocabulary(connection, sdk.version());
+      strict.equal(evidence.probes, evidence.declarations * 8);
+    } finally {
+      connection.closeSync();
+      instance.closeSync();
+    }
+  });
   await it("supplies an omitted core function through qualified native evidence without an offline pack", async () => {
     const { duckdb: createCore } = await import(`../src/analysis/core/${sdk.version().replace(/^v/u, "")}.js`);
     const grammar = createCore();

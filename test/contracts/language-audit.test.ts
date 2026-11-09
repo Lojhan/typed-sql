@@ -68,6 +68,14 @@ alias:
     const productions = yaccProductions(source);
     strict.equal(productions.get("call")!.length, 2);
     strict.ok(!productions.get("call")!.join(" ").includes("FAKE_TOKEN"));
+    const inline = yaccProductions("%%\none: FIRST ';' { ignored(); };\ntwo: SECOND;\n");
+    strict.deepEqual(
+      [...inline],
+      [
+        ["one", ["FIRST ';'"]],
+        ["two", ["SECOND"]],
+      ],
+    );
     for (const broken of ["no grammar section", "%%\ncall: X {", '%%\ncall: X { auto text=R"(raw)"; } ;'])
       strict.throws(() => yaccProductions(broken));
   });

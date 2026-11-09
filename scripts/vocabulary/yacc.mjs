@@ -49,7 +49,9 @@ export function yaccProductions(source) {
   }
   assert.equal(depth, 0, "Unterminated source action");
   const productions = new Map();
-  for (const match of clean.matchAll(/^([a-zA-Z_][a-zA-Z_0-9]*)\s*:\s*([\s\S]*?)^\s*;\s*$/gmu)) {
+  for (const match of clean.matchAll(
+    /^([a-zA-Z_][a-zA-Z_0-9]*)\s*:\s*((?:'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|[^;'"])*)\s*;/gmu,
+  )) {
     assert.ok(!productions.has(match[1]), "Duplicate grammar production");
     productions.set(
       match[1],

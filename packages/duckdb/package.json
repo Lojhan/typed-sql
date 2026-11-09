@@ -24,7 +24,8 @@
     "dist/**/*.map",
     "README.md",
     "LICENSE",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "DUCKDB_VOCABULARY_NOTICE"
   ],
   "publishConfig": {
     "access": "public"

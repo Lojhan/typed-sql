@@ -1362,3 +1362,45 @@ helpers also pass after routing and ordinary-call guards are integrated. The rev
 across three profiles (nine unknown-call observations become unverified syntax invocations);
 no typed recognition is lost. DuckDB/SQL Server vocabulary, final native facet/context/workload
 qualification and refreshed final measurements remain outstanding.
+
+
+## DuckDB independent source vocabulary and native context oracle
+
+The MySQL vocabulary milestone at `8e050295` passes
+[main CI](https://github.com/Lojhan/typed-sql/actions/runs/42581926664).
+The optional MySQL 26.7 canary transport still fails its explicitly nonblocking qualification;
+it is not promoted to native support.
+
+DuckDB source vocabulary is now captured independently for both exact supported engines. The
+1.5.6 Yacc declarations and 2.0 PEG keyword maps are separate source profiles, verified against
+immutable revisions and hashes. Each profile retains overlapping column/function/type name
+permissions separately from the metadata API's displayed category. The generated audit stores
+484 shared rows and 23 profile-specific rows, plus the separate 2.0 bare-label permission list.
+Native APIs match all 489 records on 1.5.6 and 508 records for 502 distinct words on 2.0.
+Collapsing the latter API into one category per spelling would discard six overlapping records.
+
+The native contract suites now prepare every declared word in eight identifier contexts: explicit
+and bare column aliases, CTE names, explicit and bare relation aliases, qualified columns, quoted
+CTE names and prefix column aliases. Candidates are never executed and every owned statement is
+destroyed. The wrapper for bare column aliases rejects operator interpretations that do not
+produce the requested name. All 3,912 probes on 1.5.6 and 4,016 on 2.0 pass. Keyword aliases
+without AS are rejected on 1.5.6; the explicit 358-word bare-label list matches 2.0's accepted
+subset. Explicit AS labels and qualified attributes permit all declared words on both engines.
+Column/relation/CTE name eligibility uses the actual overlapping unreserved/column declarations.
+
+The source extractor fails on unfamiliar declarations, duplicate/conflicting classes, changed
+identifier productions, changed native maps or disagreement between authored lists and shipped
+lexer/map records. Its Yacc reader now handles inline production terminators while preserving
+quoted semicolons and discarding semantic actions. MySQL source refresh produces unchanged facts
+and runtime projection with that shared-reader improvement. Normal source checking stays offline.
+Only explicit refresh may fetch locked inputs. Source notices are retained independently.
+
+This milestone supplies the independent audit oracle. DuckDB analyzer/parser integration is
+still outstanding; passing the native audit does not establish host-parser parity or function
+semantics. SQL Server source integration, the final native context/facet/workload audit and final
+measurements also remain open.
+
+Local validation passes root types, all 42 DuckDB package files with enforced coverage
+(98.88% statements / 91.22% branches / 97.81% functions), the separate 1.5.6 native process,
+all 49 repository contracts and quality/source-generation checks. No production analyzer
+implementation changes in this audit-only milestone.
