@@ -25,6 +25,7 @@ import { mysqlProfile } from "../../packages/mysql/src/profile.js";
 import { createMySqlContractReconciler } from "../../packages/mysql/src/reconciliation.js";
 import { defaultMySqlTypePolicy } from "../../packages/mysql/src/type-policy.js";
 import { recordNativeCosts } from "../../planning/hybrid-analysis/measure-native.mjs";
+import { assertMySqlContextMutations } from "./mysql-context-mutations.js";
 import { assertMySqlTableContracts } from "./mysql-table-contracts.js";
 import { assertMySqlVocabulary } from "./mysql-vocabulary.js";
 
@@ -81,6 +82,7 @@ export async function assertMySqlNativeContracts(connectionUri: string): Promise
       context,
       "Fresh owned sessions must share semantic context identity",
     );
+    await assertMySqlContextMutations(connectionUri, schema, table);
     const series = schema.server.versionKey.split(".").slice(0, 2).join(".");
     const { mysql: createCore } = await import(`../../packages/mysql/src/analysis/core/${series}.js`);
     const core = createCore();

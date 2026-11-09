@@ -98,6 +98,13 @@ account needs `BACKUP_ADMIN`, access to the selected schema and read access to t
 lease closes; ordinary row writes can proceed. Deadlines and cancellation close the owned
 connection and release its lock. Candidate SQL is never bound, executed or supplied sample values.
 
+Native contexts include the selected database, account, enabled roles, direct grants and effective
+role grants. Changes to this authorization evidence require a fresh context even when the
+compiler schema is unchanged. Acquisition reads grant metadata for the current account; missing,
+denied or overlarge evidence cannot qualify a contract. See MySQL's
+[SHOW GRANTS reference](https://dev.mysql.com/doc/refman/8.4/en/show-grants.html) for direct and
+role-derived privilege reporting.
+
 The adapter accepts ordinary `?` parameters in occurrence order, builtin expression projections,
 ordinary InnoDB table projections, stars, filters and joins. Referenced tables must belong to the
 selected database, use `lower_case_table_names=0` and have no generated columns. The adapter checks

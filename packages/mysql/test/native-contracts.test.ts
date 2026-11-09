@@ -37,6 +37,10 @@ function fixture(
     tables?: unknown[];
     fields?: unknown[];
     lowerCaseTables?: number | string;
+    roles?: Record<string, unknown>[];
+    grants?: Record<string, unknown>[];
+    effectiveGrants?: Record<string, unknown>[];
+    grantError?: unknown;
   } = {},
 ) {
   const calls: string[] = [];
@@ -76,6 +80,15 @@ function fixture(
               ],
             ];
           if (sql.includes("information_schema.ROUTINES")) return [options.routines ?? []];
+          if (sql.includes("information_schema.ENABLED_ROLES")) return [options.roles ?? []];
+          if (sql.startsWith("SHOW GRANTS")) {
+            if (options.grantError) throw options.grantError;
+            return [
+              (sql.includes(" USING ") ? options.effectiveGrants : options.grants) ?? [
+                { Grants: "GRANT USAGE ON *.* TO `app`@`localhost`" },
+              ],
+            ];
+          }
           if (sql.includes("performance_schema.user_defined_functions")) return [options.udfs ?? []];
           if (sql.includes("performance_schema.")) return [[{ VARIABLE_NAME: "sql_mode", VARIABLE_VALUE: "" }]];
           if (
@@ -127,6 +140,53 @@ function fixture(
   };
 }
 await describe("MySQL owned native contracts", async () => {
+  await it("binds direct grants, enabled roles and effective role grants into context identity", async () => {
+    for (const change of ["direct", "roles", "effective"] as const) {
+      const options = {
+        grants: [{ Grants: "GRANT USAGE ON *.* TO `app`@`localhost`" }],
+        roles: change === "effective" ? [{ ROLE_NAME: "reader", ROLE_HOST: "%" }] : [],
+        effectiveGrants: [{ Grants: "GRANT SELECT ON `app`.* TO `app`@`localhost`" }],
+      };
+      const f = fixture(options);
+      const before = await f.adapter.inspectContext();
+      if (change === "direct") options.grants.push({ Grants: "GRANT SELECT ON `app`.`users` TO `app`@`localhost`" });
+      if (change === "roles") options.roles.push({ ROLE_NAME: "reader", ROLE_HOST: "%" });
+      if (change === "effective")
+        options.effectiveGrants.push({ Grants: "GRANT EXECUTE ON `app`.* TO `app`@`localhost`" });
+      const after = await f.adapter.inspectContext();
+      strict.notEqual(after.databaseContextHash, before.databaseContextHash, change);
+      strict.equal(after.schemaHash, before.schemaHash);
+      strict.deepEqual(
+        await acquireNativeQueryContract({ adapter: f.adapter, context: before, candidate: candidate("SELECT 1") }),
+        { status: "unavailable", reason: "context-mismatch" },
+      );
+    }
+    const quoted = fixture({ roles: [{ ROLE_NAME: "role`name", ROLE_HOST: "ho`st" }] });
+    await quoted.adapter.inspectContext();
+    strict.ok(quoted.calls.includes("SHOW GRANTS FOR CURRENT_USER USING `role``name`@`ho``st`"));
+  });
+  await it("declines missing, malformed, excessive or denied authorization evidence", async () => {
+    for (const options of [
+      { grants: [] },
+      { grants: [{ Grants: "" }] },
+      { grants: [{ Grants: "x", extra: "unknown" }] },
+      { grants: [{ Grants: 1 }] },
+      { grants: [{ Grants: "x".repeat(65537) }] },
+      { grants: Array.from({ length: 4097 }, () => ({ Grants: "grant" })) },
+      { roles: [{ ROLE_NAME: "", ROLE_HOST: "%" }] },
+      { roles: [{ ROLE_NAME: "r", ROLE_HOST: "x\0y" }] },
+      { roles: Array.from({ length: 4097 }, () => ({ ROLE_NAME: "r", ROLE_HOST: "%" })) },
+      { roles: Array.from({ length: 300 }, () => ({ ROLE_NAME: "r".repeat(256), ROLE_HOST: "h".repeat(256) })) },
+    ]) {
+      const f = fixture(options);
+      await strict.rejects(f.adapter.inspectContext(), /metadata-unavailable/u);
+      strict.ok(!f.calls.some((sql) => sql.startsWith("PREPARE")));
+    }
+    const denied = fixture({
+      grantError: Object.assign(new Error("private grants"), { code: "ER_TABLEACCESS_DENIED_ERROR" }),
+    });
+    await strict.rejects(denied.adapter.inspectContext(), /permission-unavailable/u);
+  });
   await it("rejects unqualified shapes and parameter layouts before loading the driver", async () => {
     const f = fixture();
     for (const sql of [

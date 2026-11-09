@@ -2,7 +2,7 @@ import { type ContractInterpreterIdentity, queryContractDigest } from "@typed-sq
 import { defaultMySqlTypePolicy, type MySqlTypePolicy } from "./type-policy.js";
 import { MYSQL_VOCABULARY_REVISION } from "./vocabulary-identity.js";
 
-export const mySqlContractAdapterVersion = "mysql-backup-locked-prepare-v2";
+export const mySqlContractAdapterVersion = "mysql-backup-locked-prepare-v3";
 export const mySqlContractReconciliationOwner = Object.freeze({
   id: "@typed-sql/mysql/reconciliation",
   version: "mysql-contract-reconciliation-v3",

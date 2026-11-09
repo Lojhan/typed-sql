@@ -8,7 +8,7 @@ authorization, schema or session settings to manufacture a compatible context.
 | Native profile | Authorization | Resolution environment | Semantic settings | Decoder policy | Engine boundary |
 | --- | --- | --- | --- | --- | --- |
 | PostgreSQL 18.3 | Actual principal change and permission grant reject the old context | Actual search-path change rejects the old context | Actual time-zone change rejects the old context | Actual BIGINT policy change changes type-policy/codec identities and rejects reuse | Native acquisition supports 18; other qualified grammar majors reject acquisition in the native helper. An actual engine replacement is not tested here. |
-| MySQL 8.4.11 / 9.7.2 | Principal is fingerprinted; an actual grant/principal mutation remains unverified | Database and session variables are fingerprinted; an actual database change remains unverified | SQL-mode guards and variable fingerprints exist; actual semantic-setting mutation remains unverified | Actual BIGINT policy change changes identities and rejects reuse on both engines | Both exact engines run independently; replacement using an old context remains unverified |
+| MySQL 8.4.11 / 9.7.2 | Actual principal, direct grant, active role and effective role grant changes reject prior context | Actual selected-database change rejects prior context | Actual time-zone change rejects prior context; changed SQL mode declines qualification | Actual BIGINT policy change changes identities and rejects reuse on both engines | Both exact engines run independently; replacement using an old context remains unverified |
 | DuckDB 1.5.6 / 2.0.0 | The supported owned embedded connection has no database-user authorization API; host file authorization is outside native metadata | Nondefault search paths are declined; actual path mutation remains unverified | Owned connection settings are guarded; actual setting mutation remains unverified | Actual BIGINT policy change changes identities and rejects reuse on both engines | Both SDK engines run independently; cross-engine reuse remains unverified |
 | SQLite 3.53.4, Node 24.22.2 | The supported embedded connection has no database-user authorization API; host file authorization is outside native metadata | Worker authorizer admits the main database only; arbitrary attachments/search paths are outside the profile | Owned worker forces its declared read-only settings; setting mutation is outside the worker protocol | Actual integer policy change changes identities and rejects reuse | Actual version/source/compile-option evidence is fingerprinted; engine replacement remains unverified |
 | SQL Server 14–17, ten compatibility pairs | New explicit/effective permission fingerprints and native grant/revoke regression await hosted qualification | Two-part ordinary local tables only; default-schema mutation remains unverified | Exact server evidence is checked; actual setting mutation remains unverified | New BIGINT policy mutation regression awaits hosted qualification on all ten pairs | Each exact engine/compatibility pair runs independently; replacement using an old context remains unverified |
@@ -18,6 +18,21 @@ It keeps the compiler schema fixed while changing the actual native environment,
 acquisition with the original context. The permission case keeps the principal fixed. The codec
 case keeps the native database context fixed. All return `context-mismatch` for the stale input.
 Its existing native helper invokes the proof on the qualified PostgreSQL 18 profile.
+
+The [MySQL mutation helper](../../test/helpers/mysql-context-mutations.ts) performs direct and
+effective role grants, enables a role, switches to a separately created principal, changes the
+selected database and time zone, and checks a mismatched SQL mode. Both 8.4.11 and 9.7.2 pass
+these local native assertions. Each context-change case holds compiler schema identity fixed
+and rejects the original context. The helper restores grants and drops its own role/account;
+the role name includes a backtick to exercise native metadata quoting.
+
+MySQL native context now includes bounded direct grants, enabled roles and effective role
+grants. Role identities come from structured native metadata and are quoted separately; a
+rendered `CURRENT_ROLE()` string is never spliced into a statement. The actual privilege
+statements are only hashed into context identity, never executed or promoted into routine rules.
+MySQL documents `SHOW GRANTS ... USING` as the mechanism for including role-derived privileges
+([vendor reference](https://dev.mysql.com/doc/refman/8.4/en/show-grants.html)). Missing, malformed,
+overlarge or denied metadata fails qualification. The native adapter identity advances to v3.
 
 Policy isolation is also asserted in the [MySQL native helper](../../test/helpers/mysql-native-contracts.ts),
 [SQLite native suite](../../packages/sqlite/test/native-contracts.test.ts),

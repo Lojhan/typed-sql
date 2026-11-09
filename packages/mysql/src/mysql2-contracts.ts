@@ -378,6 +378,32 @@ export function createMySql2NativeContractAdapter(options: MySql2NativeContractO
         throw new MySqlContractAcquisitionError("metadata-unavailable");
       const context = async (active?: AbortSignal): Promise<QueryContractContext> => {
         requireOpen(active);
+        const roles = await read(
+          "SELECT ROLE_NAME,ROLE_HOST FROM information_schema.ENABLED_ROLES ORDER BY ROLE_NAME,ROLE_HOST LIMIT 4097",
+        );
+        if (roles.length > 4096) throw new MySqlContractAcquisitionError("metadata-unavailable");
+        const quoted = (value: unknown): string => {
+          if (typeof value !== "string" || !value.length || value.length > 256 || value.includes("\0"))
+            throw new MySqlContractAcquisitionError("metadata-unavailable");
+          return `\`${value.replaceAll("`", "``")}\``;
+        };
+        // Role names are native metadata, quoted as identifiers; never splice CURRENT_ROLE text.
+        const using = roles.map((role) => `${quoted(role.ROLE_NAME)}@${quoted(role.ROLE_HOST)}`).join(",");
+        if (using.length > 65536) throw new MySqlContractAcquisitionError("metadata-unavailable");
+        const grants = async (sql: string) => {
+          const rows = await read(sql);
+          if (!rows.length || rows.length > 4096) throw new MySqlContractAcquisitionError("metadata-unavailable");
+          return rows
+            .map((row) => {
+              const values = Object.values(row);
+              if (values.length !== 1 || typeof values[0] !== "string" || !values[0].length || values[0].length > 65536)
+                throw new MySqlContractAcquisitionError("metadata-unavailable");
+              return values[0];
+            })
+            .sort();
+        };
+        const directGrants = await grants("SHOW GRANTS");
+        const effectiveGrants = using ? await grants(`SHOW GRANTS FOR CURRENT_USER USING ${using}`) : directGrants;
         const session = await read(
           `SELECT VARIABLE_NAME,VARIABLE_VALUE FROM performance_schema.session_variables WHERE VARIABLE_NAME NOT IN ${incidentalVariables} ORDER BY VARIABLE_NAME LIMIT 4097`,
         );
@@ -392,7 +418,18 @@ export function createMySql2NativeContractAdapter(options: MySql2NativeContractO
           ...mySqlContractIdentity(policy),
           schemaHash: calculateSchemaHash(schema),
           typePolicyHash: calculateTypePolicyHash(policy),
-          databaseContextHash: queryContractDigest({ server, routines, udfs, tables, columns, session, global }),
+          databaseContextHash: queryContractDigest({
+            server,
+            routines,
+            udfs,
+            tables,
+            columns,
+            roles,
+            directGrants,
+            effectiveGrants,
+            session,
+            global,
+          }),
         };
       };
       return {

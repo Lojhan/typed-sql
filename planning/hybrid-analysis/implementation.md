@@ -1669,3 +1669,32 @@ and other errors fail immediately. There is no sleep, enlarged deadline or accep
 context. Probe artifacts retain incomplete case status, observation attempts and cleanup status
 even on failure, with acquisition/cleanup/publication failures preserved together. Fresh hosted
 execution must establish whether a stable initial observation and every mutation case pass.
+
+## MySQL authorization and environment mutations
+
+MySQL native context now explicitly captures direct grants, enabled role identities and effective
+role grants. Structured role metadata is individually quoted before `SHOW GRANTS ... USING`;
+rendered role text is never executed or spliced. Grant statements are hashed as evidence only,
+not executed or interpreted as routine mappings. Empty, malformed, denied or overlarge grant
+evidence stays unavailable. The native adapter identity advances to v3, requiring prior native
+contracts to be regenerated.
+
+The [real mutation helper](../../test/helpers/mysql-context-mutations.ts) passes on both 8.4.11
+and 9.7.2. It changes a direct permission, enabled role, effective role permission, authorization
+principal, selected database and semantic time zone, keeping the compiler schema fixed and
+requiring acquisition with the old context to return `context-mismatch`. A changed SQL mode
+declines qualification against the old schema environment. The role includes a backtick,
+qualifying the native metadata quoting path. Its own account/role/grants are cleaned up.
+
+Unit controls independently cover all three authorization evidence sets, quoted role identities,
+malformed/missing grants, denied access, bounded role/grant inventories and bounded generated
+metadata statements. All 30 MySQL package files pass enforced coverage at 96.39% statements /
+91.63% branches / 98.93% functions. Both complete real MySQL native helpers pass, followed by
+focused native setting/mode assertions on both engines.
+
+Root types, clean build, all 51 repository contracts, all nine soundness files, source quality,
+documentation checks/build and unchanged isolated performance budgets pass. The local editor
+edit-storm p50 is 5.58 ms; the historical hosted 15.26/15 ms failure is not represented as fixed.
+The invalidation matrix records these native proofs and retains engine-replacement/other-profile
+gaps. Hosted MySQL qualification, SQL Server permission/facet capture, native application
+workload scaling and final measurements remain outstanding.
