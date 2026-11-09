@@ -2,9 +2,9 @@ import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { describe, it, strict } from "poku";
-import { recognitionQueries } from "../../../scripts/language-audit/recognition.js";
+import { recognitionQueries } from "../../../scripts/language-audit/queries.js";
 import { duckdb } from "../src/browser.js";
-import { combineDuckDBCatalogs, createDuckDBCatalog } from "../src/catalog/provider.js";
+import { combineDuckDBCatalogs, createDuckDBCatalog, extendDuckDBCatalog } from "../src/catalog/provider.js";
 import type { DuckDBBuiltinSignature } from "../src/catalog/types.js";
 import { DUCKDB_SUPPORT_POLICY } from "../src/support-policy.js";
 import { fixtureEvidence } from "./helpers/evidence.js";
@@ -98,11 +98,56 @@ await describe("version-isolated offline DuckDB analysis", async () => {
     strict.deepEqual(owner.signatures("future", "sample"), []);
     strict.deepEqual(owner.combinations("future", "set"), {});
     strict.equal(owner.implicitCast("future", "INTEGER", "BIGINT"), false);
+    strict.equal(owner.hasBuiltin("1.5.6", "sample"), true);
+    strict.equal(owner.hasBuiltin("future", "sample"), false);
+    strict.equal(owner.permitsBuiltin("1.5.6", "sample"), true);
+    strict.equal(owner.permitsBuiltin("future", "sample"), false);
     const combined = combineDuckDBCatalogs([owner]);
     strict.equal(combined.combinations("1.5.6", "set")["INTEGER|BIGINT"], "BIGINT");
     strict.deepEqual(combined.catalog("future"), []);
     strict.deepEqual(combined.signatures("future", "sample"), []);
     strict.deepEqual(combined.combinations("future", "expression"), {});
+    strict.equal(combined.hasBuiltin("future", "sample"), false);
+    strict.equal(combined.hasBuiltin("1.5.6", "sample"), true);
+    strict.equal(combined.permitsBuiltin("future", "sample"), false);
+    strict.equal(combined.permitsBuiltin("1.5.6", "sample"), true);
     strict.throws(() => combineDuckDBCatalogs([owner, owner]), /Duplicate DuckDB catalog/);
+    const permitted = ["sample"];
+    const known = ["sample", "omitted"];
+    const restricted = createDuckDBCatalog({
+      version: "1.5.6",
+      signatures: owner.catalog("1.5.6"),
+      implicitCasts: [["INTEGER", "BIGINT"]],
+      commonTypes,
+      expressionTypes,
+      knownBuiltinNames: known,
+      selection: permitted,
+    });
+    permitted.push("omitted");
+    known.push("untrusted");
+    strict.equal(restricted.hasBuiltin("1.5.6", "omitted"), true);
+    strict.equal(restricted.hasBuiltin("1.5.6", "untrusted"), false);
+    strict.equal(restricted.permitsBuiltin("1.5.6", "omitted"), false);
+    const additional = createDuckDBCatalog({
+      version: "1.5.6",
+      signatures: [["omitted", "scalar", [], "INTEGER", null, "CONSISTENT", false]],
+      implicitCasts: [],
+      commonTypes: {},
+      expressionTypes: {},
+    });
+    const extended = extendDuckDBCatalog(restricted, additional, "1.5.6");
+    strict.equal(extended.catalog("1.5.6").length, 2);
+    strict.equal(extended.catalog("1.5.6"), extended.catalog("1.5.6"));
+    strict.deepEqual(extended.catalog("future"), []);
+    strict.equal(extended.signatures("1.5.6", "sample").length, 1);
+    strict.equal(extended.signatures("1.5.6", "omitted").length, 1);
+    strict.equal(extended.signatures("future", "omitted").length, 0);
+    strict.equal(extended.hasBuiltin("1.5.6", "sample"), true);
+    strict.equal(extended.hasBuiltin("future", "sample"), false);
+    strict.equal(extended.permitsBuiltin("1.5.6", "omitted"), true);
+    strict.equal(extended.permitsBuiltin("future", "sample"), false);
+    strict.equal(extended.implicitCast("1.5.6", "INTEGER", "BIGINT"), true);
+    strict.equal(extended.combinations("1.5.6", "set")["INTEGER|BIGINT"], commonTypes["INTEGER|BIGINT"]);
+    strict.throws(() => extendDuckDBCatalog(owner, owner, "1.5.6"), /Overlapping DuckDB offline family/u);
   });
 });

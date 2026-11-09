@@ -91,12 +91,29 @@ for (const grammar of grammars) {
       : {}),
     ...Object.fromEntries(
       Object.keys(manifest.exports)
-        .filter((entry) => /^\.\/analysis\/[^/]+$/u.test(entry))
+        .filter((entry) => /^\.\/analysis\/(?:core\/)?[^/]+$/u.test(entry))
         .sort()
         .map((entry) => [
-          `analyzer:${entry.slice("./analysis/".length)}`,
+          `analyzer:${entry.slice("./analysis/".length).replaceAll("/", ":")}`,
           `export {${grammar} as createDialect} from "@typed-sql/${grammar}${entry.slice(1)}";`,
         ]),
+    ),
+    ...Object.fromEntries(
+      Object.keys(manifest.exports)
+        .filter((entry) => /^\.\/analysis\/core\/[^/]+$/u.test(entry))
+        .sort()
+        .flatMap((entry) => {
+          const version = entry.slice("./analysis/core/".length);
+          const pack = `./analysis/packs/${version}/compatibility`;
+          return manifest.exports[pack]
+            ? [
+                [
+                  `analyzer:core:${version}:compatibility`,
+                  `import {${grammar} as dialect} from "@typed-sql/${grammar}${entry.slice(1)}";import {${grammar}CompatibilityPack as pack} from "@typed-sql/${grammar}${pack.slice(1)}";export const createDialect=(options={})=>dialect({...options,packs:[pack]});`,
+                ],
+              ]
+            : [];
+        }),
     ),
   };
   for (const [scenario, contents] of Object.entries(scenarios)) {

@@ -36,6 +36,40 @@ const candidate = (sql: string) => ({
 });
 
 await describe("DuckDB non-executing native query contracts", async () => {
+  await it("supplies an omitted core function through qualified native evidence without an offline pack", async () => {
+    const { duckdb: createCore } = await import(`../src/analysis/core/${sdk.version().replace(/^v/u, "")}.js`);
+    const grammar = createCore();
+    const snapshot = grammar.validateSnapshot({ ...schema, server: fixtureEvidence(sdk.version()) });
+    const adapter = createNodeDuckDBNativeContractAdapter({ ...options, schema: snapshot });
+    const context = await adapter.inspectContext();
+    const sql = "SELECT md5($1::VARCHAR) AS value";
+    const analysis = grammar.analyze(sql, snapshot);
+    strict.deepEqual(
+      analysis.diagnostics.map((item: { code: string }) => item.code),
+      ["TSQ408"],
+    );
+    const run = createNativeLiveAnalysisRunner({ adapter, contribution: createDuckDBContractReconciler() });
+    const result = await run(
+      {
+        connectionContext: queryContractDigest("duckdb-core-native-test"),
+        adapter: { id: adapter.id, version: adapter.version },
+        candidate: candidate(sql),
+        staticClaim: createStaticQueryClaim({ sql, context, analysis }),
+        policy: { mode: "hybrid", owner: duckDBContractReconciliationOwner, requiredNativeFacets: [] },
+      },
+      new AbortController().signal,
+    );
+    strict.equal(result.kind, "usable-recorded-context");
+    if (result.kind !== "usable-recorded-context") throw Error("Omitted core function was not qualified");
+    strict.deepEqual(
+      result.contract.valuePlan.parameters.map((item) => [item.index, item.type, item.nullable]),
+      [[1, "string", true]],
+    );
+    strict.deepEqual(
+      result.contract.valuePlan.columns.map((item) => [item.name, item.type, item.nullable]),
+      [["value", "string", true]],
+    );
+  });
   await it("acquires typed parameters and nested results using native prepare, with conservative nullability", async () => {
     const adapter = createNodeDuckDBNativeContractAdapter(options);
     const context = await adapter.inspectContext();

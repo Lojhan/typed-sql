@@ -358,6 +358,12 @@ await describe("packed public packages", async () => {
           let refused = false;
           try { analyzer.validateSnapshot({...schema,server:duckDBServerEvidence("0.0.0")}); } catch { refused = true; }
           if (!refused) throw new Error("Selected analyzer accepted a different engine");
+          const coreModule = await import("@typed-sql/duckdb/analysis/core/" + version);
+          const packModule = await import("@typed-sql/duckdb/analysis/packs/" + version + "/compatibility");
+          if (Object.keys(coreModule).join(",") !== "duckdb" || Object.keys(packModule).join(",") !== "duckdbCompatibilityPack") throw new Error("Offline core/pack exports changed");
+          assertDialectPlugin(coreModule.duckdb());
+          assertDialectPlugin(coreModule.duckdb({packs:[packModule.duckdbCompatibilityPack]}));
+          if (packModule.duckdbCompatibilityPack.engineVersion !== version) throw new Error("Offline pack engine changed");
         }
         if (sqlite().id !== "sqlite") throw new Error("SQLite dialect import failed");
         if (sqlserver().id !== "sqlserver" || sqlserver().sqlModule !== "@typed-sql/sqlserver") throw new Error("SQL Server public grammar contract failed");

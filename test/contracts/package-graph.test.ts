@@ -183,6 +183,10 @@ const expectedEntrypoints: Readonly<Record<(typeof publicPackages)[number], read
     "./analysis",
     "./analysis/1.5.6",
     "./analysis/2.0.0",
+    "./analysis/core/1.5.6",
+    "./analysis/packs/1.5.6/compatibility",
+    "./analysis/core/2.0.0",
+    "./analysis/packs/2.0.0/compatibility",
   ],
 };
 

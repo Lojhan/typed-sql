@@ -5,6 +5,8 @@ export interface DuckDBCatalogProvider {
   readonly versions: readonly string[];
   catalog(version: string): readonly DuckDBBuiltinSignature[];
   signatures(version: string, name: string): readonly DuckDBBuiltinSignature[];
+  hasBuiltin(version: string, name: string): boolean;
+  permitsBuiltin(version: string, name: string): boolean;
   implicitCast(version: string, source: string, target: string): boolean;
   combinations(version: string, mode: "expression" | "set"): Readonly<Record<string, string | null>>;
 }
@@ -19,6 +21,8 @@ export function createDuckDBCatalog(input: {
   readonly implicitCasts: readonly (readonly [string, string])[];
   readonly commonTypes: Readonly<Record<string, string | null>>;
   readonly expressionTypes: Readonly<Record<string, string | null>>;
+  readonly knownBuiltinNames?: readonly string[];
+  readonly selection?: readonly string[];
 }): DuckDBCatalogProvider {
   const signatures = Object.freeze(
     input.signatures.map(
@@ -47,6 +51,8 @@ export function createDuckDBCatalog(input: {
     return index;
   };
   const casts = new Set(input.implicitCasts.map(([source, target]) => `${source}\0${target}`));
+  const known = new Set(input.knownBuiltinNames ?? signatures.map((signature) => signature[0]));
+  const selection = input.selection === undefined ? undefined : new Set(input.selection);
   const common = Object.freeze({ ...input.commonTypes }),
     expression = Object.freeze({ ...input.expressionTypes }),
     version = input.version;
@@ -57,6 +63,12 @@ export function createDuckDBCatalog(input: {
     },
     signatures(selected: string, name: string) {
       return selected === version ? (byName().get(name) ?? emptySignatures) : emptySignatures;
+    },
+    hasBuiltin(selected: string, name: string) {
+      return selected === version && known.has(name);
+    },
+    permitsBuiltin(selected: string, name: string) {
+      return selected === version && (selection === undefined || selection.has(name));
     },
     implicitCast(selected: string, source: string, target: string) {
       return source === target || (selected === version && casts.has(`${source}\0${target}`));
@@ -83,11 +95,57 @@ export function combineDuckDBCatalogs(providers: readonly DuckDBCatalogProvider[
     signatures(version: string, name: string) {
       return owners.get(version)?.signatures(version, name) ?? emptySignatures;
     },
+    hasBuiltin(version: string, name: string) {
+      return owners.get(version)?.hasBuiltin(version, name) ?? false;
+    },
+    permitsBuiltin(version: string, name: string) {
+      return owners.get(version)?.permitsBuiltin(version, name) ?? false;
+    },
     implicitCast(version: string, source: string, target: string) {
       return source === target || owners.get(version)?.implicitCast(version, source, target) === true;
     },
     combinations(version: string, mode: "expression" | "set") {
       return owners.get(version)?.combinations(version, mode) ?? emptyCombinations;
+    },
+  });
+}
+
+/** Extend one engine with an installed disjoint partition; shared casts and type mechanics stay in core. */
+export function extendDuckDBCatalog(
+  core: DuckDBCatalogProvider,
+  additional: DuckDBCatalogProvider,
+  version: string,
+): DuckDBCatalogProvider {
+  for (const signature of additional.catalog(version))
+    if (core.signatures(version, signature[0]).length)
+      throw new TypeError(`Overlapping DuckDB offline family ${signature[0]}`);
+  let catalog: readonly DuckDBBuiltinSignature[] | undefined;
+  return Object.freeze({
+    versions: Object.freeze([version]),
+    catalog(selected: string) {
+      if (selected !== version) return emptySignatures;
+      catalog ??= Object.freeze(
+        [...core.catalog(version), ...additional.catalog(version)].sort((a, b) =>
+          a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0,
+        ),
+      );
+      return catalog;
+    },
+    signatures(selected: string, name: string) {
+      const existing = core.signatures(selected, name);
+      return existing.length ? existing : additional.signatures(selected, name);
+    },
+    hasBuiltin(selected: string, name: string) {
+      return core.hasBuiltin(selected, name) || additional.hasBuiltin(selected, name);
+    },
+    permitsBuiltin(selected: string, name: string) {
+      return core.permitsBuiltin(selected, name) || additional.permitsBuiltin(selected, name);
+    },
+    implicitCast(selected: string, source: string, target: string) {
+      return core.implicitCast(selected, source, target);
+    },
+    combinations(selected: string, mode: "expression" | "set") {
+      return core.combinations(selected, mode);
     },
   });
 }

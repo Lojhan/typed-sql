@@ -79,6 +79,14 @@ function decimalProperties(type: Extract<DuckDBType, { kind: "scalar" }>): { pre
     ? { precision: type.precision!, scale: type.scale! }
     : { precision: widths[type.name] ?? 38, scale: 0 };
 }
+function sameNamespace(left: readonly string[], right: readonly string[]): boolean {
+  return (
+    left.length === 2 &&
+    right.length === 2 &&
+    duckDBAsciiFold(left[0]!) === duckDBAsciiFold(right[0]!) &&
+    duckDBAsciiFold(left[1]!) === duckDBAsciiFold(right[1]!)
+  );
+}
 function isNumeric(type: DuckDBType): boolean {
   return (
     type.kind === "scalar" &&
@@ -833,11 +841,6 @@ export class DuckDBResolver {
       if (path.length) paths.push(path.length === 1 ? [catalog, path[0]!] : path);
       paths.push([catalog, schema], [catalog, "main"], ["system", "main"]);
     }
-    const sameNamespace = (left: readonly string[], right: readonly string[]) =>
-      left.length === 2 &&
-      right.length === 2 &&
-      duckDBAsciiFold(left[0]!) === duckDBAsciiFold(right[0]!) &&
-      duckDBAsciiFold(left[1]!) === duckDBAsciiFold(right[1]!);
     if (!this.functionIndex) {
       const index = new Map<string, { path: string[]; macro: boolean }[]>();
       const add = (name: string, entry: { path: string[]; macro: boolean }) => {
@@ -868,7 +871,7 @@ export class DuckDBResolver {
     }
     const entries = [...(this.functionIndex.get(name) ?? [])];
     const builtin =
-      this.catalog.signatures(this.snapshot.server?.versionKey ?? "", name).length > 0 ||
+      this.catalog.hasBuiltin(this.snapshot.server?.versionKey ?? "", name) ||
       ["if", "ifnull", "nullif", "coalesce", "json_group_array", "json_group_object"].includes(name);
     if (builtin) entries.push({ path: ["system", "main"], macro: false });
     for (const path of paths) {
@@ -898,6 +901,19 @@ export class DuckDBResolver {
       args = expr.args ?? [];
     const namespaces = this.functionNamespaces(expr);
     if (namespaces === undefined) return unknown;
+    if (
+      !this.catalog.permitsBuiltin(this.snapshot.server?.versionKey ?? "", name) &&
+      (!namespaces || sameNamespace(namespaces, ["system", "main"]))
+    ) {
+      // Preserve explicit casts and parameter positions without inventing a routine rule.
+      for (const argument of args) if (argument.kind !== "star") this.infer(argument, scope);
+      this.error(
+        `The selected DuckDB offline core does not include ${name}; add the matching compatibility pack or generate a qualified query contract`,
+        expr.range,
+        "TSQ408",
+      );
+      return unknown;
+    }
     if (expr.filter) this.infer(expr.filter, scope, bool(true));
     for (const expression of expr.context ?? []) this.infer(expression, scope);
     if (expr.windowName && !scope.windowNames?.has(duckDBAsciiFold(expr.windowName)))

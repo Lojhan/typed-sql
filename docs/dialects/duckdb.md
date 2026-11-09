@@ -38,6 +38,10 @@ the native adapter does not claim their compatibility.
 | `@typed-sql/duckdb/analysis` | Full compatibility analyzer, policies, native types, catalog and snapshot provider |
 | `@typed-sql/duckdb/analysis/1.5.6` | Offline analyzer with only the qualified 1.5.6 catalog data |
 | `@typed-sql/duckdb/analysis/2.0.0` | Offline analyzer with only the qualified 2.0.0 catalog data |
+| `@typed-sql/duckdb/analysis/core/1.5.6` | Bounded offline core for 1.5.6 |
+| `@typed-sql/duckdb/analysis/core/2.0.0` | Bounded offline core for 2.0.0 |
+| `@typed-sql/duckdb/analysis/packs/1.5.6/compatibility` | Explicit pack restoring 1.5.6 full offline support |
+| `@typed-sql/duckdb/analysis/packs/2.0.0/compatibility` | Explicit pack restoring 2.0.0 full offline support |
 | `@typed-sql/duckdb/browser` | Portable grammar factory, policies, parsing, catalog and snapshot validation; no Node services |
 | `@typed-sql/duckdb/query` | Lightweight query construction and native `$N` rendering |
 | `@typed-sql/duckdb/runtime` | Driver-neutral native connection and execution contracts |
@@ -64,6 +68,43 @@ It rejects snapshots for other engines and excludes their catalog metadata from 
 import graph. `@typed-sql/duckdb/analysis` retains compatibility with both qualified engines.
 Application queries continue to import `sql` from `@typed-sql/duckdb`; native adapter selection
 and durable contract context checks remain explicit.
+
+## Compact offline analysis
+
+Use the core entrypoint when common offline rules and generated query contracts cover the project:
+
+```ts
+import { duckdb } from "@typed-sql/duckdb/analysis/core/2.0.0";
+
+export const dialect = duckdb();
+```
+
+The core retains complete selected overload families for strings, numeric expressions, dates,
+aggregates, JSON, collections and windows, together with operators, native type combinations
+and codec policies. It recognizes the grammar's supported SQL syntax. The selected families
+are an explicit maintained scope, not a measured popularity ranking or a promise of universal
+function semantics. Keywords and generic calls do not require every function's signature data.
+
+An omitted function produces `TSQ408` with guidance to add a matching pack or
+[generate a qualified query contract](../guides/query-manifests.md). Explicit argument casts and
+parameter positions remain available to native reconciliation. Database generation remains
+explicitly configured; importing the core opens no connection.
+
+Add the compatibility pack to restore all existing offline function rules for that engine:
+
+```ts
+import { duckdb } from "@typed-sql/duckdb/analysis/core/2.0.0";
+import { duckdbCompatibilityPack } from "@typed-sql/duckdb/analysis/packs/2.0.0/compatibility";
+
+export const dialect = duckdb({ packs: [duckdbCompatibilityPack] });
+```
+
+The optional pack supplies the complementary native overload partition. It shares the core's
+casts, type combinations and resolver mechanics. Core imports do not load that partition, the
+other engine's data or a native SDK. Packs must be installed grammar exports for the same engine;
+cloned metadata, repeated packs and different-engine packs are rejected. Existing `/analysis`
+and per-engine full analyzer imports retain their supported offline behavior. Application SQL
+still imports `sql` from `@typed-sql/duckdb`.
 
 ## Native query contracts
 
