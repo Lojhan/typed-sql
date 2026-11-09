@@ -1,8 +1,8 @@
 import { describe, it, strict } from "poku";
 import { mysqlNumericCases } from "../../../test/helpers/mysql-numeric-cases.js";
+import { resolveMySqlStatement } from "../src/compatibility-resolver.js";
 import { mySqlNumericLiteralType } from "../src/numeric-functions.js";
 import { parseStatement } from "../src/parser/index.js";
-import { resolveMySqlStatement } from "../src/resolver.js";
 import { MYSQL_SUPPORT_POLICY } from "../src/support.js";
 import { defaultMySqlTypePolicy, isKnownMySqlType, mapMySqlType } from "../src/type-policy.js";
 

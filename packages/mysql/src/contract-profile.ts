@@ -4,7 +4,7 @@ import { defaultMySqlTypePolicy, type MySqlTypePolicy } from "./type-policy.js";
 export const mySqlContractAdapterVersion = "mysql-backup-locked-prepare-v2";
 export const mySqlContractReconciliationOwner = Object.freeze({
   id: "@typed-sql/mysql/reconciliation",
-  version: "mysql-contract-reconciliation-v1",
+  version: "mysql-contract-reconciliation-v2",
 });
 export function validateMySqlContractPolicy(policy: MySqlTypePolicy): MySqlTypePolicy {
   const choices = {

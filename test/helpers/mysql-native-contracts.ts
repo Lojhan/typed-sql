@@ -59,6 +59,42 @@ export async function assertMySqlNativeContracts(connectionUri: string): Promise
       context,
       "Fresh owned sessions must share semantic context identity",
     );
+    const series = schema.server.versionKey.split(".").slice(0, 2).join(".");
+    const { mysql: createCore } = await import(`../../packages/mysql/src/analysis/core/${series}.js`);
+    const core = createCore();
+    const coreRunner = createNativeLiveAnalysisRunner({ adapter, contribution: createMySqlContractReconciler() });
+    for (const sql of ["SELECT SQRT(4.0) AS value", "SELECT SQRT(CAST(? AS DECIMAL(12,3))) AS value"]) {
+      const claim = createStaticQueryClaim({ sql, context, analysis: core.analyze(sql, schema) });
+      strict.deepEqual(
+        claim.diagnostics.map((item) => item.code),
+        ["TSQ408"],
+      );
+      const query = candidate(sql);
+      const qualified = await coreRunner(
+        {
+          connectionContext: queryContractDigest("mysql-core-native-proof"),
+          adapter: { id: adapter.id, version: adapter.version },
+          candidate: query,
+          staticClaim: claim,
+          policy: { mode: "hybrid", owner: mySqlContractReconciliationOwner, requiredNativeFacets: [] },
+        },
+        new AbortController().signal,
+      );
+      strict.equal(qualified.kind, "usable-recorded-context");
+      if (qualified.kind !== "usable-recorded-context") throw Error("Omitted MySQL core rule was not qualified");
+      strict.deepEqual(
+        qualified.contract.valuePlan.columns.map((column) => [column.name, column.type, column.nullable]),
+        [["value", "number", true]],
+      );
+      strict.deepEqual(
+        qualified.contract.valuePlan.parameters.map((parameter) => [
+          parameter.index,
+          parameter.type,
+          parameter.databaseType,
+        ]),
+        query.parameterOccurrences.length ? [[1, "string", "decimal(65,30)"]] : [],
+      );
+    }
     const result = await acquireNativeQueryContract({
       adapter,
       context,

@@ -15,13 +15,13 @@ import {
 } from "../../../../packages/duckdb/src/analysis.js";
 import { mapDuckDBType } from "../../../../packages/duckdb/src/index.js";
 import { mySqlServerEvidence, resolveMySqlCapabilities } from "../../../../packages/mysql/src/capabilities.js";
+import { resolveMySqlStatement } from "../../../../packages/mysql/src/compatibility-resolver.js";
 import type { MySqlSchemaSnapshot } from "../../../../packages/mysql/src/index.js";
 import {
   SqlParseError as MySqlParseError,
   parseStatement as parseMySqlStatement,
 } from "../../../../packages/mysql/src/parser/index.js";
 import { tokenize as tokenizeMySql } from "../../../../packages/mysql/src/parser/tokenizer.js";
-import { resolveMySqlStatement } from "../../../../packages/mysql/src/resolver.js";
 import { analyzeMySqlSemantics } from "../../../../packages/mysql/src/semantics.js";
 import { defaultMySqlTypePolicy, mapMySqlType } from "../../../../packages/mysql/src/type-policy.js";
 import { MYSQL_DIALECT_VERSION } from "../../../../packages/mysql/src/version.js";

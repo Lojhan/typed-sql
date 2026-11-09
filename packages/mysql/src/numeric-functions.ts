@@ -1,5 +1,5 @@
 import type { SchemaSnapshot } from "@typed-sql/schema";
-import { mySqlCatalogType } from "./catalog/index.js";
+import type { MySqlCatalogProvider } from "./catalog/provider.js";
 import type { Expression } from "./parser/index.js";
 import type { MySqlTypePolicy } from "./type-policy.js";
 
@@ -66,13 +66,14 @@ export function resolveMySqlNumeric(
   expressions: readonly Expression[],
   policy: MySqlTypePolicy,
   schema: SchemaSnapshot,
+  catalog: MySqlCatalogProvider,
 ): NumericValue & { reason?: string } {
   const input = values[0],
     nullable = values.some((value) => value.nullable),
     unknown = (reason: string) => ({ tsType: "unknown", nullable: true, reason });
   if (!input) return unknown("Numeric function requires an input");
-  const name = input.databaseType ? mySqlCatalogType(input.databaseType, schema)?.name : undefined,
-    category = input.databaseType ? mySqlCatalogType(input.databaseType, schema)?.category : undefined;
+  const name = input.databaseType ? catalog.type(input.databaseType, schema)?.name : undefined,
+    category = input.databaseType ? catalog.type(input.databaseType, schema)?.category : undefined;
   if (category === "spatial" || category === "vector")
     return unknown("Spatial and VECTOR inputs are not numeric operands");
   const integer = category === "numeric-integer" || category === "boolean" || name === "bit" || name === "year";

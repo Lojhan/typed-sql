@@ -37,6 +37,8 @@ export async function assertMySqlPackedContracts(workspace: string, connectionUr
     );
     await admin.query(`INSERT INTO ${table} VALUES (1,'2024-01-01','value')`);
     const schema = await mysql2({ connectionUri }).introspect();
+    const series = schema.server?.versionKey.split(".").slice(0, 2).join(".");
+    if (!series) throw Error("Packed MySQL core qualification requires explicit server evidence");
     // The packed fixture first proves that no driver is installed transitively.
     await symlink(join(workspace, "node_modules/mysql2"), join(directory, "node_modules/mysql2"), "dir");
     await symlink(
@@ -72,7 +74,7 @@ const mode=process.env.TYPED_SQL_MYSQL_CONTRACT_MODE??"live";
 export default defineConfig({
  dialect:{...mysqlProfile(),async loadAnalyzer(){
   if(mode!=="live")throw Error("Recorded checking initialized an analyzer");
-  return (await import("@typed-sql/mysql/analysis")).mysql();
+  return (await import("@typed-sql/mysql/analysis/core/${series}")).mysql();
  }},schema:{file:"schema.json"},outDir:"generated",projects:["tsconfig.json"],
  analysis:{mode,identity:mySqlContractIdentity(),contractsDir:"contracts",
   cache:{connectionContext:"0".repeat(64),adapter:{id:"@typed-sql/mysql/mysql2-contracts",version:mySqlContractAdapterVersion}},

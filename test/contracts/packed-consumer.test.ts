@@ -305,7 +305,7 @@ await describe("packed public packages", async () => {
         import { sql as postgresSql, typePolicy as postgresTypePolicy } from "@typed-sql/postgres"; import { postgres } from "@typed-sql/postgres/analysis";
         import { postgresRenderer } from "@typed-sql/postgres/runtime";
         import { loadPgDriver } from "@typed-sql/postgres/pg";
-        import { sql as mysqlSql, typePolicy as mysqlTypePolicy } from "@typed-sql/mysql"; import { mysql } from "@typed-sql/mysql/analysis";
+        import { sql as mysqlSql, typePolicy as mysqlTypePolicy } from "@typed-sql/mysql"; import { mysql, MYSQL_SUPPORT_POLICY, mySqlServerEvidence } from "@typed-sql/mysql/analysis";
         import { mysqlRenderer } from "@typed-sql/mysql/runtime";
         import { loadMySql2Driver } from "@typed-sql/mysql/mysql2";
         import { sql as sqliteSql, typePolicy as sqliteTypePolicy } from "@typed-sql/sqlite"; import { sqlite } from "@typed-sql/sqlite/analysis";
@@ -346,6 +346,18 @@ await describe("packed public packages", async () => {
         }
         if (postgres().id !== "postgres") throw new Error("dialect import failed");
         if (mysql().id !== "mysql") throw new Error("MySQL dialect import failed");
+        for(const target of [...MYSQL_SUPPORT_POLICY.stable,MYSQL_SUPPORT_POLICY.canary]) {
+          const selected=await import("@typed-sql/mysql/analysis/"+target.series);
+          const core=await import("@typed-sql/mysql/analysis/core/"+target.series);
+          const pack=await import("@typed-sql/mysql/analysis/packs/"+target.series+"/compatibility");
+          if(Object.keys(selected).join(",")!=="mysql"||Object.keys(core).join(",")!=="mysql"||Object.keys(pack).join(",")!=="mysqlCompatibilityPack")throw Error("MySQL selected/core/pack exports changed");
+          assertDialectPlugin(selected.mysql());assertDialectPlugin(core.mysql());assertDialectPlugin(core.mysql({packs:[pack.mysqlCompatibilityPack]}));
+          const schema={formatVersion:1,dialect:"mysql",server:mySqlServerEvidence(target.matrixVersion),tables:{}};
+          if(selected.mysql().validateSnapshot(schema).server.versionKey!==target.matrixVersion)throw Error("Selected MySQL series changed");
+          let refused=false;try{core.mysql().validateSnapshot({...schema,server:undefined});}catch{refused=true;}
+          if(!refused)throw Error("Selected MySQL core accepted missing series evidence");
+        }
+
         if (sqlserver().id !== "sqlserver" || sqlserver().sqlModule !== "@typed-sql/sqlserver") throw new Error("SQL Server public grammar contract failed");
         if (duckdb().id !== "duckdb" || duckdb().sqlModule !== "@typed-sql/duckdb") throw new Error("DuckDB public grammar contract failed");
         for (const version of DUCKDB_SUPPORT_POLICY.qualifiedEngines) {

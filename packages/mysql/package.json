@@ -32,7 +32,16 @@
     "developmentEntrypoints": [
       "./analysis",
       "./mysql2-contracts",
-      "./reconciliation"
+      "./reconciliation",
+      "./analysis/8.4",
+      "./analysis/core/8.4",
+      "./analysis/packs/8.4/compatibility",
+      "./analysis/9.7",
+      "./analysis/core/9.7",
+      "./analysis/packs/9.7/compatibility",
+      "./analysis/26.7",
+      "./analysis/core/26.7",
+      "./analysis/packs/26.7/compatibility"
     ]
   },
   "sideEffects": false,
@@ -51,7 +60,16 @@
     "./analysis": "./dist/packages/mysql/src/analysis.js",
     "./mysql2-contracts": "./dist/packages/mysql/src/mysql2-contracts.js",
     "./contract-profile": "./dist/packages/mysql/src/contract-profile.js",
-    "./reconciliation": "./dist/packages/mysql/src/reconciliation.js"
+    "./reconciliation": "./dist/packages/mysql/src/reconciliation.js",
+    "./analysis/8.4": "./dist/packages/mysql/src/analysis/8.4.js",
+    "./analysis/core/8.4": "./dist/packages/mysql/src/analysis/core/8.4.js",
+    "./analysis/packs/8.4/compatibility": "./dist/packages/mysql/src/analysis/packs/8.4/compatibility.js",
+    "./analysis/9.7": "./dist/packages/mysql/src/analysis/9.7.js",
+    "./analysis/core/9.7": "./dist/packages/mysql/src/analysis/core/9.7.js",
+    "./analysis/packs/9.7/compatibility": "./dist/packages/mysql/src/analysis/packs/9.7/compatibility.js",
+    "./analysis/26.7": "./dist/packages/mysql/src/analysis/26.7.js",
+    "./analysis/core/26.7": "./dist/packages/mysql/src/analysis/core/26.7.js",
+    "./analysis/packs/26.7/compatibility": "./dist/packages/mysql/src/analysis/packs/26.7/compatibility.js"
   },
   "dependencies": {
     "@typed-sql/ast": "workspace:*",

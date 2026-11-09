@@ -10,8 +10,8 @@ import {
   unknownQuerySemantics,
 } from "@typed-sql/core";
 import type { SchemaSnapshot } from "@typed-sql/schema";
+import { resolveMySqlStatement } from "./compatibility-resolver.js";
 import { parseStatement, SqlParseError } from "./parser/index.js";
-import { resolveMySqlStatement } from "./resolver.js";
 import { analyzeMySqlSemantics } from "./semantics.js";
 import { defaultMySqlTypePolicy, type MySqlTypePolicy } from "./type-policy.js";
 

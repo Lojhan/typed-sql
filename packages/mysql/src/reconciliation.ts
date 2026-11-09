@@ -58,17 +58,24 @@ export function createMySqlContractReconciler(
     ...mySqlContractReconciliationOwner,
     grammar: { id: "mysql", version: MYSQL_DIALECT_VERSION },
     classify(claim) {
-      return claim.diagnostics.some((item) => item.severity === "error")
+      const errors = claim.diagnostics.filter((item) => item.severity === "error");
+      return errors.some((item) => item.code !== "TSQ408")
         ? {
             status: "invalid",
             rule: "static-errors-remain-blocking",
             reason: "Invalid SQL and unsupported syntax remain blocking",
           }
-        : {
-            status: "resolved",
-            rule: "independent-static-analysis",
-            reason: "Compare every available static claim, including successful offline inference",
-          };
+        : errors.length
+          ? {
+              status: "unsupported",
+              rule: "routine-result-requires-native-evidence",
+              reason: "Only an omitted offline routine rule may be supplied by qualified native preparation",
+            }
+          : {
+              status: "resolved",
+              rule: "independent-static-analysis",
+              reason: "Compare every available static claim, including successful offline inference",
+            };
     },
     compare({ facet, expected, native, target }) {
       if (facet === "nullability") {

@@ -12,8 +12,8 @@ import {
 } from "../../core/src/index.js";
 import { type SchemaSnapshot, upgradeSchemaSnapshotV1 } from "../../schema/src/index.js";
 import { mysql } from "../src/analysis.js";
+import { resolveMySqlStatement } from "../src/compatibility-resolver.js";
 import { parseSelect, parseStatement } from "../src/parser/index.js";
-import { resolveMySqlStatement } from "../src/resolver.js";
 import { defaultMySqlTypePolicy } from "../src/type-policy.js";
 
 const schema = {

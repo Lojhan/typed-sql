@@ -1,7 +1,7 @@
 import { describe, it, strict } from "poku";
 import type { SchemaSnapshot } from "../../schema/src/index.js";
+import { resolveMySqlStatement } from "../src/compatibility-resolver.js";
 import { parseStatement, SqlParseError } from "../src/parser/index.js";
-import { resolveMySqlStatement } from "../src/resolver.js";
 
 const schema = {
   formatVersion: 1,

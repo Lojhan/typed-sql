@@ -1,0 +1,31 @@
+{
+  "formatVersion": 1,
+  "selectionVersion": "mysql-offline-core-v1",
+  "basis": "Initial maintained common semantic families; not a measured popularity ranking. All existing types, coercions, operators and collations remain core. Compatibility packs restore omitted complete routine families.",
+  "families": [
+    "count",
+    "decimal-aggregate",
+    "extrema",
+    "first-argument",
+    "coalesce",
+    "concat",
+    "string",
+    "integer-unary",
+    "json-length",
+    "locate",
+    "coercibility",
+    "double-optional",
+    "double-binary",
+    "json",
+    "date",
+    "bigint-window",
+    "double-window",
+    "value-window",
+    "numeric-absolute",
+    "numeric-round",
+    "numeric-integral",
+    "random"
+  ],
+  "structuralForms": ["VALUES", "GROUPING"],
+  "structuralPrefixes": ["JSON_"]
+}
