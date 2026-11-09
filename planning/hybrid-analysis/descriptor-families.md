@@ -110,6 +110,16 @@ and the parameter changes from described to rejected. The adapter declines both 
 on both versions. This difference is retained instead of merging fingerprints by major or
 silently treating every patch as identical.
 
+The [ordinary-table controls](../../test/helpers/postgres-table-contracts.ts) additionally create
+real enum, composite, range and multirange columns beside the existing domain/array controls.
+All are rejected by guarded native table admission on local PostgreSQL 18.3 and 18.6, even with
+an empty compiler schema. Independent catalog reads assert actual `typtype` classes (`d`, `e`,
+`c`, `r`, `m`) rather than relying on fixture names. Ordinary scalar table acquisitions still
+pass, and the outer owning fixture removes the schema and types. This proves these relation
+classes remain unavailable; it does not qualify custom return values, arbitrary domains,
+extension representations or nondefault policy combinations. The 18.6 full native/descriptor
+file passes in 90.41 seconds without changing its deadline; the complete 18.3 helper also passes.
+
 ## SQLite standard names and storage-domain boundaries
 
 The [source collector](../../scripts/generate-sqlite-descriptor-types.mjs) extracts standard
@@ -259,6 +269,40 @@ Replay of all four actual hosted reports passes the gate; deliberately altered f
 on every engine. Unit regressions reject missing/duplicated targets, incomplete runs, cleanup
 failures and inconsistent accounting, and prove that a partial-to-acquired change requires review.
 The gate passes all ten fresh hosted captures in [run 42637006229](https://github.com/Lojhan/typed-sql/actions/runs/42637006229), with successful case and database-cleanup status. That aggregate separately fails PostgreSQL watch regeneration and SQL Server 17's later packed editor check; these descriptor results do not make the aggregate green.
+
+## Capability boundaries used for acceptance
+
+The common evidence format has three independently qualified facets: native identity (including
+its completeness flag), runtime representation and nullability (exact or upper bound). Raw
+descriptor fields do not add a fourth route to optimistic typing. These claims apply only after
+the owner's statement/context admission succeeds. An acquired statement can still fail the
+project's required-facet policy.
+
+| Owner and exact native observations | Native identity and modifiers | Runtime representation | Nullability and other semantic limits |
+| --- | --- | --- | --- |
+| PostgreSQL 18.3 / 18.6 | Parse/Describe OIDs and output typmods are compared with independent protocol results. Parameter typmods are unavailable; modifier-bearing inputs remain incomplete. Other hosted majors have protocol observations but no qualified native adapter. | Selected builtin scalar mappings use the selected codec policy. JSON parameters remain unavailable under the default policy. Array/custom/domain identities never imply a qualified representation. | Protocol descriptions provide no expression nullability. JSON shape, cardinality and dependent function behavior are unavailable from this mechanism. |
+| MySQL 8.4.11 / 9.7.2, six supported modes | Wire type/flags and independent column facts are captured. Character, temporal, enum, spatial and JSON identity can remain partial. Raw width/charset/decimals are retained without upgrading binding identity. | Default-policy JSON input representation is unavailable. Known wire families use the same runtime policy; output facts may remain unknown. Canary transport is unqualified. | Parameters have no nullability claim. Output NOT_NULL evidence can be exact; nullable output evidence is an upper bound. JSON structure and all recursive modifier combinations remain unqualified. |
+| SQLite 3.53.4 / 3.54.0 advanced-API profiles | Every acquired identity is an incomplete storage-domain identity, including STRICT and NOT NULL columns. Origin declarations are retained but do not establish arbitrary expression types. Missing authorizer/column APIs make native acquisition unavailable. | Four audited policies retain broad storage domains; unknown-flexible parameters are unavailable. Separate runtime tests exercise integer and binding policy. | Nullable upper bounds are retained even for declared NOT NULL sources. Declared widths, decimal precision, JSON shape and arbitrary expression nullability are unavailable. |
+| DuckDB 1.5.6 / 2.0.0 | SDK logical trees cover all modeled kinds with concrete controls; output/input descriptors retain nested dimensions and labels. ANY/INVALID and unmodeled kinds remain unknown. Bare parametric names can be declined. | Known logical trees use the owner codec policy; unresolved parameter representation prevents acquisition. NULL-typed input remains unavailable. | Prepare does not establish nullability. Nested element nullability stays conservative. All possible nested/custom/extension/policy combinations are not certified by these controls. |
+| SQL Server exact builds and all ten pairs listed above | Independent metadata retains system/user IDs, dimensions, collation and XML facets. Missing input collation, aliases and XML collections can leave identity incomplete. | Opaque CLR and sql_variant descriptors do not establish a runtime representation. Unavailable independent metadata is not attempted through the adapter. | Native NOT NULL output can be exact; nullable outputs and inputs retain upper bounds. CLR/custom/XML/JSON/vector semantics and arbitrary batches are not inferred from acquired metadata. |
+
+The negative and policy boundaries are asserted in the grammar-owned suites:
+[PostgreSQL](../../packages/postgres/test/native-contracts.test.ts),
+[MySQL](../../packages/mysql/test/native-contracts.test.ts),
+[SQLite](../../packages/sqlite/test/native-contracts.test.ts),
+[DuckDB](../../packages/duckdb/test/native-contracts.test.ts) and
+[SQL Server descriptor controls](../../packages/sqlserver/test/contract-descriptors.test.ts).
+Those unit controls establish interpretation/fail-closed behavior, while the independently
+captured exact-engine inventories above establish the specified native observations. Unit
+fixtures do not certify an unobserved engine or policy combination.
+
+Reusable routine metadata is narrower still: PostgreSQL's selected fixed-scalar project
+catalog rules are qualified separately. The other owners supply exact-query evidence rather
+than universal reusable routine declarations. Named/default/polymorphic/table-output calls
+and argument-dependent rules do not inherit permission from a successful simple invocation.
+No owner derives JSON object shape, cardinality, execution effects or universal overload rules
+from a type-name inventory. Missing evidence remains unavailable or partial in the durable
+contract and is checked again against the project's required-facet policy.
 
 ## Remaining owners
 

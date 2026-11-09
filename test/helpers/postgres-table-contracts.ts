@@ -31,6 +31,15 @@ export async function assertPostgresTableContracts(pool: Pool, namespace: string
     CREATE DOMAIN ${namespace}.custom_id AS bigint;
     CREATE TABLE ${namespace}.custom_items (id ${namespace}.custom_id);
     CREATE TABLE ${namespace}.array_items (ids bigint[]);
+    CREATE TYPE ${namespace}.status_kind AS ENUM ('active', 'inactive');
+    CREATE TYPE ${namespace}.record_kind AS (id bigint, label text);
+    CREATE TYPE ${namespace}.interval_kind AS RANGE (
+      subtype = bigint, multirange_type_name = ${namespace}.interval_set_kind
+    );
+    CREATE TABLE ${namespace}.enum_items (value ${namespace}.status_kind);
+    CREATE TABLE ${namespace}.composite_items (value ${namespace}.record_kind);
+    CREATE TABLE ${namespace}.range_items (value ${namespace}.interval_kind);
+    CREATE TABLE ${namespace}.multirange_items (value ${namespace}.interval_set_kind);
     CREATE TABLE ${namespace}.generated_items (id bigint, doubled bigint GENERATED ALWAYS AS (id * 2) VIRTUAL);
     CREATE TABLE ${namespace}.parent_items (id bigint);
     CREATE TABLE ${namespace}.child_items () INHERITS (${namespace}.parent_items);
@@ -146,6 +155,10 @@ export async function assertPostgresTableContracts(pool: Pool, namespace: string
     "secured",
     "custom_items",
     "array_items",
+    "enum_items",
+    "composite_items",
+    "range_items",
+    "multirange_items",
     "generated_items",
     "parent_items",
     "child_items",
@@ -158,6 +171,22 @@ export async function assertPostgresTableContracts(pool: Pool, namespace: string
       table,
     );
   }
+  // The real catalog must establish each class: fixture names alone are not native evidence.
+  const customKinds = (
+    await pool.query<{ name: string; kind: string }>(
+      `SELECT t.typname AS name,t.typtype AS kind FROM pg_catalog.pg_type t
+       JOIN pg_catalog.pg_namespace n ON n.oid=t.typnamespace
+       WHERE n.nspname=$1 AND t.typname=ANY($2::text[]) ORDER BY t.typname`,
+      [namespace, ["custom_id", "status_kind", "record_kind", "interval_kind", "interval_set_kind"]],
+    )
+  ).rows;
+  strict.deepEqual(customKinds, [
+    { name: "custom_id", kind: "d" },
+    { name: "interval_kind", kind: "r" },
+    { name: "interval_set_kind", kind: "m" },
+    { name: "record_kind", kind: "c" },
+    { name: "status_kind", kind: "e" },
+  ]);
   const wrapper = `${namespace}_fdw`;
   await pool.query(`CREATE FOREIGN DATA WRAPPER ${wrapper}; CREATE SERVER ${wrapper} FOREIGN DATA WRAPPER ${wrapper}`);
   try {

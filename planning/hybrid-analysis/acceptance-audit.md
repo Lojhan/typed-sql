@@ -115,7 +115,7 @@ matrix or establish availability beyond the measured invocations.
   workload pairs now add actual provisioned/introspected schema evidence: every base query is declined,
   which proves a measured restriction rather than usable native project support. The maintained corpus
   also supplies the separate offline project measure. Repository, bundle, installation and project costs
-  are refreshed at `6e11aa02`; the report renderer and root quality check prevent stale derived tables.
+  are refreshed at `eae1274d`; the report renderer and root quality check prevent stale derived tables.
   Future production-source changes require a fresh measurement pin before claiming final after-results.
   Installation, external drivers/engines and minified application bundles remain separate costs.
 
