@@ -17,8 +17,9 @@ native transport currently qualified by this PR.
 - Add SQLite read-only native query acquisition and SQL Server guarded expression acquisition.
 
 The exhaustive upstream inventory, vendor fact extraction, global catalog model, generated
-completeness reports and workload-selected core/compatibility-pack APIs are excluded. DuckDB has explicit
-selected-engine full-analyzer entrypoints; common-name core selection is not implemented. Normal
+completeness reports remain excluded. DuckDB has exact-engine full analyzers, a maintained
+bounded core and explicit compatibility packs. Equivalent distribution boundaries in other
+grammars and representative workload selection remain unfinished. Normal
 builds and installations do not fetch database sources or require a global engine inventory.
 The existing PostgreSQL/MySQL catalog generators also derive small runtime codec projections
 from their maintained catalog inputs, preserving compile-time/runtime policy agreement.
@@ -828,3 +829,48 @@ and all 21 compiler files with coverage pass. Production cancellation behavior i
 
 Workload-selected compact cores, optional semantic packs in all grammars, reusable custom-type
 qualification, native-qualified project overhead and the complete acceptance audit remain open.
+
+## Bounded DuckDB core and complementary packs
+
+Commit `1adfc8e5` adds `analysis/core/1.5.6` and `analysis/core/2.0.0` plus explicit installed
+compatibility packs. A small maintained family policy selects names; generation retains their
+complete existing overload families and all operators, along with shared casts/type combinations.
+The optional partition contains the remaining rows. The compatibility catalog assembles those
+disjoint partitions in original order. All native signature/cast payloads and snapshot SHA-256s
+match the pre-partition files exactly: 819+1,817=2,636 on 1.5.6; 832+2,053=2,885 on 2.0.0.
+No second exhaustive vendor catalog is introduced. The generated line increase contains binding
+vocabulary, selection/provenance metadata and module boundaries; moved rows increase Git's
+added/deleted counts. This is an initial maintained core, not a measured popularity ranking.
+
+The resolver checks core selection before executing a handwritten result rule. Omitted routines
+produce an actionable TSQ408; argument analysis still preserves casts and parameter positions.
+Removing this check makes the regression incorrectly accept excluded `isfinite`. The first
+native regression also rejects the implementation that drops those input parameters as a
+static/native conflict. The corrected core obtains parameterized `md5` input/result evidence
+through the normal native runner on both engines, without an offline pack or application values.
+The native contract retains the string codec, ordered input tuple and conservative nullability.
+
+Pack identity is owned by installed grammar modules. Cloned descriptors, duplicate packs and
+other-engine packs fail before analysis. Packs supply complementary rows and share the core's
+cast/type mechanics. Independent native-inventory candidates compare core results for selected
+names, and all full compatibility outcomes after adding the pack. Structural, parameterized,
+CTE, compound and list cases also match. Core import graphs contain no full registry, optional
+signature partition, other engine or native SDK. Installed packed consumers load each public
+core/pack path discovered from owner policy. Query-candidate generation is isolated in a pure
+shared audit module so package test typechecking does not pull the live audit's Node tooling.
+
+Validation: clean build; package test typechecking; all 42 DuckDB files and coverage
+(98.88% statements, 91.22% branches, 97.81% functions); additional 1.5.6 SDK qualification;
+both native catalog checks; fresh reviewed live audits on both engines without baseline changes;
+48 repository contract files plus the corrected documentation contract; soundness; docs check/build;
+quality; and isolated performance pass. The full repository run's single documentation failure
+was an abbreviated public entrypoint in a table; listing both full import paths fixes it.
+
+The refreshed [bundle report](./bundle-size.md) pins `1adfc8e5`: core is 234.3/246.0 KiB minified,
+versus 360.0/385.0 KiB for matching full per-engine analyzers. Composing a compatibility pack has
+measured selection/wrapper overhead, which is reported separately. Runtime tags and frozen hosts
+remain unchanged and catalog-free. The [repository report](./repository-size.md) now pins the
+same revision, distinguishes moved/generated/maintained lines and reproduces the Git line delta.
+Final topology, other grammars' core/pack boundaries and representative production workloads
+remain incomplete. The preceding `203d573e` passes CI, native language audit and migration
+workflows; the new core/pack head requires its own final CI result.

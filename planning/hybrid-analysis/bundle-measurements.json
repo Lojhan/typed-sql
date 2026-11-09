@@ -1,13 +1,13 @@
 {
   "formatVersion": 2,
-  "sourceRevision": "6edcd6eda62788e6440f9ef30b7a220beb0e6ea1",
+  "sourceRevision": "1adfc8e5ded500d509ae47c10c8d971a7c78e6b0",
   "nodeVersion": "v24.22.2",
   "esbuildVersion": "0.28.2",
-  "measurementToolDigest": "af0a66d87393705875886de8ef59d4f7c470ead3892c2ae0fed27bc43e4e1e64",
+  "measurementToolDigest": "dc40a67dc6020756ad046212866c23512282904af1aba29c572d93170931ef5e",
   "comparisonBaseline": {
     "sourceRevision": "a1f27fc894e48021e91ce4c9a4b98929890f233d",
     "lockfileDigest": "eebeeeafcca88627ce33a1522010ffea65afe001cc20635d15c5b630899f8df2",
-    "reportDigest": "fe0f4a5aa669f3d49f9bf90bdb626ac3a0f078463364aba5c8805b8f4283f8e2",
+    "reportDigest": "5b6d300bd9ef220338dca2ea594fb9c8b1abb440b53fba484ef06530f867e9f0",
     "rows": [
       {
         "grammar": "duckdb",
@@ -258,16 +258,20 @@
     {
       "grammar": "duckdb",
       "scenario": "analyzer",
-      "minifiedBytes": 642127,
-      "gzipBytes": 78420,
-      "brotliBytes": 48202,
-      "generatedInputBytes": 521506,
+      "minifiedBytes": 642906,
+      "gzipBytes": 79829,
+      "brotliBytes": 48448,
+      "generatedInputBytes": 521646,
       "globalCatalogInputs": [
         "packages/duckdb/src/catalog/resolution.ts",
+        "packages/duckdb/src/catalog/core/1.5.6.ts",
+        "packages/duckdb/src/catalog/packs/1.5.6.ts",
         "packages/duckdb/src/catalog/1.5.6.ts",
         "packages/duckdb/src/catalog/common-1.5.6.ts",
         "packages/duckdb/src/catalog/provider.ts",
         "packages/duckdb/src/catalog/engines/1.5.6.ts",
+        "packages/duckdb/src/catalog/core/2.0.0.ts",
+        "packages/duckdb/src/catalog/packs/2.0.0.ts",
         "packages/duckdb/src/catalog/2.0.0.ts",
         "packages/duckdb/src/catalog/common-2.0.0.ts",
         "packages/duckdb/src/catalog/engines/2.0.0.ts",
@@ -275,12 +279,12 @@
       ],
       "attribution": {
         "core/other": 10552,
-        "duckdb/other": 57568,
+        "duckdb/other": 57895,
         "duckdb/parser": 24926,
         "schema/other": 23069,
-        "duckdb/catalog": 525983
+        "duckdb/catalog": 526435
       },
-      "outputDigest": "8d633278d836306fba8bb25cdc667e58120b8a929557d45f676766fc5ec9aebc"
+      "outputDigest": "9822e4d393229ceb7719df9e5526b89ad6a8cb680c56c765afa3472c883ee327"
     },
     {
       "grammar": "duckdb",
@@ -319,12 +323,14 @@
     {
       "grammar": "duckdb",
       "scenario": "analyzer:1.5.6",
-      "minifiedBytes": 368042,
-      "gzipBytes": 55604,
-      "brotliBytes": 44986,
-      "generatedInputBytes": 247963,
+      "minifiedBytes": 368635,
+      "gzipBytes": 56356,
+      "brotliBytes": 45123,
+      "generatedInputBytes": 248033,
       "globalCatalogInputs": [
         "packages/duckdb/src/catalog/resolution.ts",
+        "packages/duckdb/src/catalog/core/1.5.6.ts",
+        "packages/duckdb/src/catalog/packs/1.5.6.ts",
         "packages/duckdb/src/catalog/1.5.6.ts",
         "packages/duckdb/src/catalog/common-1.5.6.ts",
         "packages/duckdb/src/catalog/provider.ts",
@@ -332,22 +338,24 @@
       ],
       "attribution": {
         "core/other": 10552,
-        "duckdb/other": 57576,
+        "duckdb/other": 57903,
         "duckdb/parser": 24926,
         "schema/other": 23069,
-        "duckdb/catalog": 251890
+        "duckdb/catalog": 252156
       },
-      "outputDigest": "adf4e22c39c050712a6a823ffdbf59e4dfc33c069afd317b6a8a3831a30affa8"
+      "outputDigest": "0d16569b0c18e66285432ff0500419de5279f4d44d7ebe16902ecaa856310e89"
     },
     {
       "grammar": "duckdb",
       "scenario": "analyzer:2.0.0",
-      "minifiedBytes": 393622,
-      "gzipBytes": 57757,
-      "brotliBytes": 46666,
-      "generatedInputBytes": 273543,
+      "minifiedBytes": 394215,
+      "gzipBytes": 58427,
+      "brotliBytes": 46862,
+      "generatedInputBytes": 273613,
       "globalCatalogInputs": [
         "packages/duckdb/src/catalog/resolution.ts",
+        "packages/duckdb/src/catalog/core/2.0.0.ts",
+        "packages/duckdb/src/catalog/packs/2.0.0.ts",
         "packages/duckdb/src/catalog/2.0.0.ts",
         "packages/duckdb/src/catalog/common-2.0.0.ts",
         "packages/duckdb/src/catalog/provider.ts",
@@ -355,12 +363,104 @@
       ],
       "attribution": {
         "core/other": 10552,
-        "duckdb/other": 57576,
+        "duckdb/other": 57903,
         "duckdb/parser": 24926,
         "schema/other": 23069,
-        "duckdb/catalog": 277470
+        "duckdb/catalog": 277736
       },
-      "outputDigest": "6cdc7e122166df4c9ce510c2d5a14175ad15bea3dbda3dde45d879c9e7bf31bb"
+      "outputDigest": "e99c8463c7b5561b13d5155ced35eb9c285d27f26f8378a22db5b9f733a5aa1b"
+    },
+    {
+      "grammar": "duckdb",
+      "scenario": "analyzer:core:1.5.6",
+      "minifiedBytes": 239973,
+      "gzipBytes": 49157,
+      "brotliBytes": 41153,
+      "generatedInputBytes": 118289,
+      "globalCatalogInputs": [
+        "packages/duckdb/src/catalog/common-1.5.6.ts",
+        "packages/duckdb/src/catalog/core/1.5.6.ts",
+        "packages/duckdb/src/catalog/provider.ts",
+        "packages/duckdb/src/catalog/resolution.ts"
+      ],
+      "attribution": {
+        "duckdb/catalog": 122949,
+        "core/other": 10552,
+        "duckdb/other": 58448,
+        "duckdb/parser": 24926,
+        "schema/other": 23069
+      },
+      "outputDigest": "67c978ce04eb9e2e454d947f19cd05436f35dc34a2cbda443fe0c0cf3425a3b5"
+    },
+    {
+      "grammar": "duckdb",
+      "scenario": "analyzer:core:2.0.0",
+      "minifiedBytes": 251891,
+      "gzipBytes": 50882,
+      "brotliBytes": 42354,
+      "generatedInputBytes": 130207,
+      "globalCatalogInputs": [
+        "packages/duckdb/src/catalog/common-2.0.0.ts",
+        "packages/duckdb/src/catalog/core/2.0.0.ts",
+        "packages/duckdb/src/catalog/provider.ts",
+        "packages/duckdb/src/catalog/resolution.ts"
+      ],
+      "attribution": {
+        "duckdb/catalog": 134867,
+        "core/other": 10552,
+        "duckdb/other": 58448,
+        "duckdb/parser": 24926,
+        "schema/other": 23069
+      },
+      "outputDigest": "173b2141eb316011dc3db01b4130a543b75a5f4e875419c01886fd2c00da4c99"
+    },
+    {
+      "grammar": "duckdb",
+      "scenario": "analyzer:core:1.5.6:compatibility",
+      "minifiedBytes": 382269,
+      "gzipBytes": 60392,
+      "brotliBytes": 47834,
+      "generatedInputBytes": 260312,
+      "globalCatalogInputs": [
+        "packages/duckdb/src/catalog/common-1.5.6.ts",
+        "packages/duckdb/src/catalog/core/1.5.6.ts",
+        "packages/duckdb/src/catalog/provider.ts",
+        "packages/duckdb/src/catalog/resolution.ts",
+        "packages/duckdb/src/catalog/packs/1.5.6.ts"
+      ],
+      "attribution": {
+        "duckdb/catalog": 264972,
+        "core/other": 10552,
+        "duckdb/other": 58684,
+        "duckdb/parser": 24926,
+        "schema/other": 23069,
+        "external/entry": 37
+      },
+      "outputDigest": "26042164ec7865e7ff6426dad9079491b80c5b6f117a939a0f247c6df89e078f"
+    },
+    {
+      "grammar": "duckdb",
+      "scenario": "analyzer:core:2.0.0:compatibility",
+      "minifiedBytes": 411084,
+      "gzipBytes": 63121,
+      "brotliBytes": 49900,
+      "generatedInputBytes": 289127,
+      "globalCatalogInputs": [
+        "packages/duckdb/src/catalog/common-2.0.0.ts",
+        "packages/duckdb/src/catalog/core/2.0.0.ts",
+        "packages/duckdb/src/catalog/provider.ts",
+        "packages/duckdb/src/catalog/resolution.ts",
+        "packages/duckdb/src/catalog/packs/2.0.0.ts"
+      ],
+      "attribution": {
+        "duckdb/catalog": 293787,
+        "core/other": 10552,
+        "duckdb/other": 58684,
+        "duckdb/parser": 24926,
+        "schema/other": 23069,
+        "external/entry": 37
+      },
+      "outputDigest": "36a21052eb87539846c22d103cb19c06c67f8ca6de7a116f5510bb740a1ed88b"
     },
     {
       "grammar": "mysql",
@@ -857,26 +957,35 @@
     "packages/core/src/semantics.ts": "03f8125bd43457d69d15409ff6d9e56f6e90ea2454a93f3da4e873d3db3c1364",
     "packages/core/src/types.ts": "da19fcdbc55e7a97997143b60d507bcaf1eac508de438d9f4f791cd0013a4cc9",
     "packages/core/src/utf8.ts": "2dc97045241fa81c7c3b2e6b47ac48cbe5cf676961c84561ef9c22167f779875",
-    "packages/duckdb/package.json": "11a4c2430e11aedb39dd4e21dbb1e53005e93d72b0891eb6cb72f1c5c922a411",
+    "packages/duckdb/package.json": "4f7c07cf14996c79f3b10d87f2280a5f5b8dc28808439c34d05fb93c3a309537",
     "packages/duckdb/src/analysis-factory.ts": "6d54cc77885513eebe9205a8d1bed41089b2225817ad5b50ac2e6ca8f1e30179",
     "packages/duckdb/src/analysis.ts": "c950ef4bb7b6678c32ee7ebdd1b11736c4c1a69d475e97ebce539771339fb493",
     "packages/duckdb/src/analysis/1.5.6.ts": "4b4bbb2ccd017858502fe0f85bedbeba0a50a36806a0363b3e7dc2d090a628fc",
     "packages/duckdb/src/analysis/2.0.0.ts": "ed447f709b36cedb4cfc96f3b48c84fab15a1c861a449816223dec5b7d46712c",
+    "packages/duckdb/src/analysis/core/1.5.6.ts": "85711c1c67d935fc4c3a04c5e9b95cb3d55904dbddabcabdf3a5ebecac30968e",
+    "packages/duckdb/src/analysis/core/2.0.0.ts": "d0f902f3127cfaca0955b6cd24651ea84a7ab0e2ed68ae85aff24859387751f6",
+    "packages/duckdb/src/analysis/packs/1.5.6/compatibility.ts": "7be95bbc7ea68dea67724575c9568a63fbc59c0bfcda5dd4eb00dad8ee5fabc4",
+    "packages/duckdb/src/analysis/packs/2.0.0/compatibility.ts": "7e6f4422a3397cbf79b6caa96466b050c7d488f3224c8054f0694b0b2071eb75",
     "packages/duckdb/src/browser.ts": "886fd12e629b885c399e7e79114f390deb782daa5382691da27cc9575fb02065",
     "packages/duckdb/src/bulk.ts": "c9aab56298944b0a321efdb239dd8b4a973d97ab2922aa2f3262a12d4171f126",
-    "packages/duckdb/src/catalog/1.5.6.ts": "5a7cfcf975be4de6978c8abd78ef3214c8f9faf6f36adc9b975413a619a7531b",
-    "packages/duckdb/src/catalog/2.0.0.ts": "9e05ac362180ecafb98f54a7eea0e8799fc8f71b42969a609e61e1f3d48fc545",
+    "packages/duckdb/src/catalog/1.5.6.ts": "83df12d79a0426233f181960208949e13f497444366d6e4735ecaa75140fed5f",
+    "packages/duckdb/src/catalog/2.0.0.ts": "a34ec9f8b4c07f26017e46aec39eb092062400f1c6cf4ea91fe39016c243d3f3",
     "packages/duckdb/src/catalog/common-1.5.6.ts": "9d35892d6306ac66848bd399409d0afe5092b6ceded7e86b0f4a590213768acf",
     "packages/duckdb/src/catalog/common-2.0.0.ts": "2a2208ef9fc457ccb92dd8681a315fc59f7bf426014105b3a9e4227cf6a430dc",
+    "packages/duckdb/src/catalog/core/1.5.6.ts": "e3566801f4dcaa59c3eef289690955b3d99976bad698e9fa2baf1a7592e836fe",
+    "packages/duckdb/src/catalog/core/2.0.0.ts": "5d1b79d8fcff83ffbf6116e10c20e72e47bb991540c041597f7a1fa02b9b0cd9",
     "packages/duckdb/src/catalog/ddl.ts": "43d1f5370cadd0483826b0eca3e2981b5b897e03afee6cf61ead85b29f7a59cb",
     "packages/duckdb/src/catalog/engines/1.5.6.ts": "16afb7296f7086c00f7d143b1719c46acb63e4b4461d11132963a5312bf98514",
     "packages/duckdb/src/catalog/engines/2.0.0.ts": "de9f8c0fb31588e93ea85a06e70f4727705403c6a87c3d8ceff33b0a0f42c5b3",
     "packages/duckdb/src/catalog/index.ts": "bfcfaf875494dbb475f220ff67f9dd201f6698cb2990b5ac60abd551163f38bd",
-    "packages/duckdb/src/catalog/provider.ts": "f79e8af2375575c1a6a1f37e5d20b11fd9a083c384c78fcd99788e356011b5b6",
+    "packages/duckdb/src/catalog/packs/1.5.6.ts": "9253e4832dbb92d5f5dcc368d69ca99ab6648ac4d7e9d981daa0bf623ead1567",
+    "packages/duckdb/src/catalog/packs/2.0.0.ts": "5ca223a004e4a921ea8151c15af872832acb198cb8927c7cac93bcababc045c5",
+    "packages/duckdb/src/catalog/provider.ts": "8424a79220b5d7f2db7d9bb422b20f1f92a7a4d802a351bfa79e0ccf264aac91",
     "packages/duckdb/src/catalog/resolution.ts": "cc62633eb560de82a1f5313ea963d6c27dc86af3be5d29e9472e308e934c3597",
     "packages/duckdb/src/codecs.ts": "7af6db6bb16967d12bd86af97a1bd455f330db92527d0362f75e8ce2721364b6",
     "packages/duckdb/src/index.ts": "0229705d087b13d37de72bbda8f8ed976f89b3dde8f7e0be66bc686c43434274",
     "packages/duckdb/src/native-types.ts": "ddf9366790a4e317e94bb00f8426e2e34231922472ed38de9a91f82ec5ab97f0",
+    "packages/duckdb/src/offline-packs.ts": "549fdb4a24e4a3586ebe98465ed7ed811a5b74314079c93ddfc6a180d3ac1e3b",
     "packages/duckdb/src/parameter-transport.ts": "ef3a2546530fb1ab7b703c2e526c7f0ce71a12a1cf335b3a44e50acb14114098",
     "packages/duckdb/src/parser/labels.ts": "34f1e76508c2778f2725f37c5520332afcc4ecd45d4b88afd1d09c25e18758a8",
     "packages/duckdb/src/parser/parser.ts": "1fce5f303e686d904bef0cc44db39bf5a525afecc40ca602396c8941cba2703a",
@@ -885,7 +994,7 @@
     "packages/duckdb/src/profile.ts": "858754c08a013cdf972461189b40d815fd6498ac5e56dea4b61d6fc9856a2e40",
     "packages/duckdb/src/provider.ts": "91ddbacaa4dcfb46655e3fa9673649c4aa9a434c6569413fae08e215091174ec",
     "packages/duckdb/src/query.ts": "994dafdd0dfe1bf248d7a925bb8fa67acf83519e7a3bda79a5adccb152170c2b",
-    "packages/duckdb/src/resolver.ts": "d444134a92c6d56999388d18e3f27e6bd76c71ee060b31afaf8f002dadab4198",
+    "packages/duckdb/src/resolver.ts": "d55380ce1a13c5d73aab6575d3294377ecaaf5abd5d59d94b912345a389458bf",
     "packages/duckdb/src/runtime.ts": "95d14904dfe3da7a9f39ab0b18dfe3f60e4350b5cb1105be6d34e52b3eb37a6d",
     "packages/duckdb/src/services.ts": "ccfd97e69e9e1e1dad7c0f1a385ae08ea1ebd875a0d38424ce994c3edb26b9b4",
     "packages/duckdb/src/settings.ts": "1f1c322012914eac5e68b6051751c9050ea46af78f6bcc21654214462da2f242",

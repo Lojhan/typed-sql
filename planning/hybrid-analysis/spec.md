@@ -1,10 +1,11 @@
 # Query contracts, hybrid analysis and live regeneration
 
-> Implementation scope: this PR retains the existing offline catalogs. Exhaustive upstream
-> inventories, vendor source extraction, global catalog generation and optional core/compatibility
-> pack distribution are excluded. Sections describing those later capabilities are architecture
-> targets, not claims about the current implementation. DuckDB now has explicit per-engine
-> full-analyzer exports; these do not yet implement common-function core selection.
+> Implementation scope: this PR retains existing offline support without an exhaustive upstream
+> inventory or vendor source-extraction pipeline. DuckDB has exact-engine full analyzers, a
+> maintained bounded core and complementary compatibility packs. Equivalent distribution across
+> other grammars and representative workload selection remain architecture targets. Native
+> capabilities below require their own qualification evidence; this specification is not a
+> completeness claim.
 
 Status: final direction-change specification; implementation is in progress. This defines the
 target architecture and acceptance requirements, not an assertion that they are implemented.
@@ -754,8 +755,9 @@ pending working-tree implementation. Values below are KiB (1,024 bytes).
 These generated contributions describe that historical exhaustive pipeline, not the current
 implementation. The current [machine-readable report](./bundle-measurements.json) remeasures
 the same four source scenarios and adds profile/frozen-host scenarios for all five grammars.
-The analyzer-only current minified sizes are 382.4 KiB PostgreSQL, 183.4 KiB MySQL, 148.7 KiB
-SQLite, 121.1 KiB SQL Server and 625.8 KiB DuckDB. These net changes include pipeline removal,
+The analyzer-only current minified sizes at `1adfc8e5` are 383.8 KiB PostgreSQL, 183.4 KiB MySQL,
+148.6 KiB SQLite, 121.1 KiB SQL Server and 627.8 KiB DuckDB. DuckDB core samples are
+234.3/246.0 KiB for 1.5.6/2.0.0, with matching full per-engine samples at 360.0/385.0 KiB. These net changes include pipeline removal,
 semantic corrections and API separation; they do not isolate the effect of query contracts.
 Some compact generated vocabulary/type/codec metadata remains. Do not multiply the gzip column
 by the historical minified generated share.
@@ -767,8 +769,10 @@ win is avoiding global analyzer catalogs in contract-only compilation and
 isolating profiles/packs. Profile isolation independently saves unused versions; it is not a
 benefit unique to query contracts. Current frozen hosts contain zero global grammar catalog
 inputs but include contract loading and compilation machinery; SQL Server's helper sample is
-slightly larger than its analyzer-only sample. Workload-selected core/packs, representative
-project corpora and schema/value-plan growth remain unmeasured. Fresh installed package payloads
+slightly larger than its analyzer-only sample. The current report measures DuckDB core/pack
+distribution. The separate commerce workload measures offline-rule artifact, schema and value-plan
+growth; native-qualified payload/latency and representative production selection remain open.
+Fresh installed package payloads
 are reported separately, including their maps/declarations and mandatory dependencies; they do
 not represent filesystem/store usage or complete application toolchains.
 
