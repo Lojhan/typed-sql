@@ -1091,3 +1091,19 @@ The updated SQL Server 25-file coverage suite, workspace types, language audit c
 contract test pass. Quality passes with the existing warnings. Runtime source and performance
 budgets are unchanged, so the successful hosted performance result is retained as evidence rather
 than repeating a noisy timing measurement for data/test/documentation changes.
+
+
+### Cold offline core consumers
+
+Main CI `42559412931` at `85d25465` passes after the conservative SQL Server
+observation review. A new installed-consumer regression discovers the five grammars and their
+matching published core exports, compiles a fresh two-parameter COALESCE/CAST query and runs
+each offline CLI in a separate process. No application driver, durable contract or analysis cache
+is present. TCP/DNS/fetch APIs are denied before compiler/config/core imports, and explicit
+probes verify the guard. Config-loader Unix-socket probes are also denied, accounted separately
+as IPC, and never establish a connection. This proves a Node-process boundary, not OS isolation.
+The fixture checks known nullable results, grammar identity, ordered bindings and no cache
+creation. The existing frozen-consumer guard shares the same preload generator.
+
+The final packed-consumer run and workspace typecheck pass locally; formatting/lint checks on
+the four changed test files pass. Production package code and generated catalogs are unchanged.

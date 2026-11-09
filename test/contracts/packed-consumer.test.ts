@@ -6,6 +6,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { describe, it, strict } from "poku";
+import { assertColdCoreConsumer } from "../helpers/cold-core-consumer.js";
 import { assertFirstUseConsumer } from "../helpers/first-use-consumer.js";
 import { assertFrozenContractConsumer } from "../helpers/frozen-contract-consumer.js";
 import { assertMinimalGrammarConsumer } from "../helpers/minimal-grammar-consumer.js";
@@ -290,6 +291,7 @@ await describe("packed public packages", async () => {
           env: { ...isolatedEnvironment, CI: "true" },
         },
       );
+      await assertColdCoreConsumer(consumer, isolatedEnvironment);
       await assertFirstUseConsumer({
         directory: join(temporary, "first-use"),
         workspace,

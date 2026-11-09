@@ -3,6 +3,7 @@ import { cp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { writeNetworkDenialPreload } from "./network-denial.js";
 import { createPackedNativeEditorConsumer } from "./packed-editor-consumer.js";
 
 const execFile = promisify(callback);
@@ -359,20 +360,9 @@ export async function assertIsolatedPostgresContractConsumer(input: {
         qualification: input.qualification,
       }),
     );
-    await writeFile(
+    await writeNetworkDenialPreload(
       join(consumer, "deny-network.mjs"),
-      `
-import net from "node:net";
-import dns from "node:dns";
-import { syncBuiltinESMExports } from "node:module";
-const denied = () => { throw new Error("Frozen contract consumer attempted network access"); };
-net.Socket.prototype.connect = denied;
-net.connect = denied; net.createConnection = denied;
-dns.lookup = denied; dns.resolve = denied;
-dns.promises.lookup = denied; dns.promises.resolve = denied;
-globalThis.fetch = denied;
-syncBuiltinESMExports();
-`,
+      "Frozen contract consumer attempted network access",
     );
     const application = `${input.source}\nimport type { QueryRow } from "@typed-sql/core";\nfunction checkResult(result: QueryRow<ReturnType<typeof query>>) { const checked: bigint | null = result.result; return checked; }\nvoid checkResult;\n`;
     await writeFile(join(consumer, "application.ts"), application);
