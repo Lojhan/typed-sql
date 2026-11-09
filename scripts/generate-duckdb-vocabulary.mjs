@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { digest, factorKeywords, formatGenerated, lockedSource } from "./vocabulary/common.mjs";
@@ -78,6 +78,41 @@ for (const profile of facts.profiles) {
 }
 if (check)
   assert.equal(await readFile(path, "utf8"), formatGenerated(root, "facts.json", JSON.stringify(facts)).toString());
+const output = join(root, "packages/duckdb/src/vocabulary/generated");
+await mkdir(output, { recursive: true });
+const header =
+  "// Generated from hash-pinned DuckDB declarations; run duckdb:vocabulary:refresh.\n// See DUCKDB_VOCABULARY_NOTICE and grammar/duckdb/vocabulary/sources.json.\n";
+const projection = (rows) => rows.map(([name, classes]) => [name, classes]);
+const generated = new Map([
+  [
+    "common.ts",
+    header +
+      'import type { DuckDBKeywordDeclaration } from "../types.js";\n\nexport const commonKeywords = ' +
+      JSON.stringify(projection(facts.common)) +
+      " as const satisfies readonly DuckDBKeywordDeclaration[];\n",
+  ],
+]);
+for (const profile of facts.profiles)
+  generated.set(
+    `${profile.version}.ts`,
+    header +
+      'import { createDuckDBVocabulary } from "../vocabulary.js";\nimport { commonKeywords } from "./common.js";\n\n' +
+      `export const vocabulary = createDuckDBVocabulary(commonKeywords,${JSON.stringify(projection(profile.words))},${JSON.stringify(profile.bareLabels)},${JSON.stringify(profile.specialFunctionHeads)},${JSON.stringify(profile.functionClasses)});\n`,
+  );
+for (const [name, body] of generated) {
+  const target = join(output, name),
+    bytes = formatGenerated(root, name, body);
+  if (check) assert.equal(await readFile(target, "utf8"), bytes.toString());
+  else await writeFile(target, bytes);
+}
+const identityPath = join(root, "packages/duckdb/src/vocabulary-identity.ts");
+const identity = formatGenerated(
+  root,
+  "vocabulary-identity.ts",
+  `${header}export const DUCKDB_VOCABULARY_REVISION = ${JSON.stringify(digest(JSON.stringify(facts)))};\n`,
+);
+if (check) assert.equal(await readFile(identityPath, "utf8"), identity.toString());
+else await writeFile(identityPath, identity);
 console.log(
   `DuckDB vocabulary: ${versions.length} profiles; ${facts.common.length} shared rows, ${facts.profiles.reduce((sum, profile) => sum + profile.words.length, 0)} profile-specific rows`,
 );

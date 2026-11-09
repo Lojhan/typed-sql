@@ -18,6 +18,17 @@ this grammar. The native Node SDK is an application dependency accessed through 
 
 Support consists of these exact qualified targets. It does not include intermediate or newer releases.
 
+Keyword and name permissions follow the selected engine's declarations. Column, function and type
+name classes can overlap; a permitted column name does not automatically permit an ordinary
+function call. Explicit `AS` labels and qualified column names accept keyword spellings. Quote a
+CTE or relation name when its unquoted spelling is unavailable in that context.
+
+Bare column aliases differ by engine: 1.5.6 requires a non-keyword identifier or quoting; 2.0 also
+permits its declared keyword subset. For example, `SELECT 1 AS between` works on both engines,
+while `SELECT 1 between` requires 2.0. Recognizing a keyword or function head does not establish
+support for every syntax production or result rule. These checks work offline; runtime and frozen
+contract consumers do not load the vocabulary tables.
+
 | DuckDB engine | Official Node SDK | Grammar and native execution |
 | --- | --- | --- |
 | 1.5.6 | `@duckdb/node-api` 1.5.6-r.2 | Qualified |

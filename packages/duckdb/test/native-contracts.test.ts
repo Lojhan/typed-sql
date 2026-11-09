@@ -44,6 +44,7 @@ await describe("DuckDB non-executing native query contracts", async () => {
     try {
       const evidence = await assertDuckDBVocabulary(connection, sdk.version());
       strict.equal(evidence.probes, evidence.declarations * 8);
+      strict.equal(evidence.labelProbes, evidence.declarations);
     } finally {
       connection.closeSync();
       instance.closeSync();

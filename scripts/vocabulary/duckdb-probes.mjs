@@ -52,6 +52,12 @@ export async function assertDuckDBVocabulary(connection, version) {
       }
       probes++;
     }
+    const statement = await connection.prepare(`SELECT "${word}" + 1 FROM (SELECT 1 AS "${word}") AS fixture`);
+    try {
+      assert.equal(statement.columnName(0), `("${word}" + 1)`, `${version}: ${word} native expression label`);
+    } finally {
+      statement.destroySync();
+    }
   }
-  return { version, declarations: words.length, nativeRecords: native.length, probes };
+  return { version, declarations: words.length, nativeRecords: native.length, probes, labelProbes: words.length };
 }

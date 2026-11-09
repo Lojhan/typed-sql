@@ -118,13 +118,18 @@ await describe("bounded offline DuckDB core and explicit compatibility packs", a
       const selected = await bundle(`export {duckdb} from ${path(`analysis/core/${version}`)}`);
       const full = await bundle(`export {duckdb} from ${path(`analysis/${version}`)}`);
       const inputs = Object.keys(selected.metafile.inputs);
-      for (const engine of DUCKDB_SUPPORT_POLICY.qualifiedEngines)
+      for (const engine of DUCKDB_SUPPORT_POLICY.qualifiedEngines) {
         strict.ok(
           !inputs.some(
             (input) => input.endsWith(`/catalog/${engine}.ts`) || input.endsWith(`/catalog/engines/${engine}.ts`),
           ),
         );
+        if (engine !== version)
+          strict.ok(!inputs.some((input) => input.endsWith(`/vocabulary/generated/${engine}.ts`)));
+      }
       strict.ok(inputs.some((input) => input.endsWith(`/catalog/core/${version}.ts`)));
+      strict.ok(inputs.some((input) => input.endsWith(`/vocabulary/generated/${version}.ts`)));
+      strict.ok(!inputs.some((input) => input.endsWith("/vocabulary/index.ts")));
       strict.ok(!inputs.some((input) => input.endsWith("/browser.ts") || input.endsWith("/catalog/index.ts")));
       strict.ok(selected.outputFiles[0].contents.byteLength < full.outputFiles[0].contents.byteLength);
       strict.ok(!inputs.some((input) => input.includes("node-api")));

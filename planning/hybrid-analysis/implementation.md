@@ -1404,3 +1404,46 @@ Local validation passes root types, all 42 DuckDB package files with enforced co
 (98.88% statements / 91.22% branches / 97.81% functions), the separate 1.5.6 native process,
 all 49 repository contracts and quality/source-generation checks. No production analyzer
 implementation changes in this audit-only milestone.
+
+
+## DuckDB vocabulary consumption and native display labels
+
+Both selected full/core analyzers now consume their exact generated vocabulary directly. The
+compatibility analyzer selects an exact qualified engine; no newer-version fallback is invented.
+Version-specific graphs contain one vocabulary profile and exclude the compatibility registry
+and other engines. Runtime/profile/frozen graphs retain only a pure interpretation revision;
+packed frozen consumers also physically remove DuckDB's vocabulary directory.
+
+The parser applies overlapping identifier/function-name permissions, explicit labels and the
+separate 2.0 bare-label list. Special function heads are extracted from the pinned expression
+productions instead of treating every column keyword as an ordinary function. The additional
+2.0 expression source is hash-locked. Source inventory/context probes and parser tests cover all
+7,928 identifier cases across the two engines. TRY_CAST becomes constructor syntax only with
+a following parenthesis; EXISTS can remain an ordinary name outside subquery syntax. Bare
+alias lookahead retains BETWEEN's operator behavior with real operands, including quoted
+keyword-named columns. ASCII folding in handwritten resolver paths preserves Unicode lookalikes.
+
+Generated display labels no longer use the short manually declared keyword set. Both native
+engines quote every keyword when rendering a column reference inside an expression. All 991
+versioned words now have an additional non-executing native label check and a selected-core
+analyzer assertion for exact result name and known number output. This preserves the distinction
+between source spelling, namespace eligibility and native result-column identity. The updated
+interpreter/reconciliation identity retires receipts from the preceding rules.
+
+The reference baseline changes all 991 DuckDB keyword observations into source-owned classes.
+The only function differences are SHOW on the two engines: unknown-call observations become
+unverified syntax invocations. No typed recognition is lost, and other grammars' observations
+are unchanged. No overload/result semantics are inferred merely from a function-head permission.
+
+Local validation passes clean build/root types, all 43 DuckDB package files with enforced
+coverage (98.93% statements / 91.30% branches / 97.51% functions), native helpers in separate
+1.5.6 and 2.0 processes, all 49 repository contract files including stripped frozen consumers,
+nine soundness files, documentation check/build, graph checks, quality and isolated performance.
+Compiler semantic-metadata p50 is 7.48 ms against the unchanged local 10 ms budget.
+
+The preceding audit-only [hosted run at `a05f4daf`](https://github.com/Lojhan/typed-sql/actions/runs/42583640548)
+passes its native jobs but fails source-quality at compiler semantic-metadata p50 20.85 ms
+against the existing hosted 20 ms limit. That failed aggregate is not counted as qualification.
+The integrated implementation requires its own green hosted aggregate; no budget is relaxed.
+SQL Server vocabulary, final per-profile context/facet/workload evidence and refreshed final
+measurements remain outstanding.

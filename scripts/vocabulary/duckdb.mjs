@@ -35,7 +35,8 @@ export function parseDuckDBVocabulary(files, parser) {
     assert.ok(!memberships.includes("U") || memberships.length === 1, "Conflicting unreserved keyword");
   }
   let bareLabels = [],
-    functionClasses;
+    functionClasses,
+    specialFunctionHeads = new Set();
   if (parser === "yacc") {
     const common = yaccProductions(`%%\n${files[`${prefix}statements/common.y`]}\n`);
     const select = yaccProductions(`%%\n${files[`${prefix}statements/select.y`]}\n`);
@@ -51,6 +52,19 @@ export function parseDuckDBVocabulary(files, parser) {
     expect("type_name_token", ["IDENT", "unreserved_keyword", "type_name_keyword"]);
     expect("target_el", ["a_expr AS ColLabelOrString", "a_expr IDENT", "a_expr", "ColId SINGLE_COLON a_expr"]);
     functionClasses = "UF";
+    const firstTokens = (name, visiting = new Set()) => {
+      if (/^[A-Z][A-Z_0-9]*$/u.test(name)) return [name.replace(/_P$/u, "").toLowerCase()];
+      if (visiting.has(name)) return [];
+      const seen = new Set([...visiting, name]);
+      return (select.get(name) ?? []).flatMap((body) => firstTokens(body.trim().split(/\s+/u)[0], seen));
+    };
+    for (const root of ["func_expr_common_subexpr", "a_expr", "d_expr", "qualified_row"]) {
+      assert.ok(select.has(root), `Missing DuckDB expression production ${root}`);
+      for (const alternative of select.get(root)) {
+        const [head, next] = alternative.trim().split(/\s+/u);
+        if (next === "'('") for (const token of firstTokens(head)) specialFunctionHeads.add(token);
+      }
+    }
     const source = files["third_party/libpg_query/include/parser/kwlist.hpp"];
     const entries = [...source.matchAll(/^PG_KEYWORD\("([a-z_0-9]+)",\s*([A-Z_0-9]+),\s*([A-Z_]+)\)$/gmu)];
     const definitions = source.split(/\r?\n/u).filter((line) => /^PG_KEYWORD/u.test(line));
@@ -83,6 +97,35 @@ export function parseDuckDBVocabulary(files, parser) {
     );
     assert.match(helper, /default:\s*return KEYWORD_UNRESERVED \| KEYWORD_COL_NAME;/u);
     functionClasses = "UFT";
+    const expression = files[`${prefix}statements/expression.gram`];
+    assert.equal(typeof expression, "string");
+    const productions = new Map(
+      [...expression.replace(/^\s*#.*$/gmu, "").matchAll(/^(\w+)\s*<-\s*([\s\S]*?)(?=^\w+\s*<-|(?![\s\S]))/gmu)].map(
+        (match) => [match[1], match[2].trim()],
+      ),
+    );
+    const keywords = (body, visiting = new Set()) => {
+      const names = [];
+      for (const match of body.matchAll(/'([^']*)'|\b([A-Za-z_]\w*)\b/gu)) {
+        if (match[1] !== undefined) {
+          if (/^[A-Z][A-Z_0-9]*$/u.test(match[1])) names.push(match[1].toLowerCase());
+        } else if (productions.has(match[2]) && !visiting.has(match[2])) {
+          names.push(...keywords(productions.get(match[2]), new Set([...visiting, match[2]])));
+        }
+      }
+      return names;
+    };
+    const roots = productions.get("SpecialFunctionExpression")?.split(/\s*\/\s*/u);
+    assert.ok(
+      roots?.every((root) => /^\w+$/u.test(root)),
+      "Unfamiliar special expression alternatives",
+    );
+    for (const root of [...roots, "CastExpression", "GroupingExpression"]) {
+      assert.ok(productions.has(root), `Missing DuckDB expression production ${root}`);
+      const body = productions.get(root),
+        parens = body.indexOf("Parens(");
+      if (parens >= 0) for (const name of keywords(body.slice(0, parens))) specialFunctionHeads.add(name);
+    }
     const source = files["src/parser/peg/keyword_map.cpp"];
     const records = [...source.matchAll(/^\s*([a-z_]+)_keyword_map\.insert\("([a-z_0-9]+)"\);$/gmu)];
     assert.equal(records.length, source.split(/\r?\n/u).filter((line) => line.includes(".insert(")).length);
@@ -116,5 +159,12 @@ export function parseDuckDBVocabulary(files, parser) {
     if (membership.includes("C") && (parser === "peg" || categories.length === 0)) categories.push("column_name");
     return [name, membership, categories];
   });
-  return { words, bareLabels, identifierClasses: "UC", functionClasses, typeClasses: "UT" };
+  return {
+    words,
+    bareLabels,
+    specialFunctionHeads: sorted(specialFunctionHeads),
+    identifierClasses: "UC",
+    functionClasses,
+    typeClasses: "UT",
+  };
 }

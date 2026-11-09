@@ -13,6 +13,7 @@ import { assertDuckDBSemanticEvidence } from "./settings.js";
 import type { DuckDBSchemaSnapshot } from "./snapshot.js";
 import { duckDBVersionSupport, resolveDuckDBCapabilities } from "./support.js";
 import type { DuckDBTypePolicy } from "./type-policy.js";
+import type { DuckDBVocabulary } from "./vocabulary/types.js";
 export interface DuckDBDialectOptions {
   readonly typePolicy?: DuckDBTypePolicy;
 }
@@ -20,6 +21,7 @@ export function createDuckDBDialect(
   catalog: DuckDBCatalogProvider,
   options: DuckDBDialectOptions = {},
   selectedVersion?: string,
+  vocabularyForVersion?: (version: string) => DuckDBVocabulary | undefined,
 ): DialectPlugin<DuckDBSchemaSnapshot, DuckDBTypePolicy> {
   const profile = duckdbProfile(options),
     policy = profile.defaultTypePolicy;
@@ -65,8 +67,15 @@ export function createDuckDBDialect(
             { start: 0, end: source.length, line: 1, column: 1 },
             "TSQ401",
           );
-        const statement = parseDuckDBStatement(source),
-          analysis = resolveDuckDBStatement(statement, snapshot, typePolicy, catalog);
+        const vocabulary = vocabularyForVersion?.(engineVersion);
+        if (vocabulary === undefined)
+          throw new DuckDBParseError(
+            "DuckDB analysis requires a source-qualified vocabulary",
+            { start: 0, end: source.length, line: 1, column: 1 },
+            "TSQ402",
+          );
+        const statement = parseDuckDBStatement(source, vocabulary),
+          analysis = resolveDuckDBStatement(statement, snapshot, typePolicy, catalog, vocabulary);
         const result = applyDialectCapabilityStates(analysis, resolveDuckDBCapabilities(snapshot), statement.range);
         return result.diagnostics.some((item) => item.severity === "error")
           ? { ...result, semantics: unknownQuerySemantics(statement.range, "DuckDB analysis reported an error.") }

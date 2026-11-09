@@ -5,6 +5,7 @@ import { duckdb } from "../../packages/duckdb/src/analysis.js";
 import { duckDBBuiltinCatalog } from "../../packages/duckdb/src/catalog/index.js";
 import { tokenize as tokenizeDuckDB } from "../../packages/duckdb/src/parser/tokenizer.js";
 import { duckDBServerEvidence } from "../../packages/duckdb/src/support.js";
+import { duckDBVocabulary } from "../../packages/duckdb/src/vocabulary/index.js";
 import { mysql } from "../../packages/mysql/src/analysis.js";
 import { mySqlServerEvidence } from "../../packages/mysql/src/capabilities.js";
 import { mySqlCoreCatalog } from "../../packages/mysql/src/catalog/index.js";
@@ -255,6 +256,20 @@ function auditOther(
                 ? "keyword-reserved-observed"
                 : word
                   ? "keyword-unreserved-observed"
+                  : "contextual-or-unclassified-keyword",
+        };
+      }
+      if (dialect === "duckdb") {
+        const word = duckDBVocabulary(version)?.lookup(name);
+        return {
+          name,
+          status:
+            word?.classes === "R"
+              ? "keyword-reserved-observed"
+              : word?.classes === "U"
+                ? "keyword-unreserved-observed"
+                : word
+                  ? `keyword-name-classes-${word.classes.toLowerCase()}-observed`
                   : "contextual-or-unclassified-keyword",
         };
       }

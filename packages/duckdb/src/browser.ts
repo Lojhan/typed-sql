@@ -1,9 +1,10 @@
 import { createDuckDBDialect, type DuckDBDialectOptions } from "./analysis-factory.js";
 import { defaultDuckDBCatalog } from "./catalog/index.js";
+import { duckDBVocabulary } from "./vocabulary/index.js";
 
 export type { DuckDBDialectOptions } from "./analysis-factory.js";
 export function duckdb(options: DuckDBDialectOptions = {}) {
-  return createDuckDBDialect(defaultDuckDBCatalog, options);
+  return createDuckDBDialect(defaultDuckDBCatalog, options, undefined, duckDBVocabulary);
 }
 export { type DuckDBBuiltinSignature, duckDBBuiltinCatalog, duckDBBuiltinSignatures } from "./catalog/index.js";
 export { DuckDBValueError, decodeDuckDBValue } from "./codecs.js";

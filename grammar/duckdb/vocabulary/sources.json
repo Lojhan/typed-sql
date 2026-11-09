@@ -128,6 +128,11 @@
           "url": "https://raw.githubusercontent.com/duckdb/duckdb/d54cbbe3df17e8e5ce68312f483b4155836112aa/LICENSE",
           "digest": "sha256:075c33400ffcb0c586dd106a029d3e733e9da3693f8fcb9cebfc651c8a2f14e3",
           "bytes": 1072
+        },
+        "src/parser/peg/grammar/statements/expression.gram": {
+          "url": "https://raw.githubusercontent.com/duckdb/duckdb/d54cbbe3df17e8e5ce68312f483b4155836112aa/src/parser/peg/grammar/statements/expression.gram",
+          "digest": "sha256:8105e1537dd51d3123b8dbb47c590751ccb1282ed160dff59d8c7848c16b48d0",
+          "bytes": 16088
         }
       }
     }

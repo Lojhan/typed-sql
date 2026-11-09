@@ -1,6 +1,7 @@
 import { createDuckDBDialect, type DuckDBDialectOptions } from "./analysis-factory.js";
 import { createDuckDBCatalog, type DuckDBCatalogProvider, extendDuckDBCatalog } from "./catalog/provider.js";
 import type { DuckDBBuiltinSignature } from "./catalog/types.js";
+import type { DuckDBVocabulary } from "./vocabulary/types.js";
 
 /** Installed, grammar-owned offline evidence. Deserialized metadata cannot supply semantic rules. */
 export interface DuckDBOfflinePack {
@@ -32,7 +33,12 @@ export function registerDuckDBCompatibilityPack(
   );
   return pack;
 }
-export function createDuckDBCoreDialect(core: DuckDBCatalogProvider, version: string, options: DuckDBCoreOptions = {}) {
+export function createDuckDBCoreDialect(
+  core: DuckDBCatalogProvider,
+  version: string,
+  options: DuckDBCoreOptions = {},
+  vocabulary?: DuckDBVocabulary,
+) {
   let catalog = core;
   const seen = new Set<string>();
   for (const pack of options.packs ?? []) {
@@ -44,5 +50,5 @@ export function createDuckDBCoreDialect(core: DuckDBCatalogProvider, version: st
     seen.add(pack.id);
     catalog = extendDuckDBCatalog(catalog, owner, version);
   }
-  return createDuckDBDialect(catalog, options, version);
+  return createDuckDBDialect(catalog, options, version, () => vocabulary);
 }

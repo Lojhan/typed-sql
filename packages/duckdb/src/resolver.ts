@@ -13,6 +13,7 @@ import { matchDuckDBBuiltin } from "./catalog/resolution.js";
 import {
   type DuckDBType,
   duckDBAsciiFold,
+  duckDBAsciiUpper,
   duckDBOutputType,
   duckDBTypeChildren,
   formatDuckDBType,
@@ -29,6 +30,7 @@ import {
 } from "./parser/types.js";
 import type { DuckDBSchemaSnapshot } from "./snapshot.js";
 import { type DuckDBTypePolicy, duckDBRuntimeType, duckDBTypeScript } from "./type-policy.js";
+import type { DuckDBVocabulary } from "./vocabulary/types.js";
 
 interface Value {
   readonly type: DuckDBType;
@@ -231,6 +233,7 @@ export class DuckDBResolver {
     readonly snapshot: DuckDBSchemaSnapshot,
     readonly policy: DuckDBTypePolicy,
     readonly catalog: DuckDBCatalogProvider,
+    readonly vocabulary: DuckDBVocabulary,
   ) {}
   commonType(a: DuckDBType, b: DuckDBType, mode: "expression" | "set" = "expression"): DuckDBType {
     return commonDuckDBType(this.catalog, a, b, this.snapshot.server?.versionKey ?? "", mode);
@@ -346,15 +349,15 @@ export class DuckDBResolver {
         if (
           names.length === 1 &&
           ["CURRENT_DATE", "CURRENT_TIME", "CURRENT_TIMESTAMP", "LOCALTIME", "LOCALTIMESTAMP"].includes(
-            name.toUpperCase(),
+            duckDBAsciiUpper(name),
           )
         )
           return {
             type: scalar(
-              name.toUpperCase().includes("DATE")
+              duckDBAsciiUpper(name).includes("DATE")
                 ? "DATE"
-                : name.toUpperCase().includes("TIMESTAMP")
-                  ? name.toUpperCase() === "LOCALTIMESTAMP"
+                : duckDBAsciiUpper(name).includes("TIMESTAMP")
+                  ? duckDBAsciiUpper(name) === "LOCALTIMESTAMP"
                     ? "TIMESTAMP"
                     : "TIMESTAMPTZ"
                   : "TIME",
@@ -541,7 +544,7 @@ export class DuckDBResolver {
   }
   aggregate(expression: Expression): boolean {
     if (expression.kind !== "call" || expression.window) return false;
-    const name = expression.names?.at(-1)?.toLowerCase() ?? "";
+    const name = duckDBAsciiFold(expression.names?.at(-1) ?? "");
     return (
       ["json_group_array", "json_group_object"].includes(name) ||
       (this.snapshot.formatVersion === 2 &&
@@ -558,7 +561,7 @@ export class DuckDBResolver {
   groupingExpressions(expression: Expression): readonly Expression[] {
     if (
       expression.kind === "call" &&
-      ["cube", "rollup", "grouping_sets"].includes(expression.names?.at(-1)?.toLowerCase() ?? "")
+      ["cube", "rollup", "grouping_sets"].includes(duckDBAsciiFold(expression.names?.at(-1) ?? ""))
     )
       return (expression.args ?? []).flatMap((item) =>
         item.kind === "tuple" ? (item.args ?? []) : this.groupingExpressions(item),
@@ -646,7 +649,7 @@ export class DuckDBResolver {
         has(
           expression,
           (item) =>
-            item.kind === "call" && ["grouping", "grouping_id"].includes(item.names?.at(-1)?.toLowerCase() ?? ""),
+            item.kind === "call" && ["grouping", "grouping_id"].includes(duckDBAsciiFold(item.names?.at(-1) ?? "")),
         ),
       )
     )
@@ -732,7 +735,7 @@ export class DuckDBResolver {
       groupedValue(expression);
   }
   collectionLambda(expr: Expression, scope: Scope): Value {
-    const name = expr.names?.at(-1)?.toLowerCase() ?? "",
+    const name = duckDBAsciiFold(expr.names?.at(-1) ?? ""),
       args = expr.args ?? [];
     const reduce = ["list_reduce", "array_reduce", "reduce"].includes(name),
       filter = ["list_filter", "array_filter", "filter"].includes(name);
@@ -897,7 +900,7 @@ export class DuckDBResolver {
   call(expr: Expression, scope: Scope, expected?: Value): Value {
     if (scope.aggregateScope && (this.aggregate(expr) || expr.window))
       return this.call(expr, scope.aggregateScope, expected);
-    const name = expr.names?.at(-1)?.toLowerCase() ?? "",
+    const name = duckDBAsciiFold(expr.names?.at(-1) ?? ""),
       args = expr.args ?? [];
     const namespaces = this.functionNamespaces(expr);
     if (namespaces === undefined) return unknown;
@@ -1533,7 +1536,7 @@ export class DuckDBResolver {
       const cte = relation.name.length === 1 ? scope.ctes.get(duckDBAsciiFold(relation.name[0]!)) : undefined;
       fields = cte ?? this.table(relation.name, relation.range);
     } else if (relation.expression?.kind === "call") {
-      const name = relation.expression.names?.at(-1)?.toLowerCase();
+      const name = duckDBAsciiFold(relation.expression.names?.at(-1) ?? "");
       if (name === "range" || name === "generate_series") {
         for (const arg of relation.expression.args ?? [])
           this.infer(arg, scope, { type: scalar("BIGINT"), nullable: false });
@@ -1568,7 +1571,7 @@ export class DuckDBResolver {
     }
     let depth = 1;
     if (args[1]) {
-      const option = expression.argumentNames?.[1]?.toLowerCase(),
+      const option = duckDBAsciiFold(expression.argumentNames?.[1] ?? ""),
         value = args[1];
       if (option === "recursive" && value.kind === "literal" && ["TRUE", "FALSE"].includes(value.value ?? ""))
         depth = value.value === "TRUE" ? 64 : 1;
@@ -1598,7 +1601,7 @@ export class DuckDBResolver {
         return value.fields.flatMap((field) => expand(field.type, remaining - 1, field.name));
       return [{ name, type: value, nullable: true, range: expression.range }];
     };
-    const label = alias ?? duckDBExpressionLabel(expression, this.snapshot.server?.versionKey ?? "");
+    const label = alias ?? duckDBExpressionLabel(expression, this.snapshot.server?.versionKey ?? "", this.vocabulary);
     const output = expand(type, depth, label ?? "expression");
     if (!label && !(type.kind === "struct" && depth > 0))
       this.error("UNNEST requires an AS alias when its native label cannot be proven", expression.range, "TSQ201");
@@ -1653,7 +1656,7 @@ export class DuckDBResolver {
         }
         continue;
       }
-      if (expression.kind === "call" && expression.names?.at(-1)?.toLowerCase() === "unnest") {
+      if (expression.kind === "call" && duckDBAsciiFold(expression.names?.at(-1) ?? "") === "unnest") {
         const fields = this.unnestProjection(expression, scope, projection.alias);
         output.push(...fields);
         for (const field of fields) scope.aliases.set(duckDBAsciiFold(field.name), field);
@@ -1676,7 +1679,7 @@ export class DuckDBResolver {
               ? names.at(-1)
               : undefined;
       }
-      name ??= duckDBExpressionLabel(expression, this.snapshot.server?.versionKey ?? "");
+      name ??= duckDBExpressionLabel(expression, this.snapshot.server?.versionKey ?? "", this.vocabulary);
       if (name === undefined) {
         this.error("An explicit AS alias is required for this native expression label", expression.range, "TSQ201");
         name = "expression";
@@ -1887,7 +1890,7 @@ export class DuckDBResolver {
       statement.group?.some(
         (expression) =>
           expression.kind === "call" &&
-          ["cube", "rollup", "grouping_sets"].includes(expression.names?.at(-1)?.toLowerCase() ?? ""),
+          ["cube", "rollup", "grouping_sets"].includes(duckDBAsciiFold(expression.names?.at(-1) ?? "")),
       )
     ) {
       const nullableKey = (expression: Expression): boolean =>
@@ -1999,7 +2002,7 @@ export class DuckDBResolver {
     const writes = ["insert", "update", "delete", "merge", "create"].includes(statement.kind),
       evidence = [{ kind: "syntax" as const, description: "DuckDB statement AST", range: statement.range }];
     const expands = (expression: Expression): boolean =>
-      (expression.kind === "call" && expression.names?.at(-1)?.toLowerCase() === "unnest") ||
+      (expression.kind === "call" && duckDBAsciiFold(expression.names?.at(-1) ?? "") === "unnest") ||
       duckDBExpressionChildren(expression).some(expands);
     const scalarResult =
       statement.kind === "select" &&
@@ -2046,6 +2049,7 @@ export function resolveDuckDBStatement(
   snapshot: DuckDBSchemaSnapshot,
   policy: DuckDBTypePolicy,
   catalog: DuckDBCatalogProvider,
+  vocabulary: DuckDBVocabulary,
 ): DialectAnalysis {
-  return new DuckDBResolver(snapshot, policy, catalog).analyze(statement);
+  return new DuckDBResolver(snapshot, policy, catalog, vocabulary).analyze(statement);
 }
