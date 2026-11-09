@@ -96,6 +96,7 @@ export function createLiveContractSession<Snapshot extends SchemaSnapshot, Polic
   let contextToken: AnalysisCacheToken | undefined;
   let connection: LiveContractSessionStatus["connection"] = "unobserved";
   let observation: Promise<QueryContractContext> | undefined;
+  const inspections = new Set<Promise<QueryContractContext>>();
   let factorySignal: AbortSignal | undefined;
   let contextFailure: { error: LiveContextUnavailableError; retryAt: number; attempts: number } | undefined;
   let closePromise: Promise<void> | undefined;
@@ -157,9 +158,19 @@ export function createLiveContractSession<Snapshot extends SchemaSnapshot, Polic
     })();
     return untilAbort(servicesPromise, factorySignal!);
   }
-  async function inspect(): Promise<QueryContractContext> {
+  function inspect(): Promise<QueryContractContext> {
+    const work = inspectContext();
+    inspections.add(work);
+    void work.then(
+      () => inspections.delete(work),
+      () => inspections.delete(work),
+    );
+    return work;
+  }
+  async function inspectContext(): Promise<QueryContractContext> {
     alive();
     const head = await input.cache.lookupContext(scope);
+    lifetime.signal.throwIfAborted();
     if (
       head.recorded?.status === "stale" ||
       (selected && head.recorded && canonicalContractData(selected) !== canonicalContractData(head.recorded.context))
@@ -187,6 +198,7 @@ export function createLiveContractSession<Snapshot extends SchemaSnapshot, Polic
         try {
           return await owned.inspectContext(deadline);
         } catch (error) {
+          deadline.throwIfAborted();
           connection = "unavailable";
           const failure = parseLiveAnalysisFailure(
             owned.classifyError?.(error) ??
@@ -203,7 +215,7 @@ export function createLiveContractSession<Snapshot extends SchemaSnapshot, Polic
         }
       }
       const signal = deadline;
-      const current = parseQueryContractContext(await remote());
+      const current = parseQueryContractContext(await untilAbort(remote(), signal));
       signal.throwIfAborted();
       try {
         assertContextScope(current, scope);
@@ -525,6 +537,7 @@ export function createLiveContractSession<Snapshot extends SchemaSnapshot, Polic
         closed = true;
         lifetime.abort(new Error("Live session closed"));
         await captureTail;
+        await Promise.allSettled([...inspections, observation]);
         const [owned] = await Promise.allSettled([servicesPromise]);
         const cleanup = await Promise.allSettled([
           scheduler?.close(),

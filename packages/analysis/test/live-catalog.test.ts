@@ -510,6 +510,60 @@ await describe("selected live catalog capture", async () => {
       await session.close();
       strict.equal(f.counts.catalogs, 0);
     }));
+  await it("drains context publication before closing a cancelled catalog session", async () =>
+    temporary(async (cache) => {
+      const f = fixture();
+      let started!: () => void;
+      let release!: () => void;
+      const publishing = new Promise<void>((resolve) => {
+        started = resolve;
+      });
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      let published = false;
+      const session = createLiveContractSession({
+        ...f.base,
+        cache: {
+          ...cache,
+          async publishContext(input) {
+            started();
+            await gate;
+            const result = await cache.publishContext(input);
+            published = true;
+            return result;
+          },
+        },
+      });
+      const controller = new AbortController();
+      const preparation = session.prepare({
+        document: "file:///cancelled-publication.ts",
+        version: 1,
+        candidates: f.base.candidates,
+        signal: controller.signal,
+      });
+      const rejected = strict.rejects(preparation);
+      let closed = false;
+      try {
+        await publishing;
+        controller.abort(Error("source changed during publication"));
+        await rejected;
+        const closing = session.close().then(() => {
+          closed = true;
+        });
+        await new Promise<void>((resolve) => setImmediate(resolve));
+        strict.equal(closed, false, "Session shutdown must retain ownership of the pending disk write");
+        release();
+        await closing;
+        strict.equal(published, true);
+        strict.equal(f.counts.catalogs, 0);
+      } finally {
+        release();
+        controller.abort();
+        await rejected;
+        await session.close();
+      }
+    }));
   await it("bounds queued session capture and closes its shared owner once", async () =>
     temporary(async (cache) => {
       const f = fixture();
