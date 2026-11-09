@@ -89,6 +89,12 @@ jobs:
           TYPED_SQL_NATIVE_COSTS_DIRECTORY: ${{ github.workspace }}/artifacts/sqlserver/native-costs
           TYPED_SQL_SQLSERVER_MAJOR: ${{ matrix.major }}
           TYPED_SQL_SQLSERVER_BUILD: ${{ matrix.build }}
+      - name: Audit discovered native type descriptors across compatibility levels
+        working-directory: e2e/sqlserver
+        run: node descriptor-probe.mjs
+        env:
+          TYPED_SQL_SQLSERVER_MAJOR: ${{ matrix.major }}
+          TYPED_SQL_SQLSERVER_BUILD: ${{ matrix.build }}
       - name: Measure native commerce admission and offline project artifacts
         working-directory: e2e/sqlserver
         run: node --import tsx ../../planning/hybrid-analysis/measure-sqlserver-commerce.mjs ../../artifacts/sqlserver/native-project

@@ -4,6 +4,10 @@ import { digest } from "../../scripts/vocabulary/common.mjs";
 import { mySqlDescriptorTypes } from "../../scripts/vocabulary/mysql-descriptors.mjs";
 import { parseSqliteStandardTypes } from "../../scripts/vocabulary/sqlite-descriptors.mjs";
 import { parseSqlServerVocabulary } from "../../scripts/vocabulary/sqlserver.mjs";
+import {
+  sqlServerDescriptorCases,
+  sqlServerDescriptorFailure,
+} from "../../scripts/vocabulary/sqlserver-descriptors.mjs";
 import { sqlServerNativePermissions } from "../../scripts/vocabulary/sqlserver-policy.mjs";
 import { auditSqlServerVocabulary, sqlServerVocabularyCases } from "../../scripts/vocabulary/sqlserver-probes.mjs";
 import { reconcileSqlServerVocabulary } from "../../scripts/vocabulary/sqlserver-review.mjs";
@@ -35,6 +39,56 @@ const expectedRows = (ids: number[]): NativeVocabularyRow[] =>
   }));
 
 await describe("source vocabulary extraction and native audit boundaries", async () => {
+  await it("discovers unknown SQL Server catalog types without filtering them through mapped names", () => {
+    const row = {
+      namespace: "sys",
+      name: "future_kind",
+      system_type_id: 250,
+      user_type_id: 250,
+      is_user_defined: false,
+      is_assembly_type: false,
+    };
+    const discovered = sqlServerDescriptorCases([row]);
+    strict.equal(discovered.inventory.length, 1);
+    strict.deepEqual(
+      discovered.cases.filter(({ origin }) => origin === "catalog"),
+      [{ origin: "catalog", type: "future_kind", catalog: 0 }],
+    );
+    const more = sqlServerDescriptorCases([
+      row,
+      { ...row, name: "opaque_clr", system_type_id: 240, user_type_id: 251, is_assembly_type: true },
+    ]);
+    strict.equal(more.inventory.length, 2);
+    strict.ok(more.cases.some(({ type }) => type === "opaque_clr"));
+    for (const input of [
+      [],
+      [row, row],
+      [{ ...row, namespace: "dbo" }],
+      [{ ...row, name: "x;drop" }],
+      [{ ...row, user_type_id: 0 }],
+      [{ ...row, is_user_defined: true }],
+    ])
+      strict.throws(() => sqlServerDescriptorCases(input));
+  });
+  await it("retains SQL Server statement diagnostics without swallowing availability or permission failures", () => {
+    strict.deepEqual(sqlServerDescriptorFailure({ diagnostics: [{ state: "42000", native: 2715 }] }), {
+      status: "rejected",
+      numbers: [2715],
+    });
+    strict.deepEqual(sqlServerDescriptorFailure({ diagnostics: [{ state: "42000", native: 11507 }] }), {
+      status: "unavailable",
+      numbers: [11507],
+    });
+    for (const error of [
+      new Error("driver unavailable"),
+      { diagnostics: [{ state: "08001", native: 2715 }] },
+      { diagnostics: [{ state: "HYT00", native: 2715 }] },
+      { diagnostics: [{ state: "42000", native: 229 }] },
+      { diagnostics: [{ state: "42000", native: 1205 }] },
+      { diagnostics: [{ state: "42000", native: 99999 }] },
+    ])
+      strict.throws(() => sqlServerDescriptorFailure(error));
+  });
   await it("derives every MySQL type alternative and discovers new lexical aliases without a type-name list", () => {
     const lex = '{ SYM("ALPHA", ALPHA_SYM) }, { SYM("A_ALIAS", ALPHA_SYM) }, { SYM("BETA", BETA_SYM) }';
     const grammar = `%%
