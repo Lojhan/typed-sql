@@ -1,6 +1,7 @@
 name: Language audit
 
 on:
+  workflow_call:
   pull_request:
   schedule:
     - cron: '41 5 * * 2'
@@ -10,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: language-audit-${{ github.ref }}-${{ github.event_name }}
+  group: language-audit-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:

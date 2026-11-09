@@ -297,7 +297,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:815c44d0024a0bcbee824584de5772dc98a84ddf261c7b900759a1a35d935523",
+        "fingerprint": "sha256:db537762fca0863dd839219e6ccccf5a0abe808b01844fb6a508ba11f5bd881f",
         "counts": {
           "native-invocation-unverified": 2,
           "native-rejected-generated-invocation": 15,
@@ -2983,7 +2983,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:d3c1880b112566a268d588ee801ead15cc25788a1385ad4db02724b05c66bc9f",
+        "fingerprint": "sha256:b318a217a43c94383a97079f9d83e711c771c367715b469e010f8e7212ea6570",
         "counts": {
           "native-invocation-unverified": 2,
           "native-rejected-generated-invocation": 15,

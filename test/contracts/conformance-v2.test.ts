@@ -15,6 +15,22 @@ const execute = promisify(execFile);
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
 await describe("conformance v2 repository integration", async () => {
+  await it("keeps local reusable workflows callable and root CI commands executable", async () => {
+    const ci = await readFile(join(workspace, ".github/workflows/ci.yml"), "utf8");
+    for (const match of ci.matchAll(/uses: \.\/(\.github\/workflows\/[^\s]+\.yml)/gu)) {
+      const called = await readFile(join(workspace, match[1]!), "utf8");
+      strict.match(called, /^ {2}workflow_call:/mu, `${match[1]} cannot be called by CI`);
+    }
+    const manifest = JSON.parse(await readFile(join(workspace, "package.json"), "utf8"));
+    for (const match of ci.matchAll(/\bpnpm ([a-z][\w:-]*)/gu)) {
+      const command = match[1]!;
+      strict.ok(
+        ["install", "exec", "audit", "dlx"].includes(command) || Object.hasOwn(manifest.scripts, command),
+        `CI calls missing root command ${command}`,
+      );
+    }
+  });
+
   await it("can link every permanent feature identity to a validated probe", async () => {
     const ledger = parseGrammarFeatureLedger(
       JSON.parse(await readFile(join(workspace, "grammar", "features", "ledger.json"), "utf8")) as unknown,
@@ -133,7 +149,8 @@ await describe("conformance v2 repository integration", async () => {
     strict.ok(finalization.includes('await mkdir(resolve(output, "..")'));
     strict.ok(finalization.includes("await writeFile(output, JSON.stringify(evidence"));
     const duck = await readFile(join(workspace, "e2e/duckdb/test.mjs"), "utf8");
-    for (const sdk of ["1.5.6-r.2", "2.0.0-r.1"]) strict.ok(duck.includes(sdk));
+    strict.ok(duck.includes("DUCKDB_SUPPORT_POLICY.qualifiedEngines"));
+    strict.ok(duck.includes("DUCKDB_SUPPORT_POLICY.nodeApi[version]"));
     strict.ok(duck.includes("-failure.log"));
     const runner = await readFile(join(workspace, "scripts/conformance-v2.mjs"), "utf8");
     for (const branch of ["sqlserver-live-", "duckdb-live-", "adapter-probe.mjs", "ledger-capabilities"])
