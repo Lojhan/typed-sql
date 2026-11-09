@@ -924,3 +924,33 @@ while selected full/core analyzers are 163.1–163.8 KiB. Gzip savings are small
 Runtime/frozen graphs are unchanged. PostgreSQL, SQLite and SQL Server distribution decisions,
 reusable catalogs/custom-type qualification beyond PostgreSQL, native-qualified project overhead,
 representative workload selection and the full acceptance audit remain open.
+
+## PostgreSQL catalog ownership foundation
+
+PostgreSQL catalog lookup mechanics now take an explicit immutable catalog owner, separate from
+its compatibility registry. Each owner copies and deeply freezes its supplied catalogs, rejects
+duplicate majors and requires an explicit fallback major. Existing helpers retain their previous
+fallback behavior. Selected-version analysis must validate snapshot evidence before invoking these
+mechanics; this foundation does not yet expose a selected-major analyzer.
+
+Type/coercion/operator resolution receives that owner through a factory. Candidate, resolution and
+upgraded-snapshot caches belong to the factory rather than a process-wide default. Extension
+resolution and introspection likewise receive the owner for built-in cast collision checks. Small
+compatibility wrappers preserve the existing public analysis/extension APIs and default resolver
+behavior. The portable mechanics import no all-major registry, generated catalogs or drivers.
+All six original generated catalogs remain unchanged; existing code is moved rather than copied
+into a second semantic implementation.
+
+Tests discover supported stable/canary majors and compare every catalog type/alias, cast/context,
+operator and routine family with the compatibility registry. Conflicting owners exercise both
+schema-free and shared-snapshot operator caches and coercions; extension cast collision checks use
+the supplied owner. Input mutation, nested freezing, explicit fallback, server-evidence precedence
+and dependency graphs are checked. Resolver/project-catalog injection and public per-major
+entrypoints remain outstanding, so this is not a claim of PostgreSQL core bundle savings.
+
+Validation passes a clean build/types, all 39 PostgreSQL files with coverage (97.30% statements,
+90.49% branches, 98.02% functions), all 49 repository contract files, nine soundness files,
+quality and isolated performance. The complete PostgreSQL 18.3 native helper also passes live
+editor regeneration, routine drift, durable/cache offline reuse, frozen consumers, guarded table
+qualification and candidate non-execution. The preceding `98f78e06` main CI completes
+successfully; this new internal boundary requires its own CI result.
