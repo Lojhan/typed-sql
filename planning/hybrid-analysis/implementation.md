@@ -2123,3 +2123,35 @@ directions reject the old environment and context, each own context acquires and
 databases are removed. Downloaded producer `e30e98b2a150e044dcc0a9a46b7196390a4a7b64` and its
 collector hash match Git. The later run also passes PostgreSQL 18.6 and all SQL Server packed
 editor steps; that successful execution does not erase the preceding intermittent failures.
+
+
+## Live-cache contention and compatibility allocation
+
+The live-cache stress probe opens sixteen handles for the same directory and performs 128 live
+calls. Before the fix, 21 calls throw ELOCKED while competing for the process's own filesystem
+lock. A new regression uses 128 distinct queries and checks that every publication and later
+lookup succeeds; it fails on the previous implementation. Cache handles now join a per-directory
+FIFO before filesystem-lock acquisition. Success and failure both release the queue, and idle
+queue entries are removed. The existing proper-lockfile coordination, retry count, stale-lock
+policy and token/epoch fences are unchanged. The original live-runner probe now completes all
+128 calls without errors. Existing real-process writer/prune and publication-fencing regressions
+also pass. This is a reproduced source of generic runner errors, not a claim that the earlier
+hosted watch failure's hidden exception was captured.
+
+Full analysis coverage passes 21 files at 98.69% statements, 93.17% branches and 99.46% functions.
+The editor fix also passes all sixteen language-server files and installed/packed consumers.
+The subsequent `d6303338` aggregate passes all native and packed/editor jobs, including both
+MySQL engine-boundary directions, but fails compatibility latency at 70.17 ms / 70 ms.
+
+Compatibility dependency matching now enumerates each snapshot's table entries once per manifest
+instead of reconstructing the same array for every relation and column reference. It retains
+exact existing key/name/suffix/schema predicates and ambiguity behavior. The unchanged 250-query
+benchmark yields identical serialized-report digests before and after; local medians improve
+from 25.29 to 23.71 ms. Full compiler coverage, editor tests, 53 repository contracts, types and
+the isolated full performance gate pass after both fixes. The full local gate records compatibility
+p50 23.26 ms and semantic-metadata p50 6.74 ms. These Darwin/Node-24 observations do not substitute
+for hosted Node-22 qualification. No timeout or performance budget is changed.
+
+The actual PostgreSQL 18.6 native-contract and watch-regeneration fixture also passes locally
+with both fixes in 97.20 seconds, including owned-container cleanup. This is a fresh uninstrumented
+run; the temporary diagnostic patch used during investigation is absent.
