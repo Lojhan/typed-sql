@@ -1,6 +1,6 @@
 # Bundle and installation measurements
 
-The [bundle JSON](./bundle-measurements.json) and [installation JSON](./installation-measurements.json) measure committed source `2e100286aee1853b30047721638437e843027a33`. Bundles compare against `a1f27fc894e48021e91ce4c9a4b98929890f233d` using the same tool, Node v24.22.2, esbuild 0.28.2, minified ESM, Node platform, ES2022, tree-shaking, gzip level 9 and Brotli quality 11. Sizes below use KiB (1,024 bytes) or MiB (1,048,576 bytes).
+The [bundle JSON](./bundle-measurements.json) and [installation JSON](./installation-measurements.json) measure committed source `c3eeb1cfb7f96a25d5ff29b80b26387af43bad63`. Bundles compare against `a1f27fc894e48021e91ce4c9a4b98929890f233d` using the same tool, Node v24.22.2, esbuild 0.28.2, minified ESM, Node platform, ES2022, tree-shaking, gzip level 9 and Brotli quality 11. Sizes below use KiB (1,024 bytes) or MiB (1,048,576 bytes).
 
 ## Compatibility analyzers
 

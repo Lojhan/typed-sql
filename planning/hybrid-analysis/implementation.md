@@ -116,7 +116,7 @@ runtime code:
   sixteen owner profiles. The offline commerce result is not native statement admission.
 
 Bundle, repository, installation and project reports now share committed production source
-`2e100286aee1853b30047721638437e843027a33`, including cache maintenance, export diffs and hover evidence. The isolated
+`c3eeb1cfb7f96a25d5ff29b80b26387af43bad63`, including cache maintenance, export diffs, hover evidence and native progress. The isolated
 performance gate also passes with unchanged budgets. Each report identifies its committed producer. A later source change needs refreshed measurements
 before its results can be called the final after-results. Root quality checks rendered tables
 against their JSON. Measured example coverage is not a production-popularity estimate.
@@ -132,8 +132,8 @@ The subsequent pending-diagnostic addition passes root types/build, core coverag
 statements, 91.44% branches, 97.85% functions), all eighteen language-server files and all fifty-four
 repository contract files, documentation build, quality and the isolated unchanged performance gate.
 The slow-context stdio test verifies no extra observation during completion, and prepared snapshot
-checks reject a changed durable manifest. An earlier local PostgreSQL flow during this addition
-passes in 115.26 seconds; current committed-source native/hosted qualification remains necessary.
+checks reject a changed durable manifest. The complete PostgreSQL 18.6 E2E command passes its standalone typecheck and both native/developer
+files in 120.12 seconds on committed source `c3eeb1cf`. Fresh hosted qualification remains necessary.
 The editor suite runs after PostgreSQL finishes because both use its generated schema. No timeout
 or performance budget increase substitutes for a fix.
 

@@ -1,6 +1,6 @@
 {
   "formatVersion": 2,
-  "sourceRevision": "2e100286aee1853b30047721638437e843027a33",
+  "sourceRevision": "c3eeb1cfb7f96a25d5ff29b80b26387af43bad63",
   "nodeVersion": "v24.22.2",
   "esbuildVersion": "0.28.2",
   "measurementToolDigest": "dc40a67dc6020756ad046212866c23512282904af1aba29c572d93170931ef5e",
@@ -1369,7 +1369,7 @@
     "packages/core/src/bulk.ts": "6d368c8c8e24570c6c8a28df34f722bef3d9356e2879dc0cf723699297c234f3",
     "packages/core/src/catalog/arguments.ts": "c1fa07d706c84c2d5932e8d426c93234b18491a8c7bd1a7984deeedd3efe343c",
     "packages/core/src/debug.ts": "f570be40897f8928e51569cb9de0431695e9de113034b3a8add41eba2ee289c7",
-    "packages/core/src/diagnostics.ts": "28518fd15dcdcac24c1b3a04b9844f5439b622b74d4b717851035009cb560164",
+    "packages/core/src/diagnostics.ts": "47345513d28e546749421f3772931d2f4eaeb225cefd3f4dd04a91b494779328",
     "packages/core/src/dialect-capabilities.ts": "4d53de6808beeceb913bbc3995cbbcd466c2f95b09fbb0dcc6b3cc1ad052800b",
     "packages/core/src/execution.ts": "6e59069de982425fad88b12cd9821000be96b466f4427c1a5b225a10939fedf2",
     "packages/core/src/index.ts": "56f7be408234bc1671bd08f81d13dc5936b8a4acfa38f7829d1dec7d62678134",

@@ -1,12 +1,12 @@
 {
   "formatVersion": 1,
-  "sourceRevision": "2e100286aee1853b30047721638437e843027a33",
+  "sourceRevision": "c3eeb1cfb7f96a25d5ff29b80b26387af43bad63",
   "nodeVersion": "v24.22.2",
   "platform": "darwin",
   "arch": "arm64",
   "pnpmVersion": "10.32.1",
   "repositoryLockfileDigest": "3dd42212226234b44678b68d5c169e8fac598db1268227bc9738e65885f198f1",
-  "installationLockfileDigest": "8a2c37332d7541c7e15bf13c9a72d3564b14f57d10b182571bbd4b204fd1797d",
+  "installationLockfileDigest": "3eaa2f82d0e68f42328c96e438de5605327100a9112469b9ac2e67feadb0e51b",
   "measurementToolDigest": "24ffdeece34a0a38cc8015e595d170898fd49be915c5587559725a3668bea6e0",
   "method": "Fresh isolated offline pnpm install of built tarballs. External dependency versions are pinned to the repository installation. Payload counts published file contents once per package name/version, excluding node_modules, filesystem blocks, pnpm store, optional peers and application-installed drivers/toolchains. This is not bundle size or total disk usage.",
   "externalVersions": {
@@ -38,15 +38,15 @@
           "sourceMaps": 1081938,
           "other": 10052
         },
-        "digest": "cedb44079aa6d8306c621859882b34484bc9b8d02c0db4070543aff7607e2c3f"
+        "digest": "b11e63e2d103ac8dbbc481549d05a92e8b743f4e683bf715cc2b5b1310c2327c"
       },
       "grammarClosure": {
         "packages": 9,
-        "payloadBytes": 3855585
+        "payloadBytes": 3855919
       },
       "withCompilerAndContracts": {
         "packages": 10,
-        "payloadBytes": 4615396
+        "payloadBytes": 4615730
       }
     },
     {
@@ -64,11 +64,11 @@
       },
       "grammarClosure": {
         "packages": 9,
-        "payloadBytes": 2759775
+        "payloadBytes": 2760109
       },
       "withCompilerAndContracts": {
         "packages": 10,
-        "payloadBytes": 3519586
+        "payloadBytes": 3519920
       }
     },
     {
@@ -82,15 +82,15 @@
           "sourceMaps": 979666,
           "other": 59862
         },
-        "digest": "e3a509d3a1e675bcba6d4525fd56af3e59c709c79614f3dca13a1812195b8789"
+        "digest": "489f018546469ffa5ca9235124c5396e76b07b1a842077759644f7715fe5c93f"
       },
       "grammarClosure": {
         "packages": 20,
-        "payloadBytes": 6952708
+        "payloadBytes": 6953042
       },
       "withCompilerAndContracts": {
         "packages": 21,
-        "payloadBytes": 7712519
+        "payloadBytes": 7712853
       }
     },
     {
@@ -104,15 +104,15 @@
           "sourceMaps": 379015,
           "other": 28790
         },
-        "digest": "ca925ad902898047fc9fbdc379e7955c32185f5a659faf6d96de2ffd537b10fe"
+        "digest": "7f8b5c678fe86fe96f3cac130161b4b31fbcb5017b6564f39dd6ec00b2bac7fd"
       },
       "grammarClosure": {
         "packages": 9,
-        "payloadBytes": 2434781
+        "payloadBytes": 2435115
       },
       "withCompilerAndContracts": {
         "packages": 10,
-        "payloadBytes": 3194592
+        "payloadBytes": 3194926
       }
     },
     {
@@ -130,11 +130,11 @@
       },
       "grammarClosure": {
         "packages": 9,
-        "payloadBytes": 2640022
+        "payloadBytes": 2640356
       },
       "withCompilerAndContracts": {
         "packages": 10,
-        "payloadBytes": 3399833
+        "payloadBytes": 3400167
       }
     }
   ],
@@ -207,20 +207,20 @@
       "version": "2.5.0",
       "payload": {
         "fileCount": 100,
-        "bytes": 581347,
+        "bytes": 581681,
         "sizes": {
-          "javascript": 189716,
-          "declarations": 92811,
-          "sourceMaps": 250505,
+          "javascript": 189804,
+          "declarations": 92947,
+          "sourceMaps": 250615,
           "other": 48315
         },
-        "digest": "b3a6b86357f3e28d4cd00fc0cc8bc8220afc25f73c2f05a597f0c58c3a035145"
+        "digest": "19f53879995dda8902d2c4283bfca67a0906014a783ac028594fc1d028d6a230"
       },
       "dependencies": [],
       "unavailableOptionalDependencies": [],
       "tarball": {
-        "bytes": 120316,
-        "digest": "866e71df674ac6e77d9270dfa9680bd489080a148f1b312234aa9038e3212840"
+        "bytes": 120359,
+        "digest": "f1d63179aaf75a1331c35a73e0f3402b0ba25e0c34df29880d863e80af142f5f"
       }
     },
     "@typed-sql/duckdb@2.5.0": {
@@ -235,7 +235,7 @@
           "sourceMaps": 1081938,
           "other": 10052
         },
-        "digest": "cedb44079aa6d8306c621859882b34484bc9b8d02c0db4070543aff7607e2c3f"
+        "digest": "b11e63e2d103ac8dbbc481549d05a92e8b743f4e683bf715cc2b5b1310c2327c"
       },
       "dependencies": [
         "@typed-sql/analysis@2.5.0",
@@ -245,8 +245,8 @@
       ],
       "unavailableOptionalDependencies": [],
       "tarball": {
-        "bytes": 263135,
-        "digest": "dceca5842e4b7d4d345b09eb7e78b5db7ce0bc8085341017f0884319bc0db616"
+        "bytes": 263134,
+        "digest": "06809caa81fa5a8e64952558c353eee88c0bb65caf56493f2d11e6ae4cb642fe"
       }
     },
     "@typed-sql/mysql@2.5.0": {
@@ -287,7 +287,7 @@
           "sourceMaps": 979666,
           "other": 59862
         },
-        "digest": "e3a509d3a1e675bcba6d4525fd56af3e59c709c79614f3dca13a1812195b8789"
+        "digest": "489f018546469ffa5ca9235124c5396e76b07b1a842077759644f7715fe5c93f"
       },
       "dependencies": [
         "@typed-sql/analysis@2.5.0",
@@ -298,8 +298,8 @@
       ],
       "unavailableOptionalDependencies": [],
       "tarball": {
-        "bytes": 350064,
-        "digest": "aafca661ae5f9dc7f015d0abe0f854b0dd78c724432e9e3cf1a62e9f090837ca"
+        "bytes": 350065,
+        "digest": "432da52488f3193d9a5391c46d65b039d37bd52be9ae766bc71b0b670d6a8a9d"
       }
     },
     "@typed-sql/schema@2.5.0": {
@@ -335,7 +335,7 @@
           "sourceMaps": 379015,
           "other": 28790
         },
-        "digest": "ca925ad902898047fc9fbdc379e7955c32185f5a659faf6d96de2ffd537b10fe"
+        "digest": "7f8b5c678fe86fe96f3cac130161b4b31fbcb5017b6564f39dd6ec00b2bac7fd"
       },
       "dependencies": [
         "@typed-sql/analysis@2.5.0",
@@ -345,8 +345,8 @@
       ],
       "unavailableOptionalDependencies": [],
       "tarball": {
-        "bytes": 146161,
-        "digest": "91543ce409b7bb3a3ab777399e2dd1920ca2a8bf1b876e2903400c8fe242944e"
+        "bytes": 146162,
+        "digest": "61e1f8efc8a04cb25004cd04d97110e401d3c0e9a6d7060dd41d15d3b46acf23"
       }
     },
     "@typed-sql/sqlserver@2.5.0": {
