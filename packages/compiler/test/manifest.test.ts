@@ -474,14 +474,15 @@ await describe("deterministic query manifests", async () => {
       await writeFile(join(compiler, "package.json"), JSON.stringify({ name: "typescript", bin: { tsc: "slow.mjs" } }));
       await writeFile(
         join(compiler, "slow.mjs"),
-        'import {writeFile} from "node:fs/promises";await writeFile("started.pid",String(process.pid));setInterval(()=>{},1000);',
+        'import {writeFile,rename} from "node:fs/promises";await writeFile("started.pid.tmp",String(process.pid));await rename("started.pid.tmp","started.pid");setInterval(()=>{},1000);',
       );
       discovery = listProjectSourceFiles({ project: "tsconfig.json", cwd: directory, signal: controller.signal });
       const deadline = Date.now() + 5_000;
       let pid: number | undefined;
       while (pid === undefined) {
         try {
-          pid = Number(await readFile(join(directory, "started.pid"), "utf8"));
+          const candidate = Number(await readFile(join(directory, "started.pid"), "utf8"));
+          if (Number.isSafeInteger(candidate) && candidate > 0) pid = candidate;
         } catch (error) {
           if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
         }

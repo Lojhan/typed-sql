@@ -82,8 +82,8 @@ await describe("CLI watch checks", async () => {
       await writeFile(
         configFile,
         `if(!process.argv.some(arg=>arg.startsWith("--watch"))){
-        const fs=await import("node:fs/promises"); await fs.writeFile("watch-child.pid",String(process.pid));
-        process.on("SIGTERM",()=>{}); setInterval(()=>{},1000);
+        const fs=await import("node:fs/promises"); process.on("SIGTERM",()=>{}); setInterval(()=>{},1000);
+        await fs.writeFile("watch-child.pid.tmp",String(process.pid)); await fs.rename("watch-child.pid.tmp","watch-child.pid");
       }\n${original}`,
       );
       const child = spawn(process.execPath, [cli, "check", "--watch", "--frozen"], { cwd: directory, stdio: "ignore" });
@@ -96,7 +96,8 @@ await describe("CLI watch checks", async () => {
         const deadline = Date.now() + 10_000;
         while (pid === undefined) {
           try {
-            pid = Number(await readFile(join(directory, "watch-child.pid"), "utf8"));
+            const candidate = Number(await readFile(join(directory, "watch-child.pid"), "utf8"));
+            if (Number.isSafeInteger(candidate) && candidate > 0) pid = candidate;
           } catch (error) {
             if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
           }
