@@ -1,7 +1,7 @@
 # Bundle measurements and remaining boundaries
 
 The [machine-readable report](./bundle-measurements.json) measures committed source at
-`1214270f2fa35e8153654730d6752e566da7b04e`, compared with the earlier exhaustive-catalog revision
+`191acf45c566881df0b2da5d45fabc8d86a44505`, compared with the earlier exhaustive-catalog revision
 `a1f27fc894e48021e91ce4c9a4b98929890f233d`. Both use the same measurement tool, esbuild 0.28.2,
 Node 24.22.2, minified ESM, Node platform, ES2022, tree-shaking, gzip level 9 and Brotli quality 11.
 
@@ -14,15 +14,15 @@ version selection. They exclude a TypeScript project, driver implementation and 
 | --- | ---: | ---: | ---: | ---: |
 | PostgreSQL | 1,649.9 | 387.3 | 131.8 | 68.6 |
 | MySQL | 180.6 | 185.4 | 43.2 | 44.1 |
-| SQLite | 154.7 | 148.6 | 39.5 | 39.5 |
-| SQL Server | 138.7 | 121.1 | 35.6 | 34.6 |
+| SQLite | 154.7 | 148.8 | 39.5 | 39.6 |
+| SQL Server | 138.7 | 121.4 | 35.6 | 34.7 |
 | DuckDB | 1,340.3 | 627.8 | 101.4 | 78.0 |
 
 This measures the net change between those revisions, including removal of the exhaustive
 pipeline, maintained semantic corrections and API separation. It does not isolate savings caused
 by query contracts. In particular, MySQL grows slightly. Maintained global semantics and version
 tables still contribute to analyzers. The following rows measure DuckDB core/pack distribution and MySQL/PostgreSQL version selection;
-representative workload selection and appropriate SQLite/SQL Server boundaries remain open.
+representative workload selection remains open. SQLite and SQL Server retain one small catalog each.
 
 ## Version-specific DuckDB core and optional packs
 
@@ -113,6 +113,25 @@ default wrappers, introspection and drivers. Runtime tags, execution factories, 
 profiles and frozen hosts are byte-identical to the preceding report. Installation payloads
 are not inferred from these tree-shaken graphs.
 
+## SQLite and SQL Server core boundaries
+
+These grammars use one small maintained catalog with explicit version/compatibility gates.
+Their `analysis/core` exports retain those rules and diagnose unmapped scalar routines with
+qualified-generation guidance. No per-version data duplication or additional compatibility
+pack is introduced. The core dependency graphs exclude introspection and native adapters.
+
+| Analyzer | Default minified / gzip KiB | Core minified / gzip KiB |
+| --- | ---: | ---: |
+| SQLite | 148.8 / 39.6 | 148.8 / 39.6 |
+| SQL Server | 121.4 / 34.7 | 121.4 / 34.7 |
+
+These core exports establish the explicit long-tail generation workflow; they do not claim a
+bundle reduction. Compared with the preceding report, default analyzers add about 0.2/0.3 KiB
+minified for mode/diagnostic handling and SQL Server's invalid-arity guard. Runtime/profile/frozen
+rows are byte-identical. There is no generated package catalog added by either change. SQLite
+native evidence retains conservative storage bounds; these bytes do not imply precise return
+metadata for arbitrary SQLite functions or broader SQL Server native qualification.
+
 ## Current consumer graphs
 
 | Grammar | Root query tag minified / gzip | Profile minified / gzip | Frozen host helpers minified / gzip |
@@ -141,7 +160,7 @@ Run from an installed repository with Node 24.22.2:
 
 ```sh
 node planning/hybrid-analysis/measure-bundles.mjs a1f27fc894e48021e91ce4c9a4b98929890f233d /tmp/typed-sql-bundle-baseline.json
-node planning/hybrid-analysis/measure-bundles.mjs 1214270f2fa35e8153654730d6752e566da7b04e planning/hybrid-analysis/bundle-measurements.json /tmp/typed-sql-bundle-baseline.json
+node planning/hybrid-analysis/measure-bundles.mjs 191acf45c566881df0b2da5d45fabc8d86a44505 planning/hybrid-analysis/bundle-measurements.json /tmp/typed-sql-bundle-baseline.json
 ```
 
 The tool discovers grammars from the committed feature ledger and public entrypoints from package

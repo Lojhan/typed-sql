@@ -1,6 +1,6 @@
 {
   "formatVersion": 1,
-  "sourceRevision": "1214270f2fa35e8153654730d6752e566da7b04e",
+  "sourceRevision": "191acf45c566881df0b2da5d45fabc8d86a44505",
   "measurementToolDigest": "c27499d03028167c2343415f3addf6cd83fd5fd88f32dc11581252c780744d94",
   "method": {
     "scope": "All Git-tracked files at exact revisions; no working-tree, build-output or installed-package files.",
@@ -701,12 +701,12 @@
       ]
     },
     "current": {
-      "revision": "1214270f2fa35e8153654730d6752e566da7b04e",
+      "revision": "191acf45c566881df0b2da5d45fabc8d86a44505",
       "totals": {
-        "files": 1950,
-        "bytes": 51055388,
-        "lines": 504617,
-        "maintainedCodeLines": 252071,
+        "files": 1958,
+        "bytes": 51088436,
+        "lines": 505324,
+        "maintainedCodeLines": 252388,
         "generatedCodeLines": 30238
       },
       "categories": {
@@ -719,8 +719,8 @@
         },
         "auditFixtureAndReportData": {
           "files": 31,
-          "bytes": 23933089,
-          "lines": 110405,
+          "bytes": 23943008,
+          "lines": 110675,
           "maintainedCodeLines": 0,
           "generatedCodeLines": 0
         },
@@ -733,15 +733,15 @@
         },
         "configurationAndOtherData": {
           "files": 198,
-          "bytes": 2727190,
-          "lines": 83614,
+          "bytes": 2727383,
+          "lines": 83618,
           "maintainedCodeLines": 0,
           "generatedCodeLines": 0
         },
         "documentation": {
-          "files": 243,
-          "bytes": 1850245,
-          "lines": 26335,
+          "files": 244,
+          "bytes": 1858742,
+          "lines": 26451,
           "maintainedCodeLines": 0,
           "generatedCodeLines": 0
         },
@@ -760,17 +760,17 @@
           "generatedCodeLines": 0
         },
         "packageSource": {
-          "files": 488,
-          "bytes": 5282798,
-          "lines": 132446,
-          "maintainedCodeLines": 106290,
+          "files": 492,
+          "bytes": 5285345,
+          "lines": 132506,
+          "maintainedCodeLines": 106350,
           "generatedCodeLines": 26156
         },
         "testSource": {
-          "files": 538,
-          "bytes": 4621662,
-          "lines": 107186,
-          "maintainedCodeLines": 107186,
+          "files": 541,
+          "bytes": 4633554,
+          "lines": 107443,
+          "maintainedCodeLines": 107443,
           "generatedCodeLines": 0
         },
         "toolingSource": {
@@ -902,17 +902,17 @@
           "generatedCodeLines": 0
         },
         "sqlite": {
-          "files": 36,
-          "bytes": 337905,
-          "lines": 8588,
-          "maintainedCodeLines": 8588,
+          "files": 38,
+          "bytes": 339167,
+          "lines": 8621,
+          "maintainedCodeLines": 8621,
           "generatedCodeLines": 0
         },
         "sqlserver": {
-          "files": 44,
-          "bytes": 440951,
-          "lines": 10358,
-          "maintainedCodeLines": 10358,
+          "files": 46,
+          "bytes": 442236,
+          "lines": 10385,
+          "maintainedCodeLines": 10385,
           "generatedCodeLines": 0
         },
         "ts-bridge": {
@@ -1062,22 +1062,22 @@
       "physicalLineDeltaMatchesGitDiff": true
     },
     "currentProposal": {
-      "netTrackedLines": 47359,
-      "netMaintainedCodeLines": 34427,
+      "netTrackedLines": 48066,
+      "netMaintainedCodeLines": 34744,
       "netGeneratedCodeLines": 2717,
-      "shortstat": "639 files changed, 60000 insertions(+), 12641 deletions(-)",
-      "additions": 60000,
-      "deletions": 12641,
+      "shortstat": "647 files changed, 60815 insertions(+), 12749 deletions(-)",
+      "additions": 60815,
+      "deletions": 12749,
       "binaryChanges": 0,
       "physicalLineDeltaMatchesGitDiff": true
     },
     "directionChange": {
-      "netTrackedLines": -371492,
-      "netMaintainedCodeLines": 4366,
+      "netTrackedLines": -370785,
+      "netMaintainedCodeLines": 4683,
       "netGeneratedCodeLines": 26156,
-      "shortstat": "617 files changed, 94768 insertions(+), 466260 deletions(-)",
-      "additions": 94768,
-      "deletions": 466260,
+      "shortstat": "628 files changed, 95643 insertions(+), 466428 deletions(-)",
+      "additions": 95643,
+      "deletions": 466428,
       "binaryChanges": 0,
       "physicalLineDeltaMatchesGitDiff": true
     }

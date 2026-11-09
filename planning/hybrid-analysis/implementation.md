@@ -1050,3 +1050,12 @@ documentation check/build, quality and isolated performance. Preceding `a80effcc
 including hosted performance and the repaired PostgreSQL capture path. The new core source still
 requires its own hosted matrix qualification. Representative workloads, native-qualified project
 payload/latency, reusable catalog/custom-type scope and the full acceptance audit remain open.
+
+Both measurement reports now pin `191acf45`. SQLite default/core analysis is 148.8 KiB minified /
+39.6 KiB gzip, and SQL Server default/core is 121.4 / 34.7 KiB. There is no claimed core size
+reduction for these already-small catalogs. Runtime/profile/frozen consumer rows are byte-identical
+to the preceding report. The two grammar changes add 60 net maintained package lines and no
+generated package lines; shared semantic bodies move behind factories. Current repository counts
+separate maintained package source (106,350 lines), generated package source (26,156), maintained
+tests/E2E (107,443), captured data and reports. All category/package totals and exact-reference
+Git line comparisons agree. No exhaustive vendor inventory is restored.

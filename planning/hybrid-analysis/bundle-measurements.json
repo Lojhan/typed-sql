@@ -1,6 +1,6 @@
 {
   "formatVersion": 2,
-  "sourceRevision": "1214270f2fa35e8153654730d6752e566da7b04e",
+  "sourceRevision": "191acf45c566881df0b2da5d45fabc8d86a44505",
   "nodeVersion": "v24.22.2",
   "esbuildVersion": "0.28.2",
   "measurementToolDigest": "dc40a67dc6020756ad046212866c23512282904af1aba29c572d93170931ef5e",
@@ -1103,9 +1103,9 @@
     {
       "grammar": "sqlite",
       "scenario": "analyzer",
-      "minifiedBytes": 152116,
-      "gzipBytes": 40430,
-      "brotliBytes": 34630,
+      "minifiedBytes": 152400,
+      "gzipBytes": 40550,
+      "brotliBytes": 34760,
       "generatedInputBytes": 0,
       "globalCatalogInputs": [
         "packages/sqlite/src/catalog/coercions.ts",
@@ -1118,13 +1118,13 @@
       ],
       "attribution": {
         "core/other": 19202,
-        "sqlite/other": 65841,
+        "sqlite/other": 66123,
         "ast/other": 1647,
-        "sqlite/parser": 27550,
+        "sqlite/parser": 27552,
         "sqlite/catalog": 14770,
         "schema/other": 23077
       },
-      "outputDigest": "8cba90dbc8d118c6f50e687463cb920144ece5f7fa24c3b8398138dab29101f3"
+      "outputDigest": "957bac1100496a642ec607420b7cd149c8a7e63fd9a0a143170035841c8e731b"
     },
     {
       "grammar": "sqlite",
@@ -1159,6 +1159,32 @@
         "sqlite/parser": 5201
       },
       "outputDigest": "947c92d53be39f1925549fb6040da0c4c067b416854415748e6003b8d73ecc8e"
+    },
+    {
+      "grammar": "sqlite",
+      "scenario": "analyzer:core",
+      "minifiedBytes": 152403,
+      "gzipBytes": 40551,
+      "brotliBytes": 34790,
+      "generatedInputBytes": 0,
+      "globalCatalogInputs": [
+        "packages/sqlite/src/catalog/coercions.ts",
+        "packages/sqlite/src/catalog/date-time.ts",
+        "packages/sqlite/src/catalog/extensions.ts",
+        "packages/sqlite/src/catalog/json.ts",
+        "packages/sqlite/src/catalog/math.ts",
+        "packages/sqlite/src/catalog/functions.ts",
+        "packages/sqlite/src/catalog/operators.ts"
+      ],
+      "attribution": {
+        "core/other": 19202,
+        "sqlite/other": 66126,
+        "ast/other": 1647,
+        "sqlite/parser": 27552,
+        "sqlite/catalog": 14770,
+        "schema/other": 23077
+      },
+      "outputDigest": "df07afb2ad0f3c74bba392df5018369648ba3977c1fed2571ed4e8f6dfbbdf78"
     },
     {
       "grammar": "sqlserver",
@@ -1208,19 +1234,19 @@
     {
       "grammar": "sqlserver",
       "scenario": "analyzer",
-      "minifiedBytes": 123956,
-      "gzipBytes": 35448,
-      "brotliBytes": 30688,
+      "minifiedBytes": 124324,
+      "gzipBytes": 35560,
+      "brotliBytes": 30738,
       "generatedInputBytes": 0,
       "globalCatalogInputs": ["packages/sqlserver/src/catalog/index.ts"],
       "attribution": {
         "core/other": 10744,
-        "sqlserver/other": 63236,
+        "sqlserver/other": 63604,
         "sqlserver/parser": 21854,
         "schema/other": 23077,
         "sqlserver/catalog": 5016
       },
-      "outputDigest": "1dfcef0c09dee1f2740f01c87113dc06c47ae713ab3f3a8596260dee726125ad"
+      "outputDigest": "b0ef64d39f7dcc73a0438a2cc9863c93776e6e08923a65e764bcd92b2db4c603"
     },
     {
       "grammar": "sqlserver",
@@ -1255,6 +1281,23 @@
         "sqlserver/parser": 3991
       },
       "outputDigest": "4ca9c5c165f945c34f49027cdb70156012cb2b19f3d1a41f7a482ab301342f76"
+    },
+    {
+      "grammar": "sqlserver",
+      "scenario": "analyzer:core",
+      "minifiedBytes": 124327,
+      "gzipBytes": 35560,
+      "brotliBytes": 30793,
+      "generatedInputBytes": 0,
+      "globalCatalogInputs": ["packages/sqlserver/src/catalog/index.ts"],
+      "attribution": {
+        "core/other": 10744,
+        "sqlserver/other": 63607,
+        "sqlserver/parser": 21854,
+        "schema/other": 23077,
+        "sqlserver/catalog": 5016
+      },
+      "outputDigest": "e79b307b13eace07d66ab00ace03efdada3381b95b7b43e690fe29a887707c97"
     }
   ],
   "inputDigests": {
@@ -1508,8 +1551,10 @@
     "packages/schema/src/v1/upgrade.ts": "735c07034064519bc0a5bff8d1b1143538790c7ae20897f4067bc773c217b346",
     "packages/schema/src/v2/codec.ts": "72a315a3bb28f25b70b0f3bdead5605b3635f272d0ffa041620a7f1b3d9c7bda",
     "packages/schema/src/v2/model.ts": "4377b06fb950972480c44f3be19731c297028ba8295c5f37ab9f3d8ff99e388f",
-    "packages/sqlite/package.json": "1bcb6c9198b52c3441cb778a0c771ed875806682507b203b0003a98a0d68aed7",
-    "packages/sqlite/src/analysis.ts": "cf83df67864c619456a8a105c56aabe34b26eb8814a0fabf2c31d0eb3bbc2941",
+    "packages/sqlite/package.json": "077cbad34ace12c7ab42c6e80023f54002663467cfda9ce3ba1d137ffc082f2c",
+    "packages/sqlite/src/analysis-factory.ts": "37b9a30e713eb524106f0da1bd21ca0bad479b8d92f44ad4da6dc6e04f0b6d70",
+    "packages/sqlite/src/analysis.ts": "35b6dc8070d32f8a23173b5c6d70252ae717983de50b13a8ec0809dbd1308788",
+    "packages/sqlite/src/analysis/core.ts": "2674a7e28e3659c5f67652c3074ff41970435bb21b32e9d2d0f917bc02f0ac38",
     "packages/sqlite/src/capabilities.ts": "43c89bdfef5e55931187528e7c426048fbd7bee755331514bce98959bab2c4a1",
     "packages/sqlite/src/catalog/coercions.ts": "dddd39d06993d2ec2cc18010844666593438787b0b80f0b32fb6b6b44bb2ed27",
     "packages/sqlite/src/catalog/date-time.ts": "c15c8a43982e4355007e4acda5b4d58c8f7fcc8e3b6a01ad8cec7ad52d990168",
@@ -1531,7 +1576,7 @@
     "packages/sqlite/src/provider.ts": "b9f608cf6e1b5f37a3c4b041664c9a3e853eebef7bd6f27a9bc0d708075d2403",
     "packages/sqlite/src/query.ts": "be87e16c12a130fb45e91dd2164f34e4ae675a43b122de568541f031da2a0b35",
     "packages/sqlite/src/repeated-inputs.ts": "6c92a254c0279aec2ee1f2158a29e8d2eaa4957d46f259b6f953a4a3ccef95ac",
-    "packages/sqlite/src/resolver.ts": "8853091585c08b3dc42db4f73ca89a7388702ecd2990a27dbebed8b9fc697329",
+    "packages/sqlite/src/resolver.ts": "8767a5251022502b2e3285c7df9a064e9b58b969d6e9fcd68f1e84c370a3f8e3",
     "packages/sqlite/src/runtime.ts": "edd2331080d391d1786aedc313386beaaf57594ad76485d1a9f905ebecd023d7",
     "packages/sqlite/src/schema-sql.ts": "101148015885bcf6abe7d45260f246692d85a38180f9c55ec86bb8157c9a07fa",
     "packages/sqlite/src/semantics.ts": "ef141683d097b9b6addaaf59c20e9496e5aeed164fb97f6580f432834ae8f7ac",
@@ -1539,9 +1584,11 @@
     "packages/sqlite/src/support.ts": "c924df45c7777dd7c52f19a87e1b1d8943089f141000a3e9fa00262e6c7f7554",
     "packages/sqlite/src/type-policy.ts": "02df1a5b390041a19e1f300215965ed9c45a7c7fb74163fbf663eccd5935dd0f",
     "packages/sqlite/src/version.ts": "1ff948ea6de73dd56dc32a93d9a3545c74954565467ccb1a6a39336ee5501b29",
-    "packages/sqlserver/package.json": "ed9e6199c43e41575ea45b3b30bbb724a1c3e68fb00e35d05fb9649ad58b17e1",
+    "packages/sqlserver/package.json": "b79b59dcbc9e8e5f5751db57b00b2c70efaeb4cfc6bfe7a45a50e96fd535e8e4",
+    "packages/sqlserver/src/analysis-factory.ts": "311c8b63a184e10f5c51dc3f1f8f27c39cc1ffc540df7349380966f91c1e2fba",
     "packages/sqlserver/src/analysis.ts": "522deb02aacd34fb0312fd768eba8e40df6fbd5b76db2cc70fb4999d650989c4",
-    "packages/sqlserver/src/browser.ts": "883a861144889efb88e5d1a0c965ea72fa0e43aa7db2af1baa1c3607b8ab48ea",
+    "packages/sqlserver/src/analysis/core.ts": "56183b195c516e26307c46e942b5f47a4ff7c88ace62541b32009b44d47570a5",
+    "packages/sqlserver/src/browser.ts": "5e2ce4f67e77c970b496c45e22d1628bca46945083fda3864c2235fcc651e5ab",
     "packages/sqlserver/src/capabilities.ts": "d569d193a443e57db59cce8f2265c250d31c3b12c83f1eef7f614ad5c9ed4c80",
     "packages/sqlserver/src/catalog/index.ts": "632ec8062041837712943c489cf0314c9b0e1039881a4c31d8a3da5f0f3c5e6f",
     "packages/sqlserver/src/collation.ts": "99b2cff133ffd5ef43285ea4a9c9d8642373bc9f4de307192949d26048833675",
@@ -1558,7 +1605,7 @@
     "packages/sqlserver/src/profile.ts": "e4dead94822786535da0f0171e5b07d30388d34e73149207b7ddc4967c50b0fe",
     "packages/sqlserver/src/provider.ts": "09f59b5199ea048ddbe7826ee357861fd8288f5ef1bdd3e7dbd311f744c701e9",
     "packages/sqlserver/src/query.ts": "8edf55dcd097b5b8778336d9be362a1c7de7c6038701e78c4765c22e6b8de910",
-    "packages/sqlserver/src/resolver.ts": "8bbdd7f35a3db33a8ff8edfb426351780d7c10dedd51c2706947257d901b45ce",
+    "packages/sqlserver/src/resolver.ts": "89d1fce2bbca1a9b69cf2712e6543f1be3ab6d5d3ca7b786a679d10ed0e975e8",
     "packages/sqlserver/src/runtime-entry.ts": "2c1d003bea7aa156d6ed71f5d2ffb44061054771d1286f911d66d6c2cea11f8e",
     "packages/sqlserver/src/runtime.ts": "d46f5fc59fdef18b1e3b99affd0378da0a8759bf73c4c466254754a0a64da160",
     "packages/sqlserver/src/semantics.ts": "17aec050163e6a91617ee44818066ed3ada6b27da43a53544949bfa9a1bf5703",
