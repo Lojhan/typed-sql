@@ -1,1 +1,6 @@
 test/fixtures/language-audit/*.json linguist-generated=true
+# Keep hash-verified upstream notices byte-for-byte, including their original spaces and line endings.
+packages/*/*_VOCABULARY_NOTICE -text whitespace=-blank-at-eol
+grammar/*/vocabulary/facts.json linguist-generated=true
+packages/*/src/vocabulary/generated/** linguist-generated=true
+packages/*/src/vocabulary-identity.ts linguist-generated=true
