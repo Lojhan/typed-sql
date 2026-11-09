@@ -52,12 +52,14 @@ import type {
   WithClause,
 } from "./parser/index.js";
 import { walkStatement } from "./parser/index.js";
+import { sqliteRuntimeValueType } from "./query.js";
 import { compareSqliteVersions, parseSqliteVersion, sqliteVersionSupport } from "./support.js";
 import {
   defaultSqliteTypePolicy,
   isKnownSqliteType,
   mapSqliteCastType,
   type SqliteTypePolicy,
+  sqliteAffinity,
   sqliteFlexibleType,
 } from "./type-policy.js";
 
@@ -1161,11 +1163,7 @@ class Resolver {
           ),
         };
       }
-      return {
-        tsType: mapSqliteCastType(expression.databaseType.name, this.#policy),
-        nullable: source.nullable,
-        databaseType: normalizeSqliteDatabaseType(expression.databaseType.name),
-      };
+      return this.#databaseType(expression.databaseType.name, source.nullable);
     }
     if (expression.kind === "unary") {
       const operand = this.#expression(expression.expression, scope, ctes);
@@ -1174,12 +1172,7 @@ class Resolver {
         expression.operator !== "NOT" &&
         (operand.json !== undefined || operand.scalarJsonShape !== undefined || operand.jsonEmbedding !== undefined)
       )
-        return {
-          tsType: unionSqliteTypes([this.#policy.integer, "number"]),
-          nullable: operand.nullable,
-          databaseType: "numeric",
-          runtimeType: { union: [this.#policy.integer, "number"] },
-        };
+        return this.#numericType(operand.nullable);
       return expression.operator === "NOT"
         ? { tsType: this.#policy.integer, nullable: operand.nullable, databaseType: "integer" }
         : operand;
@@ -1324,11 +1317,7 @@ class Resolver {
       );
     }
     if (operator?.result === "numeric" && sqliteNumericOperands(left.databaseType, right.databaseType)) {
-      return {
-        tsType: unionSqliteTypes([this.#policy.integer, "number"]),
-        nullable: left.nullable || right.nullable,
-        databaseType: "numeric",
-      };
+      return this.#numericType(left.nullable || right.nullable);
     }
     if (left.tsType === "unknown" || right.tsType === "unknown")
       return { tsType: "unknown", nullable: left.nullable || right.nullable };
@@ -1620,11 +1609,7 @@ class Resolver {
     scope: Scope,
     ctes: ReadonlyMap<string, TableSnapshot>,
   ): void {
-    const numeric = {
-      tsType: unionSqliteTypes([this.#policy.integer, "number"]),
-      nullable: true,
-      databaseType: "numeric",
-    };
+    const numeric = this.#numericType(true);
     const text = { tsType: "string", nullable: true, databaseType: "text" };
     const json = this.#jsonInput();
     const jsonValue = { tsType: sqliteFlexibleType(this.#policy), nullable: true };
@@ -1796,17 +1781,9 @@ class Resolver {
       case "nullif":
         return { ...first, nullable: true };
       case "numeric-from-arguments":
-        return {
-          tsType: unionSqliteTypes([this.#policy.integer, "number"]),
-          nullable: values.some((value) => value.nullable),
-          databaseType: "numeric",
-        };
+        return this.#numericType(values.some((value) => value.nullable));
       case "numeric-nullable":
-        return {
-          tsType: unionSqliteTypes([this.#policy.integer, "number"]),
-          nullable: true,
-          databaseType: "numeric",
-        };
+        return this.#numericType(true);
       case "real":
         return { tsType: "number", nullable: false, databaseType: "real" };
       case "real-nullable":
@@ -1955,14 +1932,19 @@ class Resolver {
       ...(hasScalar
         ? {
             scalarJsonShape: unionJsonShapes(scalarShapes as readonly JsonShape[]),
+          }
+        : {}),
+      ...(hasScalar || values.some((value) => value.runtimeType !== undefined)
+        ? {
             runtimeType: {
-              union: values.map(
-                (value) =>
-                  value.runtimeType ??
-                  (value.tsType === "string" || value.tsType === "number" || value.tsType === "bigint"
-                    ? value.tsType
-                    : "unknown"),
-              ),
+              union: [
+                ...new Set(
+                  values.flatMap((value): readonly RuntimeValueType[] => {
+                    const type = value.runtimeType ?? sqliteRuntimeValueType(value, this.#policy);
+                    return typeof type === "object" && "union" in type ? type.union : [type];
+                  }),
+                ),
+              ],
             } as RuntimeValueType,
           }
         : {}),
@@ -2426,9 +2408,19 @@ class Resolver {
 
   #databaseType(databaseType: string, nullable: boolean): ResolvedType {
     return {
+      ...(sqliteAffinity(databaseType) === "numeric" ? this.#numericType(nullable) : {}),
       tsType: mapSqliteCastType(databaseType, this.#policy),
       nullable,
       databaseType: normalizeSqliteDatabaseType(databaseType),
+    };
+  }
+
+  #numericType(nullable: boolean): ResolvedType {
+    return {
+      tsType: unionSqliteTypes([this.#policy.integer, "number"]),
+      nullable,
+      databaseType: "numeric",
+      runtimeType: { union: [...new Set<RuntimeValueType>([this.#policy.integer, "number"])] },
     };
   }
 
