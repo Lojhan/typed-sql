@@ -1,15 +1,18 @@
 # Query contracts, hybrid analysis and live regeneration
 
-> Implementation scope: this PR retains existing offline support without an exhaustive upstream
-> inventory or vendor source-extraction pipeline. DuckDB has exact-engine full analyzers, a
-> maintained bounded core and complementary compatibility packs. MySQL has selected-series cores
-> retaining all existing maintained families. Appropriate distribution for the remaining grammars
-> and representative workload selection remain architecture targets. Native
-> capabilities below require their own qualification evidence; this specification is not a
-> completeness claim.
+> Implementation scope: this PR retains existing offline support without shipping an exhaustive
+> upstream semantic catalog or vendor source-extraction pipeline. DuckDB has exact-engine cores
+> and complementary compatibility packs; MySQL and PostgreSQL have selected-series/major cores;
+> SQLite and SQL Server retain their small maintained catalogs in portable cores. Representative
+> workload selection, complete vocabulary verification and the remaining acceptance evidence are
+> still architecture targets. Native capabilities below require their own qualification evidence;
+> this specification is not a completeness claim.
 
 Status: final direction-change specification; implementation is in progress. This defines the
 target architecture and acceptance requirements, not an assertion that they are implemented.
+
+The [acceptance audit](./acceptance-audit.md) records scoped proof, open checks and current
+qualification evidence against the unchanged requirements below.
 
 This document supersedes the requirement to reproduce every engine's complete semantics offline
 in [the preceding catalog specification](../grammar-completeness/spec.md). Its acquisition,

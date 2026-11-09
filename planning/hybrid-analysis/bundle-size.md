@@ -53,8 +53,8 @@ per-engine analyzer directly. Those rows also retain an options wrapper, whereas
 rows reexport a factory; they are alternative API-use samples rather than isolated data deltas.
 The core/optional partitions own disjoint original rows, and every cast remains shared.
 Selecting the core does not reduce the installed package payload by the same amount: all
-published exports remain installed. Installation measurements below retain their own older
-source revision and do not describe these new tarballs.
+published exports remain installed. Installation measurements below use a separate current-source pin and measure the new tarballs
+independently of these bundle graphs.
 
 The graphs exclude the other engine's data; core also excludes the optional partition, full
 catalog registry and native SDK. Runtime tags and frozen hosts retain zero global catalogs.
@@ -182,18 +182,18 @@ complete architecture acceptance.
 
 The separate [installation report](./installation-measurements.json) measures a fresh, isolated,
 offline pnpm installation of built tarballs from source revision
-`43b4193e820cea92905d532b8fadbe8e94ba635a`, on Node 24.22.2 / Darwin arm64. External versions
+`3f4defff369904b4637840f4d6c69f5afb398114`, on Node 24.22.2 / Darwin arm64. External versions
 are pinned to the repository installation. These are sums of published file contents once per
 package name/version, not filesystem blocks or pnpm store usage. Driver/engine binaries, optional
 peers and application toolchains are excluded. Source maps and declaration files are included.
 
-| Grammar | Compressed grammar tarball, KiB | Grammar package payload, MiB | Mandatory dependency payload, MiB | With compiler/contract packages, MiB |
+| Grammar | Compressed grammar tarball, KiB | Grammar package payload, MiB | Grammar + mandatory dependencies, MiB | With compiler/contract packages, MiB |
 | --- | ---: | ---: | ---: | ---: |
-| PostgreSQL | 302.1 | 2.01 | 6.43 | 7.16 |
-| MySQL | 174.8 | 0.92 | 2.46 | 3.19 |
-| SQLite | 131.9 | 0.69 | 2.24 | 2.96 |
-| SQL Server | 186.9 | 0.91 | 2.46 | 3.18 |
-| DuckDB | 220.6 | 1.94 | 3.49 | 4.21 |
+| PostgreSQL | 317.7 | 2.07 | 6.49 | 7.22 |
+| MySQL | 181.4 | 0.96 | 2.50 | 3.23 |
+| SQLite | 132.9 | 0.70 | 2.24 | 2.97 |
+| SQL Server | 189.3 | 0.92 | 2.47 | 3.19 |
+| DuckDB | 244.4 | 2.05 | 3.59 | 4.32 |
 
 The grammar payload includes its public analysis and optional adapter implementations even when
 a bundle does not retain them. PostgreSQL's dependency closure also includes its declared type

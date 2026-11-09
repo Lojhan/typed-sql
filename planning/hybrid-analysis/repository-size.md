@@ -128,7 +128,7 @@ Representative workload selection, native-qualified project payload/latency, reu
 catalog/custom-type interpretation beyond PostgreSQL and qualified selection merging remain
 open. This accounting is not the final LOC result for those unfinished parts. [The bundle
 report](./bundle-size.md) measures distribution separately from tracked source, while its
-installation table retains its own older source pin.
+installation table retains its independently measured source pin.
 
 The measured prototype establishes the maintenance cost and removed corpus. It does not justify
 an invented numerical prediction for the remaining architecture work. Later measurements

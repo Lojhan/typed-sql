@@ -1059,3 +1059,35 @@ generated package lines; shared semantic bodies move behind factories. Current r
 separate maintained package source (106,350 lines), generated package source (26,156), maintained
 tests/E2E (107,443), captured data and reports. All category/package totals and exact-reference
 Git line comparisons agree. No exhaustive vendor inventory is restored.
+
+## Acceptance ledger, current installation payloads and SQL Server baseline review
+
+The [acceptance ledger](./acceptance-audit.md) now maps all 22 required scenarios to inspected
+assertions, their qualified boundaries and concrete missing checks. It leaves explicit cold-core
+network denial, file-move composition, inherited grammar extension, vocabulary-to-parser
+verification and native project cost measurements open. Existing nearby fixtures are not counted
+as proof of those combined requirements. The specification's scope note now reflects all five
+core entrypoints without removing any acceptance requirement.
+
+Fresh isolated offline package installation at `3f4defff` measures current tarballs and their
+published dependency closures independently of bundle graphs. The table includes grammar plus
+mandatory dependencies once per package version, declarations/maps, and separate compiler/contract
+closure costs; it excludes stores, filesystem blocks, optional peers and application drivers.
+Grammar closure payloads are 6.49 MiB PostgreSQL, 2.50 MySQL, 2.24 SQLite, 2.47 SQL Server and
+3.59 DuckDB. This is a current after-result, not an inferred compressed-bundle saving.
+
+CI `42557443067` passes source quality/performance and all SQL Server core/native and installed
+paths, but its aggregate fails reviewed catalog fingerprints. The [narrow baseline
+review](./sqlserver-core-baseline-review.md) proves that all 14 captures / ten compatibility targets
+change only the result columns of already-diagnosed GROUPING_ID(). Restoring those columns
+reproduces each entire previous observation fingerprint. Categories, native metadata, diagnostics,
+parameters and coverage counts are unchanged. Six adversarial mutations are rejected by the new
+read-only comparison tool. The ten corresponding baseline/finding fingerprints are reviewed and
+updated; no recognition coverage is added. A regression keeps the diagnosed row unknown/nullable.
+All 70 native qualified contracts and 40 unsafe relation rejections pass across exact engines
+14.0.3560.2, 15.0.4500.2, 16.0.4305.5 and 17.0.5035.5. A fresh aggregate run remains required.
+
+The updated SQL Server 25-file coverage suite, workspace types, language audit check and its
+contract test pass. Quality passes with the existing warnings. Runtime source and performance
+budgets are unchanged, so the successful hosted performance result is retained as evidence rather
+than repeating a noisy timing measurement for data/test/documentation changes.

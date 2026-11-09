@@ -1,0 +1,69 @@
+# Architecture acceptance audit
+
+This ledger checks the [22 required scenarios](./spec.md#23-required-acceptance-scenarios) against
+source at `3f4defff369904b4637840f4d6c69f5afb398114`. It records evidence and remaining verification;
+it is not a function-coverage percentage or a completion certificate.
+
+**Scoped proof** means the referenced assertions establish the behavior within their declared
+profile. **Partial** means a required part still lacks direct evidence. **Pending** means its
+current required execution has not finished. A generic fixture or one native adapter never proves
+all engine profiles. Unsupported facets/classes must remain explicitly unavailable.
+
+The source review includes the actual assertions in the contract, cache, native-acquisition,
+live-view, build, compiler and packed-consumer fixtures. Local checks for the latest implementation
+pass build/types, package coverage, 49 repository contracts, soundness, documentation, quality and
+isolated performance. [Preceding main CI](https://github.com/Lojhan/typed-sql/actions/runs/42555995580)
+passes. [Current main CI](https://github.com/Lojhan/typed-sql/actions/runs/42557443067) completes
+with SQL Server catalog baseline-review failures. Its core/native and installed paths pass; the
+[diagnosed-result comparison](./sqlserver-core-baseline-review.md) isolates the reviewed change.
+A fresh aggregate run is required after accepting those narrow fingerprints.
+
+| ID | Finding | Evidence and remaining boundary |
+| --- | --- | --- |
+| 1 | Partial | All five grammar-owned `offline-core.test.ts` suites exercise fresh uncached queries and verify portable dependency graphs. [Packed consumers](../../test/contracts/packed-consumer.test.ts) import every core without application drivers. Add one explicit cold, empty-cache, network-trapped compiler run covering all five cores together; the frozen network trap currently covers recorded inputs. |
+| 2 | Scoped proof | [PostgreSQL project catalog tests](../../packages/postgres/test/project-catalog.test.ts) and the [real native helper](../../test/helpers/postgres-native-contracts.ts) use selected fixed-scalar declarations for a different SQL statement without describing it again. Strictness, dependent/default/polymorphic metadata do not automatically grant fixed-result permission. This proves the qualified PostgreSQL mechanism, not universal reusable native rules for other grammars. |
+| 3 | Scoped proof | [Contract consumer tests](../../packages/analysis/test/contracts.test.ts) assert empty columns, TSQ406 and unknown semantics for exact-text, schema, policy or repeated-shape mismatches. Each core's omitted-routine tests assert generation guidance and retained ordered parameters. [Frozen checking](../../packages/cli/test/frozen-check.test.ts) refuses missing durable inputs without analyzer/cache fallback. |
+| 4 | Scoped proof | [Live sessions](../../packages/analysis/test/live-session.test.ts), [scheduler tests](../../packages/analysis/test/live.test.ts) and installed native helpers check refresh, tickets, runtime plans, source positions and candidate non-execution. The current SQL Server core/native and installed-host paths pass across all four engines; the separate catalog-review failure is tracked under scenario 19. |
+| 5 | Scoped proof | [Cache tests](../../packages/analysis/test/cache.test.ts) reopen in another process, retain unverified freshness and reject known stale evidence. [Offline views](../../packages/analysis/test/offline-view.test.ts) let known negative evidence retire durable support instead of restoring it after disconnection. Real installed helpers exercise cache-only restart and offline reuse. |
+| 6 | Scoped proof | [Isolated frozen consumers](../../test/helpers/frozen-contract-consumer.ts) remove analysis/catalog/native modules and drivers, consume only durable closure inputs, run frozen CLI/build/TypeScript/runtime-plan checks and reject deletion of a required query object. Node TCP/DNS/fetch traps are active before loading the consumer. This is a Node-process network boundary, not an OS namespace. |
+| 7 | Partial | [Candidate extraction](../../packages/compiler/test/candidates.test.ts) checks finite variants, parameter correspondence and bounds; [manifests](../../packages/compiler/test/manifest.test.ts) check checkout-root independence. [Live scheduling](../../packages/analysis/test/live.test.ts) fences old documents and generations. Add a direct file-move test that proves a cached exact contract survives while emitted spans follow the moved source. |
+| 8 | Partial | Context and owner identity changes are rejected in [project catalogs](../../packages/analysis/test/project-catalog.test.ts), [offline views](../../packages/analysis/test/offline-view.test.ts) and native helpers. Migration and table probes mutate routines/extensions/settings and guard DDL. The final per-profile ledger must identify which authorization/search-path/codec/engine mutations are directly tested and which are conservatively unavailable; field presence alone is insufficient. |
+| 9 | Scoped proof | [Native acquisition](../../packages/analysis/test/native-contracts.test.ts) guards before/after context and refuses inconsistent evidence. [Catalog capture](../../packages/analysis/test/live-catalog.test.ts) verifies classified guard drift, real cache retirement, bounded recapture and owned cleanup. Native table/profile probes use declared whole-context guards where dependency isolation is unknown. |
+| 10 | Scoped proof | [Reconciliation](../../packages/analysis/test/reconciliation.test.ts) rejects contradictory static/native facts. [Native descriptors](../../packages/analysis/test/native-contracts.test.ts) preserve unknown facets and reject plan/evidence disagreement. SQLite's real unmapped-routine test retains incomplete storage-class identity and refuses a required precise native type. Runtime decoder policy tests reject incompatible plans rather than coercing them optimistically. |
+| 11 | Scoped proof | [Candidates](../../packages/compiler/test/candidates.test.ts), [native-value compilation](../../packages/compiler/test/native-values.test.ts), [value plans](../../packages/compiler/test/value-plan.test.ts) and grammar tests retain ordered/repeated bindings and finite branches. Metadata permissions preserve named/default/table-output declarations without generalizing one description into a family. Unqualified statement/parameter classes remain diagnostic. |
+| 12 | Scoped proof | [Candidate extraction](../../packages/compiler/test/candidates.test.ts) refuses dynamic/unbounded structural rendering. [SQLite native tests](../../packages/sqlite/test/native-contracts.test.ts) exercise static syntax unavailable to the parser only through authorizer-owned preparation and reject writes, external access and unregistered routines. Other adapters retain narrower explicit acceptance scopes. |
+| 13 | Partial | [Manifest tests](../../packages/compiler/test/manifest.test.ts) retain partial native descriptions; [SQL artifacts](../../packages/compiler/test/sql-artifacts.test.ts) and grammar resolver suites cover compounds/CTEs and parameter propagation. A direct composition regression should carry incomplete facets through core/project/native evidence, a derived query, manifest serialization and verification together where supported. Separate round-trip tests do not establish that complete chain. |
+| 14 | Scoped proof | [Frozen CLI checks](../../packages/cli/test/frozen-check.test.ts) keep registered factories cold; [native acquisition](../../packages/analysis/test/native-contracts.test.ts) rejects malformed inputs before opening services. Cache tests exclude SQL/source values from persisted objects. Scheduler/session tests enforce workspace/target identity, limits, cancellation and late-resource cleanup. |
+| 15 | Scoped proof | [Cache tests](../../packages/analysis/test/cache.test.ts) exercise real process writers/pruning, interrupted publication, ownership namespaces, corrupt/oversized objects, locks and unrelated-file preservation. [Durable closure tests](../../packages/analysis/test/contracts.test.ts) reject conflicting, swapped, missing and partially published artifact generations. |
+| 16 | Scoped proof | [Build integration](../../packages/build/test/build.test.ts) keeps analyzer/native factories cold for frozen builds and uses offline rules in ordinary live-configured builds. Explicit live preparation is separate. Canonical manifests/closures and isolated consumers check path-independent, cache-independent output; timestamps remain disposable freshness evidence. |
+| 17 | Partial | Five grammar profiles use neutral orchestration; [synthetic vendor contracts](../../packages/analysis/test/contracts.test.ts) compile/decode without builtin analyzers. Prototype-inherited service tests exercise dispatch, but they are not a qualified grammar extension inheriting a base grammar's mechanics. Add that contributed-extension integration and reconcile the exact-version/facet availability matrix with current native runs. |
+| 18 | Scoped proof | [Frozen packed consumers](../../test/helpers/frozen-contract-consumer.ts) actually delete semantic/native files and decode through lightweight runtime entrypoints. [Bundle measurements](./bundle-size.md) retain zero global catalogs in runtime/profile/frozen graphs, isolate optional/version imports and separate package installation from tree-shaken bytes. |
+| 19 | Pending | The preceding required hosted CI is green; the current run passes source quality/performance and native core execution but fails catalog review on the documented conservative diagnosed-result change. A fresh aggregate run is required after that review. Local coverage and all focused/package/packed gates pass. MySQL local recognition/context differences remain disclosed without baseline acceptance; controlled reviewed CI evidence is required. No timeout or budget increase substitutes for a fix. |
+| 20 | Scoped proof | [Reconciliation tests](../../packages/analysis/test/reconciliation.test.ts) explicitly block an apparently successful wrong mapping. [Live view tests](../../packages/analysis/test/live-view.test.ts) qualify every unique successful static candidate, persist conflicts and re-describe during explicit live checking rather than substituting a prior cached contract. |
+| 21 | Scoped proof | [Migration qualification](../../test/helpers/migration-contracts.ts) applies/replays file-backed PostgreSQL migrations, rejects missing routines/extensions and changed settings despite matching tables, exports durable reconciled inputs, drops qualification databases and invokes the separate packed network-trapped frozen consumer. This qualifies PostgreSQL 18's declared environment, not every migration/extension/engine combination. |
+| 22 | Partial | [Bundle](./bundle-size.md), [repository](./repository-size.md), [installation](./installation-measurements.json) and [commerce project](./project-size.md) reports measure distinct costs. Installation is refreshed at this audit's source. The commerce tool still measures the generic analyzer's offline-rule artifacts; selected-core workload success and native-qualified artifact payload/acquisition latency remain unmeasured. |
+
+## Cross-cutting requirements still requiring proof
+
+- **Offline vocabulary:** audit inventories and parser tokenization are separate mechanisms.
+  SQLite/MySQL tokenizer keyword sets are maintained in source, and the other parsers use their
+  own word/context mechanics. This audit has not established that every declared profile's
+  complete authoritative reservation/context inventory is generated and consumed correctly.
+  Verify inventory-to-parser classification and quoted/unquoted contextual behavior before
+  claiming specification section 3 is complete. Do not equate a discovered word with syntax support.
+- **Core selection:** current distribution retains compatibility and has measured size evidence.
+  Run the maintained application corpus against selected cores, report whole-query outcomes and
+  required first-use generation, and document selection/license/sampling limits. The corpus does
+  not establish production function popularity.
+- **Reusable metadata:** the project layer is optional, but its exact supported permission/type
+  scope must be published per owner. PostgreSQL fixed scalars do not imply portable polymorphic,
+  custom-type, table-output or argument-dependent rules.
+- **Measurement closure:** measure native-qualified durable bytes, acquisition/context-check
+  latency and cold/warm cache behavior on declared actual engine profiles. Refresh installation
+  independently of minified application bundles; external driver/engine payload remains separate.
+
+The remaining implementation sequence is concrete: close the cold-core/file-move/composition/
+inherited-extension tests; establish generated vocabulary scope; measure selected-core and native
+project costs; reconcile descriptor/invalidation/profile evidence; then run the full required gates.
+This ledger deliberately leaves those requirements open instead of deriving completion from test
+counts, native preparation alone, or a narrow successful sample.

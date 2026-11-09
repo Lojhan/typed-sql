@@ -59,6 +59,12 @@ await describe("SQL Server maintained offline core", async () => {
         const arity = malformed.diagnostics.find((item) => item.code === "TSQ202");
         strict.equal(arity?.severity, "error");
         strict.equal(malformedSql.slice(arity!.range.start, arity!.range.end), "IIF(CAST(@__typed_sql_1 AS bit))");
+        // Native description accepts this nullary form; the offline arity remains unqualified.
+        const grouping = core().analyze("SELECT grouping_id() AS value", schema);
+        strict.ok(grouping.diagnostics.some((item) => item.code === "TSQ202" && item.severity === "error"));
+        strict.equal(grouping.columns[0]?.tsType, "unknown");
+        strict.equal(grouping.columns[0]?.nullable, true);
+        strict.equal(grouping.columns[0]?.databaseType, undefined);
         const sql = "SELECT DEGREES_MISSING(CAST(@__typed_sql_1 AS float)) AS value";
         const actual = core().analyze(sql, schema);
         strict.equal(actual.diagnostics[0]?.code, "TSQ408");
