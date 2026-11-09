@@ -155,7 +155,7 @@ try{assert.deepEqual(await database.execute(statement),[{value:"eulav"}]);}final
         let diagnostics: { items: { severity?: number; message: string }[] };
         for (let attempt = 0; ; attempt++) {
           try {
-            diagnostics = (await client.request("textDocument/diagnostic", {
+            diagnostics = (await client.settledDiagnostics({
               textDocument: { uri },
             })) as typeof diagnostics;
             break;

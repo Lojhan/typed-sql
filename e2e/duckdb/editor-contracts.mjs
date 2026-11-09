@@ -32,7 +32,7 @@ finally{connection.closeSync();instance.closeSync();}
     const pull = async (client) => {
       for (let attempt = 0; ; attempt++) {
         try {
-          return await client.request("textDocument/diagnostic", { textDocument: { uri } });
+          return await client.settledDiagnostics({ textDocument: { uri } });
         } catch (error) {
           if (attempt >= 2 || !String(error).includes("-32802")) throw error;
         }

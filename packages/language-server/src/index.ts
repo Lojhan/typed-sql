@@ -36,13 +36,15 @@ import {
   type Position,
 } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
-
+import type { NativeAnalysisProgress } from "./native-progress.js";
 import {
   type LiveEditorSessionInput,
   prepareRecordedDocument,
   type RecordedDocumentView,
   recordedContractPaths,
 } from "./recorded-contracts.js";
+
+export type { NativeAnalysisProgress } from "./native-progress.js";
 
 export type {
   TypedSqlProtocolCapability,
@@ -70,6 +72,7 @@ export interface TypedSqlLanguageServerSettings {
 
 export interface TypedSqlLanguageServiceOptions {
   readonly nativeBridge?: () => TypeScriptBridge;
+  readonly onNativeAnalysisProgress?: (event: NativeAnalysisProgress) => void;
 }
 
 export const TYPED_SQL_STATUS_REQUEST = "typedSql/status";
@@ -104,6 +107,7 @@ interface DocumentAnalysis {
   readonly typePolicy: unknown;
   readonly projectFile?: string;
   readonly analysis: BridgeAnalysis;
+  readonly assertCurrent: () => Promise<void>;
   readonly evidence?: RecordedDocumentView["evidence"];
 }
 
@@ -282,6 +286,8 @@ export class TypedSqlLanguageService {
   #liveKey: string | undefined;
   #closingLive = Promise.resolve();
   #bridgeRestarts = 0;
+  #nativeProgressSequence = 0;
+  readonly #onNativeAnalysisProgress: TypedSqlLanguageServiceOptions["onNativeAnalysisProgress"];
   readonly #cacheCounters = {
     schemas: { hits: 0, misses: 0, evictions: 0 },
     analyses: { hits: 0, misses: 0, evictions: 0 },
@@ -295,6 +301,7 @@ export class TypedSqlLanguageService {
   ) {
     this.#rootDirectory = resolve(rootDirectory);
     this.#settings = this.#validatedSettings(settings);
+    this.#onNativeAnalysisProgress = options.onNativeAnalysisProgress;
     this.#nativeBridgeFactory =
       options.nativeBridge ?? (() => NativePreviewTypeScriptBridge.spawn({ cwd: this.#rootDirectory }));
   }
@@ -329,10 +336,17 @@ export class TypedSqlLanguageService {
     }
   }
 
-  async diagnostics(document: TextDocument, token?: CancellationLike): Promise<readonly Diagnostic[]> {
-    const result = await this.#documentAnalysis(document, token);
+  async diagnostics(
+    document: TextDocument,
+    token?: CancellationLike,
+    prepared?: BridgeAnalysis,
+  ): Promise<readonly Diagnostic[]> {
+    const result = prepared
+      ? await this.#preparedDocument(document, prepared, token)
+      : await this.#documentAnalysis(document, token);
     if (result === undefined) return [];
     const raw = document.uri.endsWith(".sql") ? await this.#sql(document, result) : undefined;
+    if (prepared) await this.assertAnalysisCurrent(document, prepared);
     return (raw?.sourceDiagnostics ?? result.analysis.diagnostics).map(
       (item): Diagnostic => ({
         range: {
@@ -369,8 +383,9 @@ export class TypedSqlLanguageService {
   async hover(
     document: TextDocument,
     position: { readonly line: number; readonly character: number },
+    prepared?: BridgeAnalysis,
   ): Promise<Hover | undefined> {
-    const result = await this.#documentAnalysis(document);
+    const result = prepared ? await this.#preparedDocument(document, prepared) : await this.#documentAnalysis(document);
     if (result === undefined) return undefined;
     const offset = document.offsetAt(position);
     if (document.uri.endsWith(".sql")) {
@@ -600,6 +615,33 @@ export class TypedSqlLanguageService {
     );
   }
 
+  async assertAnalysisCurrent(document: TextDocument, analysis: BridgeAnalysis): Promise<void> {
+    await this.#preparedDocument(document, analysis);
+  }
+
+  async #preparedDocument(
+    document: TextDocument,
+    analysis: BridgeAnalysis,
+    token?: CancellationLike,
+  ): Promise<DocumentAnalysis> {
+    cancelled(token);
+    const result = this.#analysisCache.get(document.uri);
+    const stale = (cause?: unknown): never => {
+      const error = new Error("Prepared editor inputs changed; retry analysis", { cause });
+      error.name = "AbortError";
+      throw error;
+    };
+    if (!result || !this.isAnalysisCurrent(document, analysis)) return stale();
+    try {
+      await result.assertCurrent();
+    } catch (error) {
+      return stale(error);
+    }
+    cancelled(token);
+    if (!this.isAnalysisCurrent(document, analysis)) return stale();
+    return result;
+  }
+
   async debounce(token?: CancellationLike): Promise<void> {
     cancelled(token);
     const milliseconds = this.#settings.analysisDebounceMs ?? DEFAULT_ANALYSIS_DEBOUNCE_MS;
@@ -680,6 +722,7 @@ export class TypedSqlLanguageService {
     options: LiveEditorSessionInput,
     document: TextDocument,
     candidates: Parameters<LiveContractSession<SchemaSnapshot, unknown>["prepare"]>[0]["candidates"],
+    ranges: readonly { readonly start: number; readonly end: number }[],
     token?: CancellationLike,
   ) {
     const key = queryContractDigest({
@@ -706,15 +749,34 @@ export class TypedSqlLanguageService {
     const cancelledRequest = token?.onCancellationRequested?.(() =>
       controller.abort(new Error("Editor request cancelled")),
     );
+    const progress = {
+      uri: document.uri,
+      version: document.version,
+      sourceHash: sha256(document.getText()),
+      request: ++this.#nativeProgressSequence,
+      ranges: ranges.map((range) => ({ start: document.positionAt(range.start), end: document.positionAt(range.end) })),
+    };
+    const notify = (pending: boolean, completed = false) => {
+      try {
+        this.#onNativeAnalysisProgress?.({ ...progress, pending, completed });
+      } catch {
+        /* Observers cannot affect qualification. */
+      }
+    };
+    notify(true);
+    let completed = false;
     try {
-      return await this.#liveSession.prepare({
+      const result = await this.#liveSession.prepare({
         document: document.uri,
         version: document.version,
         candidates,
         signal: controller.signal,
       });
+      completed = true;
+      return result;
     } finally {
       cancelledRequest?.dispose();
+      notify(false, completed);
     }
   }
 
@@ -764,7 +826,7 @@ export class TypedSqlLanguageService {
         schema: loaded.config.dialect.validateSnapshot(schema.snapshot),
         source: document.getText(),
         sqlFile: document.uri.endsWith(".sql"),
-        live: (options, candidates) => this.#prepareLive(options, document, candidates, token),
+        live: (options, candidates, ranges) => this.#prepareLive(options, document, candidates, ranges, token),
       }).catch(inputFailure);
       cancelled(token);
       if (generation !== this.#generation) continue;
@@ -796,8 +858,9 @@ export class TypedSqlLanguageService {
         cancelled(token);
         if (generation !== this.#generation) continue;
         this.#contractFiles = view.files ?? [];
-        cacheSet(this.#analysisCache, document.uri, cached, this.#maxCacheEntries(), this.#cacheCounters.analyses);
-        return cached;
+        const refreshed = { ...cached, assertCurrent: view.assertCurrent };
+        cacheSet(this.#analysisCache, document.uri, refreshed, this.#maxCacheEntries(), this.#cacheCounters.analyses);
+        return refreshed;
       }
       const analysis = analyzeSource(
         document.getText(),
@@ -828,6 +891,7 @@ export class TypedSqlLanguageService {
         typePolicy: loaded.config.typePolicy ?? view.dialect.defaultTypePolicy,
         ...(projectFile === undefined ? {} : { projectFile }),
         analysis,
+        assertCurrent: view.assertCurrent,
         ...(view.evidence ? { evidence: view.evidence } : {}),
       };
       cancelled(token);

@@ -88,8 +88,16 @@ removal/addition; review does not invent an equivalence or grant inference permi
 Template and SQL-file hovers now identify evidence origin and recorded context with unverified
 remote freshness. Focused and complete CLI/editor suites, public API/packed contracts, root types,
 build, documentation, analysis coverage, quality and isolated unchanged performance checks pass.
-The [full completion audit](./completion-audit.md) retains the native-pending diagnostic host check
-and fresh hosted qualification as open requirements.
+Native qualification now emits source/version-fenced TSQ409 progress for open queries, with a
+short display delay and push/pull support. Prepared diagnostics/hover snapshots retain their
+async artifact guard and avoid another native prepass. A completion pull consumes the just-finished
+view; cancelled work does not claim completion. Open buffers, including SQL files, take precedence
+in preload and preserve their unsaved source. Unit tests cover subscribers, stale timers, owners,
+cancellation and closed transports; four controlled stdio flows cover both languages/modes, an edit
+during pending work, source ranges, ordinary TypeScript errors and slow context observation counts.
+Shared qualification fixtures explicitly wait for settled diagnostics rather than accepting pending
+information as successful verification. The [full completion audit](./completion-audit.md) retains
+fresh packaged/native qualification as an open requirement.
 
 ## Measurements and workload limits
 
@@ -115,17 +123,19 @@ against their JSON. Measured example coverage is not a production-popularity est
 
 ## Verification and remaining gate
 
-The [acceptance audit](./acceptance-audit.md) retains 21 scoped proofs and one partial integration
-gate. The first attempt of [run 42664684022](https://github.com/Lojhan/typed-sql/actions/runs/42664684022)
-passes the required aggregate, but a repeat fails SQL Server 17's cache-only SQL editor with a
-missing exact contract. A passing attempt does not resolve that intermittent failure. The local
-scheduler persistence regression is fixed; its relationship to that hosted failure must be verified.
-Local validation of the fix passes analysis coverage (98.56% statements, 93.54% branches,
-99.47% functions), root typechecking, build, all sixteen language-server files and all fifty-four
-repository contract files. The complete PostgreSQL 18.6 E2E command passes its standalone
-typecheck and both native/developer files in 118.05 seconds. The editor suite is run after the
-PostgreSQL fixture completes because both use its generated schema. No timeout or performance
-budget increase substitutes for a fix.
+The required [aggregate at `933dae4a`](https://github.com/Lojhan/typed-sql/actions/runs/42675018288)
+passes every required gate, including SQL Server 17's packed editor and unchanged performance
+budgets. The optional MySQL canary remains unqualified. The deterministic persistence regressions,
+corrected explicit live/offline fixture sequence and review tooling are included in that run.
+
+The subsequent pending-diagnostic addition passes root types/build, core coverage (98.56%
+statements, 91.44% branches, 97.85% functions), all eighteen language-server files and all fifty-four
+repository contract files, documentation build, quality and the isolated unchanged performance gate.
+The slow-context stdio test verifies no extra observation during completion, and prepared snapshot
+checks reject a changed durable manifest. An earlier local PostgreSQL flow during this addition
+passes in 115.26 seconds; current committed-source native/hosted qualification remains necessary.
+The editor suite runs after PostgreSQL finishes because both use its generated schema. No timeout
+or performance budget increase substitutes for a fix.
 
 Previous implementation notes were chronological and contained superseded pending claims. Their
 [historical evidence remains available at the prior commit](https://github.com/Lojhan/typed-sql/blob/ff4588747cb14de2f39cd1a7b6efcb7538f2cee2/planning/hybrid-analysis/implementation.md).

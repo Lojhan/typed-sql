@@ -77,6 +77,7 @@ export async function prepareRecordedDocument(input: {
   readonly live?: (
     options: LiveEditorSessionInput,
     candidates: readonly NativeContractCandidate[],
+    ranges: readonly { readonly start: number; readonly end: number }[],
   ) => Promise<LiveContractView<SchemaSnapshot, unknown>>;
 }): Promise<RecordedDocumentView> {
   const { loaded, schema } = input;
@@ -172,6 +173,7 @@ export async function prepareRecordedDocument(input: {
             },
           },
           collection.candidates.map(({ sql, parameterOccurrences }) => ({ sql, parameterOccurrences })),
+          collection.candidates.map(({ sourceRange }) => sourceRange),
         );
         if (
           prepared.outcomes.some(

@@ -99,7 +99,7 @@ try{assert.deepEqual(await db.one(withQueryValuePlan(sql\`SELECT CAST(\${"hello"
     });
     editor.notify("initialized", {});
     editor.notify("textDocument/didOpen", { textDocument: { uri, languageId: "typescript", version: 1, text } });
-    const diagnostics = (await editor.request("textDocument/diagnostic", { textDocument: { uri } })) as {
+    const diagnostics = (await editor.settledDiagnostics({ textDocument: { uri } })) as {
       items: { severity?: number }[];
     };
     strict.ok(!diagnostics.items.some(({ severity }) => severity === 1), JSON.stringify(diagnostics));

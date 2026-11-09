@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { access, readFile } from "node:fs/promises";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { cwd, stderr, stdin, stdout } from "node:process";
@@ -27,6 +28,7 @@ import {
   TypedSqlProtocolCompatibilityError,
   type TypedSqlProtocolNegotiation,
 } from "./index.js";
+import { NativePendingDiagnostics } from "./native-progress.js";
 import { mapProtocolCoordinates } from "./protocol-mapping.js";
 import { ResolveContexts, resolveMethodFor } from "./resolve-context.js";
 import { projectSemanticTokens, SemanticTokenResults } from "./semantic-tokens.js";
@@ -162,6 +164,33 @@ const documents = new UriMap<DocumentState>();
 const virtualDocuments = new UriMap<DocumentState>();
 const nativeDiagnostics = new UriMap<readonly unknown[]>();
 const projectFailureReports = new UriMap<JsonObject>();
+const pendingProgressPushes = new UriMap<number>();
+const completedNativeReports = new UriMap<number>();
+const nativePending = new NativePendingDiagnostics({
+  isCurrent(owner, event) {
+    const document = sourceDocuments.get(event.uri);
+    return (
+      isWorkspaceDocument(event.uri) &&
+      document?.version === event.version &&
+      serviceForUri(event.uri) === owner &&
+      `sha256:${createHash("sha256").update(document.getText()).digest("hex")}` === event.sourceHash
+    );
+  },
+  publish(uri, version, diagnostics, completed) {
+    const document = sourceDocuments.get(uri);
+    if (!document) return;
+    if (diagnostics.length) pendingProgressPushes.set(uri, version);
+    else {
+      if (pendingProgressPushes.get(uri) !== version) return;
+      pendingProgressPushes.delete(uri);
+      if (completed && document.version === version) completedNativeReports.set(uri, version);
+    }
+    void client
+      .sendNotification("textDocument/publishDiagnostics", { uri, version: document.version, diagnostics })
+      .catch(() => undefined);
+    if (!diagnostics.length) requestDiagnosticRefresh();
+  },
+});
 let pullDiagnostics = false;
 let diagnosticRefreshSupported = false;
 const semanticTokenResults = new SemanticTokenResults();
@@ -178,7 +207,7 @@ let scopedConfiguration = false;
 let dynamicWatching = false;
 let registeredWatchers: string | undefined;
 let workspaceRoots: readonly string[] = [resolve(cwd())];
-let services = new Map([[workspaceRoots[0]!, new TypedSqlLanguageService(workspaceRoots[0]!)]]);
+let services = new Map([[workspaceRoots[0]!, createService(workspaceRoots[0]!)]]);
 let negotiatedProtocol: TypedSqlProtocolNegotiation = negotiateTypedSqlProtocol(undefined);
 
 preview.stderr.on("data", (chunk: Buffer | string) => {
@@ -250,8 +279,15 @@ async function configureServices(roots: readonly string[], settings: ReturnType<
   const previous = services;
   workspaceSettings = settings;
   workspaceRoots = roots;
-  services = new Map(roots.map((root) => [root, new TypedSqlLanguageService(root, settings)]));
+  services = new Map(roots.map((root) => [root, createService(root, settings)]));
   await Promise.all([...previous.values()].map(async (service) => service.close()));
+}
+
+function createService(root: string, settings: ReturnType<typeof settingsFrom> = {}): TypedSqlLanguageService {
+  const service = new TypedSqlLanguageService(root, settings, {
+    onNativeAnalysisProgress: (event) => nativePending.update(service, event),
+  });
+  return service;
 }
 
 function isWorkspaceDocument(uri: string): boolean {
@@ -442,9 +478,20 @@ async function waitForQueuedDocument(uri: string, token: CancellationToken): Pro
 }
 
 /** Refresh a live view before the upstream server sees coordinates or types from it. */
-async function waitForDocument(uri: string, token: CancellationToken): Promise<void> {
+async function waitForDocument(uri: string, token: CancellationToken, consumeCompletedNative = false): Promise<void> {
   await waitForQueuedDocument(uri, token);
   const state = documents.get(uri) ?? virtualDocuments.get(uri);
+  if (
+    consumeCompletedNative &&
+    state &&
+    completedNativeReports.get(uri) === state.original.version &&
+    state.analysis &&
+    state.service.isAnalysisCurrent(state.original, state.analysis)
+  ) {
+    completedNativeReports.delete(uri);
+    await state.service.assertAnalysisCurrent(state.original, state.analysis);
+    return;
+  }
   if (!state?.service.metrics().analysis) return;
   void queueDocument(uri, async () => {
     const previous = documents.get(uri) ?? virtualDocuments.get(uri);
@@ -563,7 +610,11 @@ function protocolDiagnostics(diagnostics: readonly unknown[]): readonly unknown[
 async function combinedDiagnostics(state: DocumentState): Promise<readonly unknown[]> {
   return protocolDiagnostics([
     ...(state.original.uri.endsWith(".sql") ? [] : (nativeDiagnostics.get(state.original.uri) ?? [])),
-    ...(await state.service.diagnostics(state.original)),
+    ...(await state.service.diagnostics(
+      state.original,
+      undefined,
+      state.service.metrics().analysis ? state.analysis : undefined,
+    )),
   ]);
 }
 
@@ -577,9 +628,11 @@ function requestDiagnosticRefresh(): void {
 async function publishCombinedDiagnostics(state: DocumentState): Promise<void> {
   if (latestDocumentVersions.get(state.original.uri) !== state.original.version) return;
   if (pullDiagnostics) {
-    // Failure reports use push delivery even for pull clients. Clear that owned
+    // Failure and pending reports use push delivery even for pull clients. Clear the owned
     // report once analysis recovers; requesting a pull alone does not remove it.
-    if (projectFailureReports.delete(state.original.uri))
+    const failed = projectFailureReports.delete(state.original.uri);
+    const pending = pendingProgressPushes.delete(state.original.uri);
+    if (failed || pending)
       await client.sendNotification("textDocument/publishDiagnostics", {
         uri: state.original.uri,
         version: state.original.version,
@@ -588,7 +641,7 @@ async function publishCombinedDiagnostics(state: DocumentState): Promise<void> {
     // A typed-sql-only push would replace the client's combined pull report and
     // erase TypeScript errors. Ask it to pull again after overlay invalidation.
     // Do not await: the new pull must be able to wait for this document queue.
-    requestDiagnosticRefresh();
+    if (completedNativeReports.get(state.original.uri) !== state.original.version) requestDiagnosticRefresh();
     return;
   }
   const diagnostics = await combinedDiagnostics(state);
@@ -600,6 +653,7 @@ async function publishCombinedDiagnostics(state: DocumentState): Promise<void> {
   )
     return;
   projectFailureReports.delete(state.original.uri);
+  pendingProgressPushes.delete(state.original.uri);
   await client.sendNotification("textDocument/publishDiagnostics", {
     uri: state.original.uri,
     version: state.original.version,
@@ -649,14 +703,20 @@ async function refreshOpenDocuments(): Promise<void> {
 
 async function preloadWorkspaceDocuments(): Promise<void> {
   for (const service of services.values()) {
-    for (const fileName of await service.workspaceFiles()) {
+    const discovered = await service.workspaceFiles();
+    const opened = [...sourceDocuments.values()]
+      .filter((document) => isWorkspaceDocument(document.uri) && serviceForUri(document.uri) === service)
+      .map((document) => fileURLToPath(document.uri));
+    const files = [...new Set([...opened, ...discovered])];
+    for (const fileName of files) {
       const uri = pathToFileURL(fileName).href;
       if (documents.has(uri) || virtualDocuments.has(uri)) continue;
-      const text = await readFile(fileName, "utf8");
-      const original = TextDocument.create(uri, languageIdForFile(fileName), 0, text);
+      const original =
+        sourceDocuments.get(uri) ??
+        TextDocument.create(uri, languageIdForFile(fileName), 0, await readFile(fileName, "utf8"));
       const state = await createState(original);
       if (documents.has(uri) || virtualDocuments.has(uri)) continue;
-      if (state.analysis?.queries.length === 0 || state.analysis === undefined) continue;
+      if (state.analysis === undefined || (state.analysis.queries.length === 0 && !uri.endsWith(".sql"))) continue;
       virtualDocuments.set(uri, state);
       await typescript.sendNotification("textDocument/didOpen", {
         textDocument: {
@@ -748,7 +808,11 @@ client.onRequest("textDocument/hover", async (rawParams, token) => {
   if (uri !== undefined) await waitForDocument(uri, token);
   const state = stateFor(params);
   if (state !== undefined && isObject(params.position)) {
-    const hover = await state.service.hover(state.original, params.position as unknown as Position);
+    const hover = await state.service.hover(
+      state.original,
+      params.position as unknown as Position,
+      state.service.metrics().analysis ? state.analysis : undefined,
+    );
     ensureStateCurrent(state);
     if (hover !== undefined) return hover;
   }
@@ -846,7 +910,12 @@ client.onRequest(async (method, rawParams, token) => {
 
 async function forwardRequest(method: string, rawParams: unknown, token: CancellationToken): Promise<unknown> {
   try {
-    await workspaceReady;
+    const uri = method === "textDocument/diagnostic" ? documentUri(rawParams) : undefined;
+    if (uri !== undefined) {
+      await nativePending.wait(uri, () => workspaceReady);
+      const pending = nativePending.diagnostics(uri);
+      if (pending.length) return { kind: "full", items: pending };
+    } else await workspaceReady;
   } catch (error) {
     if (method === "textDocument/diagnostic") return { kind: "full", items: [projectFailureDiagnostic(error)] };
     throw error;
@@ -864,7 +933,13 @@ async function forwardRequest(method: string, rawParams: unknown, token: Cancell
   )
     return params;
   const uri = restored.context?.uri ?? documentUri(params);
-  if (uri !== undefined) await waitForDocument(uri, token);
+  if (uri !== undefined) {
+    if (method === "textDocument/diagnostic") {
+      await nativePending.wait(uri, () => waitForDocument(uri, token, true));
+      const pending = nativePending.diagnostics(uri);
+      if (pending.length) return { kind: "full", items: pending };
+    } else await waitForDocument(uri, token);
+  }
   // Failed schema analysis must remain visible to pull clients as a diagnostic,
   // not disappear when their pull report supersedes a pushed failure report.
   const projectFailure = uri === undefined ? undefined : projectFailureReports.get(uri);
@@ -894,7 +969,11 @@ async function forwardRequest(method: string, rawParams: unknown, token: Cancell
     return mappedResult;
   }
   const items = Array.isArray(mappedResult.items) ? mappedResult.items : [];
-  const typedDiagnostics = await state.service.diagnostics(state.original);
+  const typedDiagnostics = await state.service.diagnostics(
+    state.original,
+    undefined,
+    state.service.metrics().analysis ? state.analysis : undefined,
+  );
   ensureStateCurrent(state);
   return {
     ...mappedResult,
@@ -957,7 +1036,10 @@ client.onNotification("textDocument/didOpen", (rawParams) => {
       return;
     }
     const virtual = virtualDocuments.get(item.uri);
-    const state = await createState(original, virtual, cancellation);
+    const prepared =
+      virtual?.analysis && virtual.service.isAnalysisCurrent(original, virtual.analysis) ? virtual.analysis : undefined;
+    if (prepared) await virtual!.service.assertAnalysisCurrent(original, prepared);
+    const state = await createState(original, virtual, cancellation, prepared ? { analysis: prepared } : undefined);
     virtualDocuments.delete(item.uri);
     documents.set(item.uri, state);
     await typescript.sendNotification(
@@ -1026,6 +1108,9 @@ client.onNotification("textDocument/didChange", (rawParams) => {
 
 client.onNotification("textDocument/didClose", (rawParams) => {
   const params = rawParams as DidCloseParams;
+  nativePending.forget(params.textDocument.uri);
+  pendingProgressPushes.delete(params.textDocument.uri);
+  completedNativeReports.delete(params.textDocument.uri);
   projectFailureReports.delete(params.textDocument.uri);
   semanticTokenResults.delete(params.textDocument.uri);
   resolveContexts.delete(params.textDocument.uri);

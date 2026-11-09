@@ -122,6 +122,7 @@ await describe("recorded contracts in the editor", async () => {
         strict.ok(initial);
         strict.deepEqual(initial?.diagnostics, []);
         await exportQueryContracts(join(directory, "generated/contracts"), []);
+        if (initial) await strict.rejects(current.diagnostics(ts, undefined, initial), { name: "AbortError" });
         const changed = await current.analysis(ts);
         strict.notEqual(changed?.revision, initial?.revision);
         strict.ok(changed?.diagnostics.some((diagnostic) => diagnostic.code === "TSQ406"));

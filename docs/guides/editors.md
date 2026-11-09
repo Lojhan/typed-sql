@@ -49,6 +49,12 @@ across requests, with a five-second default interval; `analysis.live.contextInte
 Native descriptions retain their own consistency checks. SQL edits and project/context changes
 fence old views, and the proxy refreshes its TypeScript overlay before forwarding requests.
 
+While native qualification is pending, open queries can show informational `TSQ409` diagnostics
+at their source ranges. Short operations finish before that message appears. The diagnostic
+does not certify the query or expose a previous incompatible type. Completion clears it and
+refreshes the current types and ordinary diagnostics. A follow-up diagnostic pull consumes the
+completed view rather than starting another qualification cycle.
+
 Connection failures preserve matching recorded evidence with unverified remote freshness. Native
 rejections, conflicts and known context changes remain blocking. Hybrid analysis can use independent
 offline rules when the native adapter does not support a statement class; that does not establish

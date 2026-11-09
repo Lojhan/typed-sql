@@ -19,12 +19,12 @@ The source inspected begins at `fe344898`; subsequent additions below require th
 | 10 | Finite variants and qualified unknown syntax; dynamic cases conservative | Candidate extraction, finite branch/slot tests, native static rendering and SQLite authorizer controls. No universal parser bypass is claimed. |
 | 11 | Owned disposable cache, durable closure, atomic export and semantic diff | Cache/process/closure tests establish persistence mechanics. Final audit found digest-only generation output; semantic query/declaration diffs now retain before/after fields and current callers, with check-only JSON tests. Removed queries have no current caller; historical source paths are not durable evidence. Local CLI, package, documentation and editor gates pass; fresh hosted qualification remains open. |
 | 12–13 | Complete context keys, explicit freshness and conservative invalidation | Per-owner context matrix and native mutations; request-driven context checks and live status timestamp. No idle remote polling is promised. Endpoint/profile changes require new observation or explicit recorded selection. |
-| 14 | Bounded scheduler, pending/stale/failure states, cancellation and atomic publication | Scheduler and shared-session tests cover state transitions, concurrency, backoff, cancellation and cache generation fencing. **Open host check:** active-request status exists, but a user-visible native-pending diagnostic must be traced/qualified separately from a request that simply waits for acquisition. Do not count an internal `pending` enum as proof of that UI behavior. |
+| 14 | Bounded scheduler, pending/stale/failure states, cancellation and atomic publication | Scheduler and shared-session tests cover state transitions, concurrency, backoff, cancellation and cache generation fencing. TSQ409 now reports native-pending work at source ranges. Unit tests fence stale timers/document versions/service owners and coalesce subscribers. Controlled stdio tests cover SQL/templates, push/pull, an edit during pending work, ordinary TypeScript errors and slow context observation without a completion-refresh loop. Prepared snapshots retain their async artifact guard. Full packaged/native qualification remains necessary for this addition. |
 | 15 | Immutable synchronous compiler views; isolated preview host; evidence explainability | Build/CLI/LSP prepared views and package-boundary gates. Final audit found missing origin/context in hovers; template and SQL-file tests now assert both with unverified freshness. Local CLI, package, documentation and editor gates pass; fresh hosted qualification remains open. |
 | 16 | Renderer/value-plan runtime; no analysis/native/cache dependencies | Installed frozen consumers delete semantic/native modules; runtime/profile/frozen bundle graphs retain zero global catalogs. |
 | 17 | All owners use registered capabilities with actual version limits | Descriptor, native protocol, class rejection and inherited grammar proofs. Unsupported facets and profiles are explicit; no dummy-value execution fallback. |
 | 18 | Private bounded owned storage and namespace isolation | Cache validation, corrupt/linked-object rejection, concurrent writer/prune tests, factory traps and redacted diagnostics. New read-only status validates ownership/index snapshots and reports references, not certified remote validity. |
-| 19 | Expected ownership/topology and lightweight API transition | Package graph/public API/packed tests, explicit analyzer/pack/profile exports and migration documentation. New analysis inspection API requires those gates again. |
+| 19 | Expected ownership/topology and lightweight API transition | Package graph/public API/packed tests, explicit analyzer/pack/profile exports and migration documentation. Public API and packed gates pass locally; the complete current hosted aggregate remains required. |
 | 20 | Explicit old requirement disposition | The table below maps every earlier specification section. Exhaustive offline semantic parity is replaced, not silently claimed complete. |
 | 21–22 | Measured costs, workload limits and phased delivery gates | Four cost reports share committed source `2e100286`; native workload limits are documented separately. The current additions are measured at that pin; future production changes require a fresh measurement pin. Final required CI remains open. |
 | 23–24 | All acceptance scenarios and remaining decisions reconciled | Acceptance ledger retains declared boundaries. Full completion also requires closure of the additional host/tooling checks above, current required CI and review state. |
@@ -57,12 +57,13 @@ useful requirements while applying the accepted query-contract design.
 | 18. Results/estimates | Replaced | Actual scoped measurements and declared limitations supersede numerical projections. |
 | 19. References | Retained as provenance | Historical source references plus current hash-pinned source manifests and exact producer receipts. |
 
-Local verification passes root types/build, analysis coverage (98.58% statements, 93.56%
-branches, 99.47% functions), thirteen CLI files, sixteen language-server files, fifty-four
-repository contract files, documentation build, quality and the isolated unchanged performance gate.
-The preceding hosted run at `fe344898` passes source verification and SQL Server 14–16, but
-several required matrix groups are abandoned before complete execution, including SQL Server 17.
-Its failed aggregate cannot qualify the full matrix.
+Local validation of the pending flow passes root types/build, core coverage (98.56% statements,
+91.44% branches, 97.85% functions), eighteen language-server files, fifty-four repository contract
+files, documentation build, quality and the isolated unchanged performance gate. The CLI/tooling
+proofs and analysis coverage remain recorded at their producer in the acceptance ledger.
+The required [aggregate at `933dae4a`](https://github.com/Lojhan/typed-sql/actions/runs/42675018288)
+passes every required gate, including SQL Server 17's packed editor. The optional MySQL canary
+remains unqualified. The new pending flow still needs current committed-source native and hosted
+qualification and refreshed measurement receipts.
 
-No completion claim follows from the number of rows here. Open host behavior, fresh broad
-verification, production measurement refresh and the required aggregate must be resolved first.
+No completion claim follows from the number of rows here. Those remaining gates must be resolved first.

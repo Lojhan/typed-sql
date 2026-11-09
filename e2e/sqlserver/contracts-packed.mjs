@@ -169,7 +169,7 @@ try{assert.deepEqual(await db.one(statement),{value:1n});assert.deepEqual(await 
         let diagnostics;
         for (let attempt = 0; ; attempt++) {
           try {
-            diagnostics = await client.request("textDocument/diagnostic", { textDocument: { uri } });
+            diagnostics = await client.settledDiagnostics({ textDocument: { uri } });
             break;
           } catch (error) {
             if (attempt >= 2 || !String(error).includes("-32802")) throw error;

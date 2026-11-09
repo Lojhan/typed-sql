@@ -358,7 +358,7 @@ export default {dialect:{...postgresProfile(),async loadAnalyzer(){return (await
         editor.notify("textDocument/didOpen", {
           textDocument: { uri, languageId: "typescript", version: 1, text: unsaved },
         });
-        const diagnostics = (await editor.request("textDocument/diagnostic", { textDocument: { uri } })) as {
+        const diagnostics = (await editor.settledDiagnostics({ textDocument: { uri } })) as {
           items: { severity?: number }[];
         };
         strict.ok(!diagnostics.items.some((item) => item.severity === 1), JSON.stringify(diagnostics));
@@ -449,7 +449,7 @@ export default {dialect:{...postgresProfile(),async loadAnalyzer(){return (await
           current.notify("textDocument/didOpen", {
             textDocument: { uri, languageId: "typescript", version: 1, text: liveSource },
           });
-          const diagnostics = (await current.request("textDocument/diagnostic", { textDocument: { uri } })) as {
+          const diagnostics = (await current.settledDiagnostics({ textDocument: { uri } })) as {
             items: { severity?: number }[];
           };
           strict.ok(!diagnostics.items.some((item) => item.severity === 1), JSON.stringify(diagnostics));
@@ -854,7 +854,7 @@ export default defineConfig({
         editor.notify("textDocument/didOpen", {
           textDocument: { uri, languageId: "typescript", version: 1, text: source },
         });
-        const diagnostics = (await editor.request("textDocument/diagnostic", { textDocument: { uri } })) as {
+        const diagnostics = (await editor.settledDiagnostics({ textDocument: { uri } })) as {
           items: { message: string; severity?: number }[];
         };
         strict.ok(!diagnostics.items.some((item) => item.severity === 1), JSON.stringify(diagnostics));
@@ -920,7 +920,7 @@ export default defineConfig({
         client.notify("textDocument/didOpen", {
           textDocument: { uri, languageId: "typescript", version: 1, text: source },
         });
-        const diagnostics = (await client.request("textDocument/diagnostic", { textDocument: { uri } })) as {
+        const diagnostics = (await client.settledDiagnostics({ textDocument: { uri } })) as {
           items: { message: string; severity?: number }[];
         };
         strict.ok(!diagnostics.items.some((item) => item.severity === 1), JSON.stringify(diagnostics));
@@ -937,7 +937,7 @@ export default defineConfig({
           const refreshedRequest = async () => {
             for (let attempt = 0; ; attempt++) {
               try {
-                return await client.request("textDocument/diagnostic", { textDocument: { uri } });
+                return await client.settledDiagnostics({ textDocument: { uri } });
               } catch (error) {
                 if (attempt >= 2 || !(error instanceof Error) || !error.message.includes("-32802")) throw error;
               }
