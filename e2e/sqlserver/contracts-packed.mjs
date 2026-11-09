@@ -217,6 +217,14 @@ try{assert.deepEqual(await db.one(statement),{value:1n});assert.deepEqual(await 
         });
         phase = `${languageId} changed-query live editor`;
         await inspect(live, changed, "bigint");
+        // A drift observed while qualifying the changed query may retire earlier evidence.
+        // Revisit the query used after disconnect, exercising scheduler reuse under the latest fence.
+        live.notify("textDocument/didChange", {
+          textDocument: { uri, version: 4 },
+          contentChanges: [{ text: text(initial) }],
+        });
+        phase = `${languageId} restored-query live editor`;
+        await inspect(live, initial, "number");
       } finally {
         await live.close();
       }

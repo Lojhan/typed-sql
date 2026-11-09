@@ -259,6 +259,9 @@ contracts enter the disposable cache; live checking does not modify durable expo
 `--offline` invocation can reuse matching recorded evidence. `--offline` and `--frozen` leave the live
 factory unloaded, including when `analysis.mode` is `"live"`.
 
+After clearing the cache or retiring its evidence, check a query live again before reusing it
+offline. Returning to the same database context does not restore retired query contracts.
+
 The live registration is consumed by CLI query checking/generation and by explicitly live language
 server projects. Offline and frozen editor modes leave this factory unloaded. Live editor context
 observations are request-driven and coalesced; optional `live.contextIntervalMs` adjusts their

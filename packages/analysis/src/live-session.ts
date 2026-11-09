@@ -86,7 +86,7 @@ export function createLiveContractSession<Snapshot extends SchemaSnapshot, Polic
     throw new RangeError("Invalid live context observation interval");
   const now = input.now ?? Date.now;
   const lifetime = new AbortController();
-  const pending = new Map<number, { document: string; controller: AbortController }>();
+  const pending = new Map<number, { document: string; controller: AbortController; contextGeneration?: number }>();
   const documents = new Map<string, { version: number; key: string }>();
   let sequence = 0,
     closed = false;
@@ -96,6 +96,7 @@ export function createLiveContractSession<Snapshot extends SchemaSnapshot, Polic
   let selected: QueryContractContext | undefined;
   let checkedAt: number | undefined;
   let contextToken: AnalysisCacheToken | undefined;
+  let contextGeneration = 0;
   let connection: LiveContractSessionStatus["connection"] = "unobserved";
   let observation: Promise<QueryContractContext> | undefined;
   const inspections = new Set<Promise<QueryContractContext>>();
@@ -254,8 +255,19 @@ export function createLiveContractSession<Snapshot extends SchemaSnapshot, Polic
       });
       if (published.status !== "published")
         throw namedAnalysisError("LiveContextPublicationError", `Live context publication ${published.status}`);
+      const changed =
+        (contextToken && canonicalContractData(contextToken) !== canonicalContractData(published.token)) ||
+        (selected && canonicalContractData(selected) !== canonicalContractData(current));
       contextToken = published.token;
-      const changed = selected && canonicalContractData(selected) !== canonicalContractData(current);
+      if (changed) {
+        // A restored context identity does not restore evidence retired under an earlier cache fence.
+        // Drop completed scheduler results as well as in-flight producers before accepting new tickets.
+        contextGeneration++;
+        for (const batch of pending.values())
+          if (batch.contextGeneration !== undefined && batch.contextGeneration < contextGeneration)
+            batch.controller.abort(namedAnalysisError("LiveViewInvalidatedError", "Live context evidence changed"));
+        scheduler?.advance({ inputGeneration: 0, contextGeneration, policyGeneration: 0 });
+      }
       selected = current;
       checkedAt = now();
       connection = "available";
@@ -481,9 +493,13 @@ export function createLiveContractSession<Snapshot extends SchemaSnapshot, Polic
               deadlineMs: input.live.deadlineMs ?? 5000,
             });
             signal.throwIfAborted();
+            const batch = pending.get(id)!;
+            delete batch.contextGeneration;
             const current = await inspect();
             signal.throwIfAborted();
             const capturedContextToken = contextToken!;
+            const capturedContextGeneration = contextGeneration;
+            batch.contextGeneration = capturedContextGeneration;
             const view = await prepareLiveContractViewWithScheduler(
               {
                 ...input,
@@ -514,6 +530,7 @@ export function createLiveContractSession<Snapshot extends SchemaSnapshot, Polic
                         ...value.ticket,
                         document: `typed-sql:session:${id}`,
                         documentVersion: request.version,
+                        contextGeneration: capturedContextGeneration,
                       },
                     },
                     listener,

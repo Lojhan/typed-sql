@@ -7,6 +7,7 @@ import {
   createLiveContractSession,
   LiveContextUnavailableError,
   openAnalysisCache,
+  prepareOfflineContractView,
   queryContractDigest,
 } from "../src/index.js";
 import { configuration, context, profile, request, schema } from "./helpers/host-fixture.js";
@@ -118,11 +119,13 @@ await describe("project live session", async () => {
     strict.equal(closes, 1);
     await strict.rejects(session.prepare({ document: "file:///one.ts", version: 2, candidates: [] }));
   });
-  await it("recaptures context after cache invalidation even within the observation interval", async () => {
+  await it("recaptures and persists evidence after cache invalidation or retirement within the observation interval", async () => {
     const directory = await mkdtemp(join(tmpdir(), "typed-sql-session-fence-"));
     const cache = await openAnalysisCache({ directory, workspaceContext: queryContractDigest("session-fence") });
     const { context: _context, ...automatic } = configuration;
-    let observations = 0;
+    let observations = 0,
+      descriptions = 0,
+      changes = 0;
     const session = createLiveContractSession({
       profile,
       schema,
@@ -130,11 +133,19 @@ await describe("project live session", async () => {
       cache,
       loadAnalyzer: () => analyzer,
       now: () => 0,
+      onContextChange: () => changes++,
       live: {
         adapter: () => ({
           connectionContext: configuration.cache.connectionContext,
           adapter: adapter({
-            open: async () => ({ context: async () => context, describe: async () => evidence, close: async () => {} }),
+            open: async () => ({
+              context: async () => context,
+              describe: async () => {
+                descriptions++;
+                return evidence;
+              },
+              close: async () => {},
+            }),
           }),
           contribution: owner,
           inspectContext: async () => {
@@ -155,8 +166,128 @@ await describe("project live session", async () => {
       await fresh.assertCurrent();
       strict.equal(observations, 2, "A fresh native observation is required after a changed cache fence");
       strict.equal(fresh.contracts.length, 1);
+      const recordedInput = {
+        candidate: request.candidate,
+        context,
+        adapter: configuration.cache.adapter,
+        connectionContext: configuration.cache.connectionContext,
+        policy: configuration.qualification,
+      };
+      const reopened = await openAnalysisCache({ directory, workspaceContext: queryContractDigest("session-fence") });
+      const recorded = await reopened.lookupRecorded(recordedInput);
+      strict.equal(
+        recorded.cached?.outcome.kind,
+        "usable-recorded-context",
+        "The fresh view must survive offline restart",
+      );
+      strict.equal(descriptions, 2, "Cleared evidence must be acquired again");
       await strict.rejects(first.assertCurrent(), "A fresh view must not revive the old view's token");
+      await reopened.retireContext(context);
+      await strict.rejects(fresh.assertCurrent());
+      const restored = await session.prepare({
+        document: "file:///one.ts",
+        version: 1,
+        candidates: [request.candidate],
+      });
+      await restored.assertCurrent();
+      strict.equal(restored.contracts.length, 1);
+      strict.equal((await reopened.lookupRecorded(recordedInput)).cached?.outcome.kind, "usable-recorded-context");
+      strict.equal(descriptions, 3, "Restoring the same context must not revive retired scheduler evidence");
+      strict.equal(observations, 3);
+      strict.equal(changes, 2, "Consumers must refresh after each evidence fence change");
+      await session.close();
+      const offline = await prepareOfflineContractView({
+        profile,
+        schema,
+        configuration,
+        candidates: [request.candidate],
+        contracts: [],
+        cache: reopened,
+        loadAnalyzer: () => {
+          throw new Error("Offline restart must use the persisted contract");
+        },
+      });
+      await offline.assertCurrent();
+      strict.equal(offline.contracts.length, 1);
+      strict.deepEqual(offline.dialect.analyze(request.candidate.sql, schema).diagnostics, []);
+      strict.equal(descriptions, 3, "Offline replay must not acquire evidence");
     } finally {
+      await session.close();
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+  await it("settles old preparations when a new cache generation replaces in-flight scheduler work", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "typed-sql-session-generation-"));
+    const cache = await openAnalysisCache({ directory, workspaceContext: queryContractDigest("generation") });
+    let started!: () => void,
+      finish!: () => void,
+      descriptions = 0;
+    const entered = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    const release = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    const { context: _context, ...automatic } = configuration;
+    const session = createLiveContractSession({
+      profile,
+      schema,
+      cache,
+      loadAnalyzer: () => analyzer,
+      configuration: { ...automatic, mode: "live" },
+      live: {
+        adapter: () => ({
+          connectionContext: configuration.cache.connectionContext,
+          contribution: owner,
+          inspectContext: async () => context,
+          close: async () => {},
+          adapter: adapter({
+            open: async () => ({
+              context: async () => context,
+              describe: async () => {
+                if (++descriptions === 2) {
+                  started();
+                  await release;
+                }
+                return evidence;
+              },
+              close: async () => {},
+            }),
+          }),
+        }),
+      },
+    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(new Error("Old preparation did not settle")), 5000);
+    try {
+      await session.prepare({ document: "file:///warm.ts", version: 1, candidates: [request.candidate] });
+      const old = session
+        .prepare({
+          document: "file:///old.ts",
+          version: 1,
+          candidates: [{ ...request.candidate, sql: `${request.candidate.sql} ` }],
+          signal: controller.signal,
+        })
+        .then(
+          () => "unexpected",
+          (error: Error) => error.name,
+        );
+      await entered;
+      await cache.invalidate();
+      const fresh = await session.prepare({
+        document: "file:///fresh.ts",
+        version: 1,
+        candidates: [request.candidate],
+      });
+      strict.equal(fresh.contracts.length, 1);
+      strict.equal(await old, "LiveViewInvalidatedError", "Generation changes must settle detached subscribers");
+      strict.equal(session.status().activePreparations, 0);
+      finish();
+      await session.close();
+      await strict.rejects(fresh.assertCurrent());
+    } finally {
+      clearTimeout(timer);
+      finish();
       await session.close();
       await rm(directory, { recursive: true, force: true });
     }
