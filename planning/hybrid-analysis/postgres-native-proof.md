@@ -217,3 +217,23 @@ plan. The transport continues to send no candidate Bind or Execute. CTEs, compou
 ordering/limits and richer expressions remain outside this acquisition profile. Existing installed
 CLI/editor proofs retain their expression-query fixtures; the new table proof exercises native
 acquisition, reconciliation and serialized frozen compilation, not an expanded installed-host matrix.
+
+## Declared enum execution codecs
+
+The enum execution fixture derives schema inputs from PostgreSQL 18.3, compiles application
+factories with runtime metadata, imports that output and executes parameterized reads and writes.
+Both string-union and string policies retain scalar and array representations, including NULL
+array cells and nullable CASE branches. Union-policy parameters and returned values reject labels
+outside the captured schema. After the server adds an enum label, the original union-policy plan
+rejects that value while the explicitly selected string policy accepts it. Driver fallback array
+text is decoded only when physical array metadata and a known string-family codec agree.
+
+Unit fixtures cover both snapshot formats, quoted/ambiguous type identities, casts, routine
+results, ordered parameter plans and nullable joins. Literal SQL NULL contributes nullability;
+unresolved branches and all-NULL results remain conservative. The cast regression fails without
+descriptor propagation and passes with it. This work concerns offline-generated execution plans;
+native acquisition still excludes custom/enum table columns and its admission profile is unchanged.
+
+Validation passes all 38 PostgreSQL test files (97.29% statements, 90.46% branches, 98.01%
+functions), the real PostgreSQL 18.3 fixture, clean build, workspace types, nine soundness files,
+all three packed-consumer/editor suites, documentation, quality and the isolated performance gate.

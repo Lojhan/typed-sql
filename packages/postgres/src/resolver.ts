@@ -33,6 +33,7 @@ import {
   postgresCatalogTableRoutineRule,
   postgresCatalogTypeMapping,
 } from "./catalog/index.js";
+import { postgresEnumRuntimeType } from "./enum-runtime.js";
 import { fingerprintPostgresExpression, postgresExpressionIdentity } from "./expression-evidence.js";
 import type {
   CallExpression,
@@ -2741,6 +2742,7 @@ class Resolver {
           tsType: mapPostgresType(expression.databaseType.name, this.#policy, this.#schema),
           nullable: source.nullable,
           databaseType,
+          ...this.#enumMetadata(expression.databaseType.name),
         };
       }
       case "unary": {
@@ -3170,18 +3172,26 @@ class Resolver {
       case "case": {
         if (expression.operand !== undefined) this.#resolveExpression(expression.operand, scope, ctes);
         for (const branch of expression.branches) this.#resolveExpression(branch.when, scope, ctes);
-        const results = expression.branches.map((branch) => this.#resolveExpression(branch.then, scope, ctes));
-        if (expression.elseExpression !== undefined)
-          results.push(this.#resolveExpression(expression.elseExpression, scope, ctes));
+        const expressions = [
+          ...expression.branches.map((branch) => branch.then),
+          ...(expression.elseExpression === undefined ? [] : [expression.elseExpression]),
+        ];
+        const results = expressions.map((value) => this.#resolveExpression(value, scope, ctes));
+        // A literal SQL NULL contributes nullability, not an unknown non-null value family.
+        const nonNull = results.filter((_, index) => {
+          const value = expressions[index]!;
+          return value.kind !== "literal" || value.value !== null;
+        });
+        const values = nonNull.length ? nonNull : results;
         const databaseTypes = [
           ...new Set(
             results.map((result) => result.databaseType).filter((value): value is string => value !== undefined),
           ),
         ];
         return {
-          tsType: resolvedTypeUnion(results),
-          ...jsonUnion(results),
-          ...this.#runtimeUnion(results),
+          tsType: resolvedTypeUnion(values),
+          ...jsonUnion(values),
+          ...this.#runtimeUnion(values),
           nullable: expression.elseExpression === undefined || results.some((result) => result.nullable),
           ...(databaseTypes.length === 1 ? { databaseType: databaseTypes[0] } : {}),
         };
@@ -3886,6 +3896,7 @@ class Resolver {
       nullable: column.nullable || relation.nullable,
       databaseType: column.databaseType,
       ...jsonMetadata(column),
+      ...this.#enumMetadata(column.databaseType),
     };
   }
 
@@ -4376,6 +4387,7 @@ class Resolver {
                 : mapPostgresType(selection.resultType, this.#policy, this.#schema),
             nullable: result.nullable,
             databaseType: selection.resultType,
+            ...this.#enumMetadata(selection.resultType),
           };
         }
       }
@@ -5504,6 +5516,7 @@ class Resolver {
       tsType: value.returnType,
       nullable: value.nullable,
       ...(value.databaseReturnType === undefined ? {} : { databaseType: value.databaseReturnType }),
+      ...(value.databaseReturnType === undefined ? {} : this.#enumMetadata(value.databaseReturnType)),
     };
   }
 
@@ -5527,6 +5540,7 @@ class Resolver {
         : column.tsType,
       nullable: column.nullable,
       databaseType: column.databaseType,
+      ...this.#enumMetadata(column.databaseType),
     };
   }
 
@@ -5535,7 +5549,13 @@ class Resolver {
       tsType: mapPostgresType(databaseType, this.#policy, this.#schema),
       nullable,
       databaseType: normalizeDatabaseType(databaseType),
+      ...this.#enumMetadata(databaseType),
     };
+  }
+
+  #enumMetadata(databaseType: string): Pick<ResolvedType, "runtimeType"> {
+    const runtimeType = postgresEnumRuntimeType(databaseType, this.#schema, this.#policy);
+    return runtimeType === undefined ? {} : { runtimeType };
   }
 
   #recordParameter(index: number, expected: ResolvedType | undefined): ResolvedType {

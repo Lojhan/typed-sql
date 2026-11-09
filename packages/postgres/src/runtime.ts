@@ -23,6 +23,7 @@ import {
   type QueryStream,
   type QueryTransportProfile,
   queryResultValidationSource,
+  type RuntimeValueType,
   renderQuery,
   runControlledExecution,
   type StreamOptions,
@@ -39,7 +40,7 @@ import {
   type PostgresPreparedQueryState,
   preparePostgresQuery,
 } from "./prepared.js";
-import { postgresRenderer } from "./query.js";
+import { normalizePostgresValue, postgresRenderer } from "./query.js";
 import { type PostgresCursorLike, PostgresQueryStream, validatePostgresStreamBatchSize } from "./stream.js";
 import { defaultPostgresTypePolicy } from "./type-policy.js";
 import { POSTGRES_DIALECT_VERSION } from "./version.js";
@@ -1413,6 +1414,15 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
   }
 }
 
+function hasStringArrayCodec(type: RuntimeValueType, insideArray = false): boolean {
+  if (type === "never") return true;
+  if (type === "string") return insideArray;
+  if (typeof type !== "object") return false;
+  if ("literal" in type) return insideArray && typeof type.literal === "string";
+  if ("array" in type) return hasStringArrayCodec(type.array, true);
+  return "union" in type && type.union.every((member) => hasStringArrayCodec(member, insideArray));
+}
+
 export function createPostgresDatabase(options: PostgresDatabaseOptions): PostgresDatabase {
   const policy = { ...defaultPostgresTypePolicy, ...options.typePolicy };
   return new PostgresDatabaseImplementation(
@@ -1435,6 +1445,16 @@ export function createPostgresDatabase(options: PostgresDatabaseOptions): Postgr
       jsonWire: options.pool.rawJsonParsers === true || policy.json === "string" ? "text" : "parsed",
       jsonInputWire: "text",
       typePolicyHash: calculateTypePolicyHash(policy),
+      normalizeValue(value, type, descriptor) {
+        // Unknown OIDs (including user enum arrays) reach the driver fallback as text.
+        // Decode only a declared physical array with a known string-family codec; opaque
+        // element types must not acquire a guessed converter.
+        return typeof value === "string" &&
+          descriptor?.databaseType?.trimEnd().endsWith("[]") &&
+          hasStringArrayCodec(type)
+          ? normalizePostgresValue(value, { array: "string" })
+          : value;
+      },
     },
   );
 }
