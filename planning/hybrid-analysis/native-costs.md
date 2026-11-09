@@ -8,7 +8,7 @@ none.
 
 Each profile records its actual engine version, adapter/grammar identities, client environment,
 SQL digest, raw observations and exact committed measurement-tool hash. Source revisions:
-[12f93112](https://github.com/Lojhan/typed-sql/commit/12f93112ca31725c5f8a2698f30f357dd88a1b67), [edb255e6](https://github.com/Lojhan/typed-sql/commit/edb255e6a5db86d34de8512d13c632118224baeb).
+[12f93112](https://github.com/Lojhan/typed-sql/commit/12f93112ca31725c5f8a2698f30f357dd88a1b67), [7bb092a8](https://github.com/Lojhan/typed-sql/commit/7bb092a83804cc85501a3b808bc281119c927439).
 Hosted artifact provenance is recorded in [implementation evidence](./implementation.md).
 These are selected qualified fixtures, not a complete application workload or all supported
 engine versions, and do not establish production popularity or latency guarantees.
@@ -56,12 +56,12 @@ The sum-of-timed-stages statistic excludes untimed caller and fixture overhead.
 
 | Profile | Context inspection | Acquisition + reconciliation | Reopened cache object | Warm lookup |
 | --- | ---: | ---: | ---: | ---: |
-| duckdb-1.5.6 | 37.6 | 50.0 | 17.0 | 8.4 |
-| duckdb-2.0.0 | 54.8 | 74.2 | 16.8 | 8.9 |
-| mysql-8.4.11 | 20.3 | 30.7 | 18.4 | 10.5 |
-| mysql-9.7.2 | 20.4 | 37.6 | 24.2 | 9.6 |
-| postgres-18.3 | 98.4 | 196.1 | 10.3 | 5.9 |
-| sqlite-3.53.4 | 67.6 | 62.6 | 9.5 | 5.8 |
+| duckdb-1.5.6 | 29.6 | 39.5 | 6.3 | 3.7 |
+| duckdb-2.0.0 | 47.5 | 58.3 | 7.7 | 4.5 |
+| mysql-8.4.11 | 9.9 | 16.2 | 8.7 | 4.8 |
+| mysql-9.7.2 | 11.1 | 18.1 | 8.1 | 5.3 |
+| postgres-18.3 | 92.7 | 182.3 | 7.0 | 5.1 |
+| sqlite-3.53.4 | 54.8 | 58.8 | 8.2 | 5.4 |
 | sqlserver-14.0.3560.2-compat-140 | 211.2 | 230.3 | 43.2 | 25.4 |
 | sqlserver-15.0.4500.2-compat-140 | 158.8 | 176.3 | 42.7 | 21.8 |
 | sqlserver-15.0.4500.2-compat-150 | 153.1 | 167.7 | 32.2 | 20.1 |
@@ -79,6 +79,52 @@ SDK ownership and background load depend on the owning fixture; capture details 
 server/driver state may already be warm. These conditions do not support engine rankings or
 percentile estimates. Opening a new cache object does not drop OS page caches. Recorded cache
 reads retain unverified freshness and perform no native refresh.
+
+## Observed native facets
+
+These are counts across distinct validated evidence observations for each fixture, not support
+percentages. Repeated identical acquisitions share one observation. A successful qualification
+does not make every facet complete: policy may require only runtime type, while native type
+modifiers or nullability remain partial or unknown. Absence of parameters in a fixture does not
+establish parameter support. Version 1 reports did not retain this evidence and say "not recorded".
+The JSON retains column/parameter descriptors and each qualification comparison, including its
+rule, status, evidence identity and required-facet policy. This table does not establish facet
+availability for every query, type, function or database configuration on the listed engine.
+
+| Profile | Target | Native type | Runtime type | Nullability |
+| --- | --- | --- | --- | --- |
+| duckdb-1.5.6 | column | complete: 1 | complete: 1 | unknown: 1 |
+| duckdb-1.5.6 | parameter | complete: 1 | complete: 1 | unknown: 1 |
+| duckdb-2.0.0 | column | complete: 1 | complete: 1 | unknown: 1 |
+| duckdb-2.0.0 | parameter | complete: 1 | complete: 1 | unknown: 1 |
+| mysql-8.4.11 | column | partial: 1 | complete: 1 | partial: 1 |
+| mysql-8.4.11 | parameter | complete: 1 | complete: 1 | unknown: 1 |
+| mysql-9.7.2 | column | partial: 1 | complete: 1 | partial: 1 |
+| mysql-9.7.2 | parameter | complete: 1 | complete: 1 | unknown: 1 |
+| postgres-18.3 | column | complete: 1 | complete: 1 | unknown: 1 |
+| postgres-18.3 | parameter | complete: 1 | complete: 1 | unknown: 1 |
+| sqlite-3.53.4 | column | partial: 1 | complete: 1 | partial: 1 |
+| sqlite-3.53.4 | parameter | partial: 1 | complete: 1 | partial: 1 |
+| sqlserver-14.0.3560.2-compat-140 | column | not recorded | not recorded | not recorded |
+| sqlserver-14.0.3560.2-compat-140 | parameter | not recorded | not recorded | not recorded |
+| sqlserver-15.0.4500.2-compat-140 | column | not recorded | not recorded | not recorded |
+| sqlserver-15.0.4500.2-compat-140 | parameter | not recorded | not recorded | not recorded |
+| sqlserver-15.0.4500.2-compat-150 | column | not recorded | not recorded | not recorded |
+| sqlserver-15.0.4500.2-compat-150 | parameter | not recorded | not recorded | not recorded |
+| sqlserver-16.0.4305.5-compat-140 | column | not recorded | not recorded | not recorded |
+| sqlserver-16.0.4305.5-compat-140 | parameter | not recorded | not recorded | not recorded |
+| sqlserver-16.0.4305.5-compat-150 | column | not recorded | not recorded | not recorded |
+| sqlserver-16.0.4305.5-compat-150 | parameter | not recorded | not recorded | not recorded |
+| sqlserver-16.0.4305.5-compat-160 | column | not recorded | not recorded | not recorded |
+| sqlserver-16.0.4305.5-compat-160 | parameter | not recorded | not recorded | not recorded |
+| sqlserver-17.0.5035.5-compat-140 | column | not recorded | not recorded | not recorded |
+| sqlserver-17.0.5035.5-compat-140 | parameter | not recorded | not recorded | not recorded |
+| sqlserver-17.0.5035.5-compat-150 | column | not recorded | not recorded | not recorded |
+| sqlserver-17.0.5035.5-compat-150 | parameter | not recorded | not recorded | not recorded |
+| sqlserver-17.0.5035.5-compat-160 | column | not recorded | not recorded | not recorded |
+| sqlserver-17.0.5035.5-compat-160 | parameter | not recorded | not recorded | not recorded |
+| sqlserver-17.0.5035.5-compat-170 | column | not recorded | not recorded | not recorded |
+| sqlserver-17.0.5035.5-compat-170 | parameter | not recorded | not recorded | not recorded |
 
 ## Reproduction
 

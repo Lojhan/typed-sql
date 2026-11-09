@@ -54,6 +54,13 @@ its required supported-engine native profiles. The optional canary remains unqua
 
 ## Cross-cutting requirements still requiring proof
 
+The [native facet table](./native-costs.md#observed-native-facets) now retains validated
+column/parameter evidence from six actual local profiles: PostgreSQL 18.3, MySQL 8.4.11/9.7.2,
+DuckDB 1.5.6/2.0.0 and SQLite 3.53.4. It explicitly distinguishes complete, partial, unknown,
+absent fixture parameters and older observations without recorded facets. The ten hosted SQL
+Server facet records still require refresh. This evidence does not close scenario 8's mutation
+matrix or establish availability beyond the measured invocations.
+
 - **Offline vocabulary:** PostgreSQL now consumes hash-pinned source declarations for all six
   selected majors, factored into shared rows and version deltas. Generated tests cover complete
   keyword classes, bare labels, qualified columns and relation/CTE identifiers; the PostgreSQL E2E

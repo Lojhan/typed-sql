@@ -1591,3 +1591,33 @@ Packed frozen/runtime verification physically removes vocabulary and analysis di
 every declared grammar, including SQL Server. Fresh hosted qualification, per-profile facet and
 invalidation reconciliation, native application-workload scaling and final cost measurements
 remain outstanding.
+
+## Native facet evidence retained with measured acquisitions
+
+The native-cost recorder now publishes version 2 observations. Each acquisition reloads its
+exported durable contract through the actual contract validators, then retains the native
+column/parameter descriptors and qualification comparisons under a canonical digest. Repeated
+identical observations share one record. Timed samples reference that record; timing or a
+successful runtime-type policy never upgrades other facets to complete.
+
+The aggregator validates native evidence and its complete comparison closure, checks the adapter,
+observation hashes and exact sample coverage, and renders a per-profile column/parameter facet
+table. Version 1 inputs explicitly say "not recorded". Fixtures without parameters say "none in
+fixture". An isolated synthetic regression proves that partial type/nullability evidence survives
+successful qualification and that a rehashed false completeness claim fails without replacing
+the prior validated report. The optional output-directory argument keeps these checks outside
+the repository's published measurements.
+
+Actual local native helpers pass on PostgreSQL 18.3, MySQL 8.4.11/9.7.2, DuckDB 1.5.6/2.0.0 and
+Node's SQLite 3.53.4. Their version 2 reports use committed recorder `7bb092a8`; raw files are in
+`/tmp/typed-sql-native-facets-20261109`. All six parameterized fixtures establish runtime types.
+The selected PostgreSQL/DuckDB fixtures retain unknown native nullability; MySQL retains partial
+column native type and nullability plus unknown parameter nullability; SQLite retains partial
+storage-class native types and nullability. These are invocation-specific observations, not
+universal engine guarantees. Ten older hosted SQL Server cost profiles are retained without
+fabricating missing facet records; fresh hosted capture is required to fill them.
+
+The refreshed report preserves all 16 cost profiles and distinguishes their revisions. Local root
+types, the focused aggregation regression, all 51 repository contracts and source quality pass.
+This closes an evidence-retention gap, not the remaining authorization/search-path/codec/engine
+mutation matrix or application-workload scaling requirement.
