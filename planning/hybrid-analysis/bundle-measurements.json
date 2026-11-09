@@ -1,6 +1,6 @@
 {
   "formatVersion": 2,
-  "sourceRevision": "388a5184b4056e792f59ef9a8b23cb77020fd0c1",
+  "sourceRevision": "6cfc77d87db8066d80151a82253f84b0dc51173f",
   "nodeVersion": "v24.22.2",
   "esbuildVersion": "0.28.2",
   "measurementToolDigest": "e0544c2e81419a8a3f6ea76eb48f9628bc4fde1b55db6be77345f07557dbca31",
@@ -362,9 +362,9 @@
     {
       "grammar": "mysql",
       "scenario": "analyzer",
-      "minifiedBytes": 187788,
-      "gzipBytes": 45051,
-      "brotliBytes": 37791,
+      "minifiedBytes": 187799,
+      "gzipBytes": 45053,
+      "brotliBytes": 37783,
       "generatedInputBytes": 39562,
       "globalCatalogInputs": [
         "packages/mysql/src/catalog/generated/8.4.ts",
@@ -374,13 +374,13 @@
       ],
       "attribution": {
         "core/other": 20015,
-        "mysql/other": 73910,
+        "mysql/other": 73921,
         "ast/other": 1647,
         "mysql/parser": 30032,
         "schema/other": 23075,
         "mysql/catalog": 39080
       },
-      "outputDigest": "3051d8938bf3eef21cad5d50df40fa517c587a2c31c0ac495e3ddc4070a4d6b6"
+      "outputDigest": "2465f12830db03df8b82cdeaed6e06d93544ee4f2327a154cff967af3dd2ae78"
     },
     {
       "grammar": "mysql",
@@ -568,9 +568,9 @@
     {
       "grammar": "sqlite",
       "scenario": "analyzer",
-      "minifiedBytes": 152289,
-      "gzipBytes": 40388,
-      "brotliBytes": 34640,
+      "minifiedBytes": 152116,
+      "gzipBytes": 40430,
+      "brotliBytes": 34630,
       "generatedInputBytes": 0,
       "globalCatalogInputs": [
         "packages/sqlite/src/catalog/coercions.ts",
@@ -583,13 +583,13 @@
       ],
       "attribution": {
         "core/other": 19202,
-        "sqlite/other": 66016,
+        "sqlite/other": 65841,
         "ast/other": 1647,
-        "sqlite/parser": 27548,
+        "sqlite/parser": 27550,
         "sqlite/catalog": 14770,
         "schema/other": 23077
       },
-      "outputDigest": "427224e9c3899f9523d540c89fc185a78e9c8076b46dfbcc9535d7f78115a817"
+      "outputDigest": "8cba90dbc8d118c6f50e687463cb920144ece5f7fa24c3b8398138dab29101f3"
     },
     {
       "grammar": "sqlite",
@@ -863,7 +863,7 @@
     "packages/mysql/src/provider.ts": "ec3fdc70971cd58f5ceb9a2ca0217ae928af11ad4b563a32625bf89d7161558a",
     "packages/mysql/src/query.ts": "9f7a3652b5038bd12302b322412a9af28b88069b216e5cf508b8465d2a7d4815",
     "packages/mysql/src/repeated-inputs.ts": "6c92a254c0279aec2ee1f2158a29e8d2eaa4957d46f259b6f953a4a3ccef95ac",
-    "packages/mysql/src/resolver.ts": "8517f1b10ece7a072d328e7d6083674f84e34de5925d2e2791b826a84c7dab11",
+    "packages/mysql/src/resolver.ts": "c312e72214a2495cfbb8a121cfc4a98a44e68cefcb13ca14a525553d4fdc66cc",
     "packages/mysql/src/routing.ts": "b1811dcfbd832f4d8f8837dc2a7a825bbb1e505b2732213a68fe9d5dbc9a333e",
     "packages/mysql/src/runtime.ts": "d2bf0501cb76154b5dc9028cf6ec38e968a07ba38af5a83f51c80ba8d476a036",
     "packages/mysql/src/semantics.ts": "1dab8e48d05c1b443cf99f6dd9d5d0356ca4ee193f14b25b227a9af3d0045bde",
@@ -954,7 +954,7 @@
     "packages/sqlite/src/provider.ts": "b9f608cf6e1b5f37a3c4b041664c9a3e853eebef7bd6f27a9bc0d708075d2403",
     "packages/sqlite/src/query.ts": "be87e16c12a130fb45e91dd2164f34e4ae675a43b122de568541f031da2a0b35",
     "packages/sqlite/src/repeated-inputs.ts": "6c92a254c0279aec2ee1f2158a29e8d2eaa4957d46f259b6f953a4a3ccef95ac",
-    "packages/sqlite/src/resolver.ts": "ee98a1cfd3db4c3e2c04cd2070b0d8d48bd628ff9c6687696fe35dc1204d7297",
+    "packages/sqlite/src/resolver.ts": "8853091585c08b3dc42db4f73ca89a7388702ecd2990a27dbebed8b9fc697329",
     "packages/sqlite/src/runtime.ts": "edd2331080d391d1786aedc313386beaaf57594ad76485d1a9f905ebecd023d7",
     "packages/sqlite/src/schema-sql.ts": "101148015885bcf6abe7d45260f246692d85a38180f9c55ec86bb8157c9a07fa",
     "packages/sqlite/src/semantics.ts": "ef141683d097b9b6addaaf59c20e9496e5aeed164fb97f6580f432834ae8f7ac",

@@ -1,7 +1,7 @@
 # Bundle measurements and remaining boundaries
 
 The [machine-readable report](./bundle-measurements.json) measures committed source at
-`388a5184b4056e792f59ef9a8b23cb77020fd0c1`, compared with the earlier exhaustive-catalog revision
+`6cfc77d87db8066d80151a82253f84b0dc51173f`, compared with the earlier exhaustive-catalog revision
 `a1f27fc894e48021e91ce4c9a4b98929890f233d`. Both use the same measurement tool, esbuild 0.28.2,
 Node 24.22.2, minified ESM, Node platform, ES2022, tree-shaking, gzip level 9 and Brotli quality 11.
 
@@ -14,7 +14,7 @@ version selection. They exclude a TypeScript project, driver implementation and 
 | --- | ---: | ---: | ---: | ---: |
 | PostgreSQL | 1,649.9 | 383.8 | 131.8 | 68.1 |
 | MySQL | 180.6 | 183.4 | 43.2 | 44.0 |
-| SQLite | 154.7 | 148.7 | 39.5 | 39.4 |
+| SQLite | 154.7 | 148.6 | 39.5 | 39.5 |
 | SQL Server | 138.7 | 121.1 | 35.6 | 34.6 |
 | DuckDB | 1,340.3 | 625.8 | 101.4 | 75.2 |
 
@@ -51,7 +51,7 @@ Run from an installed repository with Node 24.22.2:
 
 ```sh
 node planning/hybrid-analysis/measure-bundles.mjs a1f27fc894e48021e91ce4c9a4b98929890f233d /tmp/typed-sql-bundle-baseline.json
-node planning/hybrid-analysis/measure-bundles.mjs 388a5184b4056e792f59ef9a8b23cb77020fd0c1 planning/hybrid-analysis/bundle-measurements.json /tmp/typed-sql-bundle-baseline.json
+node planning/hybrid-analysis/measure-bundles.mjs 6cfc77d87db8066d80151a82253f84b0dc51173f planning/hybrid-analysis/bundle-measurements.json /tmp/typed-sql-bundle-baseline.json
 ```
 
 The tool discovers grammars from the committed feature ledger and public entrypoints from package

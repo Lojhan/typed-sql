@@ -750,3 +750,24 @@ graph, all three packed-consumer/editor suites, clean-tree quality and the isola
 gate pass. An independent report check verifies five workload rows, 15 scaling cases, 15 schema
 cases and 50 before/current public-entry graphs. Native-qualified project payload/latency,
 production workload selection, reusable catalogs/packs and the full acceptance audit remain open.
+
+## Workload codec regression gate
+
+The follow-up measurement at 6cfc77d8 has known runtime codecs for all 37 finite commerce
+candidates: PostgreSQL/MySQL/SQLite 7 each and SQL Server/DuckDB 8 each. PostgreSQL declaration
+metadata supplies enum descriptors; MySQL normalizes JSON type spellings before parameter
+classification; SQLite carries its known numeric runtime family through derived/compound output
+and parameter contexts. Runtime-sized fragments remain compiled but are excluded from finite
+exact-contract counts. Known JSON codecs do not imply known document shapes.
+
+The normal contract suite now discovers supported grammars from the feature ledger, selects their
+maintained commerce files and rejects unresolved codecs recursively, without a function-name list.
+Reverting only the three resolvers makes that gate reject each of the previously measured gaps;
+the current source passes. This is a workload regression gate, not a universal SQL coverage claim.
+
+MySQL compiled JSON execution passes on 8.4.11/9.7.2 under all three JSON policies. SQLite 3.53.4
+execution covers integer/REAL sums, empty aggregates, CTE predicates, compounds and numeric casts
+under bigint/number policies. The full 28-file MySQL and 17-file SQLite coverage gates, clean
+build/types, soundness, packed consumers/editors, docs, quality and isolated performance checks
+pass. See the [MySQL proof](./mysql-native-proof.md), [SQLite proof](./sqlite-codec-proof.md) and
+[project report](./project-size.md). Full architecture acceptance remains incomplete.

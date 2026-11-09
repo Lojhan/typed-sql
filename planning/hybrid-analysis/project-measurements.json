@@ -1,6 +1,6 @@
 {
   "formatVersion": 1,
-  "sourceRevision": "388a5184b4056e792f59ef9a8b23cb77020fd0c1",
+  "sourceRevision": "6cfc77d87db8066d80151a82253f84b0dc51173f",
   "nodeVersion": "v24.22.2",
   "esbuildVersion": "0.28.2",
   "toolDigest": "f7eb9f6274ff346fa516081ff0880523d946253d9b0b9f74b14058b7e22b6f5b",
@@ -392,7 +392,7 @@
           "queryFacts": [
             {
               "sqlDigest": "fb4e02e1d878417de0c8aae131b1d39f402e146dbb3ade0e1b2e910e898f57a7",
-              "unresolvedCodecDescriptors": [{ "target": "parameter", "index": 3, "databaseType": "JSON" }]
+              "unresolvedCodecDescriptors": []
             }
           ]
         },
@@ -481,22 +481,22 @@
           "copies": 1,
           "sourceQueryFiles": 7,
           "collectedCandidates": 7,
-          "knownCodecCandidates": 6,
+          "knownCodecCandidates": 7,
           "uniqueContracts": 7,
           "runtimeTemplateModules": 6,
           "durableFiles": 9,
-          "durableFileBytes": 11504,
+          "durableFileBytes": 11590,
           "durableClosure": {
-            "bytes": 12186,
-            "gzipBytes": 2035,
-            "brotliBytes": 1684,
-            "digest": "d1cd0c79e6861f70f4a6a98c60eb5f51cb32cc6bf7af1db4df4caf418bd0ac10"
+            "bytes": 12272,
+            "gzipBytes": 2060,
+            "brotliBytes": 1689,
+            "digest": "5072a8b1836b70793ed5e3c1a6e9ac7ef4b050a381e10d97b1df6289e8236237"
           },
           "valuePlans": {
-            "bytes": 4357,
-            "gzipBytes": 723,
-            "brotliBytes": 592,
-            "digest": "71b09873dbdd28d6638a6582fc331b325fb877c3218aa26cf96e144daaa82bcd"
+            "bytes": 4443,
+            "gzipBytes": 748,
+            "brotliBytes": 610,
+            "digest": "62d8469df6aaf9c4e21f73e53a6b0cd8920bd100da67ee1250d66846d0a44a26"
           },
           "rendererOnlyBundle": {
             "bytes": 19604,
@@ -508,11 +508,11 @@
             "retainedModules": 11
           },
           "withValuePlansBundle": {
-            "bytes": 28447,
-            "gzipBytes": 8474,
-            "brotliBytes": 7624,
-            "digest": "1070d32cae6bfa08001da4c0480306e504df0bf63aaf04f36b8f60439dfc398b",
-            "attribution": { "application": 6450, "core": 21717, "mysql": 95 },
+            "bytes": 28521,
+            "gzipBytes": 8487,
+            "brotliBytes": 7626,
+            "digest": "048df290d69fca7079b0df1b41077747b19760ac959e3d9c7557b80b34ef2923",
+            "attribution": { "application": 6524, "core": 21717, "mysql": 95 },
             "retainedApplicationModules": 6,
             "retainedModules": 14
           },
@@ -530,22 +530,22 @@
           "copies": 10,
           "sourceQueryFiles": 70,
           "collectedCandidates": 70,
-          "knownCodecCandidates": 60,
+          "knownCodecCandidates": 70,
           "uniqueContracts": 70,
           "runtimeTemplateModules": 60,
           "durableFiles": 72,
-          "durableFileBytes": 108470,
+          "durableFileBytes": 109330,
           "durableClosure": {
-            "bytes": 114382,
-            "gzipBytes": 10010,
-            "brotliBytes": 6748,
-            "digest": "652921093c727dd76a724c7d400a0fd07398c4beea72d74fdd533282ba59725a"
+            "bytes": 115242,
+            "gzipBytes": 10026,
+            "brotliBytes": 6734,
+            "digest": "1fab7170756c7a0664222a234043f065b73354a5a1727f9fae6e4c9505270e79"
           },
           "valuePlans": {
-            "bytes": 43561,
-            "gzipBytes": 1044,
-            "brotliBytes": 599,
-            "digest": "dff24668be8ea1285f7ab387902f22392fecb8d49cc5645a430c91eadeee2742"
+            "bytes": 44421,
+            "gzipBytes": 1075,
+            "brotliBytes": 620,
+            "digest": "0759f8cfeef442d7dbe24ae9829ad1c76ce194e03997969df12d2419b5cb8ef0"
           },
           "rendererOnlyBundle": {
             "bytes": 39103,
@@ -557,19 +557,19 @@
             "retainedModules": 65
           },
           "withValuePlansBundle": {
-            "bytes": 88807,
-            "gzipBytes": 10708,
-            "brotliBytes": 8649,
-            "digest": "92becc2f001305637098751c2b5f2fd76a1aecab3a5ef78569d8f67658eaafbe",
-            "attribution": { "application": 66002, "core": 21720, "mysql": 94 },
+            "bytes": 89547,
+            "gzipBytes": 10723,
+            "brotliBytes": 8646,
+            "digest": "7aab075ade98e6bb422dd7876301cd847e92179522ddb8d611bd6092900afce4",
+            "attribution": { "application": 66742, "core": 21720, "mysql": 94 },
             "retainedApplicationModules": 60,
             "retainedModules": 68
           },
           "selectedModuleThroughBarrel": {
             "bytes": 18710,
-            "gzipBytes": 6036,
-            "brotliBytes": 5472,
-            "digest": "0be28476385019b9cde2263854acde55c724965063d2b426352456cb52cb03fa",
+            "gzipBytes": 6037,
+            "brotliBytes": 5455,
+            "digest": "b2f0d6763ba866b93c54cba5814100b1b438f53b1db5c15c32994e87ca6d1929",
             "attribution": { "application": 1010, "core": 17490, "mysql": 95 },
             "retainedApplicationModules": 1,
             "retainedModules": 7
@@ -579,22 +579,22 @@
           "copies": 50,
           "sourceQueryFiles": 350,
           "collectedCandidates": 350,
-          "knownCodecCandidates": 300,
+          "knownCodecCandidates": 350,
           "uniqueContracts": 350,
           "runtimeTemplateModules": 300,
           "durableFiles": 352,
-          "durableFileBytes": 539430,
+          "durableFileBytes": 543730,
           "durableClosure": {
-            "bytes": 568583,
-            "gzipBytes": 47874,
-            "brotliBytes": 28618,
-            "digest": "e7deb9c80de17bee694a12e8cc7bf60411855a882febb5c1494296cd2e9a9679"
+            "bytes": 572883,
+            "gzipBytes": 47823,
+            "brotliBytes": 28617,
+            "digest": "0765342b620cbc71bf6d45bed17cef05a0c7f2cfcaebfce4124249393d0fb10d"
           },
           "valuePlans": {
-            "bytes": 217801,
-            "gzipBytes": 2168,
-            "brotliBytes": 599,
-            "digest": "457be55ab01dd9bb542503e2c3ae03f995ac00e7a06a3428deb1124fef4402ed"
+            "bytes": 222101,
+            "gzipBytes": 2223,
+            "brotliBytes": 620,
+            "digest": "243ccd81e947a596f48cfc2fa4051adfb31cd0994b689b4b7190a9383588487e"
           },
           "rendererOnlyBundle": {
             "bytes": 126263,
@@ -606,19 +606,19 @@
             "retainedModules": 305
           },
           "withValuePlansBundle": {
-            "bytes": 357607,
-            "gzipBytes": 19852,
-            "brotliBytes": 12574,
-            "digest": "5aca7a28a23a73bc22ebaa44a499386572229820864599bfb8b345f3b2a57d66",
-            "attribution": { "application": 331002, "core": 21720, "mysql": 94 },
+            "bytes": 361307,
+            "gzipBytes": 19871,
+            "brotliBytes": 12589,
+            "digest": "ef369ff225071dc9aa77961f9a183ff9c75802f2ceae2a28a102c932cd6310cf",
+            "attribution": { "application": 334702, "core": 21720, "mysql": 94 },
             "retainedApplicationModules": 300,
             "retainedModules": 308
           },
           "selectedModuleThroughBarrel": {
             "bytes": 18710,
-            "gzipBytes": 6039,
-            "brotliBytes": 5444,
-            "digest": "cf5c43a63c21eb9d745feace0f5c752bd7e5178aa19f923f3294243e5241445b",
+            "gzipBytes": 6040,
+            "brotliBytes": 5462,
+            "digest": "02b40a6d44a6cce15acb56554c8375a614965a3f9fa3e3d56be89c147324ac76",
             "attribution": { "application": 1010, "core": 17490, "mysql": 95 },
             "retainedApplicationModules": 1,
             "retainedModules": 7
@@ -1077,10 +1077,7 @@
           "queryFacts": [
             {
               "sqlDigest": "c1385569fe7cc746820edd5e1fc7ef176ab4d2e92aeed72bda83f92229872c8a",
-              "unresolvedCodecDescriptors": [
-                { "target": "column", "name": "revenue_cents", "databaseType": "numeric" },
-                { "target": "parameter", "index": 1, "databaseType": "numeric" }
-              ]
+              "unresolvedCodecDescriptors": []
             }
           ]
         }
@@ -1090,22 +1087,22 @@
           "copies": 1,
           "sourceQueryFiles": 7,
           "collectedCandidates": 7,
-          "knownCodecCandidates": 6,
+          "knownCodecCandidates": 7,
           "uniqueContracts": 7,
           "runtimeTemplateModules": 6,
           "durableFiles": 9,
-          "durableFileBytes": 12095,
+          "durableFileBytes": 12135,
           "durableClosure": {
-            "bytes": 12777,
-            "gzipBytes": 1936,
-            "brotliBytes": 1600,
-            "digest": "a7ad535b7b9261df0d11ba8c84e5df8f177ecef706da0f7ec2403b6ecd13ffdb"
+            "bytes": 12817,
+            "gzipBytes": 1943,
+            "brotliBytes": 1617,
+            "digest": "e103c09659c52a43f6709d8ba0a518c2f7e576dfb08708db3839effdaaf3be9a"
           },
           "valuePlans": {
-            "bytes": 4766,
-            "gzipBytes": 606,
-            "brotliBytes": 497,
-            "digest": "e3368d2e0c693c4fec975ad53486f07d25dfb02cd7846a11143f1a02b862a3a7"
+            "bytes": 4806,
+            "gzipBytes": 611,
+            "brotliBytes": 503,
+            "digest": "449541d85ff6238282f8f7b4cc249aadc5a1825366598426af7593737163672d"
           },
           "rendererOnlyBundle": {
             "bytes": 19745,
@@ -1139,22 +1136,22 @@
           "copies": 10,
           "sourceQueryFiles": 70,
           "collectedCandidates": 70,
-          "knownCodecCandidates": 60,
+          "knownCodecCandidates": 70,
           "uniqueContracts": 70,
           "runtimeTemplateModules": 60,
           "durableFiles": 72,
-          "durableFileBytes": 114362,
+          "durableFileBytes": 114762,
           "durableClosure": {
-            "bytes": 120274,
-            "gzipBytes": 10037,
-            "brotliBytes": 6651,
-            "digest": "dd4acda05ee0e285971c967782ed13dd7c3eff6db54a2c1fd4b47f09a7c5fcc6"
+            "bytes": 120674,
+            "gzipBytes": 10053,
+            "brotliBytes": 6661,
+            "digest": "e8320ca3cbfbed1b23a64a1bc6828fdf2ab590dbdfd7300d133669cd0155c3cd"
           },
           "valuePlans": {
-            "bytes": 47651,
-            "gzipBytes": 936,
-            "brotliBytes": 500,
-            "digest": "a66d01272361d727b37d6248347ec9a9918ab2e4091ce6f788af755bc9c78686"
+            "bytes": 48051,
+            "gzipBytes": 944,
+            "brotliBytes": 509,
+            "digest": "6b812dc836e250072240c1d5df6f43dff59bbf4f45442db57d76910ec9388284"
           },
           "rendererOnlyBundle": {
             "bytes": 40513,
@@ -1188,22 +1185,22 @@
           "copies": 50,
           "sourceQueryFiles": 350,
           "collectedCandidates": 350,
-          "knownCodecCandidates": 300,
+          "knownCodecCandidates": 350,
           "uniqueContracts": 350,
           "runtimeTemplateModules": 300,
           "durableFiles": 352,
-          "durableFileBytes": 568882,
+          "durableFileBytes": 570882,
           "durableClosure": {
-            "bytes": 598035,
-            "gzipBytes": 47664,
-            "brotliBytes": 28554,
-            "digest": "307a509eb5db485b755c86f01ebf35adf752c55ee82666e49f0c6495f38f4342"
+            "bytes": 600035,
+            "gzipBytes": 47874,
+            "brotliBytes": 28195,
+            "digest": "8eb0220fa7e0fbb8f1b342a6cbdfc53a5946adac55ccd780720fec62a703a26c"
           },
           "valuePlans": {
-            "bytes": 238251,
-            "gzipBytes": 2161,
-            "brotliBytes": 501,
-            "digest": "7341c0531c0754db62d63936c61f57fe13eee350171b152d119c3723d9ace964"
+            "bytes": 240251,
+            "gzipBytes": 2179,
+            "brotliBytes": 510,
+            "digest": "6ceab80faec83cb5661df80db2463b9df3975e8ff6aeacf4aa615790afe20c52"
           },
           "rendererOnlyBundle": {
             "bytes": 133313,
