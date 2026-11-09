@@ -1107,3 +1107,29 @@ creation. The existing frozen-consumer guard shares the same preload generator.
 
 The final packed-consumer run and workspace typecheck pass locally; formatting/lint checks on
 the four changed test files pass. Production package code and generated catalogs are unchanged.
+
+
+### Source moves and inherited grammar evidence
+
+The real PostgreSQL 18.3 helper now physically moves query source into another directory and
+adds leading lines. Re-extraction preserves SQL and ordered bindings; a reopened cache retains
+the same qualified contract digest and unverified freshness. Export/reload and offline compilation
+retain row, parameter and decoder plans without a native adapter. Query spans and missing-contract
+diagnostics follow the shifted source. This proves source-independent evidence and refreshed spans;
+it does not claim arbitrary editor filesystem watcher behavior.
+
+A test contribution built only from published base-grammar/core/schema/analysis entrypoints
+inherits PostgreSQL 18 mechanics under a distinct grammar, snapshot, profile and interpreter
+identity. It delegates native statement restrictions and reconciliation while requiring explicit
+child ownership for reusable catalog permissions. The real helper acquires/reconciles a long-tail
+query, reopens its persisted cache, exports/reloads a durable closure, compiles offline and checks
+the child runtime decoder. Unknown native nullability remains nullable; base/child identities do
+not share contracts. The surrounding routine counter proves generation never executes it.
+
+The full PostgreSQL native/installed CLI/editor/cache/frozen/table helper passes. Its conflict
+fixture now selects the current recorded project context after a live refresh: legitimate catalog
+drift may retire an older context, which must not be mistaken for the new conflict entry. Restoring
+the correct analyzer generates fresh reconciled contracts, including any newly observed context;
+a conflict still cannot overwrite the previous durable export. Workspace types, all 21 analysis
+test files (98.57% statements, 93.10% branches, 99.46% functions), all 49 repository contract files (including packed consumers and editor
+artifacts), documentation checks and quality pass. Production package source and generated catalogs are unchanged.

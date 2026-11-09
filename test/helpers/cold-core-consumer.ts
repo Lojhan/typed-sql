@@ -64,7 +64,7 @@ for(const {grammar,schema} of fixtures){
   assert.equal(existsSync(join(application,".typed-sql")),false);
   assert.equal(existsSync(join(${JSON.stringify(consumer)},".typed-sql")),false);
   const source='import {sql} from "@typed-sql/'+grammar+'"; export function query(){return sql\`SELECT COALESCE(CAST(\${null} AS DECIMAL(10,2)), CAST(\${null} AS DECIMAL(10,2))) AS amount\`;}';
-  const result=compileSource({source,fileName:join(application,"application.ts"),schema:snapshot,dialect,runtimeMetadata:true});
+  const result=compileSource({source,schema:snapshot,dialect,runtimeMetadata:true});
   assert.deepEqual(result.diagnostics,[],grammar+" failed cold offline compilation");
   assert.equal(result.queries.length,1);
   const query=result.queries[0];

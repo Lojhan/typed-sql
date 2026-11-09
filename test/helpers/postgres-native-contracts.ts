@@ -1,6 +1,6 @@
 import { execFile as callback } from "node:child_process";
 import { once } from "node:events";
-import { mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
@@ -44,6 +44,7 @@ import { createPostgresContractReconciler } from "../../packages/postgres/src/re
 import { createPostgresDatabase } from "../../packages/postgres/src/runtime.js";
 import { type RoutineSnapshot, upgradeSchemaSnapshotV1 } from "../../packages/schema/src/index.js";
 import { assertIsolatedPostgresContractConsumer } from "./frozen-contract-consumer.js";
+import { assertInheritedPostgresContracts } from "./inherited-postgres-contracts.js";
 import { assertPostgresTableContracts } from "./postgres-table-contracts.js";
 import { ProtocolClient } from "./protocol-client.js";
 import { startWatchedCli } from "./watch-cli.js";
@@ -106,6 +107,7 @@ export async function assertPostgresNativeContracts(connectionString: string, di
     strict.equal(candidates.candidates[0]!.sql, text);
     const parameterOccurrences = candidates.candidates[0]!.parameterOccurrences;
     let context = await native.inspectContext();
+    await assertInheritedPostgresContracts({ pool }, schema, application, directory);
     const coreSchema = postgresCore().validateSnapshot({ ...schema, server: postgresServerEvidence(version) });
     const coreNative = createPgNativeContractAdapter({ pool, schema: coreSchema });
     const coreSql = "SELECT pg_catalog.md5($1::text) AS value";
@@ -568,6 +570,107 @@ export default {dialect:{...postgresProfile(),async loadAnalyzer(){return (await
       if (cached.cached?.outcome.kind !== "usable-recorded-context") throw Error("Missing cached native contract");
       strict.deepEqual(cached.cached.outcome.contract.valuePlan, reconciled.contract.valuePlan);
 
+      // A source move changes presentation identity, not the recorded SQL/context contract.
+      // Reopen the cache and durable closure without handing the consumer a native adapter.
+      const originalFile = join(temporary, "before-move.ts");
+      const movedDirectory = join(temporary, "moved");
+      const movedFile = join(movedDirectory, "after-move.ts");
+      const movedPrefix = "// moved application query\n\n";
+      await writeFile(originalFile, application);
+      await mkdir(movedDirectory);
+      await rename(originalFile, movedFile);
+      await writeFile(movedFile, movedPrefix + (await readFile(movedFile, "utf8")));
+      const movedSource = await readFile(movedFile, "utf8");
+      const movedCandidates = collectSourceQueryCandidates({
+        source: movedSource,
+        profile,
+        schema,
+      });
+      strict.equal(movedCandidates.complete, true);
+      strict.deepEqual(movedCandidates.diagnostics, []);
+      strict.equal(movedCandidates.candidates.length, 1);
+      const movedCandidate = movedCandidates.candidates[0]!;
+      strict.equal(movedCandidate.sql, text);
+      strict.deepEqual(movedCandidate.parameterOccurrences, parameterOccurrences);
+      strict.equal(movedCandidate.sourceRange.start, candidates.candidates[0]!.sourceRange.start + movedPrefix.length);
+      strict.equal(movedCandidate.sourceRange.end, candidates.candidates[0]!.sourceRange.end + movedPrefix.length);
+      const movedCache = await openAnalysisCache(cacheOptions);
+      const movedRecorded = await movedCache.lookupRecorded({
+        candidate: { sql: movedCandidate.sql, parameterOccurrences: movedCandidate.parameterOccurrences },
+        context,
+        connectionContext: cacheRequest.connectionContext,
+        adapter: cacheRequest.adapter,
+        policy: qualification,
+      });
+      strict.equal(movedRecorded.cached?.freshness, "unverified");
+      strict.equal(movedRecorded.cached?.outcome.kind, "usable-recorded-context");
+      if (movedRecorded.cached?.outcome.kind !== "usable-recorded-context") throw Error("Move lost recorded contract");
+      strict.equal(movedRecorded.cached.outcome.contract.digest, cached.cached.outcome.contract.digest);
+      const movedDurable = join(temporary, "moved-contracts");
+      await exportQueryContracts(movedDurable, [movedRecorded.cached.outcome.contract]);
+      const movedContracts = await loadQueryContracts(movedDurable);
+      strict.equal(movedContracts[0]!.digest, cached.cached.outcome.contract.digest);
+      const movedProfile = {
+        ...profile,
+        loadAnalyzer() {
+          throw Error("Moved contract loaded an analyzer");
+        },
+      };
+      const movedDialect = createContractDialect({
+        profile: movedProfile,
+        context,
+        contracts: movedContracts,
+        qualificationPolicyHash: queryContractDigest(parseContractQualificationPolicy(qualification)),
+      });
+      const beforeMove = compileSource({
+        source: application,
+        schema,
+        dialect: movedDialect,
+        runtimeMetadata: true,
+      });
+      const afterMove = compileSource({
+        source: movedSource,
+        schema,
+        dialect: movedDialect,
+        runtimeMetadata: true,
+      });
+      strict.deepEqual(beforeMove.diagnostics, []);
+      strict.deepEqual(afterMove.diagnostics, []);
+      strict.equal(afterMove.queries.length, 1);
+      strict.match(afterMove.queries[0]!.rowType, /result.*bigint.*null/u);
+      strict.equal(afterMove.queries[0]!.rowType, beforeMove.queries[0]!.rowType);
+      strict.equal(afterMove.queries[0]!.parameterType, beforeMove.queries[0]!.parameterType);
+      strict.deepEqual(afterMove.queries[0]!.valuePlan, beforeMove.queries[0]!.valuePlan);
+      strict.equal(
+        afterMove.queries[0]!.query.range.start,
+        beforeMove.queries[0]!.query.range.start + movedPrefix.length,
+      );
+      strict.equal(afterMove.queries[0]!.query.range.line, beforeMove.queries[0]!.query.range.line + 2);
+      const missingBefore = compileSource({
+        source: application.replace("AS result", "AS changed"),
+        schema,
+        dialect: movedDialect,
+      });
+      const missingAfter = compileSource({
+        source: movedSource.replace("AS result", "AS changed"),
+        schema,
+        dialect: movedDialect,
+      });
+      strict.equal(missingBefore.diagnostics.length, 1);
+      strict.equal(missingBefore.diagnostics[0]!.code, "TSQ406");
+      strict.equal(missingAfter.diagnostics.length, 1);
+      strict.equal(missingAfter.diagnostics[0]!.code, "TSQ406");
+      strict.equal(
+        missingAfter.diagnostics[0]!.range.start,
+        missingBefore.diagnostics[0]!.range.start + movedPrefix.length,
+      );
+      strict.equal(
+        missingAfter.diagnostics[0]!.range.end,
+        missingBefore.diagnostics[0]!.range.end + movedPrefix.length,
+      );
+      strict.equal(missingAfter.diagnostics[0]!.range.line, missingBefore.diagnostics[0]!.range.line + 2);
+      strict.equal((await pool.query<{ count: number }>(`SELECT count FROM ${namespace}.calls`)).rows[0]!.count, 0);
+
       // Terminate a real leased backend after the first context read but before description.
       // Both description and ROLLBACK fail; neither disproves the recorded contract.
       const outagePool = new Pool({ connectionString, max: 1 });
@@ -983,6 +1086,22 @@ export default defineConfig({
         policy: qualification,
       };
       strict.equal((await projectCache.lookupRecorded(knownQuery)).cached?.outcome.kind, "usable-recorded-context");
+      const knownScope = createAnalysisContextScope({
+        profile,
+        schema,
+        configuration: {
+          mode: "offline",
+          qualification,
+          identity: postgresContractIdentity(),
+          cache: { connectionContext: knownQuery.connectionContext, adapter: knownQuery.adapter },
+        },
+      });
+      const currentKnownQuery = async () => {
+        const head = await projectCache.lookupContext(knownScope);
+        strict.equal(head.recorded?.status, "usable");
+        if (!head.recorded) throw Error("Missing current project context");
+        return { ...knownQuery, context: head.recorded.context };
+      };
       const analyzerFactory = '(await import("@typed-sql/postgres/analysis/core/18")).postgres()';
       strict.ok(scopedLiveConfig.includes(analyzerFactory));
       const faultyFactory = `await (async () => {
@@ -1009,7 +1128,7 @@ export default defineConfig({
             return true;
           });
           strict.equal(
-            (await projectCache.lookupRecorded(knownQuery)).cached?.outcome.kind,
+            (await projectCache.lookupRecorded(await currentKnownQuery())).cached?.outcome.kind,
             "conflict",
             "Project-wide qualification must persist the native/static conflict in the same cache namespace",
           );
@@ -1023,11 +1142,14 @@ export default defineConfig({
         await writeFile(join(temporary, "live-config.mjs"), scopedLiveConfig);
       }
       strict.match(
-        (await promisify(callback)(process.execPath, [...generationArgs, "--check"], generationOptions)).stdout,
-        /export matches/u,
-        "Restoring the correct analyzer must recover through fresh native reconciliation",
+        (await promisify(callback)(process.execPath, generationArgs, generationOptions)).stdout,
+        /Generated 3 query contract/u,
+        "Restoring the correct analyzer must recover through fresh native reconciliation, including any newly observed catalog context",
       );
-      strict.equal((await projectCache.lookupRecorded(knownQuery)).cached?.outcome.kind, "usable-recorded-context");
+      strict.equal(
+        (await projectCache.lookupRecorded(await currentKnownQuery())).cached?.outcome.kind,
+        "usable-recorded-context",
+      );
       await writeFile(
         join(temporary, "live-config.mjs"),
         scopedLiveConfig.replace('contractsDir: "contracts"', 'contractsDir: "live-contracts"'),
