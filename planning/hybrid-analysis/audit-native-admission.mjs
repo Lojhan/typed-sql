@@ -95,6 +95,7 @@ for (const grammar of Object.keys(ledger.dialects).sort()) {
           sql: candidate.sql,
           sqlDigest: hash(candidate.sql),
           parameterOccurrences: candidate.parameterOccurrences,
+          logicalBindings: candidate.logicalBindings,
           logicalParameterCount: candidate.logicalParameterCount,
           staticColumnCount: analysis.columns.length,
           staticParameters: analysis.parameters,

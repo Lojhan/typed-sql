@@ -54,7 +54,9 @@ await describe("native application admission audit", async () => {
                 "Unavailable evidence cannot become a successful admission",
               );
             for (const occurrence of candidate.parameterOccurrences)
-              strict.ok(occurrence.index >= 1 && occurrence.index <= candidate.logicalParameterCount);
+              strict.ok(occurrence.index >= 1 && occurrence.index <= candidate.logicalBindings.length);
+            for (const binding of candidate.logicalBindings)
+              strict.ok(binding >= 0 && binding < candidate.logicalParameterCount);
           }
         }
       }
