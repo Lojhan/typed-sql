@@ -15,6 +15,7 @@ import {
   queryContractDigest,
 } from "../../packages/analysis/dist/packages/analysis/src/index.js";
 import { defaultSqlServerTypePolicy } from "../../packages/sqlserver/dist/packages/sqlserver/src/type-policy.js";
+import { summarizeNativeDescriptorFacets } from "../../scripts/vocabulary/native-descriptor-facets.mjs";
 import { reviewSqlServerDescriptors } from "../../scripts/vocabulary/sqlserver-descriptor-review.mjs";
 import {
   sqlServerDescriptorCases,
@@ -297,6 +298,7 @@ try {
         counts[key] = (counts[key] ?? 0) + 1;
       }
       entry.counts = counts;
+      entry.facets = summarizeNativeDescriptorFacets({ fields, observations });
       delete entry.currentProbe;
       entry.observationDigest = queryContractDigest(
         normalize({

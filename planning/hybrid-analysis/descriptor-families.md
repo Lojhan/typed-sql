@@ -273,8 +273,30 @@ The gate passes all ten fresh hosted captures in [run 42637006229](https://githu
 The native statement probe additionally creates a typed XML collection/table and a builtin CLR
 `hierarchyid` table beside its existing alias/computed/RLS controls. Both must be rejected by
 relation admission on every declared compatibility pair. Local syntax and descriptor/native
-unit suites pass; actual hosted execution of these new class controls is pending. This tests
+unit suites pass. All twenty actual typed-XML/CLR rejection cases pass across the ten compatibility pairs in [run 42655584417](https://github.com/Lojhan/typed-sql/actions/runs/42655584417), with successful owned cleanup. The downloaded native reports retain both rejection cases per pair. That aggregate separately fails the PostgreSQL editor refresh; these class controls do not make it green. This tests
 unavailability at the relation boundary and does not promote typed XML or CLR runtime codecs.
+
+## Automatic facet accounting
+
+All five native collectors now call the same [facet summarizer](../../scripts/vocabulary/native-descriptor-facets.mjs).
+It discovers acquired output/input references in each capture and counts every field occurrence,
+separating complete/partial/unavailable native identity, known/unavailable runtime representation,
+and exact/upper-bound/unavailable nullability. Unknown-facet reasons remain counted. Partial,
+declined, unavailable and future non-acquired outcomes are retained without inventing field
+metadata. SQLite policy groups are discovered from the observations and summarized independently.
+Repeated field occurrences are not distinct types or function overloads; empty groups establish
+no capability. The summarizer uses no grammar or type-name list.
+
+Missing references, field evidence attached to an unacquired outcome, unaccounted evidence facets
+and non-conservative nullability fail the audit. A TypeScript-exhaustive facet visitor makes a
+new common evidence facet require an accounting implementation. Summary artifacts carry their
+own tool digest, while the existing semantic fingerprints continue to bind the underlying fields
+and observations. Changing a summary does not approve changed native facts or update baselines.
+The [contract tests](../../test/contracts/native-descriptor-facets.test.ts) exercise unknown future
+type/policy/outcome names and negative accounting controls. Local replay covers 8,774 observations
+across 28 captured profiles (including explicitly unqualified profiles); this is evidence-shape
+accounting, not new native acquisition or semantic qualification. Fresh collectors still require
+their own reviewed native gates.
 
 ## Capability boundaries used for acceptance
 

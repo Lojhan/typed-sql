@@ -7,6 +7,7 @@ import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import { acquireNativeQueryContract, type NativeContractValueEvidence, queryContractDigest } from "@typed-sql/analysis";
 import { strict } from "poku";
+import { summarizeNativeDescriptorFacets } from "../../../../scripts/vocabulary/native-descriptor-facets.mjs";
 import { createNodeSqliteNativeContractAdapter } from "../../src/node-sqlite-contracts.js";
 import { sqliteProfile } from "../../src/profile.js";
 import { defaultSqliteTypePolicy, isKnownStrictSqliteType, type SqliteTypePolicy } from "../../src/type-policy.js";
@@ -183,6 +184,7 @@ export async function captureSqliteDescriptorInventory(options: { reviewed?: boo
       }
     }
     const report = {
+      facets: summarizeNativeDescriptorFacets({ fields, observations }),
       formatVersion: 1,
       engine,
       sourceId,

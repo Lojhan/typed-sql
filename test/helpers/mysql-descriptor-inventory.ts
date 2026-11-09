@@ -16,6 +16,7 @@ import { tokenize } from "../../packages/mysql/src/parser/index.js";
 import type { MySqlProtocolField } from "../../packages/mysql/src/protocol-fields.js";
 import { MYSQL_SUPPORT_POLICY } from "../../packages/mysql/src/support.js";
 import { defaultMySqlTypePolicy, isKnownMySqlType } from "../../packages/mysql/src/type-policy.js";
+import { summarizeNativeDescriptorFacets } from "../../scripts/vocabulary/native-descriptor-facets.mjs";
 
 interface TypeCase {
   kind: "column" | "cast";
@@ -192,6 +193,7 @@ export async function captureMySqlDescriptorInventory(connectionUri: string, opt
       .filter(({ kind }) => kind === "column")
       .map(({ type }) => ({ type, known: isKnownMySqlType(type, schema) }));
     const report = {
+      facets: summarizeNativeDescriptorFacets({ fields, observations }),
       formatVersion: 1,
       engine,
       sqlMode,

@@ -14,6 +14,7 @@ import { postgres, postgresServerEvidence } from "../../packages/postgres/src/an
 import { createPgNativeContractAdapter } from "../../packages/postgres/src/pg-contracts.js";
 import { describePgStatement, type PgProtocolDescription } from "../../packages/postgres/src/pg-description.js";
 import { defaultPostgresTypePolicy } from "../../packages/postgres/src/type-policy.js";
+import { summarizeNativeDescriptorFacets } from "../../scripts/vocabulary/native-descriptor-facets.mjs";
 
 interface CatalogType {
   oid: number;
@@ -189,6 +190,7 @@ export async function capturePostgresDescriptorInventory(
     counts[key] = (counts[key] ?? 0) + 1;
   }
   const report = {
+    facets: summarizeNativeDescriptorFacets({ fields, observations }),
     formatVersion: 1,
     engine: version,
     environment: {

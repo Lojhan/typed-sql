@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import type * as SDK from "@duckdb/node-api";
 import { acquireNativeQueryContract, type NativeContractValueEvidence, queryContractDigest } from "@typed-sql/analysis";
 import { strict as assert } from "poku";
+import { summarizeNativeDescriptorFacets } from "../../../../scripts/vocabulary/native-descriptor-facets.mjs";
 import { type DuckDBType, formatDuckDBType, parseDuckDBType } from "../../src/native-types.js";
 import { createNodeDuckDBNativeContractAdapter } from "../../src/node-api-contracts.js";
 import { duckDBParameterOccurrences } from "../../src/parser/parser.js";
@@ -172,6 +173,7 @@ export async function captureDuckDBDescriptorInventory(sdk: Pick<typeof SDK, "Du
   const counts: Record<string, number> = {};
   for (const observation of observations) counts[observation.status] = (counts[observation.status] ?? 0) + 1;
   const report = {
+    facets: summarizeNativeDescriptorFacets({ fields, observations }),
     formatVersion: 1,
     engine: sdk.version(),
     environment: {
