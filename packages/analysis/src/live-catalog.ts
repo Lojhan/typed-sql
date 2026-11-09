@@ -5,6 +5,7 @@ import { canonicalContractData } from "./canonical.js";
 import { createAnalysisContextScope, defineAnalysisConfiguration } from "./configuration.js";
 import { assertContextScope } from "./context-scope.js";
 import { parseQueryContractContext, type QueryContractContext } from "./contracts.js";
+import { parseLiveAnalysisFailure } from "./live.js";
 import type { LiveContractPreparation, LiveContractView } from "./live-view.js";
 import {
   inspectNativeContext,
@@ -115,15 +116,27 @@ export async function prepareCapturedCatalogView<Snapshot extends SchemaSnapshot
           const baseToken: AnalysisCacheToken = observed.token;
           const catalogQuery = { scope, sql: input.candidates.map((candidate) => candidate.sql) };
           const catalogSelection = await input.cache.lookupProjectCatalog(catalogQuery);
-          const acquired = await abortable(
-            acquireNativeProjectCatalog({
-              adapter: owned.adapter,
-              sql: input.candidates.map((candidate) => candidate.sql),
-              context: base,
+          let acquired: Awaited<ReturnType<typeof acquireNativeProjectCatalog>>;
+          try {
+            acquired = await abortable(
+              acquireNativeProjectCatalog({
+                adapter: owned.adapter,
+                sql: input.candidates.map((candidate) => candidate.sql),
+                context: base,
+                signal,
+              }),
               signal,
-            }),
-            signal,
-          );
+            );
+          } catch (error) {
+            signal.throwIfAborted();
+            // A combined acquisition/cleanup failure cannot prove the prior lease was released.
+            if (!(error instanceof AggregateError)) {
+              const failure = owned.classifyError?.(error) ?? owned.adapter.classifyError?.(error);
+              if (failure && parseLiveAnalysisFailure(failure).kind === "stale-context")
+                throw new CatalogContextChangedError("Database context changed during selected catalog capture");
+            }
+            throw error;
+          }
           signal.throwIfAborted();
           if (acquired.status !== "acquired") {
             if (acquired.reason === "context-mismatch" || acquired.reason === "context-changed")
@@ -246,7 +259,7 @@ export async function prepareCapturedCatalogView<Snapshot extends SchemaSnapshot
           await current(signal);
           signal.throwIfAborted();
           if (!(await input.cache.areTokensCurrent([baseToken])))
-            throw new Error("Base catalog context changed before publication");
+            throw new CatalogContextChangedError("Base catalog context changed before publication");
           const published = await input.cache.publishProjectCatalog({
             query: catalogQuery,
             token: catalogSelection.token,

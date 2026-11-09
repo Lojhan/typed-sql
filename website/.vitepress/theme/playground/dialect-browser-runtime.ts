@@ -26,13 +26,13 @@ import { analyzeMySqlSemantics } from "../../../../packages/mysql/src/semantics.
 import { defaultMySqlTypePolicy, mapMySqlType } from "../../../../packages/mysql/src/type-policy.js";
 import { MYSQL_DIALECT_VERSION } from "../../../../packages/mysql/src/version.js";
 import { postgresServerEvidence, resolvePostgresCapabilities } from "../../../../packages/postgres/src/capabilities.js";
+import { resolveStatement as resolvePostgresStatement } from "../../../../packages/postgres/src/compatibility-resolver.js";
 import type { PostgresSchemaSnapshot } from "../../../../packages/postgres/src/index.js";
 import {
   SqlParseError as PostgresParseError,
   parseStatement as parsePostgresStatement,
 } from "../../../../packages/postgres/src/parser/index.js";
 import { tokenize as tokenizePostgres } from "../../../../packages/postgres/src/parser/tokenizer.js";
-import { resolveStatement as resolvePostgresStatement } from "../../../../packages/postgres/src/resolver.js";
 import { analyzePostgresSemantics } from "../../../../packages/postgres/src/semantics.js";
 import { defaultPostgresTypePolicy, mapPostgresType } from "../../../../packages/postgres/src/type-policy.js";
 import { POSTGRES_DIALECT_VERSION } from "../../../../packages/postgres/src/version.js";

@@ -33,7 +33,19 @@
       "./analysis",
       "./reconciliation",
       "./migrations",
-      "./project-catalog"
+      "./project-catalog",
+      "./analysis/14",
+      "./analysis/core/14",
+      "./analysis/15",
+      "./analysis/core/15",
+      "./analysis/16",
+      "./analysis/core/16",
+      "./analysis/17",
+      "./analysis/core/17",
+      "./analysis/18",
+      "./analysis/core/18",
+      "./analysis/19",
+      "./analysis/core/19"
     ]
   },
   "sideEffects": false,
@@ -55,7 +67,19 @@
     "./reconciliation": "./dist/packages/postgres/src/reconciliation.js",
     "./contract-profile": "./dist/packages/postgres/src/contract-profile.js",
     "./analysis": "./dist/packages/postgres/src/analysis.js",
-    "./project-catalog": "./dist/packages/postgres/src/project-catalog.js"
+    "./project-catalog": "./dist/packages/postgres/src/project-catalog.js",
+    "./analysis/14": "./dist/packages/postgres/src/analysis/14.js",
+    "./analysis/core/14": "./dist/packages/postgres/src/analysis/core/14.js",
+    "./analysis/15": "./dist/packages/postgres/src/analysis/15.js",
+    "./analysis/core/15": "./dist/packages/postgres/src/analysis/core/15.js",
+    "./analysis/16": "./dist/packages/postgres/src/analysis/16.js",
+    "./analysis/core/16": "./dist/packages/postgres/src/analysis/core/16.js",
+    "./analysis/17": "./dist/packages/postgres/src/analysis/17.js",
+    "./analysis/core/17": "./dist/packages/postgres/src/analysis/core/17.js",
+    "./analysis/18": "./dist/packages/postgres/src/analysis/18.js",
+    "./analysis/core/18": "./dist/packages/postgres/src/analysis/core/18.js",
+    "./analysis/19": "./dist/packages/postgres/src/analysis/19.js",
+    "./analysis/core/19": "./dist/packages/postgres/src/analysis/core/19.js"
   },
   "dependencies": {
     "@typed-sql/ast": "workspace:*",

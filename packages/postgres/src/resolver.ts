@@ -28,11 +28,7 @@ import type {
   SchemaSnapshot,
   TableSnapshot,
 } from "@typed-sql/schema";
-import {
-  postgresCatalogRoutineRule,
-  postgresCatalogTableRoutineRule,
-  postgresCatalogTypeMapping,
-} from "./catalog/index.js";
+import type { PostgresCatalogProvider } from "./catalog/provider.js";
 import { postgresEnumRuntimeType } from "./enum-runtime.js";
 import { fingerprintPostgresExpression, postgresExpressionIdentity } from "./expression-evidence.js";
 import type {
@@ -78,16 +74,7 @@ import {
   mapPostgresType,
   type PostgresTypePolicy,
 } from "./type-policy.js";
-import {
-  postgresCanCoerce,
-  postgresCanonicalType,
-  postgresCommonType,
-  postgresElementType,
-  postgresTypeCategory,
-  resolvePostgresCandidates,
-  resolvePostgresOperator,
-  resolvePostgresUnaryOperator,
-} from "./type-resolution.js";
+import type { PostgresTypeResolver } from "./type-resolution-factory.js";
 
 interface Relation {
   readonly alias: string;
@@ -203,6 +190,7 @@ export interface ResolveOptions {
   readonly typePolicy?: PostgresTypePolicy;
   readonly runtimeValidation?: boolean;
   readonly strictExpressions?: boolean;
+  readonly unknownRoutineRequiresContract?: boolean;
 }
 
 function sqlName(identifier: Identifier): string {
@@ -263,6 +251,9 @@ function isSpecialGrouping(
 }
 
 class Resolver {
+  readonly #catalog: PostgresCatalogProvider;
+  readonly #types: PostgresTypeResolver;
+  readonly #unknownRoutineRequiresContract: boolean;
   readonly #schema: SchemaSnapshot;
   readonly #policy: PostgresTypePolicy;
   readonly #strictExpressions: boolean;
@@ -277,7 +268,15 @@ class Resolver {
   #requiresJsonValidation = false;
   #jsonOperations = 0;
 
-  constructor(schema: SchemaSnapshot, options: ResolveOptions) {
+  constructor(
+    schema: SchemaSnapshot,
+    options: ResolveOptions,
+    catalog: PostgresCatalogProvider,
+    types: PostgresTypeResolver,
+  ) {
+    this.#catalog = catalog;
+    this.#types = types;
+    this.#unknownRoutineRequiresContract = options.unknownRoutineRequiresContract === true;
     this.#schema = schema;
     this.#runtimeValidation = options.runtimeValidation === true;
     this.#catalogTables = new WeakSet(Object.values(schema.tables));
@@ -806,7 +805,7 @@ class Resolver {
     );
     if (project.length) return project.every((routine) => routine.kind === "aggregate");
     const name = expression.name.name.toUpperCase();
-    const rule = postgresCatalogRoutineRule(name, this.#schema);
+    const rule = this.#catalog.routineRule(name, this.#schema);
     if (rule !== undefined && aggregateRoutineRules.has(rule)) return true;
     if (aggregateExtrema.has(name)) return true;
     if ((expression.withinGroup?.length ?? 0) > 0 && hypotheticalAggregates.has(name)) return true;
@@ -954,7 +953,7 @@ class Resolver {
     ) {
       return [];
     }
-    if (expression.kind === "call" && postgresCatalogRoutineRule(expression.name.name, this.#schema) === "grouping") {
+    if (expression.kind === "call" && this.#catalog.routineRule(expression.name.name, this.#schema) === "grouping") {
       return [];
     }
     if (expression.kind === "column") return [this.#groupKey(expression, scope)];
@@ -1906,11 +1905,11 @@ class Resolver {
           definition.databaseType.range,
         );
       }
-      const canonical = known ? postgresCanonicalType(requestedType, this.#schema) : undefined;
+      const canonical = known ? this.#types.postgresCanonicalType(requestedType, this.#schema) : undefined;
       let valid = known;
 
       if (definition.kind === "exists") {
-        if (canonical !== undefined && !postgresCanCoerce("boolean", canonical, "explicit", this.#schema)) {
+        if (canonical !== undefined && !this.#types.postgresCanCoerce("boolean", canonical, "explicit", this.#schema)) {
           this.#diagnostic(
             "TSQ203",
             `JSON_TABLE EXISTS result cannot be coerced to ${requestedType}`,
@@ -1941,7 +1940,7 @@ class Resolver {
       }
 
       if (definition.format !== undefined && canonical !== undefined) {
-        const mapping = postgresCatalogTypeMapping(canonical, this.#schema);
+        const mapping = this.#catalog.typeMapping(canonical, this.#schema);
         if (mapping !== "string" && mapping !== "bytes" && mapping !== "json") {
           this.#diagnostic(
             "TSQ203",
@@ -2157,7 +2156,7 @@ class Resolver {
       this.#diagnostic("TSQ212", `Routine ${expression.name.name} does not return rows`, expression.range);
       return [];
     }
-    const rule = postgresCatalogTableRoutineRule(expression.name.name, this.#schema);
+    const rule = this.#catalog.tableRoutineRule(expression.name.name, this.#schema);
     if (rule === "array-elements") {
       return argumentsList.map((argument, index) => ({
         name: index === 0 ? functionName : `${functionName}_${index + 1}`,
@@ -2203,7 +2202,7 @@ class Resolver {
       const selection =
         signature === undefined
           ? { kind: "none" as const }
-          : resolvePostgresCandidates(
+          : this.#types.resolvePostgresCandidates(
               [{ value: functionName, argumentTypes: signature, resultType: "jsonb" }],
               expression.arguments.map((argument, index) => this.#overloadInputType(argument, argumentsList[index])),
               this.#schema,
@@ -2273,7 +2272,7 @@ class Resolver {
         readonly resultType: string;
       }
     | undefined {
-    const result = resolvePostgresCandidates(
+    const result = this.#types.resolvePostgresCandidates(
       candidates.flatMap((candidate) => {
         const routineResult = candidate.result;
         if (routineResult.kind === "void" || routineResult.kind === "command") return [];
@@ -2463,7 +2462,9 @@ class Resolver {
         return { tsType: "unknown", nullable: false };
       case "array": {
         const expectedElement =
-          expected?.databaseType === undefined ? undefined : postgresElementType(expected.databaseType, this.#schema);
+          expected?.databaseType === undefined
+            ? undefined
+            : this.#types.postgresElementType(expected.databaseType, this.#schema);
         const expectedElementType =
           expectedElement === undefined ? undefined : this.#databaseType(expectedElement, expected?.nullable ?? true);
         const elements = expression.elements.map((element) =>
@@ -2479,7 +2480,7 @@ class Resolver {
         const databaseType =
           (elements.length === 0
             ? undefined
-            : postgresCommonType(
+            : this.#types.postgresCommonType(
                 elements.map((element) => element.databaseType),
                 this.#schema,
               )) ?? expectedElement;
@@ -2543,7 +2544,7 @@ class Resolver {
         for (const bound of bounds) {
           if (
             bound.resolved.databaseType !== undefined &&
-            !postgresCanCoerce(bound.resolved.databaseType, "integer", "implicit", this.#schema)
+            !this.#types.postgresCanCoerce(bound.resolved.databaseType, "integer", "implicit", this.#schema)
           ) {
             this.#diagnostic(
               "TSQ203",
@@ -2555,7 +2556,7 @@ class Resolver {
         if (expression.slice) {
           if (
             source.databaseType === undefined ||
-            postgresElementType(source.databaseType, this.#schema) === undefined
+            this.#types.postgresElementType(source.databaseType, this.#schema) === undefined
           ) {
             this.#diagnostic(
               "TSQ203",
@@ -2576,7 +2577,7 @@ class Resolver {
               ? "point"
               : source.databaseType === undefined
                 ? undefined
-                : postgresElementType(source.databaseType, this.#schema);
+                : this.#types.postgresElementType(source.databaseType, this.#schema);
         if (elementType === undefined) {
           this.#diagnostic(
             "TSQ203",
@@ -2594,7 +2595,9 @@ class Resolver {
       case "field-access": {
         const source = this.#resolveExpression(expression.expression, scope, ctes);
         const canonical =
-          source.databaseType === undefined ? undefined : postgresCanonicalType(source.databaseType, this.#schema);
+          source.databaseType === undefined
+            ? undefined
+            : this.#types.postgresCanonicalType(source.databaseType, this.#schema);
         const composite =
           canonical === undefined || this.#schema.formatVersion !== 2
             ? undefined
@@ -2647,7 +2650,10 @@ class Resolver {
             (expression.expression.kind === "literal" && expression.expression.value === null))
         )
           return source;
-        if (source.databaseType === undefined || postgresTypeCategory(source.databaseType, this.#schema) !== "string") {
+        if (
+          source.databaseType === undefined ||
+          this.#types.postgresTypeCategory(source.databaseType, this.#schema) !== "string"
+        ) {
           this.#diagnostic(
             "TSQ203",
             `COLLATE requires a collatable string value, received ${source.databaseType ?? source.tsType}`,
@@ -2666,13 +2672,17 @@ class Resolver {
             ? undefined
             : this.#resolveExpression(expression.zone, scope, ctes, this.#databaseType("text", true));
         const sourceType =
-          source.databaseType === undefined ? undefined : postgresCanonicalType(source.databaseType, this.#schema);
+          source.databaseType === undefined
+            ? undefined
+            : this.#types.postgresCanonicalType(source.databaseType, this.#schema);
         const zoneType =
-          zone?.databaseType === undefined ? undefined : postgresCanonicalType(zone.databaseType, this.#schema);
+          zone?.databaseType === undefined
+            ? undefined
+            : this.#types.postgresCanonicalType(zone.databaseType, this.#schema);
         const validZone =
           expression.local ||
           (zoneType !== undefined &&
-            (zoneType === "interval" || postgresCanCoerce(zoneType, "text", "implicit", this.#schema)));
+            (zoneType === "interval" || this.#types.postgresCanCoerce(zoneType, "text", "implicit", this.#schema)));
         const resultType =
           sourceType === "timestamp"
             ? "timestamptz"
@@ -2714,7 +2724,7 @@ class Resolver {
         } else if (
           source.databaseType !== undefined &&
           !this.#isUnknownCastSource(expression.expression) &&
-          !postgresCanCoerce(source.databaseType, expression.databaseType.name, "explicit", this.#schema)
+          !this.#types.postgresCanCoerce(source.databaseType, expression.databaseType.name, "explicit", this.#schema)
         ) {
           this.#diagnostic(
             "TSQ230",
@@ -2723,7 +2733,7 @@ class Resolver {
             "Use a supported intermediate type or add exact extension cast evidence.",
           );
         }
-        const databaseType = postgresCanonicalType(expression.databaseType.name, this.#schema);
+        const databaseType = this.#types.postgresCanonicalType(expression.databaseType.name, this.#schema);
         if (
           (databaseType === "json" || databaseType === "jsonb") &&
           expression.expression.kind === "literal" &&
@@ -2752,7 +2762,7 @@ class Resolver {
           ctes,
           expression.operator === "NOT" ? this.#databaseType("boolean", false) : undefined,
         );
-        const operator = resolvePostgresUnaryOperator(
+        const operator = this.#types.resolvePostgresUnaryOperator(
           expression.operator,
           this.#overloadInputType(expression.expression, operand),
           this.#schema,
@@ -2949,7 +2959,7 @@ class Resolver {
           if (
             source.databaseType !== undefined &&
             !this.#isUnknownCastSource(expression.value.expression) &&
-            !postgresCanCoerce(source.databaseType, "json", "explicit", this.#schema)
+            !this.#types.postgresCanCoerce(source.databaseType, "json", "explicit", this.#schema)
           ) {
             this.#diagnostic(
               "TSQ230",
@@ -3002,10 +3012,12 @@ class Resolver {
         const context = this.#resolveSqlJsonValue(expression.context, scope, ctes, true);
         const path = this.#resolveExpression(expression.path, scope, ctes, this.#databaseType("jsonpath", true));
         const pathType =
-          path.databaseType === undefined ? undefined : postgresCanonicalType(path.databaseType, this.#schema);
+          path.databaseType === undefined
+            ? undefined
+            : this.#types.postgresCanonicalType(path.databaseType, this.#schema);
         const pathValid =
           pathType === "jsonpath" ||
-          (pathType !== undefined && postgresTypeCategory(pathType, this.#schema) === "string") ||
+          (pathType !== undefined && this.#types.postgresTypeCategory(pathType, this.#schema) === "string") ||
           (expression.path.kind === "literal" && expression.path.value === null);
         if (!pathValid) {
           this.#diagnostic(
@@ -3029,10 +3041,12 @@ class Resolver {
         const context = this.#resolveSqlJsonValue(expression.context, scope, ctes, true);
         const path = this.#resolveExpression(expression.path, scope, ctes, this.#databaseType("jsonpath", true));
         const pathType =
-          path.databaseType === undefined ? undefined : postgresCanonicalType(path.databaseType, this.#schema);
+          path.databaseType === undefined
+            ? undefined
+            : this.#types.postgresCanonicalType(path.databaseType, this.#schema);
         const pathValid =
           pathType === "jsonpath" ||
-          (pathType !== undefined && postgresTypeCategory(pathType, this.#schema) === "string") ||
+          (pathType !== undefined && this.#types.postgresTypeCategory(pathType, this.#schema) === "string") ||
           (expression.path.kind === "literal" && expression.path.value === null);
         if (!pathValid) {
           this.#diagnostic(
@@ -3051,12 +3065,12 @@ class Resolver {
             expression.returning?.databaseType.range ?? expression.range,
           );
         }
-        const canonicalOutput = outputKnown ? postgresCanonicalType(outputType, this.#schema) : undefined;
+        const canonicalOutput = outputKnown ? this.#types.postgresCanonicalType(outputType, this.#schema) : undefined;
         let outputValid = outputKnown;
         const outputFormat = expression.returning?.format;
         if (outputFormat !== undefined) {
           const mapping =
-            canonicalOutput === undefined ? undefined : postgresCatalogTypeMapping(canonicalOutput, this.#schema);
+            canonicalOutput === undefined ? undefined : this.#catalog.typeMapping(canonicalOutput, this.#schema);
           if (mapping !== "string" && mapping !== "bytes" && mapping !== "json") {
             this.#diagnostic(
               "TSQ203",
@@ -3116,10 +3130,12 @@ class Resolver {
         const context = this.#resolveSqlJsonValue(expression.context, scope, ctes, true);
         const path = this.#resolveExpression(expression.path, scope, ctes, this.#databaseType("jsonpath", true));
         const pathType =
-          path.databaseType === undefined ? undefined : postgresCanonicalType(path.databaseType, this.#schema);
+          path.databaseType === undefined
+            ? undefined
+            : this.#types.postgresCanonicalType(path.databaseType, this.#schema);
         const pathValid =
           pathType === "jsonpath" ||
-          (pathType !== undefined && postgresTypeCategory(pathType, this.#schema) === "string") ||
+          (pathType !== undefined && this.#types.postgresTypeCategory(pathType, this.#schema) === "string") ||
           (expression.path.kind === "literal" && expression.path.value === null);
         if (!pathValid) {
           this.#diagnostic(
@@ -3138,7 +3154,7 @@ class Resolver {
             expression.returning?.databaseType.range ?? expression.range,
           );
         }
-        const canonicalOutput = outputKnown ? postgresCanonicalType(outputType, this.#schema) : undefined;
+        const canonicalOutput = outputKnown ? this.#types.postgresCanonicalType(outputType, this.#schema) : undefined;
         let outputValid = outputKnown;
         if (expression.returning?.format !== undefined) {
           this.#diagnostic(
@@ -3247,7 +3263,7 @@ class Resolver {
           rightType =
             rightExpression.databaseType === undefined
               ? undefined
-              : postgresElementType(rightExpression.databaseType, this.#schema);
+              : this.#types.postgresElementType(rightExpression.databaseType, this.#schema);
           if (rightExpression.databaseType !== undefined && rightType === undefined) {
             this.#diagnostic(
               "TSQ203",
@@ -3262,7 +3278,7 @@ class Resolver {
           this.#diagnostic("TSQ203", "Quantified subquery result type is unknown", expression.right.range);
           return { tsType: "unknown", nullable: true };
         }
-        const operator = resolvePostgresOperator(
+        const operator = this.#types.resolvePostgresOperator(
           expression.operator,
           this.#overloadInputType(expression.left, left),
           rightType,
@@ -3315,7 +3331,8 @@ class Resolver {
     return ["=", "<>", "!=", "<", "<=", ">", ">="].includes(operator) &&
       brandBaseType(source.tsType) !== undefined &&
       source.databaseType !== undefined &&
-      postgresCanonicalType(source.databaseType, this.#schema) === postgresCanonicalType(databaseType, this.#schema)
+      this.#types.postgresCanonicalType(source.databaseType, this.#schema) ===
+        this.#types.postgresCanonicalType(databaseType, this.#schema)
       ? { ...expected, tsType: source.tsType }
       : expected;
   }
@@ -3346,7 +3363,7 @@ class Resolver {
     if (expression.operator === "IS" || expression.operator === "IS NOT") {
       return { tsType: "boolean", nullable: false, databaseType: "boolean" };
     }
-    const operator = resolvePostgresOperator(
+    const operator = this.#types.resolvePostgresOperator(
       expression.operator,
       this.#overloadInputType(expression.left, left),
       this.#overloadInputType(expression.right, right),
@@ -3573,7 +3590,7 @@ class Resolver {
       );
       return { left, right };
     }
-    const operator = resolvePostgresOperator(
+    const operator = this.#types.resolvePostgresOperator(
       "=",
       this.#overloadInputType(leftExpression, left),
       rightExpression === undefined ? right.databaseType : this.#overloadInputType(rightExpression, right),
@@ -3632,7 +3649,7 @@ class Resolver {
     const schema = this.#schema;
     if (schema.formatVersion !== 2) return false;
     const composite = (databaseType: string): CompositeTypeSnapshot | undefined => {
-      const canonical = postgresCanonicalType(databaseType, schema);
+      const canonical = this.#types.postgresCanonicalType(databaseType, schema);
       return Object.values(schema.types).find((type): type is CompositeTypeSnapshot => {
         if (type.kind !== "composite") return false;
         const qualified = type.schema === undefined ? type.name : `${type.schema}.${type.name}`;
@@ -3645,7 +3662,7 @@ class Resolver {
     const right = composite(rightType);
     if (left === undefined || right === undefined || left.fields.length !== right.fields.length) return false;
     return left.fields.every((field, index) => {
-      const candidate = resolvePostgresOperator(
+      const candidate = this.#types.resolvePostgresOperator(
         operator,
         field.databaseType,
         right.fields[index]!.databaseType,
@@ -3676,7 +3693,7 @@ class Resolver {
     leftRow.elements.forEach((leftExpression, index) => {
       let left = this.#resolveExpression(leftExpression, scope, ctes);
       const right = resolved.columns[index]!;
-      const operator = resolvePostgresOperator(
+      const operator = this.#types.resolvePostgresOperator(
         expression.operator,
         this.#overloadInputType(leftExpression, left),
         right.databaseType,
@@ -3739,7 +3756,7 @@ class Resolver {
       const rightExpression = rightRow.elements[index]!;
       let left = this.#resolveExpression(leftExpression, scope, ctes);
       let right = this.#resolveExpression(rightExpression, scope, ctes);
-      const operator = resolvePostgresOperator(
+      const operator = this.#types.resolvePostgresOperator(
         expression.operator,
         this.#overloadInputType(leftExpression, left),
         this.#overloadInputType(rightExpression, right),
@@ -3880,10 +3897,10 @@ class Resolver {
     if (
       declaration !== undefined &&
       (declaration.source === "database" || this.#runtimeValidation) &&
-      ["json", "jsonb"].includes(postgresCanonicalType(column.databaseType, this.#schema))
+      ["json", "jsonb"].includes(this.#types.postgresCanonicalType(column.databaseType, this.#schema))
     )
       return this.#jsonResult(
-        postgresCanonicalType(column.databaseType, this.#schema) as "json" | "jsonb",
+        this.#types.postgresCanonicalType(column.databaseType, this.#schema) as "json" | "jsonb",
         declaration.shape,
         column.nullable || relation.nullable,
         declaration.source === "application",
@@ -3923,7 +3940,7 @@ class Resolver {
       routines.some(
         (routine) =>
           routine.extension?.attributes[postgresProjectCatalogPermissionKey] !== "fixed-result" ||
-          !postgresProjectRoutineIsFixed(routine, this.#schema, this.#policy),
+          !postgresProjectRoutineIsFixed(routine, this.#schema, this.#policy, this.#catalog),
       )
     )
       return unresolved("Project routine declaration requires query-specific evidence");
@@ -3938,7 +3955,7 @@ class Resolver {
     const actualTypes = expression.arguments.map((argument, index) =>
       this.#overloadInputType(argument, resolved[index]),
     );
-    const selection = resolvePostgresCandidates(
+    const selection = this.#types.resolvePostgresCandidates(
       routines.flatMap((routine) => {
         const argumentTypes = this.#routineCallTypes(routine, expression);
         if (argumentTypes === undefined || routine.result.kind !== "scalar") return [];
@@ -3947,7 +3964,8 @@ class Resolver {
           !argumentTypes.every(
             (type, index) =>
               actualTypes[index] !== undefined &&
-              postgresCanonicalType(actualTypes[index]!, this.#schema) === postgresCanonicalType(type, this.#schema),
+              this.#types.postgresCanonicalType(actualTypes[index]!, this.#schema) ===
+                this.#types.postgresCanonicalType(type, this.#schema),
           )
         )
           return [];
@@ -3998,7 +4016,7 @@ class Resolver {
         this.#diagnostic("TSQ227", "merge_action() is only valid in MERGE RETURNING", expression.range);
       return { tsType: "string", nullable: false, databaseType: "text" };
     }
-    const routineRule = postgresCatalogRoutineRule(name, this.#schema);
+    const routineRule = this.#catalog.routineRule(name, this.#schema);
     const aggregate = this.#isAggregateCall(expression);
     const windowOnly =
       routineRule === "bigint-window" ||
@@ -4297,7 +4315,7 @@ class Resolver {
       const selection =
         signature === undefined
           ? { kind: "none" as const }
-          : resolvePostgresCandidates(
+          : this.#types.resolvePostgresCandidates(
               [
                 {
                   value: name,
@@ -4355,7 +4373,7 @@ class Resolver {
     const schemaName = expression.schema === undefined ? undefined : sqlName(expression.schema);
     const routines = this.#index.routineOverloads(functionName, expression.arguments.length, schemaName);
     if (routines.length > 0) {
-      const selection = resolvePostgresCandidates(
+      const selection = this.#types.resolvePostgresCandidates(
         routines.flatMap((routine) => {
           const result = routine.result;
           if (result.kind !== "scalar" && result.kind !== "set") return [];
@@ -4434,7 +4452,15 @@ class Resolver {
       );
       return { tsType: "unknown", nullable: true };
     }
-    this.#diagnostic("TSQ202", `Unknown function ${expression.name.name}`, expression.range, undefined, "warning");
+    this.#diagnostic(
+      this.#unknownRoutineRequiresContract ? "TSQ408" : "TSQ202",
+      this.#unknownRoutineRequiresContract
+        ? `No offline rule for function ${expression.name.name}; generate a qualified query contract.`
+        : `Unknown function ${expression.name.name}`,
+      expression.range,
+      undefined,
+      this.#unknownRoutineRequiresContract ? "error" : "warning",
+    );
     return { tsType: "unknown", nullable: true };
   }
 
@@ -4454,7 +4480,9 @@ class Resolver {
     if (typeof value.runtimeType === "object" && "json" in value.runtimeType) return value.runtimeType.json;
     if (value.scalarJsonShape !== undefined) return undefined;
     const canonical =
-      value.databaseType === undefined ? undefined : postgresCanonicalType(value.databaseType, this.#schema);
+      value.databaseType === undefined
+        ? undefined
+        : this.#types.postgresCanonicalType(value.databaseType, this.#schema);
     return canonical === "json" || canonical === "jsonb"
       ? { shape: unknownJsonShape, representation: this.#policy.json === "string" ? "text" : "parsed" }
       : undefined;
@@ -4462,7 +4490,7 @@ class Resolver {
 
   #nativeJsonArrayType(databaseType: string | undefined): RuntimeValueType | undefined {
     if (databaseType === undefined) return undefined;
-    const canonical = postgresCanonicalType(databaseType, this.#schema);
+    const canonical = this.#types.postgresCanonicalType(databaseType, this.#schema);
     if (!canonical.endsWith("[]")) return undefined;
     const element = canonical.slice(0, -2);
     const json = this.#jsonDescriptor({ tsType: "unknown", nullable: true, databaseType: element });
@@ -4494,7 +4522,7 @@ class Resolver {
     if (
       value.scalarJsonShape !== undefined &&
       value.databaseType !== undefined &&
-      ["json", "jsonb"].includes(postgresCanonicalType(value.databaseType, this.#schema))
+      ["json", "jsonb"].includes(this.#types.postgresCanonicalType(value.databaseType, this.#schema))
     )
       return {
         json: { shape: value.scalarJsonShape, representation: this.#policy.json === "string" ? "text" : "parsed" },
@@ -4540,8 +4568,8 @@ class Resolver {
       (isJsonType(value) ? value.json?.shape : undefined) ??
       (expression === undefined ? undefined : this.#jsonConversions.get(expression));
     if (shape === undefined && value.databaseType !== undefined) {
-      const canonical = postgresCanonicalType(value.databaseType, this.#schema);
-      const mapping = canonical.endsWith("[]") ? undefined : postgresCatalogTypeMapping(canonical, this.#schema);
+      const canonical = this.#types.postgresCanonicalType(value.databaseType, this.#schema);
+      const mapping = canonical.endsWith("[]") ? undefined : this.#catalog.typeMapping(canonical, this.#schema);
       const composite =
         mapping !== undefined || canonical.endsWith("[]") || this.#schema.formatVersion !== 2
           ? undefined
@@ -4824,7 +4852,7 @@ class Resolver {
     actual: string,
     context: "assignment" | "explicit" | "implicit" = "implicit",
   ): boolean {
-    return postgresCanCoerce(actual, expected, context, this.#schema);
+    return this.#types.postgresCanCoerce(actual, expected, context, this.#schema);
   }
 
   #overloadInputType(expression: Expression, resolved: ResolvedType | undefined): string | undefined {
@@ -4944,7 +4972,9 @@ class Resolver {
         : undefined;
     const resolved = this.#resolveExpression(value.expression, scope, ctes, expected);
     const canonical =
-      resolved.databaseType === undefined ? undefined : postgresCanonicalType(resolved.databaseType, this.#schema);
+      resolved.databaseType === undefined
+        ? undefined
+        : this.#types.postgresCanonicalType(resolved.databaseType, this.#schema);
     let valid = true;
 
     if (value.format?.encoding !== undefined) {
@@ -4971,7 +5001,7 @@ class Resolver {
       const jsonInput =
         canonical === "json" ||
         canonical === "jsonb" ||
-        (canonical !== undefined && postgresTypeCategory(canonical, this.#schema) === "string") ||
+        (canonical !== undefined && this.#types.postgresTypeCategory(canonical, this.#schema) === "string") ||
         (value.format !== undefined && canonical === "bytea");
       if (!nullLiteral && !jsonInput) {
         this.#diagnostic(
@@ -5028,8 +5058,9 @@ class Resolver {
     feature: "JSON_OBJECT" | "JSON_OBJECTAGG",
   ): boolean {
     const key = this.#resolveExpression(expression, scope, ctes);
-    const keyType = key.databaseType === undefined ? undefined : postgresCanonicalType(key.databaseType, this.#schema);
-    const keyCategory = keyType === undefined ? undefined : postgresTypeCategory(keyType, this.#schema);
+    const keyType =
+      key.databaseType === undefined ? undefined : this.#types.postgresCanonicalType(key.databaseType, this.#schema);
+    const keyCategory = keyType === undefined ? undefined : this.#types.postgresTypeCategory(keyType, this.#schema);
     if (
       (expression.kind === "literal" && expression.value === null) ||
       expression.kind === "row" ||
@@ -5089,12 +5120,14 @@ class Resolver {
         : undefined;
     const resolved = this.#resolveExpression(value.expression, scope, ctes, expected);
     const canonical =
-      resolved.databaseType === undefined ? undefined : postgresCanonicalType(resolved.databaseType, this.#schema);
+      resolved.databaseType === undefined
+        ? undefined
+        : this.#types.postgresCanonicalType(resolved.databaseType, this.#schema);
     const validInput =
       canonical === "json" ||
       canonical === "jsonb" ||
       canonical === "bytea" ||
-      (canonical !== undefined && postgresTypeCategory(canonical, this.#schema) === "string");
+      (canonical !== undefined && this.#types.postgresTypeCategory(canonical, this.#schema) === "string");
     let valid = validInput;
     if (!validInput) {
       this.#diagnostic(
@@ -5139,8 +5172,8 @@ class Resolver {
       );
       return { resolved: { tsType: "unknown", nullable: true, databaseType: "unknown" }, valid: false };
     }
-    const canonical = postgresCanonicalType(requestedType, this.#schema);
-    const mapping = postgresCatalogTypeMapping(canonical, this.#schema);
+    const canonical = this.#types.postgresCanonicalType(requestedType, this.#schema);
+    const mapping = this.#catalog.typeMapping(canonical, this.#schema);
     let valid = mapping === "string" || mapping === "bytes";
     if (!valid) {
       this.#diagnostic(
@@ -5177,11 +5210,13 @@ class Resolver {
 
   #validateSqlJsonFormat(format: JsonFormat, resolved: ResolvedType, feature: string): boolean {
     const canonical =
-      resolved.databaseType === undefined ? undefined : postgresCanonicalType(resolved.databaseType, this.#schema);
+      resolved.databaseType === undefined
+        ? undefined
+        : this.#types.postgresCanonicalType(resolved.databaseType, this.#schema);
     const validInput =
       canonical === "json" ||
       canonical === "jsonb" ||
-      (canonical !== undefined && postgresTypeCategory(canonical, this.#schema) === "string") ||
+      (canonical !== undefined && this.#types.postgresTypeCategory(canonical, this.#schema) === "string") ||
       canonical === "bytea";
     let valid = validInput;
     if (!validInput) {
@@ -5224,8 +5259,8 @@ class Resolver {
       );
       return { resolved: { tsType: "unknown", nullable: true, databaseType: "unknown" }, valid: false };
     }
-    const canonical = postgresCanonicalType(requestedType, this.#schema);
-    const mapping = postgresCatalogTypeMapping(canonical, this.#schema);
+    const canonical = this.#types.postgresCanonicalType(requestedType, this.#schema);
+    const mapping = this.#catalog.typeMapping(canonical, this.#schema);
     let valid = mapping === "string" || mapping === "bytes" || mapping === "json";
     if (!valid) {
       this.#diagnostic(
@@ -5299,7 +5334,7 @@ class Resolver {
       expected?.databaseType !== undefined &&
       resolved.databaseType !== undefined &&
       !this.#isUnknownCastSource(expression) &&
-      !postgresCanCoerce(resolved.databaseType, expected.databaseType, "assignment", this.#schema)
+      !this.#types.postgresCanCoerce(resolved.databaseType, expected.databaseType, "assignment", this.#schema)
     ) {
       this.#diagnostic(
         "TSQ203",
@@ -5502,7 +5537,7 @@ class Resolver {
   }
 
   #isNumericType(databaseType: string): boolean {
-    const mapping = postgresCatalogTypeMapping(databaseType, this.#schema);
+    const mapping = this.#catalog.typeMapping(databaseType, this.#schema);
     return mapping === "bigint" || mapping === "number" || mapping === "numeric";
   }
 
@@ -5522,7 +5557,7 @@ class Resolver {
 
   #snapshotType(column: ColumnSnapshot | undefined): ResolvedType | undefined {
     if (column === undefined) return undefined;
-    const databaseType = postgresCanonicalType(column.databaseType, this.#schema);
+    const databaseType = this.#types.postgresCanonicalType(column.databaseType, this.#schema);
     if (
       column.jsonDeclaration !== undefined &&
       (column.jsonDeclaration.source === "database" || this.#runtimeValidation) &&
@@ -5591,17 +5626,21 @@ class Resolver {
 export function resolveStatement(
   statement: Statement,
   schema: SchemaSnapshot,
-  options: ResolveOptions = {},
+  options: ResolveOptions,
+  catalog: PostgresCatalogProvider,
+  types: PostgresTypeResolver,
 ): ResolvedQuery {
-  return new Resolver(schema, options).resolve(statement);
+  return new Resolver(schema, options, catalog, types).resolve(statement);
 }
 
 export function resolveSelect(
   statement: SelectStatement,
   schema: SchemaSnapshot,
-  options: ResolveOptions = {},
+  options: ResolveOptions,
+  catalog: PostgresCatalogProvider,
+  types: PostgresTypeResolver,
 ): ResolvedQuery {
-  return resolveStatement(statement, schema, options);
+  return resolveStatement(statement, schema, options, catalog, types);
 }
 
 export { rowTypeLiteral } from "@typed-sql/core";

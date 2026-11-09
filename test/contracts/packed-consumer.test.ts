@@ -302,7 +302,7 @@ await describe("packed public packages", async () => {
         import { createRequire } from "node:module";
         import { synthetic, sql as syntheticSql, typePolicy as syntheticTypePolicy } from "@acme/typed-sql-synthetic";
         import { assertDialectPlugin, bindRoutineArguments, defineConfig, renderQuery } from "@typed-sql/core";
-        import { sql as postgresSql, typePolicy as postgresTypePolicy } from "@typed-sql/postgres"; import { postgres } from "@typed-sql/postgres/analysis";
+        import { sql as postgresSql, typePolicy as postgresTypePolicy } from "@typed-sql/postgres"; import { postgres, POSTGRES_SUPPORT_POLICY, postgresServerEvidence } from "@typed-sql/postgres/analysis";
         import { postgresRenderer } from "@typed-sql/postgres/runtime";
         import { loadPgDriver } from "@typed-sql/postgres/pg";
         import { sql as mysqlSql, typePolicy as mysqlTypePolicy } from "@typed-sql/mysql"; import { mysql, MYSQL_SUPPORT_POLICY, mySqlServerEvidence } from "@typed-sql/mysql/analysis";
@@ -345,6 +345,16 @@ await describe("packed public packages", async () => {
           catch (error) { if (error.message === driver + " was installed transitively") throw error; }
         }
         if (postgres().id !== "postgres") throw new Error("dialect import failed");
+        for (const major of [...POSTGRES_SUPPORT_POLICY.stableMajors, POSTGRES_SUPPORT_POLICY.canary.major]) {
+          const selected = await import("@typed-sql/postgres/analysis/"+major);
+          const core = await import("@typed-sql/postgres/analysis/core/"+major);
+          if(Object.keys(selected).join(",")!=="postgres"||Object.keys(core).join(",")!=="postgres")throw Error("PostgreSQL selected/core exports changed");
+          assertDialectPlugin(selected.postgres());assertDialectPlugin(core.postgres());
+          const schema={formatVersion:1,dialect:"postgres",server:postgresServerEvidence(major+".0"),tables:{}};
+          if(selected.postgres().validateSnapshot(schema).server.versionKey!==String(major))throw Error("Selected PostgreSQL major changed");
+          let refused=false;try{core.postgres().validateSnapshot({...schema,server:undefined});}catch{refused=true;}
+          if(!refused)throw Error("Selected PostgreSQL core accepted missing major evidence");
+        }
         if (mysql().id !== "mysql") throw new Error("MySQL dialect import failed");
         for(const target of [...MYSQL_SUPPORT_POLICY.stable,MYSQL_SUPPORT_POLICY.canary]) {
           const selected=await import("@typed-sql/mysql/analysis/"+target.series);

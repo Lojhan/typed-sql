@@ -14,6 +14,7 @@ import {
   type SchemaSnapshotV2,
 } from "@typed-sql/schema";
 import type { PostgresSchemaSnapshot } from "./analysis-options.js";
+import { postgresCatalogProvider } from "./catalog/index.js";
 import { validatePostgresSnapshot } from "./profile-snapshot.js";
 import {
   postgresProjectCatalogOwner,
@@ -54,7 +55,9 @@ export function createPostgresProjectCatalog(input: {
     });
     if (!selected.length) continue;
     // Keep every sibling. Partial family extraction could change overload selection.
-    const fixed = overloads.every((routine) => postgresProjectRoutineIsFixed(routine, source, policy));
+    const fixed = overloads.every((routine) =>
+      postgresProjectRoutineIsFixed(routine, source, policy, postgresCatalogProvider),
+    );
     for (const routine of overloads)
       entries.push({
         kind: "routine",
@@ -98,7 +101,10 @@ export function createPostgresProjectCatalogContribution(): ProjectCatalogContri
         const routine = parsed.routines.selected![0]!;
         if (routine.identity !== entry.identity || existing.has(routine.identity))
           throw new TypeError("Conflicting PostgreSQL project routine identity");
-        if (entry.permission === "fixed-result" && !postgresProjectRoutineIsFixed(routine, schema, policy))
+        if (
+          entry.permission === "fixed-result" &&
+          !postgresProjectRoutineIsFixed(routine, schema, policy, postgresCatalogProvider)
+        )
           throw new TypeError("PostgreSQL project routine does not establish a fixed result");
         existing.add(routine.identity);
         const result = routine.result;

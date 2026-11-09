@@ -19,6 +19,8 @@ description: PostgreSQL grammar coverage, catalog introspection, application-own
 - `@typed-sql/postgres/query` — portable `sql`, renderer, and runtime value descriptors for buffered adapters.
 
 - `@typed-sql/postgres` — `sql`, runtime plan primitives, renderer and type policy.
+- `@typed-sql/postgres/analysis/<major>` — analyzer with one major's catalog and all maintained offline rules.
+- `@typed-sql/postgres/analysis/core/<major>` — the same maintained rules, with unmapped functions requesting qualified query contracts through `TSQ408`.
 - `@typed-sql/postgres/analysis` — explicit eager analyzer and compatibility exports, including schema introspection and semantic routing.
 - `@typed-sql/postgres/runtime` — driver-neutral rendering and codec utilities.
 - `@typed-sql/postgres/pg` — schema provider, executable database adapter, lazy live verifier, and structured-plan inspector for application-owned `pg`.
@@ -45,6 +47,37 @@ incompatible lexical setting produces `TSQ402`–`TSQ407` or conservative `unkno
 the newest grammar behavior. Unqualified names follow the captured search path and current-role
 visibility. Prefer schema-qualified names when compilation and execution can use different roles or
 search paths.
+
+## Selecting an offline analyzer
+
+Development tooling can load one major explicitly, for example:
+
+```ts
+import { postgres } from "@typed-sql/postgres/analysis/core/18";
+
+const analyzer = postgres();
+```
+
+| Major | Full analyzer | Core analyzer |
+| --- | --- | --- |
+| 14 | `@typed-sql/postgres/analysis/14` | `@typed-sql/postgres/analysis/core/14` |
+| 15 | `@typed-sql/postgres/analysis/15` | `@typed-sql/postgres/analysis/core/15` |
+| 16 | `@typed-sql/postgres/analysis/16` | `@typed-sql/postgres/analysis/core/16` |
+| 17 | `@typed-sql/postgres/analysis/17` | `@typed-sql/postgres/analysis/core/17` |
+| 18 | `@typed-sql/postgres/analysis/18` | `@typed-sql/postgres/analysis/core/18` |
+| 19 | `@typed-sql/postgres/analysis/19` | `@typed-sql/postgres/analysis/core/19` |
+
+The selected analyzer requires matching major evidence in its snapshot. Entry points exist for
+majors 14–19; the canary still requires `versionPolicy: "canary"`. Common expressions, maintained
+function rules, JSON shapes, operators and coercions stay offline. An unmapped function preserves
+its argument evidence and produces `TSQ408`; configured live analysis or explicit generation can
+supply a qualified exact-query contract. Ordinary offline checks do not initiate connections.
+Other static errors remain blocking, and native acquisition keeps its own narrower version and
+statement boundaries. A selected-major import does not expand native support.
+
+All maintained PostgreSQL rules remain in the core; there is no additional compatibility pack.
+The generic `/analysis` entrypoint retains all majors and its existing diagnostics. Application
+queries continue importing `sql` from `@typed-sql/postgres`.
 
 ## Supported SQL
 

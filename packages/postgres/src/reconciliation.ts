@@ -56,17 +56,24 @@ export function createPostgresContractReconciler(
     ...postgresContractReconciliationOwner,
     grammar: { id: "postgres", version: POSTGRES_DIALECT_VERSION },
     classify(claim) {
-      return claim.diagnostics.some((item) => item.severity === "error")
+      const errors = claim.diagnostics.filter((item) => item.severity === "error");
+      return errors.some((item) => item.code !== "TSQ408")
         ? {
             status: "invalid",
             rule: "static-errors-remain-blocking",
-            reason: "This owner has not qualified an unsupported-production exception for these diagnostics",
+            reason: "Invalid SQL and unsupported syntax remain blocking",
           }
-        : {
-            status: "resolved",
-            rule: "independent-static-analysis",
-            reason: "Compare all available static facets, including results with no diagnostics",
-          };
+        : errors.length
+          ? {
+              status: "unsupported",
+              rule: "routine-result-requires-native-evidence",
+              reason: "Only an unmapped offline routine rule may be supplied by qualified native description",
+            }
+          : {
+              status: "resolved",
+              rule: "independent-static-analysis",
+              reason: "Compare all available static facets, including results with no diagnostics",
+            };
     },
     compare({ facet, expected, native, target }) {
       if (facet === "nullability") return nullability(expected, native);

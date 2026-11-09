@@ -4,7 +4,7 @@ import { defaultPostgresTypePolicy, type PostgresTypePolicy } from "./policy.js"
 export const postgresContractAdapterVersion = "postgres-contract-describe-v3";
 export const postgresContractReconciliationOwner = Object.freeze({
   id: "@typed-sql/postgres/reconciliation",
-  version: "postgres-contract-reconciliation-v1",
+  version: "postgres-contract-reconciliation-v2",
 });
 export function postgresContractIdentity(
   policy: PostgresTypePolicy = defaultPostgresTypePolicy,

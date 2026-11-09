@@ -1,8 +1,8 @@
 import { describe, it, strict } from "poku";
 import type { SchemaSnapshot } from "../../schema/src/index.js";
 import { postgresServerEvidence } from "../src/capabilities.js";
+import { resolveSelect, resolveStatement } from "../src/compatibility-resolver.js";
 import { parseSelect, parseStatement } from "../src/parser/index.js";
-import { resolveSelect, resolveStatement } from "../src/resolver.js";
 
 const schema = {
   formatVersion: 1,

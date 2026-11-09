@@ -1,7 +1,7 @@
 export { postgresProjectCatalogOwner } from "./project-catalog-identity.js";
 
 import type { RoutineSnapshot, SchemaSnapshot } from "@typed-sql/schema";
-import { postgresCatalogType } from "./catalog/index.js";
+import type { PostgresCatalogProvider } from "./catalog/provider.js";
 import { mapPostgresType, type PostgresTypePolicy } from "./type-policy.js";
 
 export const postgresProjectCatalogPermissionKey = "projectRoutineInference";
@@ -10,13 +10,14 @@ export function postgresProjectRoutineIsFixed(
   routine: RoutineSnapshot,
   schema: SchemaSnapshot,
   policy: PostgresTypePolicy,
+  owner: PostgresCatalogProvider,
 ): boolean {
   const known = (type: { readonly databaseType: string; readonly typeIdentity: string }): boolean => {
     if (!type.typeIdentity.startsWith("pg_catalog.") || /[.()[\]]/u.test(type.databaseType)) return false;
-    const catalog = postgresCatalogType(type.databaseType, schema);
+    const catalog = owner.type(type.databaseType, schema);
     return (
       catalog !== undefined &&
-      postgresCatalogType(type.typeIdentity.slice("pg_catalog.".length), schema)?.name === catalog.name &&
+      owner.type(type.typeIdentity.slice("pg_catalog.".length), schema)?.name === catalog.name &&
       catalog.mapping !== "numeric" &&
       mapPostgresType(type.databaseType, policy, schema) !== "unknown"
     );

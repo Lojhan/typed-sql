@@ -2,9 +2,9 @@ import { describe, it, strict } from "poku";
 import { rowTypeLiteral } from "../../core/src/index.js";
 import { type SchemaSnapshot, upgradeSchemaSnapshotV1 } from "../../schema/src/index.js";
 import { postgresServerEvidence } from "../src/capabilities.js";
+import { resolveSelect, resolveStatement } from "../src/compatibility-resolver.js";
 import { fingerprintPostgresExpressionSql } from "../src/expression-evidence.js";
 import { parseSelect, parseStatement } from "../src/parser/index.js";
-import { resolveSelect, resolveStatement } from "../src/resolver.js";
 
 const schema = {
   formatVersion: 1,

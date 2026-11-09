@@ -30,6 +30,7 @@ import {
   reconcileQueryContract,
 } from "../../packages/analysis/src/index.js";
 import { collectSourceQueryCandidates, compileSource } from "../../packages/compiler/src/index.js";
+import { postgres as postgresCore } from "../../packages/postgres/src/analysis/core/18.js";
 import { postgres, postgresServerEvidence } from "../../packages/postgres/src/analysis.js";
 import { postgresContractIdentity } from "../../packages/postgres/src/contract-profile.js";
 import { adaptPgPool, type PgLiveVerifierClient } from "../../packages/postgres/src/pg.js";
@@ -50,14 +51,20 @@ import { startWatchedCli } from "./watch-cli.js";
 /** Real engine proof: independent description, compiled metadata, actual decoding and offline reuse. */
 export async function assertPostgresNativeContracts(connectionString: string, directory: string): Promise<void> {
   const pool = new Pool({ connectionString, max: 2 });
-  const schema = { formatVersion: 1, dialect: "postgres", tables: {}, functions: {} } as const;
-  const native = createPgNativeContractAdapter({ pool, schema });
   let temporary: string | undefined;
   const namespace = `typed_sql_contract_${process.pid}`;
   let created = false;
   try {
     const version = (await pool.query<{ version: string }>("SELECT current_setting('server_version') AS version"))
       .rows[0]!.version;
+    const schema = {
+      formatVersion: 1,
+      dialect: "postgres",
+      server: postgresServerEvidence(version),
+      tables: {},
+      functions: {},
+    } as const;
+    const native = createPgNativeContractAdapter({ pool, schema });
     if (!version.startsWith("18.")) {
       await strict.rejects(
         native.inspectContext(),
@@ -99,6 +106,43 @@ export async function assertPostgresNativeContracts(connectionString: string, di
     strict.equal(candidates.candidates[0]!.sql, text);
     const parameterOccurrences = candidates.candidates[0]!.parameterOccurrences;
     let context = await native.inspectContext();
+    const coreSchema = postgresCore().validateSnapshot({ ...schema, server: postgresServerEvidence(version) });
+    const coreNative = createPgNativeContractAdapter({ pool, schema: coreSchema });
+    const coreSql = "SELECT pg_catalog.md5($1::text) AS value";
+    const coreAnalysis = postgresCore().analyze(coreSql, coreSchema);
+    strict.equal(coreAnalysis.diagnostics[0]?.code, "TSQ408");
+    strict.equal(coreAnalysis.parameters[0]?.tsType, "string");
+    const coreContext = await coreNative.inspectContext();
+    const coreAcquired = await acquireNativeQueryContract({
+      adapter: coreNative,
+      context: coreContext,
+      candidate: {
+        sql: coreSql,
+        parameterOccurrences: postgresCore().parameterOccurrences!(coreSql, coreSchema).map(({ index, range }) => ({
+          index,
+          start: range.start,
+          end: range.end,
+        })),
+      },
+    });
+    strict.equal(coreAcquired.status, "acquired");
+    if (coreAcquired.status !== "acquired") throw Error("Unmapped PostgreSQL routine was not described");
+    const coreContribution = createPostgresContractReconciler({ schema: coreSchema });
+    const coreReconciled = reconcileQueryContract({
+      nativeContract: coreAcquired.contract,
+      staticClaim: createStaticQueryClaim({ sql: coreSql, context: coreContext, analysis: coreAnalysis }),
+      contribution: coreContribution,
+      policy: {
+        mode: "native-required",
+        owner: { id: coreContribution.id, version: coreContribution.version },
+        requiredNativeFacets: ["runtime-type"],
+      },
+    });
+    strict.equal(coreReconciled.status, "qualified");
+    if (coreReconciled.status !== "qualified") throw Error("Unmapped PostgreSQL routine did not qualify");
+    strict.equal(coreReconciled.contract.valuePlan.columns[0]?.type, "string");
+    strict.equal(coreReconciled.contract.valuePlan.columns[0]?.nullable, true);
+    strict.equal(coreReconciled.contract.valuePlan.parameters[0]?.type, "string");
     // Metadata acquisition now owns context observation and collection on one guarded lease.
     const projectBase = {
       ...upgradeSchemaSnapshotV1({
@@ -264,7 +308,7 @@ export async function assertPostgresNativeContracts(connectionString: string, di
         join(catalogDirectory, "typed-sql.config.mjs"),
         `
 import {postgresProfile} from "@typed-sql/postgres/profile";
-export default {dialect:{...postgresProfile(),async loadAnalyzer(){return (await import("@typed-sql/postgres/analysis")).postgres();}},schema:{file:"schema.json",provider:{introspect(){throw Error("Recorded catalogs must not introspect");}}},outDir:"generated",projects:["tsconfig.json"],analysis:{...${JSON.stringify(configured)},mode:"offline",contractsDir:".",projectCatalogs:{async loadContributions(){return [(await import("@typed-sql/postgres/project-catalog")).createPostgresProjectCatalogContribution()];}},live:{adapter(){throw Error("Recorded catalogs must not acquire native services");}}}};`,
+export default {dialect:{...postgresProfile(),async loadAnalyzer(){return (await import("@typed-sql/postgres/analysis/core/18")).postgres();}},schema:{file:"schema.json",provider:{introspect(){throw Error("Recorded catalogs must not introspect");}}},outDir:"generated",projects:["tsconfig.json"],analysis:{...${JSON.stringify(configured)},mode:"offline",contractsDir:".",projectCatalogs:{async loadContributions(){return [(await import("@typed-sql/postgres/project-catalog")).createPostgresProjectCatalogContribution()];}},live:{adapter(){throw Error("Recorded catalogs must not acquire native services");}}}};`,
       );
       const cli = join(directory, "packages/cli/dist/packages/cli/src/cli.js");
       const command = (args: string[]) =>
@@ -315,7 +359,7 @@ export default {dialect:{...postgresProfile(),async loadAnalyzer(){return (await
 import {Pool} from "pg";
 import {postgresProfile} from "@typed-sql/postgres/profile";
 import {postgresContractIdentity} from "@typed-sql/postgres/contract-profile";
-export default {dialect:{...postgresProfile(),async loadAnalyzer(){return (await import("@typed-sql/postgres/analysis")).postgres();}},schema:{file:"schema.json"},outDir:"generated",projects:["tsconfig.json"],analysis:{...${JSON.stringify(targetSettings)},identity:postgresContractIdentity(),mode:"live",contractsDir:".",projectCatalogs:{capture:true,async loadContributions(){return [(await import("@typed-sql/postgres/project-catalog")).createPostgresProjectCatalogContribution()];}},live:{async adapter({schema}){
+export default {dialect:{...postgresProfile(),async loadAnalyzer(){return (await import("@typed-sql/postgres/analysis/core/18")).postgres();}},schema:{file:"schema.json"},outDir:"generated",projects:["tsconfig.json"],analysis:{...${JSON.stringify(targetSettings)},identity:postgresContractIdentity(),mode:"live",contractsDir:".",projectCatalogs:{capture:true,async loadContributions(){return [(await import("@typed-sql/postgres/project-catalog")).createPostgresProjectCatalogContribution()];}},live:{async adapter({schema}){
  const {createPgNativeContractAdapter}=await import("@typed-sql/postgres/pg-contracts");
  const {createPostgresContractReconciler}=await import("@typed-sql/postgres/reconciliation");
  const pool=new Pool({connectionString:process.env.TYPED_SQL_CATALOG_TEST_URI,max:2});
@@ -709,7 +753,7 @@ export default defineConfig({
       const liveConfig = (await readFile(join(temporary, "typed-sql.config.mjs"), "utf8"))
         .replace(
           'loadAnalyzer(){throw Error("Frozen native proof initialized an analyzer");}',
-          'async loadAnalyzer(){if(!process.env.TYPED_SQL_CONTRACT_LIVE_TEST)throw Error("Offline check initialized an analyzer");return (await import("@typed-sql/postgres/analysis")).postgres();}',
+          'async loadAnalyzer(){if(!process.env.TYPED_SQL_CONTRACT_LIVE_TEST)throw Error("Offline check initialized an analyzer");return (await import("@typed-sql/postgres/analysis/core/18")).postgres();}',
         )
         .replace(
           'analysis: {mode: "frozen",',
@@ -939,7 +983,7 @@ export default defineConfig({
         policy: qualification,
       };
       strict.equal((await projectCache.lookupRecorded(knownQuery)).cached?.outcome.kind, "usable-recorded-context");
-      const analyzerFactory = '(await import("@typed-sql/postgres/analysis")).postgres()';
+      const analyzerFactory = '(await import("@typed-sql/postgres/analysis/core/18")).postgres()';
       strict.ok(scopedLiveConfig.includes(analyzerFactory));
       const faultyFactory = `await (async () => {
         const analyzer = ${analyzerFactory};

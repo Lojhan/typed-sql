@@ -954,3 +954,51 @@ quality and isolated performance. The complete PostgreSQL 18.3 native helper als
 editor regeneration, routine drift, durable/cache offline reuse, frozen consumers, guarded table
 qualification and candidate non-execution. The preceding `98f78e06` main CI completes
 successfully; this new internal boundary requires its own CI result.
+
+## PostgreSQL selected-major core and native long tail
+
+PostgreSQL full and core entrypoints select majors 14–19 explicitly. The portable factory injects
+one catalog owner and its type resolver throughout query resolution, extension resolution and
+fixed project-routine admission. Compatibility wrappers preserve existing eager analysis and
+internal resolver callers. Selected analyzers reject missing/mismatched major evidence before
+resolution; existing stable/canary capability policy remains unchanged. All six generated catalogs
+retain their contents and revisions. All maintained routine, operator, type, coercion and JSON
+rules remain available in core; no additional PostgreSQL compatibility pack is introduced.
+
+The core's final unknown-function fallback requests qualified exact-query evidence with TSQ408,
+retaining ordered argument metadata. Other diagnostics retain their behavior. The reconciliation
+v2 owner admits only TSQ408 among errors as unsupported; other errors remain blocking. Native
+preparation of one invocation does not create a universal function rule.
+
+Automatic tests discover all stable/canary majors and exercise 23,634 independently captured
+name/arity invocations (3,666 / 3,732 / 3,882 / 4,026 / 4,134 / 4,194 for majors 14–19). Selected
+full analysis matches compatibility results. Core preserves existing supported outcomes and
+argument/column evidence for omitted routines. Packed consumers import every installed selected
+path without a driver. Module graphs retain one major's catalog and exclude the compatibility
+registry, default type/extension wrappers and introspection services. These are static invocation
+checks, not fresh execution of every overload on all six server majors or popularity evidence.
+
+The PostgreSQL 18.3 native helper describes actually unmapped pg_catalog.md5($1::text), qualifies
+known string input/output and conservatively nullable output, and runs installed CLI/editor,
+project-catalog capture, live refresh, offline/cache reuse and frozen-consumer flows through the
+18 core. Its base snapshot now records the actual server evidence required by selected analysis.
+
+Real validation exposed two catalog-capture retry gaps: classified guard drift thrown during
+collection was not converted into bounded recapture, and retired base cache tokens raised a
+terminal generic error. Both paths now use the existing context-drift retry boundary after owned
+cleanup. Deterministic tests retire actual cache evidence before publication and inject collection
+guard failures. Automatic recapture closes prior owners; repeated retirement stops after three
+attempts. Pinned contexts, unclassified errors and combined acquisition/cleanup failures remain
+blocking. No guard or performance budget is relaxed.
+
+Validation passes the clean build/types, 40 PostgreSQL files and coverage (97.36% statements,
+90.97% branches, 97.96% functions), 20 analysis files and coverage (98.57% statements, 93.15%
+branches, 99.46% functions), all 49 repository contracts, nine soundness files, documentation
+check/build, quality and isolated performance. The complete real PostgreSQL 18.3 helper passes
+with the final core and recapture code. Local editor.schemaChurn p99 is 4.36 ms against the
+unchanged 120 ms budget. This does not replace hosted-runner performance evidence: preceding
+`dcddfb4b` CI failed its PostgreSQL collection guard and editor.schemaChurn p99 (156.75 ms).
+The collection failure now has a deterministic retry regression; the new source still needs its
+own green CI and hosted performance result. Remaining distribution decisions cover SQLite and
+SQL Server, alongside representative workloads, native-qualified payload/latency, broader reusable
+catalog/custom-type qualification and the complete architecture acceptance audit.

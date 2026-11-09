@@ -184,6 +184,100 @@ await describe("selected live catalog capture", async () => {
         strict.equal(f.counts.closes, f.counts.factories);
       });
   });
+  await it("retries classified collection guard failures after cleanup, keeping pinned and cleanup failures blocking", async () => {
+    for (const mode of ["automatic", "pinned", "cleanup", "unclassified"] as const)
+      await temporary(async (cache) => {
+        const f = fixture();
+        const guard = Error("collection guard drift");
+        const input = {
+          ...f.base,
+          cache,
+          configuration: mode === "pinned" ? { ...f.base.configuration, context } : f.base.configuration,
+          live: {
+            adapter() {
+              strict.equal(f.counts.factories, f.counts.closes);
+              const owned = f.services();
+              return {
+                ...owned,
+                adapter: {
+                  ...owned.adapter,
+                  classifyError: () =>
+                    mode === "unclassified"
+                      ? { kind: "unavailable" as const, code: "fixture-collection", retry: "change" as const }
+                      : { kind: "stale-context" as const, code: "fixture-guard" },
+                  async open(signal?: AbortSignal) {
+                    const session = await owned.adapter.open(signal);
+                    return {
+                      ...session,
+                      async projectCatalog(...args: Parameters<NonNullable<typeof session.projectCatalog>>) {
+                        if (f.counts.factories === 1) throw guard;
+                        return session.projectCatalog!(...args);
+                      },
+                      async close() {
+                        await session.close();
+                        if (mode === "cleanup") throw Error("fixture cleanup failure");
+                      },
+                    };
+                  },
+                },
+              };
+            },
+          },
+        };
+        if (mode === "automatic") {
+          const view = await prepareLiveContractView(input);
+          strict.equal(view.contracts.length, 1);
+          await view.assertCurrent();
+          strict.equal(f.counts.factories, 2);
+        } else {
+          await strict.rejects(
+            prepareLiveContractView(input),
+            mode === "cleanup"
+              ? /acquisition and cleanup failed/u
+              : mode === "pinned"
+                ? /Database context changed/u
+                : /collection guard drift/u,
+          );
+          strict.equal(f.counts.factories, 1);
+        }
+        strict.equal(f.counts.factories, f.counts.closes);
+        strict.equal(f.counts.sessions, f.counts.sessionCloses);
+      });
+  });
+  await it("recaptures retired base evidence before publication and bounds repeated retirement", async () => {
+    for (const mode of ["once", "persistent", "pinned"] as const)
+      await temporary(async (cache) => {
+        const f = fixture();
+        const input = {
+          ...f.base,
+          configuration: mode === "pinned" ? { ...f.base.configuration, context } : f.base.configuration,
+        };
+        let invalidations = 0;
+        const observed = {
+          ...cache,
+          async areTokensCurrent(tokens: Parameters<AnalysisCache["areTokensCurrent"]>[0]) {
+            // Retire actual cache evidence after qualification, before closure publication.
+            if (mode === "persistent" || invalidations === 0) {
+              invalidations++;
+              await cache.invalidate();
+            }
+            return cache.areTokensCurrent(tokens);
+          },
+        };
+        if (mode !== "once") {
+          await strict.rejects(prepareLiveContractView({ ...input, cache: observed }), /Base catalog context changed/u);
+          strict.equal(f.counts.factories, mode === "pinned" ? 1 : 3);
+          strict.equal(invalidations, mode === "pinned" ? 1 : 3);
+        } else {
+          const view = await prepareLiveContractView({ ...input, cache: observed });
+          strict.equal(view.contracts.length, 1);
+          strict.equal(f.counts.factories, 2);
+          await view.assertCurrent();
+        }
+        strict.equal(f.counts.closes, f.counts.factories);
+        strict.equal(f.counts.sessions, f.counts.sessionCloses);
+      });
+  });
   await it("preserves contributed services and adapter members inherited from prototypes", async () =>
     temporary(async (cache) => {
       const f = fixture();
