@@ -57,6 +57,62 @@ await describe("typed-sql language service", async () => {
     }
   });
 
+  await it("discards a delayed failure from a replaced project generation", async () => {
+    const directory = await mkdtemp(join(workspaceDirectory, ".typed-sql-retired-failure-"));
+    const config = join(directory, "typed-sql.config.mjs");
+    const key = `typed-sql-retired-failure:${directory}`;
+    let entered!: () => void, release!: () => void;
+    const started = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const waiting = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const globals = globalThis as unknown as Record<string, unknown>;
+    globals[key] = { entered, waiting };
+    const current = new TypedSqlLanguageService(workspaceDirectory, {
+      configPath: config,
+      schemaPath: schemaFile,
+      projectFile,
+      nativePreview: false,
+    });
+    try {
+      await writeFile(
+        config,
+        `
+import {postgresProfile} from "@typed-sql/postgres/profile";
+export default {dialect:{...postgresProfile(),async loadAnalyzer(){
+  globalThis[${JSON.stringify(key)}].entered();
+  await globalThis[${JSON.stringify(key)}].waiting;
+  throw Error("retired analyzer failure");
+}},schema:{file:${JSON.stringify(schemaFile)}},outDir:"generated"};`,
+      );
+      const obsolete = current.analysis(document("retired-error.ts", source, 1));
+      const discarded = strict.rejects(
+        obsolete,
+        (error: unknown) => error instanceof Error && error.name === "AbortError",
+      );
+      await started;
+      await writeFile(
+        config,
+        `import original from ${JSON.stringify(pathToFileURL(configFile).href)}; export default original;`,
+      );
+      current.invalidate();
+      const freshDocument = document("retired-error.ts", source, 2);
+      const fresh = await current.analysis(freshDocument);
+      strict.ok(fresh);
+      release();
+      await discarded;
+      strict.equal(current.isAnalysisCurrent(freshDocument, fresh!), true);
+      strict.strictEqual(await current.analysis(freshDocument), fresh);
+    } finally {
+      release();
+      await current.close();
+      delete globals[key];
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
   const service = new TypedSqlLanguageService(workspaceDirectory, {
     configPath: configFile,
     schemaPath: schemaFile,

@@ -2097,3 +2097,29 @@ Source quality and unchanged performance checks pass. A targeted PostgreSQL loca
 passes in 98.8 seconds; temporary diagnostics are restored exactly. This does not resolve either
 hosted failure. Both remain in acceptance scenario 19, alongside the remaining declared-profile
 invalidation and descriptor-capability accounting rather than being hidden by successful audits.
+
+
+## Obsolete editor failures and hosted MySQL engine boundaries
+
+A deterministic language-service regression exposes a stale-error publication path: an old
+analyzer is blocked while the config is replaced, a newer generation finishes successfully,
+then the old analyzer rejects. Before the fix, the obsolete rejection escapes as an ordinary
+project failure. The service now converts only failures whose generation was replaced (or
+whose request was cancelled) into AbortError. The existing diagnostic-pull recovery requests
+a fresh snapshot; it cannot publish that stale failure over the newer result. Current-generation
+errors retain their original failure behavior. The test also verifies the newer analysis remains
+current and cached after the old rejection. A language-server patch Changeset records this
+user-visible correction.
+
+The regression fails before the change and passes afterward. All sixteen language-server test
+files, built protocol/server checks, root typechecking, all 53 repository contract files
+(including packaged editor consumers), build and quality pass. This establishes the reproduced
+race; it does not identify the PostgreSQL CLI watch failure's underlying exception or by itself
+prove the SQL Server packed-editor failure has the same cause. Fresh hosted qualification of
+the fix remains required.
+
+The MySQL engine-boundary audit now passes required hosted CI at `d6303338`: both 8.4.11 / 9.7.2
+directions reject the old environment and context, each own context acquires and both owned
+databases are removed. Downloaded producer `e30e98b2a150e044dcc0a9a46b7196390a4a7b64` and its
+collector hash match Git. The later run also passes PostgreSQL 18.6 and all SQL Server packed
+editor steps; that successful execution does not erase the preceding intermittent failures.

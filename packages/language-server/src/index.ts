@@ -698,7 +698,13 @@ export class TypedSqlLanguageService {
       if (document.uri.startsWith("file:") === false) return undefined;
       const generation = this.#generation;
       const inputFailure = (error: unknown): never => {
-        if (generation === this.#generation && !token?.isCancellationRequested) this.forget(document.uri);
+        cancelled(token);
+        if (generation !== this.#generation) {
+          const stale = new Error("Editor analysis snapshot changed; retry the request");
+          stale.name = "AbortError";
+          throw stale;
+        }
+        this.forget(document.uri);
         throw error;
       };
       const loaded = await this.#config().catch(inputFailure);
