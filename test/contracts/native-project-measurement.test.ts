@@ -1,6 +1,6 @@
 import { execFile as callback } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -110,6 +110,32 @@ await describe("native application workload measurement", async () => {
       strict.equal(scaled.qualified, base.qualified * 2);
       strict.ok(scaled.durable.bytes > base.durable.bytes);
       strict.ok(scaled.cache.bytes > base.cache.bytes);
+      const summaryDirectory = join(directory, "summary");
+      const summarize = () =>
+        execFile(process.execPath, [
+          "--import",
+          preload,
+          "--import",
+          "tsx",
+          "planning/hybrid-analysis/summarize-native-projects.mjs",
+          "--output-directory",
+          summaryDirectory,
+          output,
+        ]);
+      await summarize();
+      const summaryPath = join(summaryDirectory, "native-project-measurements.json");
+      const valid = await readFile(summaryPath, "utf8");
+      const summary = JSON.parse(valid);
+      strict.deepEqual(summary.measuredGrammars, ["sqlite"]);
+      strict.ok(summary.missingGrammars.length > 0, "One grammar must not establish all-grammar workload coverage");
+      report.observations[0].completeProject = true;
+      await writeFile(output, JSON.stringify(report));
+      await strict.rejects(summarize(), /AssertionError/u);
+      strict.equal(
+        await readFile(summaryPath, "utf8"),
+        valid,
+        "An optimistic completeness claim must not overwrite prior valid evidence",
+      );
     } finally {
       await rm(directory, { recursive: true, force: true });
     }

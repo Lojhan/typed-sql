@@ -1773,3 +1773,51 @@ This is an admission baseline, not actual native preparation, safe live table bi
 availability or project qualification. It exposes the native statement/binding restrictions
 that must be investigated using real provisioned commerce schemas before workload scaling can
 be claimed. Root types, the new regression, all 52 repository contracts and source quality pass.
+
+## Actual native commerce workload and scaling
+
+The [native commerce report](./native-projects.md) provisions the maintained seven-table schemas,
+introspects actual versioned snapshots, discovers every finite query and independently reconciles
+native descriptions at 1, 10 and 50 copies. Comment prefixes create distinct exact SQL identities;
+they do not introduce new business logic or database objects. Each owned database is removed
+before durable/cache replay. No application query is executed or supplied sample values.
+
+Six local profiles use committed producer `eb1b199f`: PostgreSQL 18.3, MySQL 8.4.11 and 9.7.2,
+DuckDB 1.5.6 and 2.0.0, and SQLite 3.53.4. SQLite qualifies four of seven base queries; each
+MySQL profile qualifies one of seven and each DuckDB profile one of eight. PostgreSQL's admitted
+account query reaches its enum-table context restriction and remains partial; its other six
+queries are declined. Writes, other unsupported statement forms and each grammar's unbounded
+rendering file remain explicitly accounted for. These findings do not claim full native
+application support or production function popularity.
+
+All four SQL Server jobs pass in [run 42607999785](https://github.com/Lojhan/typed-sql/actions/runs/42607999785).
+Their ten engine/compatibility pairs provision and introspect the same maintained application
+model. All eight base queries are declined by the current native statement/table-binding scope;
+the resulting manifest-only closure is not usable application support. Initial context attempts
+and database removal are retained. The reports identify the exact tested merge
+`f095cc29f60c5a2249c14242987ee76616f200ca`, whose collector and fixture hashes match the committed
+head producer. Downloaded transport artifact IDs are 13669530934 (14), 13670005097 (15),
+13669515965 (16) and 13668124819 (17).
+
+The aggregator validates committed collector/fixture hashes, per-scale accounting, qualification
+evidence, canonical identities, context attempts and completeness claims before writing output.
+Identical query/evidence observations are factored in the retained JSON. The actual SQLite
+regression denies network access, checks artifact growth, preserves inferred descriptors and
+ordered parameters, reopens durable/cache inputs after database removal and verifies that a
+false whole-project completeness claim cannot overwrite valid evidence. It runs in the Node
+SQLite matrix on runtimes with the required native metadata APIs. Root types, all 53 repository
+contract files and local quality pass for the initial collector; the extended summary regression
+also passes.
+
+## Metadata comparison performance
+
+The [run at `be37f745`](https://github.com/Lojhan/typed-sql/actions/runs/42602977574) passes required
+database jobs but fails compiler semantic metadata p50 at 20.61 ms against the unchanged 20 ms
+hosted budget. Profiling the same 250-query workload identifies repeated ASCII conversion as a
+hot path. Direct case conversion for ASCII-only strings retains the existing non-ASCII fallback.
+Exhaustive ASCII character-pair and non-ASCII BMP checks, the full PostgreSQL suite (42 files,
+97.36% statements / 91.12% branches / 97.85% functions), root types and unchanged local performance
+gates pass. A separate 350-sample local profile moves p50 from 5.91 ms to 5.02 ms; it is evidence
+for this local workload, not a hosted performance guarantee. The full local performance gate
+records semantic-metadata p50 6.73 ms against its unchanged 10 ms local budget. Hosted
+qualification of the optimization remains required.
