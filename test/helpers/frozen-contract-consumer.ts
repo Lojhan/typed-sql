@@ -82,9 +82,8 @@ async function assertRuntimeWithoutSemanticCatalogs(consumer: string, env: NodeJ
       for (const suffix of [".js", ".d.ts", ".js.map", ".d.ts.map"]) await rm(`${stem}${suffix}`, { force: true });
     }
     await strip(join(grammar, "catalog"));
-    if (name === "postgres" || name === "sqlite" || name === "mysql" || name === "duckdb")
-      for (const directory of ["analysis", "vocabulary"])
-        await rm(join(grammar, directory), { recursive: true, force: true });
+    for (const directory of ["analysis", "vocabulary"])
+      await rm(join(grammar, directory), { recursive: true, force: true });
     for (const module of [
       "analysis",
       ...(name === "duckdb"

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { SQLSERVER_LANGUAGE_SUPPORT } from "../packages/sqlserver/src/support.ts";
@@ -107,8 +107,58 @@ assert.deepEqual(
   qualification.profiles.map((profile) => `${profile.major}/${profile.compatibilityLevel}`),
   facts.profiles.flatMap((profile) => profile.compatibilityLevels.map((level) => `${profile.major}/${level}`)),
 );
-for (const profile of qualification.profiles)
-  sqlServerNativePermissions(facts, qualification, profile.major, profile.compatibilityLevel);
+const runtime = factorKeywords(
+  qualification.profiles.map((profile) => ({
+    major: profile.major,
+    compatibilityLevel: profile.compatibilityLevel,
+    words: [...sqlServerNativePermissions(facts, qualification, profile.major, profile.compatibilityLevel)].filter(
+      ([, mask]) => mask !== 255,
+    ),
+  })),
+);
+const output = join(root, "packages/sqlserver/src/vocabulary/generated");
+await mkdir(output, { recursive: true });
+const header =
+  "// Generated from pinned declarations and reviewed native contexts; run sqlserver:vocabulary:generate.\n// See SQLSERVER_VOCABULARY_NOTICE and grammar/sqlserver/vocabulary/.\n";
+const bodies = new Map([
+  [
+    "common.ts",
+    header +
+      'import type { SqlServerKeywordDeclaration, SqlServerNameContext } from "../types.js";\n\nexport const contexts = ' +
+      JSON.stringify(qualification.contexts) +
+      " as const satisfies readonly SqlServerNameContext[];\nexport const commonWords = " +
+      JSON.stringify(runtime.common) +
+      " as const satisfies readonly SqlServerKeywordDeclaration[];\n",
+  ],
+  [
+    "profiles.ts",
+    header +
+      'import {createSqlServerVocabulary} from "../vocabulary.js";\nimport {commonWords,contexts} from "./common.js";\n\nconst common = createSqlServerVocabulary(commonWords,[],contexts);\nconst scopes = new Map([\n' +
+      runtime.profiles
+        .map(
+          (profile) =>
+            `[${JSON.stringify(`${profile.major}/${profile.compatibilityLevel}`)},${profile.words.length ? `createSqlServerVocabulary(commonWords,${JSON.stringify(profile.words)},contexts)` : "common"}]`,
+        )
+        .join(",\n") +
+      "\n]);\nexport const sqlServerVocabulary = (major:number, compatibilityLevel:number) => scopes.get(`${major}/${compatibilityLevel}`);\n",
+  ],
+]);
+for (const [name, body] of bodies) {
+  const target = join(output, name),
+    bytes = formatGenerated(root, name, body);
+  if (check) assert.equal(await readFile(target, "utf8"), bytes.toString());
+  else await writeFile(target, bytes);
+}
+// Native artifact timings/paths are provenance, not interpretation semantics.
+const identity = formatGenerated(
+  root,
+  "vocabulary-identity.ts",
+  header +
+    `export const SQLSERVER_VOCABULARY_REVISION = ${JSON.stringify(digest(JSON.stringify({ contexts: qualification.contexts, ...runtime })))};\n`,
+);
+const identityPath = join(root, "packages/sqlserver/src/vocabulary-identity.ts");
+if (check) assert.equal(await readFile(identityPath, "utf8"), identity.toString());
+else await writeFile(identityPath, identity);
 console.log(
   `SQL Server source vocabulary: ${facts.profiles.length} engine profiles, ${facts.profiles.reduce((sum, profile) => sum + profile.compatibilityLevels.length, 0)} compatibility contexts; ${facts.common.length} shared words, ${facts.profiles.reduce((sum, profile) => sum + profile.words.length, 0)} profile-specific rows. Source declarations require native qualification.`,
 );

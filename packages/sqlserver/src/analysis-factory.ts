@@ -10,7 +10,9 @@ import { type SqlServerProfileOptions as SqlServerDialectOptions, sqlserverProfi
 import { resolveSqlServerStatement } from "./resolver.js";
 import { analyzeSqlServerSemantics } from "./semantics.js";
 import type { SqlServerSchemaSnapshot } from "./snapshot.js";
+import { parseSqlServerVersion } from "./support.js";
 import type { SqlServerTypePolicy } from "./type-policy.js";
+import { sqlServerVocabulary } from "./vocabulary/generated/profiles.js";
 
 export function createSqlServerDialect(
   options: SqlServerDialectOptions = {},
@@ -27,7 +29,10 @@ export function createSqlServerDialect(
       context: DialectAnalysisContext = {},
     ) {
       try {
-        const statement = parseStatement(source);
+        const version = parseSqlServerVersion(snapshot.server?.version ?? snapshot.version ?? "");
+        const level = snapshot.server?.settings.compatibilityLevel;
+        const vocabulary = version && typeof level === "number" ? sqlServerVocabulary(version.major, level) : undefined;
+        const statement = parseStatement(source, vocabulary ? { vocabulary } : {});
         const analysis = resolveSqlServerStatement(statement, snapshot, {
           typePolicy,
           runtimeValidation: context.runtimeValidation === true,

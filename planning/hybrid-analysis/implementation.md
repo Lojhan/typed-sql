@@ -1554,3 +1554,40 @@ Fault controls reject missing native scopes, wrong producer/source identities, i
 missing/foreign words, invalid permission masks, wrong native versions, changed context ordering,
 duplicate profiles, mutated reviewed permissions and unavailable metadata. The reviewed data
 qualifies identifier contexts only and never generates a function result rule.
+
+## SQL Server parser integration and cancellation ownership
+
+The reviewed native policy passes all four SQL Server engine jobs in
+[run 42592102996](https://github.com/Lojhan/typed-sql/actions/runs/42592102996), including
+all ten compatibility pairs. The same aggregate fails source quality when the cancelled live
+catalog test removes its cache directory while a shared context observation is still publishing.
+Its optional MySQL canary is also unqualified; this is not a green aggregate.
+
+The SQL Server analyzer now selects vocabulary from the actual four-part server version and
+compatibility level. Runtime declarations factor into 181 shared permission rows and one
+17/170 delta for REGEXP_LIKE. The generated runtime vocabulary and pure identity occupy 220
+lines; complete source words and reviewed native provenance remain audit inputs outside the
+application runtime graph. The interpreter/reconciliation identity changes so prior contracts
+require regeneration. Ordinary runtime and frozen consumers retain only the pure identity.
+
+The parser checks explicit/bare column aliases, CTE names, relation aliases, qualified columns
+and assignment aliases. Quoted names do not act as structural keywords, operators or builtin
+constants. Tests derive all 151,120 context cases from the independent inventory and reviewed
+native masks; 18,890 selected-core quoted-column analyses additionally assert numeric types,
+nullability and parameter absence. Core rejection controls prove that vocabulary selection is
+active and check source spans; parameterized controls retain ordered bindings. These counts
+qualify the declared identifier contexts, not every SQL Server syntax or Unicode collation rule.
+
+Session shutdown now cancels native context waits and drains context inspection/publication
+before returning. A deterministic gated disk-publication regression cancels the source request,
+proves shutdown remains pending, releases the write and verifies that shutdown then completes.
+Late native failures cannot retire cache evidence after cancellation. The analysis package's
+coverage suite passes at 98.58% statements / 93.15% branches / 99.46% functions. SQL Server's
+26 test files pass at 96.94% / 91.78% / 95.65%, respectively.
+
+Local validation passes typecheck, clean full build, all 50 repository contract files, all nine
+soundness files, documentation checks, source quality and isolated unchanged performance gates.
+Packed frozen/runtime verification physically removes vocabulary and analysis directories for
+every declared grammar, including SQL Server. Fresh hosted qualification, per-profile facet and
+invalidation reconciliation, native application-workload scaling and final cost measurements
+remain outstanding.

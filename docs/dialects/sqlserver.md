@@ -42,6 +42,14 @@ There are no additional per-engine data packs: one maintained catalog already co
 supported range through explicit availability rules. Existing analyzer imports keep their
 diagnostics. Application queries continue importing `sql` from `@typed-sql/sqlserver`.
 
+Identifier keyword permissions follow the snapshot's engine major and compatibility level.
+The analyzer uses compact pinned source declarations reconciled against native identifier
+contexts. For example, `regexp_like` requires quoting as an identifier at compatibility level
+170 on engine 17, while earlier qualified compatibility levels allow the spelling. Bracketed
+identifiers preserve their column meaning even when their spelling matches a keyword.
+Keyword recognition does not imply support for every statement using that keyword.
+Runtime and frozen contract consumption do not load these parser vocabulary tables.
+
 ## Compatibility
 
 Engine versions and database compatibility levels are separate settings.

@@ -78,7 +78,14 @@ its required supported-engine native profiles. The optional canary remains unqua
   native description audit across all ten compatibility pairs. The `24cbc659` artifacts complete
   all 151,120 cases and expose three shared source deltas plus a 17/170 reservation delta;
   reviewed policy data retains those differences and all provenance. The stricter native reader
-  requires fresh hosted qualification. Host parser consumption remains unfinished. This audit
+  passes all four engine jobs in [run 42592102996](https://github.com/Lojhan/typed-sql/actions/runs/42592102996),
+  covering all ten compatibility pairs. That aggregate fails source quality at a cancelled live
+  catalog test's directory cleanup; the optional MySQL canary also remains unqualified.
+  Host parser consumption now passes all 151,120 generated identifier-context cases locally,
+  plus 18,890 quoted-column type/nullability checks through the selected core. Analyzer checks
+  verify actual engine selection, reserved-word diagnostics and ordered parameter evidence.
+  The session shutdown fix drains pending context cache publication and has a deterministic
+  cancellation-during-publication regression. Fresh aggregate qualification is still required. This audit
   has not established that every grammar/profile's
   complete authoritative reservation/context inventory is generated and consumed correctly.
   Verify inventory-to-parser classification and quoted/unquoted contextual behavior before
