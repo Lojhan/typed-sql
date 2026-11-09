@@ -1,35 +1,35 @@
 # Repository topology and tracked-line accounting
 
-The [JSON inventory](./repository-measurements.json) measures `26d9aa7b690b43e6e641e65d3f3281c922f7faed` against PR base `3753571154bb3acf460a2a2031e9b20f88e21ea8` and exhaustive proposal `e194abb4f55523f435995a74d7d8ab58c2c42977`. Physical UTF-8 lines include comments and blanks. They are not semantic statements, maintenance effort, installed payload or bundle bytes.
+The [JSON inventory](./repository-measurements.json) measures `6e11aa023252a3f9be4d28a6a32ea4aed84a88ed` against PR base `3753571154bb3acf460a2a2031e9b20f88e21ea8` and exhaustive proposal `e194abb4f55523f435995a74d7d8ab58c2c42977`. Physical UTF-8 lines include comments and blanks. They are not semantic statements, maintenance effort, installed payload or bundle bytes.
 
-The direction change removes **332,940 tracked text lines** relative to the exhaustive proposal. Captured vendor catalog JSON is absent. That proposal's +486,674 / −67,823 diff is reproduced independently by Git numstat. At this source pin the replacement diff is **+103,346 / −17,435**.
+The direction change removes **332,728 tracked text lines** relative to the exhaustive proposal. Captured vendor catalog JSON is absent. That proposal's +486,674 / −67,823 diff is reproduced independently by Git numstat. At this source pin the replacement diff is **+103,563 / −17,440**.
 
 | Tracked content | PR base | Exhaustive proposal | Current | Current − base |
 | --- | --- | --- | --- | --- |
-| All tracked text | 457,258 | 876,109 | 543,169 | +85,911 |
-| Maintained package source | 91,944 | 99,619 | 107,223 | +15,279 |
+| All tracked text | 457,258 | 876,109 | 543,381 | +86,123 |
+| Maintained package source | 91,944 | 99,619 | 107,247 | +15,303 |
 | Generated package source | 23,439 | 0 | 29,163 | +5,724 |
-| Tests / E2E source | 88,353 | 101,778 | 112,542 | +24,189 |
+| Tests / E2E source | 88,353 | 101,778 | 112,621 | +24,268 |
 | Tooling source | 9,007 | 17,479 | 11,456 | +2,449 |
 | Other source, including planning tools | 15,833 | 16,310 | 19,063 | +3,230 |
 | Captured vendor catalog JSON | 0 | 175,882 | 0 | +0 |
 | Other audit / fixture / report data | 105,432 | 335,870 | 132,550 | +27,118 |
-| Documentation | 21,435 | 27,000 | 28,195 | +6,760 |
+| Documentation | 21,435 | 27,000 | 28,304 | +6,869 |
 
-Maintained package source grows by 15,279 lines; generated package source grows by 5,724. The total includes restored baseline catalogs plus compact vocabulary/codec projections, not a new exhaustive function corpus. Tests and retained audit metadata are separate categories. Existing generated example schemas contribute 4,082 lines in every compared revision.
+Maintained package source grows by 15,303 lines; generated package source grows by 5,724. The total includes restored baseline catalogs plus compact vocabulary/codec projections, not a new exhaustive function corpus. Tests and retained audit metadata are separate categories. Existing generated example schemas contribute 4,082 lines in every compared revision.
 
 ## Package source ownership
 
 | Package | Maintained lines | Maintained Δ | Generated lines | Generated Δ |
 | --- | --- | --- | --- | --- |
-| `analysis` | 5,786 | +5,786 | 0 | +0 |
+| `analysis` | 5,802 | +5,802 | 0 | +0 |
 | `build` | 1,608 | +286 | 0 | +0 |
 | `cli` | 3,347 | +864 | 0 | +0 |
-| `compiler` | 8,661 | +672 | 0 | +0 |
+| `compiler` | 8,663 | +674 | 0 | +0 |
 | `config` | 285 | +114 | 0 | +0 |
 | `core` | 6,276 | +170 | 0 | +0 |
 | `duckdb` | 8,831 | +1,130 | 14,242 | +2,989 |
-| `language-server` | 2,854 | +461 | 0 | +0 |
+| `language-server` | 2,860 | +467 | 0 | +0 |
 | `mysql` | 11,589 | +1,565 | 1,054 | +1,030 |
 | `postgres` | 20,031 | +2,181 | 13,363 | +1,201 |
 | `sqlite` | 8,806 | +788 | 284 | +284 |

@@ -1,6 +1,6 @@
 # Commerce project size and growth
 
-The [JSON report](./project-measurements.json) measures `26d9aa7b690b43e6e641e65d3f3281c922f7faed` with Node v24.22.2 and esbuild 0.28.2. It discovers every ledger grammar, maintained commerce query file and matching public core export. There is no benchmark function-name list or copied vendor corpus. Schema inputs come from the example DDL parser, not live introspection.
+The [JSON report](./project-measurements.json) measures `6e11aa023252a3f9be4d28a6a32ea4aed84a88ed` with Node v24.22.2 and esbuild 0.28.2. It discovers every ledger grammar, maintained commerce query file and matching public core export. There is no benchmark function-name list or copied vendor corpus. Schema inputs come from the example DDL parser, not live introspection.
 
 ## Selected-core coverage
 
