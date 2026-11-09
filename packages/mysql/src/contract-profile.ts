@@ -1,10 +1,11 @@
 import { type ContractInterpreterIdentity, queryContractDigest } from "@typed-sql/analysis";
 import { defaultMySqlTypePolicy, type MySqlTypePolicy } from "./type-policy.js";
+import { MYSQL_VOCABULARY_REVISION } from "./vocabulary-identity.js";
 
 export const mySqlContractAdapterVersion = "mysql-backup-locked-prepare-v2";
 export const mySqlContractReconciliationOwner = Object.freeze({
   id: "@typed-sql/mysql/reconciliation",
-  version: "mysql-contract-reconciliation-v2",
+  version: "mysql-contract-reconciliation-v3",
 });
 export function validateMySqlContractPolicy(policy: MySqlTypePolicy): MySqlTypePolicy {
   const choices = {
@@ -27,6 +28,10 @@ export function mySqlContractIdentity(policy: MySqlTypePolicy = defaultMySqlType
   return Object.freeze({
     profileHash: queryContractDigest({ profile: "mysql-owned-guarded-select-profile-v2" }),
     codecHash: queryContractDigest({ codec: "mysql-prepare-fields-v1", policy: validateMySqlContractPolicy(policy) }),
-    interpreterHash: queryContractDigest(mySqlContractAdapterVersion),
+    interpreterHash: queryContractDigest({
+      adapter: mySqlContractAdapterVersion,
+      analysis: "mysql-keywords-native-function-dispatch-v2",
+      vocabulary: MYSQL_VOCABULARY_REVISION,
+    }),
   });
 }

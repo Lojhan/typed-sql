@@ -3,10 +3,11 @@ import catalog from "../catalog/generated/26.7.js";
 import { routineSeries } from "../catalog/generated/availability.js";
 import { createMySqlCatalogProvider } from "../catalog/provider.js";
 import type { MySqlProfileOptions } from "../profile.js";
+import { vocabulary } from "../vocabulary/generated/26.7.js";
 
 export type { MySqlProfileOptions as MySqlDialectOptions } from "../profile.js";
 
 const owner = createMySqlCatalogProvider([catalog], { routineSeries });
 export function mysql(options: MySqlProfileOptions = {}) {
-  return createMySqlDialect(owner, options, "26.7");
+  return createMySqlDialect(owner, options, "26.7", false, () => vocabulary);
 }

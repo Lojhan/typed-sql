@@ -20,6 +20,7 @@ import {
 import type { ColumnSnapshot, FunctionSnapshot, SchemaSnapshot, TableSnapshot } from "@typed-sql/schema";
 import { type MySqlCatalogProvider, normalizeMySqlType } from "./catalog/provider.js";
 import type { MySqlCatalogCollation, MySqlRoutineResultRule } from "./catalog/types.js";
+import { mySqlKeywordUpper } from "./keyword-case.js";
 import { mySqlNumericLiteralType, resolveMySqlNumeric } from "./numeric-functions.js";
 import type {
   CallExpression,
@@ -191,7 +192,10 @@ function containsWindowFunction(expression: Expression): boolean {
 
 function containsAggregate(expression: Expression): boolean {
   if (expression.kind === "call") {
-    return aggregateFunctions.has(expression.name.name.toUpperCase()) || expression.arguments.some(containsAggregate);
+    return (
+      (expression.nativeFunctionAllowed !== false && aggregateFunctions.has(mySqlKeywordUpper(expression.name.name))) ||
+      expression.arguments.some(containsAggregate)
+    );
   }
   if (expression.kind === "array" || expression.kind === "row") return expression.elements.some(containsAggregate);
   if (expression.kind === "cast" || expression.kind === "unary") return containsAggregate(expression.expression);
@@ -230,7 +234,9 @@ function unaggregatedColumns(
   if (expression.kind === "column") return insideAggregate ? [] : [expression];
   if (expression.kind === "call") {
     const exempt =
-      aggregateFunctions.has(expression.name.name.toUpperCase()) || expression.name.name.toUpperCase() === "ANY_VALUE";
+      expression.nativeFunctionAllowed !== false &&
+      (aggregateFunctions.has(mySqlKeywordUpper(expression.name.name)) ||
+        mySqlKeywordUpper(expression.name.name) === "ANY_VALUE");
     return expression.arguments.flatMap((argument) => unaggregatedColumns(argument, insideAggregate || exempt));
   }
   if (expression.kind === "array" || expression.kind === "row") {
@@ -759,7 +765,9 @@ class Resolver {
       expression(expression) {
         if (
           expression.kind === "call" &&
-          (expression.over !== undefined || aggregateFunctions.has(expression.name.name.toUpperCase()))
+          (expression.over !== undefined ||
+            (expression.nativeFunctionAllowed !== false &&
+              aggregateFunctions.has(mySqlKeywordUpper(expression.name.name))))
         ) {
           prohibited = true;
         }
@@ -1700,7 +1708,19 @@ class Resolver {
   }
 
   #call(expression: CallExpression, scope: Scope, ctes: ReadonlyMap<string, TableSnapshot>): ResolvedType {
-    const functionName = expression.name.name.toUpperCase();
+    const functionName = mySqlKeywordUpper(expression.name.name);
+    if (expression.nativeFunctionAllowed === false) {
+      const values = expression.arguments.map((argument) => this.#expression(argument, scope, ctes));
+      if (expression.over !== undefined || expression.distinct || expression.filter !== undefined) {
+        this.#diagnostic(
+          "TSQ223",
+          "An ordinary MySQL routine call cannot use native aggregate/window modifiers",
+          expression.range,
+        );
+        return { tsType: "unknown", nullable: true };
+      }
+      return this.#declaredCall(expression, scope, ctes, values);
+    }
     if (functionName === "VALUES") {
       const argument = expression.arguments[0];
       if (
@@ -1812,6 +1832,15 @@ class Resolver {
     if (functionName === "GROUPING") {
       return { tsType: this.#policy.bigint, nullable: false, databaseType: "bigint unsigned" };
     }
+    return this.#declaredCall(expression, scope, ctes, values);
+  }
+
+  #declaredCall(
+    expression: CallExpression,
+    scope: Scope,
+    ctes: ReadonlyMap<string, TableSnapshot>,
+    values: readonly ResolvedType[],
+  ): ResolvedType {
     const candidates = this.#index.functions(
       name(expression.name),
       values.length,

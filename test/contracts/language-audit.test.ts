@@ -52,6 +52,26 @@ await describe("independent upstream language auditing", async () => {
       strict.throws(() => sqliteCondition(source));
   });
 
+  await it("reads grammar productions without promoting semantic action strings into declarations", async () => {
+    const { yaccProductions } = await import("../../scripts/vocabulary/yacc.mjs");
+    const source = `%token REAL_TOKEN 1
+%%
+call:
+ REAL_TOKEN '(' ')' { if (true) { const char *text="FAKE_TOKEN '(' ignored"; } /* } */ }
+ | alias
+ ;
+alias:
+ REAL_TOKEN '(' ')'
+ ;
+%%
+`;
+    const productions = yaccProductions(source);
+    strict.equal(productions.get("call")!.length, 2);
+    strict.ok(!productions.get("call")!.join(" ").includes("FAKE_TOKEN"));
+    for (const broken of ["no grammar section", "%%\ncall: X {", '%%\ncall: X { auto text=R"(raw)"; } ;'])
+      strict.throws(() => yaccProductions(broken));
+  });
+
   await it("requires discovery adapters and upstream evidence for every grammar in the feature ledger", async () => {
     const ledger = JSON.parse(await readFile(new URL("../../grammar/features/ledger.json", import.meta.url), "utf8"));
     strict.deepEqual([...DIALECTS].sort(), Object.keys(ledger.dialects).sort());

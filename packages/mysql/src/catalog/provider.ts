@@ -1,4 +1,5 @@
 import type { SchemaSnapshot } from "@typed-sql/schema";
+import { mySqlKeywordUpper } from "../keyword-case.js";
 import { parseMySqlVersion } from "../support.js";
 import type {
   MySqlCatalogCoercion,
@@ -180,7 +181,7 @@ export function createMySqlCatalogProvider(
 
   function mySqlCatalogRoutine(routine: string, schema?: SchemaSnapshot): MySqlCatalogRoutineFamily | undefined {
     const catalog = selected(schema);
-    return catalog === undefined ? undefined : index(catalog).routines.get(routine.toUpperCase());
+    return catalog === undefined ? undefined : index(catalog).routines.get(mySqlKeywordUpper(routine));
   }
 
   function mySqlCatalogCollation(collation: string, schema?: SchemaSnapshot): MySqlCatalogCollation | undefined {
@@ -190,7 +191,7 @@ export function createMySqlCatalogProvider(
 
   function mySqlCatalogHasRoutineInAnotherSeries(routine: string, schema?: SchemaSnapshot): boolean {
     const current = mySqlCoreCatalogForSchema(schema)?.series;
-    return availability.get(routine.toUpperCase())?.some((series) => series !== current) ?? false;
+    return availability.get(mySqlKeywordUpper(routine))?.some((series) => series !== current) ?? false;
   }
   return Object.freeze({
     catalog: mySqlCoreCatalog,

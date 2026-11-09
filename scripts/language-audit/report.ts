@@ -43,6 +43,8 @@ export async function renderReport(check = false) {
     "",
     "SQLite keyword classifications use source-owned build guards, identifier fallback/classes and contextual lexer rules. Explicit names and bare aliases have different permissions, and expression shifts can further restrict a bare column alias. These are lexical/context observations rather than complete syntax support.",
     "",
+    "MySQL keyword observations use the selected source reservation declarations. Special function-name tokens are a separate namespace: whitespace, quoting and IGNORE_SPACE can change their binding. Recognizing a name does not supply its result semantics.",
+    "",
     "## Coverage",
     "",
     "A number means the upstream inventory was observed. `—` means unavailable in that source, with the reason recorded in the baseline. Discovery coverage and semantic coverage are separate; unavailable and unverified categories never count as supported.",

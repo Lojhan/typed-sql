@@ -1,9 +1,12 @@
+import { mySqlKeywordUpper } from "../keyword-case.js";
+import type { MySqlKeywordLookup } from "../vocabulary/types.js";
 import type { SourceRange, Token, TokenKind } from "./types.js";
 
 export const DEFAULT_MAX_SQL_LENGTH = 1_000_000;
 export const DEFAULT_MAX_TOKENS = 100_000;
 
 export interface TokenizeOptions {
+  readonly keywordLookup?: MySqlKeywordLookup;
   /** SQL asset frontend only; ordinary SQL analysis does not enable named bindings. */
   readonly sqlFileParameters?: boolean;
   readonly maxSqlLength?: number;
@@ -14,7 +17,8 @@ export interface TokenizeOptions {
   readonly syntax?: "mysql";
 }
 
-const keywords = new Set([
+// Syntax terminals remain separate from native reservation and function-name facts.
+const syntaxWords = new Set([
   "ALL",
   "AND",
   "ARRAY",
@@ -176,6 +180,7 @@ function isWordPart(value: string): boolean {
 
 class Scanner {
   readonly #source: string;
+  readonly #keywordLookup: MySqlKeywordLookup | undefined;
   readonly #maxTokens: number;
   #index = 0;
   #line = 1;
@@ -201,6 +206,7 @@ class Scanner {
       );
     }
     this.#source = source;
+    this.#keywordLookup = options.keywordLookup;
     this.#sqlFileParameters = options.sqlFileParameters === true;
     const modes = new Set(
       (options.sqlMode ?? "")
@@ -276,9 +282,11 @@ class Scanner {
   #scanWord(start: Position): Token {
     while (isWordPart(this.#peek())) this.#advance();
     const text = this.#source.slice(start.index, this.#index);
-    const upper = text.toUpperCase();
-    const kind: TokenKind = keywords.has(upper) ? "keyword" : "identifier";
-    return this.#token(kind, text, kind === "keyword" ? upper : text, start);
+    const upper = mySqlKeywordUpper(text);
+    const kind: TokenKind = syntaxWords.has(upper) ? "keyword" : "identifier";
+    const token = this.#token(kind, text, kind === "keyword" ? upper : text, start);
+    const nativeKeyword = this.#keywordLookup?.(text);
+    return nativeKeyword === undefined ? token : { ...token, nativeKeyword };
   }
 
   #scanNumber(start: Position): Token {
@@ -355,11 +363,15 @@ class Scanner {
     let moved = true;
     while (moved) {
       moved = false;
-      while (/\s/u.test(this.#peek())) {
+      while (/[ \t\r\n\f\v]/u.test(this.#peek())) {
         moved = true;
         this.#advance();
       }
-      if (this.#peek() === "-" && this.#peek(1) === "-" && (this.#peek(2) === "\0" || /\s/u.test(this.#peek(2)))) {
+      if (
+        this.#peek() === "-" &&
+        this.#peek(1) === "-" &&
+        (this.#peek(2).charCodeAt(0) <= 32 || this.#peek(2).charCodeAt(0) === 127)
+      ) {
         moved = true;
         while (!this.#atEnd() && this.#peek() !== "\n") this.#advance();
       } else if (this.#peek() === "#") {

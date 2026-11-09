@@ -56,6 +56,19 @@ that case. Neither import installs or initializes a driver. Application queries 
 import `sql` from `@typed-sql/mysql`.
 
 
+## Keyword and function-name contexts
+
+Each selected series consumes compact keyword metadata generated from pinned lexical, grammar and
+native-dispatch declarations. Reserved words require quoting in ordinary identifier positions;
+qualified names and aliases follow their respective grammar rules. Special function names also
+depend on the following parenthesis, intervening whitespace and `IGNORE_SPACE`. Quoting or spacing
+a special name can select an ordinary routine instead of its built-in rule. Such calls retain
+argument evidence and require an applicable routine declaration or qualified query contract.
+
+Normal builds and offline checks do not fetch upstream sources. Runtime tags and frozen contract
+consumption do not load the keyword inventory. Inventory recognition does not imply support for
+every associated SQL production or a universal function signature.
+
 ## Public entrypoints
 
 - `@typed-sql/mysql/profile` — driver-free `mysqlProfile()` for [query contract consumption](../guides/query-manifests.md#consume-durable-query-contracts-in-a-compiler-host), without semantic catalogs or an analyzer loader.

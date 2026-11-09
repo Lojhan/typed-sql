@@ -20,8 +20,8 @@ The exhaustive routine inventory, giant vendor corpus, global catalog model and 
 semantic-completeness claims remain excluded. Compact pinned keyword extraction is distinct
 from that removed pipeline. DuckDB has exact-engine full analyzers, a maintained
 bounded core and explicit compatibility packs. MySQL has selected-series analyzers and a core
-retaining all of its existing maintained families. Other grammars’ appropriate distribution
-boundaries and representative workload selection remain unfinished. Normal
+retaining all of its existing maintained families. All five cores have explicit distribution boundaries and pinned measurements. Representative
+workload selection remains limited to the maintained commerce corpus and declared native fixtures. Normal
 builds and installations do not fetch database sources or require a global engine inventory.
 The existing PostgreSQL/MySQL catalog generators also derive small runtime codec projections
 from their maintained catalog inputs, preserving compile-time/runtime policy agreement.
@@ -1308,3 +1308,57 @@ nine soundness files, focused vocabulary/matrix contracts, quality, documentatio
 budgets.
 The refreshed reference audit changes only the 147 SQLite keyword observations into native
 context classifications; no function observations change.
+
+## MySQL authoritative vocabulary and native function binding
+
+MySQL 8.4.11, 9.7.2 and 26.7.0 source profiles pin lexical symbols, grammar declarations, the native
+keyword generator and the ordinary native function registry. There are 2,364 versioned lexical
+word declarations, represented by 769 shared and 57 profile-specific rows. Optimizer hint names
+remain a separate audit namespace; capturing their names does not implement their semantics.
+Reservation annotations reproduce the native keyword generator and match the complete local
+INFORMATION_SCHEMA.KEYWORDS inventories: 734 names on 8.4.11 and 760 on 9.7.2.
+
+Semantic actions are discarded while reading grammar productions. Production reachability and
+nullable suffixes supply function-head and bare-constant permissions; native registry membership
+supplies ordinary-call dispatch facts. Unfamiliar source declarations, namespace/reservation rules
+or registry layouts fail extraction. Full token/provenance data remains in audit JSON. Runtime
+modules contain only names and compact flags, with shared facts and exact series deltas. Selected
+analyzers import one series directly; the compatibility analyzer retains explicit selection.
+
+Special function names become function tokens when a following parenthesis satisfies native
+whitespace rules. IGNORE_SPACE changes that lookahead, rather than universally reserving each
+name in every context. Quoting or separating names with comments can select an ordinary routine.
+Those AST calls skip unrelated built-in rules while preserving argument types and source spans;
+suitable declared routines can resolve them, otherwise core analysis requests qualified evidence.
+ASCII keyword/native-rule matching cannot turn a Unicode lookalike into a different built-in.
+Identifier collation remains separate. Non-native Unicode whitespace does not silently join tokens.
+Non-callable keyword heads cannot borrow ordinary-call parsing. Schema-qualified calls likewise
+resolve through declared routines rather than unrelated special built-in rules. Runtime routing
+uses the same compatibility analyzer pipeline as compilation; spaced or quoted ordinary spellings
+retain unknown volatility and route conservatively to the primary.
+
+Generated identifier/alias probes also enforce expression-shift restrictions for MEMBER and SOUNDS.
+The owned native audit checks every declared word under ordinary mode and IGNORE_SPACE, prepares
+candidates without executing them, clears owned statement-cache entries and restores the session.
+It independently compares the complete keyword API, then discovers valid NULL-argument invocations
+for special function names and checks their spaced/quoted binding. Functions needing distinct
+syntax/signature evidence remain unverified by that invocation probe; no universal result rule is
+inferred from preparation.
+
+Local native audits pass 10,766 identifier probes on 8.4.11 and 11,144 on 9.7.2 plus discovered
+function-binding probes. Both full native contract helpers also pass acquisition, context drift,
+conflicts and offline reuse. Canary source data is generated and statically tested but its native
+transport remains unqualified. Normal generation/checking stays offline; only explicit refresh
+can fetch locked sources. Shared source-cache/formatting/factoring mechanics now serve the three
+implemented vocabulary generators, with unchanged PostgreSQL/SQLite outputs. Source notices and
+license text are retained separately from executable package code.
+
+The interpreter/reconciliation revision retires prior receipts. Packed runtime/frozen consumers
+work with the MySQL vocabulary directory removed. Local validation passes a clean build/root
+types, all 30 MySQL package files with coverage 96.38% statements / 91.56% branches / 98.93%
+functions, all 49 repository contracts, nine soundness files, MySQL E2E test-harness types, quality,
+isolated performance budgets and documentation check/build. The final native 8.4/9.7 contract
+helpers also pass after routing and ordinary-call guards are integrated. The reviewed reference audit changes only IN, JSON_TABLE and MATCH
+across three profiles (nine unknown-call observations become unverified syntax invocations);
+no typed recognition is lost. DuckDB/SQL Server vocabulary, final native facet/context/workload
+qualification and refreshed final measurements remain outstanding.

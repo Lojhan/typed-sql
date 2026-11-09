@@ -1,4 +1,5 @@
 import { SqlToolkitError, TokenCursor } from "@typed-sql/ast/toolkit";
+import type { MySqlKeywordLookup } from "../vocabulary/types.js";
 import { SqlTokenizeError, type TokenizeOptions, tokenize } from "./tokenizer.js";
 import {
   type BetweenExpression,
@@ -96,10 +97,12 @@ const typeContinuationWords = new Set([
 
 class Parser {
   readonly #source: string;
+  readonly #keywordLookup: MySqlKeywordLookup | undefined;
   readonly #cursor: TokenCursor;
 
   constructor(source: string, options: ParseOptions) {
     this.#source = source;
+    this.#keywordLookup = options.keywordLookup;
     this.#cursor = new TokenCursor(tokenize(source, options), {
       maxDepth: options.maxDepth ?? DEFAULT_MAX_PARSE_DEPTH,
     });
@@ -667,8 +670,7 @@ class Parser {
       const expression = this.#parseExpression();
       let alias: Identifier | undefined;
       if (this.#matchKeyword("AS")) alias = this.#parseIdentifier();
-      else if (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier")
-        alias = this.#parseIdentifier();
+      else if (this.#canIdentifier(this.#current(), true)) alias = this.#parseIdentifier();
       items.push({
         expression,
         ...(alias === undefined ? {} : { alias }),
@@ -709,8 +711,7 @@ class Parser {
     const partitions = this.#current().value === "PARTITION" ? this.#parsePartitions() : [];
     let alias: Identifier | undefined;
     if (allowAlias && this.#matchKeyword("AS")) alias = this.#parseIdentifier();
-    else if (allowAlias && (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier"))
-      alias = this.#parseIdentifier();
+    else if (allowAlias && this.#canIdentifier(this.#current())) alias = this.#parseIdentifier();
     return {
       kind: "table",
       name,
@@ -912,21 +913,22 @@ class Parser {
       this.#expectPunctuation(")");
       return first;
     }
-    if (this.#matchKeyword("ARRAY")) {
+    if (this.#peekToken(1).value === "[" && this.#matchKeyword("ARRAY")) {
       this.#expectPunctuation("[");
       const emptyElements = this.#matchPunctuation("]");
       const elements = emptyElements ? [] : [...this.#parseExpressionList()];
       const close = emptyElements ? this.#previous() : this.#expectPunctuation("]");
       return { kind: "array", elements, range: mergeRanges(token.range, close.range) };
     }
-    if (this.#matchKeyword("ROW")) {
+    if (this.#peekToken(1).value === "(" && this.#matchKeyword("ROW")) {
       this.#expectPunctuation("(");
       const emptyElements = this.#matchPunctuation(")");
       const elements = emptyElements ? [] : [...this.#parseExpressionList()];
       const close = emptyElements ? this.#previous() : this.#expectPunctuation(")");
       return { kind: "row", elements, range: mergeRanges(token.range, close.range) };
     }
-    if (this.#matchKeyword("CAST")) return this.#parseCast(token.range);
+    if (this.#peekToken(1).value === "(" && this.#isNativeFunctionToken(token) && this.#matchKeyword("CAST"))
+      return this.#parseCast(token.range);
     if (this.#matchKeyword("CASE")) return this.#parseCase(token.range);
     if (this.#matchKeyword("NULL")) return { kind: "literal", value: null, range: token.range };
     if (this.#matchKeyword("TRUE")) return { kind: "literal", value: true, range: token.range };
@@ -963,6 +965,25 @@ class Parser {
       };
     }
     if (this.#isIdentifierLike(token)) {
+      const word = token.nativeKeyword;
+      if (word?.bareFunction && this.#isNativeFunctionToken(token) && this.#peekToken(1).value !== "(") {
+        const name = this.#parseIdentifier(true);
+        return { kind: "call", name, arguments: [], distinct: false, range: token.range };
+      }
+      if (
+        word !== undefined &&
+        word.group !== "function" &&
+        this.#peekToken(1).value === "(" &&
+        !word.functionHead &&
+        !word.ordinaryFunction
+      )
+        throw this.#error(`Keyword ${token.text} cannot head an unqualified MySQL routine call`, token.range);
+      if (
+        this.#keywordLookup !== undefined &&
+        word?.reserved &&
+        !(word.functionHead && this.#peekToken(1).value === "(" && this.#isNativeFunctionToken(token))
+      )
+        throw this.#error(`Keyword ${token.text} requires its MySQL syntax production or quoting`, token.range);
       const first = this.#parseIdentifier(true);
       if (this.#matchPunctuation("(")) return this.#parseCall(undefined, first);
       if (this.#matchPunctuation(".")) {
@@ -978,6 +999,21 @@ class Parser {
   }
 
   #parseCall(schema: Identifier | undefined, name: Identifier): Expression {
+    const word = this.#keywordLookup?.(name.name);
+    const ordinaryContext =
+      schema !== undefined ||
+      name.quoted ||
+      (word?.group === "function" &&
+        !(
+          name.range.end === this.#previous().range.start ||
+          (this.#keywordLookup?.ignoreSpace &&
+            /^[ \t\r\n\f\v]*$/u.test(this.#source.slice(name.range.end, this.#previous().range.start)))
+        ));
+    const nativeFunctionAllowed =
+      schema !== undefined ||
+      (word !== undefined && (ordinaryContext ? !word.ordinaryFunction : !word.functionHead && !word.ordinaryFunction))
+        ? false
+        : undefined;
     const distinct = this.#matchKeyword("DISTINCT");
     const args: Expression[] = [];
     let close: Token;
@@ -1002,13 +1038,13 @@ class Parser {
     if (this.#matchKeyword("RESPECT")) this.#expectKeyword("NULLS");
     let over: Identifier | WindowSpecification | undefined;
     if (this.#matchKeyword("OVER")) {
-      if (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier")
-        over = this.#parseIdentifier();
+      if (this.#canIdentifier(this.#current())) over = this.#parseIdentifier();
       else over = this.#parseWindowSpecification();
       close = { ...close, range: over.range };
     }
     return {
       kind: "call",
+      ...(nativeFunctionAllowed === undefined ? {} : { nativeFunctionAllowed }),
       name,
       ...(schema === undefined ? {} : { schema }),
       arguments: args,
@@ -1171,11 +1207,35 @@ class Parser {
 
   #parseIdentifier(allowKeyword = false): Identifier {
     const token = this.#current();
-    if (!this.#isIdentifierLike(token) || (token.kind === "keyword" && !allowKeyword)) {
+    if (!this.#isIdentifierLike(token) || (!allowKeyword && !this.#canIdentifier(token))) {
       throw this.#error(`Expected identifier, found ${token.text || "end of query"}`, token.range);
     }
     this.#advance();
     return { name: token.value, quoted: token.kind === "quoted-identifier", range: token.range };
+  }
+
+  #isNativeFunctionToken(token: Token): boolean {
+    if (token.kind === "quoted-identifier") return false;
+    return (
+      token.nativeKeyword?.group !== "function" ||
+      (this.#peekToken(1).value === "(" &&
+        (token.range.end === this.#peekToken(1).range.start ||
+          (this.#keywordLookup?.ignoreSpace === true &&
+            /^[ \t\r\n\f\v]*$/u.test(this.#source.slice(token.range.end, this.#peekToken(1).range.start)))))
+    );
+  }
+  #canIdentifier(token: Token, bareColumn = false): boolean {
+    if (token.kind === "quoted-identifier") return true;
+    if (!this.#isIdentifierLike(token)) return false;
+    if (this.#keywordLookup === undefined) return token.kind === "identifier";
+    if (token.nativeKeyword?.reserved || (bareColumn && token.nativeKeyword?.infix)) return false;
+    if (
+      token.nativeKeyword?.group === "function" &&
+      token.nativeKeyword.functionReserved &&
+      this.#isNativeFunctionToken(token)
+    )
+      return false;
+    return true;
   }
 
   #isIdentifierLike(token: Token): boolean {

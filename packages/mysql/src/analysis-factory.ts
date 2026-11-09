@@ -13,6 +13,7 @@ import { resolveMySqlStatement } from "./resolver.js";
 import { analyzeMySqlSemantics } from "./semantics.js";
 import { parseMySqlVersion } from "./support.js";
 import type { MySqlTypePolicy } from "./type-policy.js";
+import type { MySqlKeywordLookup, MySqlVocabulary } from "./vocabulary/types.js";
 
 function matchesSeries(snapshot: MySqlSchemaSnapshot, series: string): boolean {
   const evidence = snapshot.server?.versionKey ?? snapshot.version;
@@ -24,9 +25,11 @@ export function createMySqlDialect(
   options: MySqlDialectOptions = {},
   selectedSeries?: string,
   core = false,
+  vocabulary?: (snapshot: MySqlSchemaSnapshot) => MySqlVocabulary | undefined,
 ): DialectPlugin<MySqlSchemaSnapshot, MySqlTypePolicy> {
   const profile = mysqlProfile(options);
   const defaultTypePolicy = profile.defaultTypePolicy;
+  const vocabularies = new WeakMap<MySqlSchemaSnapshot, MySqlKeywordLookup>();
   return Object.freeze({
     ...profile,
     validateSnapshot(value: unknown) {
@@ -77,7 +80,15 @@ export function createMySqlDialect(
             semantics: unknownQuerySemantics(range, "The recorded MySQL SQL mode is not modeled."),
           };
         }
-        const statement = parseStatement(sql, { ...(typeof sqlMode === "string" ? { sqlMode } : {}) });
+        let keywordLookup = vocabularies.get(snapshot);
+        if (keywordLookup === undefined) {
+          keywordLookup = vocabulary?.(snapshot)?.forMode(typeof sqlMode === "string" ? sqlMode : "");
+          if (keywordLookup !== undefined) vocabularies.set(snapshot, keywordLookup);
+        }
+        const statement = parseStatement(sql, {
+          ...(typeof sqlMode === "string" ? { sqlMode } : {}),
+          ...(keywordLookup === undefined ? {} : { keywordLookup }),
+        });
         const resolved = resolveMySqlStatement(
           statement,
           snapshot,

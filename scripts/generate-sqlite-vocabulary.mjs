@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { SQLITE_LANGUAGE_SUPPORT } from "../packages/sqlite/src/support.ts";
-import { digest } from "./vocabulary/postgres.mjs";
+import { digest, formatGenerated, lockedSource } from "./vocabulary/common.mjs";
+
 import { parseSqliteVocabulary } from "./vocabulary/sqlite.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -38,30 +38,8 @@ for (const profile of pins.profiles) {
 const check = process.argv.includes("--check"),
   refresh = process.argv.includes("--refresh");
 assert.ok(!(check && refresh));
-const format = (name, body) =>
-  execFileSync(join(root, "node_modules/.bin/biome"), ["format", `--stdin-file-path=${name}`], {
-    cwd: root,
-    input: body,
-  });
-async function lockedFile(pin) {
-  const path = join(root, "node_modules/.cache/typed-sql-vocabulary", pin.digest.slice(7));
-  let bytes;
-  try {
-    bytes = await readFile(path);
-  } catch (error) {
-    if (error.code !== "ENOENT") throw error;
-    const response = await fetch(pin.url, { signal: AbortSignal.timeout(20_000) });
-    assert.equal(response.status, 200);
-    bytes = Buffer.from(await response.arrayBuffer());
-    assert.equal(bytes.length, pin.bytes);
-    assert.equal(digest(bytes), pin.digest);
-    await mkdir(dirname(path), { recursive: true });
-    await writeFile(path, bytes);
-  }
-  assert.equal(bytes.length, pin.bytes);
-  assert.equal(digest(bytes), pin.digest);
-  return bytes.toString("utf8");
-}
+const format = (name, body) => formatGenerated(root, name, body);
+const lockedFile = (pin) => lockedSource(root, pin);
 if (refresh) {
   const complete = [],
     notices = new Map();

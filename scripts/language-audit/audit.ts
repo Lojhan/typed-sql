@@ -9,6 +9,7 @@ import { mysql } from "../../packages/mysql/src/analysis.js";
 import { mySqlServerEvidence } from "../../packages/mysql/src/capabilities.js";
 import { mySqlCoreCatalog } from "../../packages/mysql/src/catalog/index.js";
 import { tokenize as tokenizeMySql } from "../../packages/mysql/src/parser/tokenizer.js";
+import { mySqlVocabulary } from "../../packages/mysql/src/vocabulary/index.js";
 import { postgres } from "../../packages/postgres/src/analysis.js";
 import { postgresServerEvidence } from "../../packages/postgres/src/capabilities.js";
 import { postgresCoreCatalog } from "../../packages/postgres/src/catalog/index.js";
@@ -240,6 +241,21 @@ function auditOther(
                   : keywordLookup.isDeclared(name)
                     ? "keyword-build-gated-observed"
                     : "contextual-or-unclassified-keyword",
+        };
+      }
+      if (dialect === "mysql") {
+        const keywordLookup = mySqlVocabulary(version.split(".").slice(0, 2).join("."))?.forMode();
+        const word = tokenizeMySql(name, keywordLookup === undefined ? {} : { keywordLookup })[0]?.nativeKeyword;
+        return {
+          name,
+          status:
+            word?.group === "function"
+              ? "function-lexical-name-observed"
+              : word?.reserved
+                ? "keyword-reserved-observed"
+                : word
+                  ? "keyword-unreserved-observed"
+                  : "contextual-or-unclassified-keyword",
         };
       }
       const token = tokenize!(name)[0];

@@ -1,3 +1,4 @@
+import type { MySqlKeyword } from "../vocabulary/types.js";
 export interface SourceRange {
   readonly start: number;
   readonly end: number;
@@ -17,6 +18,7 @@ export type TokenKind =
   | "eof";
 
 export interface Token {
+  readonly nativeKeyword?: MySqlKeyword;
   readonly kind: TokenKind;
   readonly text: string;
   readonly value: string;
@@ -81,6 +83,8 @@ export interface RowExpression {
 }
 
 export interface CallExpression {
+  /** False when a special native name was parsed as an ordinary/quoted routine identifier. */
+  readonly nativeFunctionAllowed?: false;
   readonly kind: "call";
   readonly name: Identifier;
   readonly schema?: Identifier;

@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { categories, digest, factorKeywords, parsePostgresKeywords } from "./vocabulary/postgres.mjs";
+import { digest, factorKeywords, formatGenerated, lockedSource } from "./vocabulary/common.mjs";
+import { categories, parsePostgresKeywords } from "./vocabulary/postgres.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const input = join(root, "grammar/postgres/vocabulary");
@@ -21,33 +21,11 @@ assert.deepEqual(
 );
 assert.equal(pins.formatVersion, 1);
 assert.equal(pins.grammar, "postgres");
-const format = (name, body) =>
-  execFileSync(join(root, "node_modules/.bin/biome"), ["format", `--stdin-file-path=${name}`], {
-    cwd: root,
-    input: body,
-  });
+const format = (name, body) => formatGenerated(root, name, body);
 const check = process.argv.includes("--check");
 const refresh = process.argv.includes("--refresh");
 if (check && refresh) throw Error("Check and explicit source refresh are separate operations");
-async function lockedFile(pin) {
-  const path = join(root, "node_modules/.cache/typed-sql-vocabulary", pin.digest.slice(7));
-  let bytes;
-  try {
-    bytes = await readFile(path);
-  } catch (error) {
-    if (error.code !== "ENOENT") throw error;
-    const response = await fetch(pin.url, { signal: AbortSignal.timeout(20_000) });
-    assert.equal(response.status, 200, "Pinned PostgreSQL vocabulary input unavailable");
-    bytes = Buffer.from(await response.arrayBuffer());
-    assert.equal(bytes.length, pin.bytes);
-    assert.equal(digest(bytes), pin.digest);
-    await mkdir(dirname(path), { recursive: true });
-    await writeFile(path, bytes);
-  }
-  assert.equal(bytes.length, pin.bytes);
-  assert.equal(digest(bytes), pin.digest);
-  return bytes.toString("utf8");
-}
+const lockedFile = (pin) => lockedSource(root, pin);
 for (const pin of pins.profiles) {
   assert.ok(Number.isSafeInteger(pin.major));
   assert.match(pin.revision, /^[a-f0-9]{40}$/u);

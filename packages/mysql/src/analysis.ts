@@ -1,10 +1,3 @@
-import { createMySqlDialect } from "./analysis-factory.js";
-import { defaultMySqlCatalog } from "./catalog/index.js";
-import type { MySqlProfileOptions as MySqlDialectOptions } from "./profile.js";
-export function mysql(options: MySqlDialectOptions = {}) {
-  return createMySqlDialect(defaultMySqlCatalog, options);
-}
-
 export { sql } from "@typed-sql/core";
 export type { SchemaSnapshot } from "@typed-sql/schema";
 export { parseSchemaSnapshot } from "@typed-sql/schema";
@@ -19,6 +12,7 @@ export type { MySqlServerEdition, MySqlServerEvidenceOptions } from "./capabilit
 export { mySqlServerEvidence, resolveMySqlCapabilities } from "./capabilities.js";
 export type { MySqlCoreCatalog } from "./catalog/index.js";
 export { MYSQL_CORE_CATALOG_FORMAT_VERSION, mySqlCoreCatalog } from "./catalog/index.js";
+export { mysql } from "./compatibility-analysis.js";
 export type { MySqlProfileOptions as MySqlDialectOptions, MySqlSchemaSnapshot } from "./profile.js";
 export type {
   MySqlIntrospectionCatalog,

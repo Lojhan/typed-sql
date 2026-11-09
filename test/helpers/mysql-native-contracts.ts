@@ -25,6 +25,7 @@ import { mysqlProfile } from "../../packages/mysql/src/profile.js";
 import { createMySqlContractReconciler } from "../../packages/mysql/src/reconciliation.js";
 import { recordNativeCosts } from "../../planning/hybrid-analysis/measure-native.mjs";
 import { assertMySqlTableContracts } from "./mysql-table-contracts.js";
+import { assertMySqlVocabulary } from "./mysql-vocabulary.js";
 
 /** Requires a disposable qualification database and BACKUP_ADMIN plus metadata privileges. */
 export async function assertMySqlNativeContracts(connectionUri: string): Promise<void> {
@@ -42,6 +43,7 @@ export async function assertMySqlNativeContracts(connectionUri: string): Promise
       .map((t) => ({ index: Number(t.value), start: t.range.start, end: t.range.end })),
   });
   try {
+    await assertMySqlVocabulary(admin);
     await admin.query(`CREATE TABLE ${table}(count INT NOT NULL)`);
     await admin.query(`INSERT INTO ${table} VALUES (0)`);
     await admin.query(`CREATE VIEW ${view} AS SELECT count FROM ${table}`);

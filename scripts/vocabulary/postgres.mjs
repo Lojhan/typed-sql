@@ -1,7 +1,5 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
 
-export const digest = (bytes) => `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
 export const categories = ["UNRESERVED_KEYWORD", "COL_NAME_KEYWORD", "TYPE_FUNC_NAME_KEYWORD", "RESERVED_KEYWORD"];
 
 /** Parse only the explicit vendor declarations; conditional or unfamiliar records require review. */
@@ -19,19 +17,4 @@ export function parsePostgresKeywords(source) {
   });
   assert.equal(new Set(rows.map((row) => row[0])).size, rows.length, "Duplicate PostgreSQL keyword");
   return rows.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-}
-
-export function factorKeywords(profiles) {
-  const first = profiles[0].words;
-  const common = first.filter((row) =>
-    profiles.every((profile) => profile.words.some((candidate) => JSON.stringify(candidate) === JSON.stringify(row))),
-  );
-  const shared = new Set(common.map((row) => row[0]));
-  return {
-    common,
-    profiles: profiles.map(({ words, ...profile }) => ({
-      ...profile,
-      words: words.filter((row) => !shared.has(row[0])),
-    })),
-  };
 }

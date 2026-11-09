@@ -19,11 +19,12 @@ also passes, including cold installed cores, source-move/inherited-grammar regre
 commerce tooling and the reviewed SQL Server fingerprints. The subsequent partial-composition and
 native-cost instrumentation changes, including the measurement-helper declaration, pass
 [main CI at `310bd775`](https://github.com/Lojhan/typed-sql/actions/runs/42565964481).
-The PostgreSQL vocabulary integration passes all six hosted native majors at `626ed0ac`.
-That aggregate finds invalid unquoted `user` aliases in compiler/editor fixtures; the correction
-at `76b21880` passes the complete compiler and affected editor suites locally. Its hosted
-aggregate remains in progress. The newer SQLite vocabulary integration has local package, native
-context and C keyword-API evidence; its final hosted aggregate is still required.
+The PostgreSQL/SQLite vocabulary milestone, including the compiler/editor fixture correction,
+passes [main CI at `f0ffb78d`](https://github.com/Lojhan/typed-sql/actions/runs/42573680468).
+This includes all six PostgreSQL native targets, SQLite keyword-API/context matrix checks and the
+required source/editor/distribution gates. The optional MySQL canary native transport remains
+unqualified. The newer MySQL vocabulary integration has local package, native inventory/binding
+and full contract-flow evidence; its own hosted aggregate is still required.
 
 | ID | Finding | Evidence and remaining boundary |
 | --- | --- | --- |
@@ -45,7 +46,7 @@ context and C keyword-API evidence; its final hosted aggregate is still required
 | 16 | Scoped proof | [Build integration](../../packages/build/test/build.test.ts) keeps analyzer/native factories cold for frozen builds and uses offline rules in ordinary live-configured builds. Explicit live preparation is separate. Canonical manifests/closures and isolated consumers check path-independent, cache-independent output; timestamps remain disposable freshness evidence. |
 | 17 | Partial | Five grammar profiles use neutral orchestration; [synthetic vendor contracts](../../packages/analysis/test/contracts.test.ts) compile/decode without builtin analyzers. A [derived grammar contribution](../../packages/analysis/test/helpers/inherited-postgres.ts) uses public entrypoints exclusively to inherit PostgreSQL 18 rendering, policy, analyzer, native transport and reconciliation mechanics under its own snapshot/profile/interpreter identities. Its [unit tests](../../packages/analysis/test/inherited-grammar.test.ts) enforce cold registration, identity/version checks and retained restrictions; the [real integration](../../test/helpers/inherited-postgres-contracts.ts) qualifies an unknown routine, persists/reopens its cache, exports durable inputs, compiles offline and decodes with the child identity. It retains unknown nullability and does not inherit reusable catalog permissions. The exact-version/facet availability matrix still requires reconciliation with current native runs. |
 | 18 | Scoped proof | [Frozen packed consumers](../../test/helpers/frozen-contract-consumer.ts) actually delete semantic/native files and decode through lightweight runtime entrypoints. [Bundle measurements](./bundle-size.md) retain zero global catalogs in runtime/profile/frozen graphs, isolate optional/version imports and separate package installation from tree-shaken bytes. |
-| 19 | Partial | [Main CI at `4fe65a4f`](https://github.com/Lojhan/typed-sql/actions/runs/42562791948) is green, including reviewed catalog fingerprints, cold cores, native execution and source quality/performance. [Main CI at `310bd775`](https://github.com/Lojhan/typed-sql/actions/runs/42565964481) also passes after adding the measurement-helper declaration. Subsequent vocabulary changes still require their own full hosted gates. MySQL local recognition/context differences remain disclosed without local baseline acceptance. No timeout or budget increase substitutes for a fix. |
+| 19 | Partial | [Main CI at `4fe65a4f`](https://github.com/Lojhan/typed-sql/actions/runs/42562791948) is green, including reviewed catalog fingerprints, cold cores, native execution and source quality/performance. [Main CI at `310bd775`](https://github.com/Lojhan/typed-sql/actions/runs/42565964481) also passes after adding the measurement-helper declaration. [Main CI at `f0ffb78d`](https://github.com/Lojhan/typed-sql/actions/runs/42573680468) passes PostgreSQL/SQLite vocabulary integration and the alias fixture correction. The newer MySQL vocabulary change still requires its own hosted aggregate. MySQL local recognition/context differences remain disclosed without local baseline acceptance. No timeout or budget increase substitutes for a fix. |
 | 20 | Scoped proof | [Reconciliation tests](../../packages/analysis/test/reconciliation.test.ts) explicitly block an apparently successful wrong mapping. [Live view tests](../../packages/analysis/test/live-view.test.ts) qualify every unique successful static candidate, persist conflicts and re-describe during explicit live checking rather than substituting a prior cached contract. |
 | 21 | Scoped proof | [Migration qualification](../../test/helpers/migration-contracts.ts) applies/replays file-backed PostgreSQL migrations, rejects missing routines/extensions and changed settings despite matching tables, exports durable reconciled inputs, drops qualification databases and invokes the separate packed network-trapped frozen consumer. This qualifies PostgreSQL 18's declared environment, not every migration/extension/engine combination. |
 | 22 | Partial | [Bundle](./bundle-size.md), [repository](./repository-size.md), [installation](./installation-measurements.json) and [commerce project](./project-size.md) reports measure distinct costs. Installation is refreshed at this audit's source. The commerce tool now discovers matching public core exports and independently compares all 37 finite base candidates with the compatibility analyzers: complete analyses and measured payloads are identical. These are selected example profiles, not production popularity or all versions. The [native cost report](./native-costs.md) now measures 16 actual owner-fixture profiles across all five grammars, including all ten hosted SQL Server compatibility targets. It separates schema, plan, reconciled closure and cache bytes plus context/acquisition/reconciliation/reload/cold/warm timings. Full native application-workload admissibility/scaling beyond these one-query fixtures is not established. |
@@ -61,8 +62,13 @@ context and C keyword-API evidence; its final hosted aggregate is still required
   pinned profiles covering every supported minor boundary. Local SQLite 3.39.0 and 3.54.1 C APIs
   exactly match the active inventory, and generated context probes pass there and on Node
   SQLite 3.53.4. The CLI matrix fails its separate reviewed-context gate for the local compiler;
-  those new local contexts are not accepted as standard baselines. MySQL, DuckDB and SQL Server
-  authoritative vocabulary integration remains unfinished. This audit
+  those new local contexts are not accepted as standard baselines. Hosted SQLite matrix qualification
+  passes at `f0ffb78d`. MySQL now consumes three pinned source profiles and a compact runtime
+  projection; native inventories and identifier/function binding probes pass locally on 8.4.11
+  and 9.7.2. The function namespace preserves quoting, whitespace and IGNORE_SPACE distinctions
+  instead of assuming that every matching spelling is the same built-in. MySQL hosted
+  qualification remains pending. DuckDB and SQL Server authoritative vocabulary integration
+  remains unfinished. This audit
   has not established that every grammar/profile's
   complete authoritative reservation/context inventory is generated and consumed correctly.
   Verify inventory-to-parser classification and quoted/unquoted contextual behavior before

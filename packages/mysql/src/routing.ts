@@ -7,12 +7,9 @@ import {
   type QuerySemantics,
   type ReplicaSelector,
   type RoutedDatabase,
-  unknownQuerySemantics,
 } from "@typed-sql/core";
 import type { SchemaSnapshot } from "@typed-sql/schema";
-import { resolveMySqlStatement } from "./compatibility-resolver.js";
-import { parseStatement, SqlParseError } from "./parser/index.js";
-import { analyzeMySqlSemantics } from "./semantics.js";
+import { mysql } from "./compatibility-analysis.js";
 import { defaultMySqlTypePolicy, type MySqlTypePolicy } from "./type-policy.js";
 
 export interface MySqlQuerySemanticResolverOptions {
@@ -32,6 +29,7 @@ export function createMySqlQuerySemanticResolver(options: MySqlQuerySemanticReso
   const cache = new WeakMap<object, QuerySemantics>();
   const shapes = new Map<string, QuerySemantics>();
   const policy = options.typePolicy ?? defaultMySqlTypePolicy;
+  const dialect = mysql({ typePolicy: policy });
   return Object.freeze({
     resolve<Row, Params extends readonly unknown[]>(query: Query<Row, Params>): QuerySemantics {
       const cached = cache.get(query);
@@ -42,18 +40,7 @@ export function createMySqlQuerySemanticResolver(options: MySqlQuerySemanticReso
         cache.set(query, shape);
         return shape;
       }
-      let semantics: QuerySemantics;
-      try {
-        const sqlMode = options.schema.server?.settings.sqlMode;
-        const statement = parseStatement(source, { ...(typeof sqlMode === "string" ? { sqlMode } : {}) });
-        const resolved = resolveMySqlStatement(statement, options.schema, { typePolicy: policy });
-        semantics = resolved.diagnostics.some(({ severity }) => severity === "error")
-          ? unknownQuerySemantics(statement.range, "MySQL runtime semantic analysis reported an error.")
-          : analyzeMySqlSemantics(statement, options.schema);
-      } catch (error) {
-        if (!(error instanceof SqlParseError)) throw error;
-        semantics = unknownQuerySemantics(error.range, "The runtime SQL could not be parsed by the MySQL grammar.");
-      }
+      const semantics = dialect.analyze(source, options.schema, policy).semantics;
       if (shapes.size >= 1_024) shapes.delete(shapes.keys().next().value!);
       shapes.set(source, semantics);
       cache.set(query, semantics);
