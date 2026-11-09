@@ -47,3 +47,16 @@ The current PR review-thread read shows all 13 existing quality threads resolved
 this does not replace the final architecture acceptance audit.
 
 Broader extension/engine profiles and representative project-size measurements remain open.
+
+## PostgreSQL 18.6 namespace reproduction
+
+CI run 42541625378 reached the migration fixture on PostgreSQL 18.6 but exposed an implicit
+extension namespace assumption. Its role is named `typed_sql`; once the migration history schema
+exists, the default `$user, public` path installs `pgcrypto` into `typed_sql`, while this fixture
+explicitly introspects `public`. The fixture now installs that extension with `WITH SCHEMA public`.
+No introspection filter or native extension admission boundary is widened.
+
+The failure reproduces locally with a disposable PostgreSQL 18.6 instance and the same role name.
+After the correction, the full helper passes through migration replay, extension/context rejection,
+native reconciliation, durable export, removal of both qualification databases and the separate
+packed/network-denied frozen consumer. The owned reproduction container is removed afterward.

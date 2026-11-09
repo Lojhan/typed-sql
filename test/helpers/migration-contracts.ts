@@ -126,7 +126,9 @@ export async function assertMigrationContractConsumer(connectionString: string, 
     pools.push(pool);
     // Introspection can retain unqualified extension metadata, but native acquisition must refuse
     // unqualified extension hooks. Do not relax that owner boundary to make this fixture pass.
-    await pool.query("CREATE EXTENSION pgcrypto");
+    // A role named typed_sql can resolve $user to the migration history schema.
+    // Install the fixture into the same explicit namespace that introspection selects.
+    await pool.query("CREATE EXTENSION pgcrypto WITH SCHEMA public");
     const extensionSchema = await pg({ connectionString: url(names[0]!), schemas: ["public"] }).introspect();
     if (extensionSchema.formatVersion !== 2) throw Error("Expected introspected schema v2");
     strict.equal(extensionSchema.routines.pgp_armor_headers?.[0]?.arguments[0]?.name, undefined);
