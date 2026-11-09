@@ -4,7 +4,10 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { sqlserver } from "@typed-sql/sqlserver/analysis/core";
 import { sqlServerContractReconciliationOwner } from "@typed-sql/sqlserver/contract-profile";
-import { createSqlServerNativeContractAdapter } from "@typed-sql/sqlserver/native-contracts";
+import {
+  createSqlServerNativeContractAdapter,
+  SqlServerContractAcquisitionError,
+} from "@typed-sql/sqlserver/native-contracts";
 import { createSqlServerOdbcDatabase } from "@typed-sql/sqlserver/odbc";
 import { sqlserverProfile } from "@typed-sql/sqlserver/profile";
 import { createSqlServerContractReconciler } from "@typed-sql/sqlserver/reconciliation";
@@ -13,12 +16,14 @@ import {
   createStaticQueryClaim,
   reconcileQueryContract,
 } from "../../packages/analysis/dist/packages/analysis/src/index.js";
+import { SQLSERVER_LANGUAGE_SUPPORT } from "../../packages/sqlserver/dist/packages/sqlserver/src/support.js";
 import { recordNativeCosts } from "../../planning/hybrid-analysis/measure-native.mjs";
 
 const password = process.env.TYPED_SQL_SQLSERVER_PASSWORD;
 assert.ok(password && !/[;{}]/u.test(password));
 const major = Number(process.env.TYPED_SQL_SQLSERVER_MAJOR);
-assert.ok([14, 15, 16, 17].includes(major));
+assert.ok(SQLSERVER_LANGUAGE_SUPPORT.engineMajors.includes(major));
+const levels = SQLSERVER_LANGUAGE_SUPPORT.compatibilityLevels.filter((level) => level <= major * 10);
 const build = process.env.TYPED_SQL_SQLSERVER_BUILD;
 assert.match(build ?? "", /^\d+\.\d+\.\d+\.\d+$/u);
 const name = `typed_sql_contract_${major}_${randomBytes(6).toString("hex")}`;
@@ -147,7 +152,7 @@ try {
   } finally {
     await resolutionSetup.close();
   }
-  for (const compatibility of [140, 150, 160, 170].filter((level) => level <= major * 10)) {
+  for (const compatibility of levels) {
     await admin.queryable.all(`ALTER DATABASE [${name}] SET COMPATIBILITY_LEVEL=${compatibility}`);
     const connection = await createSqlServerOdbcDatabase({ connectionString: dsn(name) });
     const schema = {
@@ -337,6 +342,61 @@ try {
         await permissionSetup.close();
       }
     }
+    const alternative = levels.find((level) => level !== compatibility) ?? Math.min(...levels) - 10;
+    const profileCandidate = candidate("SELECT CAST(@__typed_sql_1 AS bigint) AS value", schema);
+    const profileAcquire = (context, stage) =>
+      stableAcquisition({ adapter, context, candidate: profileCandidate }, compatibility, stage);
+    const beforeProfile = await stableContext(adapter, compatibility, "engine-profile-before");
+    assert.equal((await profileAcquire(beforeProfile, "engine-profile-own")).status, "acquired");
+    try {
+      await admin.queryable.all(`ALTER DATABASE [${name}] SET COMPATIBILITY_LEVEL=${alternative}`);
+      const changed = await admin.queryable.all("SELECT compatibility_level FROM sys.databases WHERE name=?", [name]);
+      assert.equal(changed.length, 1);
+      assert.equal(Number(changed[0].compatibility_level), alternative);
+      if (levels.includes(alternative)) {
+        const afterProfile = await stableContext(adapter, compatibility, "engine-profile-after");
+        assert.equal(afterProfile.schemaHash, beforeProfile.schemaHash);
+        assert.equal(afterProfile.typePolicyHash, beforeProfile.typePolicyHash);
+        assert.equal(afterProfile.codecHash, beforeProfile.codecHash);
+        assert.notEqual(afterProfile.databaseContextHash, beforeProfile.databaseContextHash);
+        assert.deepEqual(await profileAcquire(beforeProfile, "engine-profile-stale"), {
+          status: "unavailable",
+          reason: "context-mismatch",
+        });
+        assert.equal((await profileAcquire(afterProfile, "engine-profile-fresh")).status, "acquired");
+      } else {
+        // The oldest engine has only one declared profile. Its real lower profile must remain unavailable.
+        await assert.rejects(
+          createSqlServerOdbcDatabase({ connectionString: dsn(name) }),
+          (error) =>
+            error instanceof TypeError &&
+            error.message === "SQL Server direct ODBC requires a qualified boxed engine and compatibility level",
+        );
+        await assert.rejects(
+          acquireNativeQueryContract({ adapter, context: beforeProfile, candidate: profileCandidate }),
+          (error) => error instanceof SqlServerContractAcquisitionError && error.reason === "native-failure",
+        );
+      }
+      evidence.cases.push({
+        compatibility,
+        id: "compatibility-profile-context-invalidation",
+        status: "pass",
+        from: compatibility,
+        to: alternative,
+        outcome: levels.includes(alternative) ? "context-mismatch" : "unsupported-at-connection",
+      });
+    } finally {
+      await admin.queryable.all(`ALTER DATABASE [${name}] SET COMPATIBILITY_LEVEL=${compatibility}`);
+    }
+    const restoredSettings = await admin.queryable.all("SELECT compatibility_level FROM sys.databases WHERE name=?", [
+      name,
+    ]);
+    assert.equal(restoredSettings.length, 1);
+    assert.equal(Number(restoredSettings[0].compatibility_level), compatibility);
+    const restoredProfile = await stableContext(adapter, compatibility, "engine-profile-restored");
+    assert.equal(restoredProfile.schemaHash, beforeProfile.schemaHash);
+    assert.equal(restoredProfile.codecHash, beforeProfile.codecHash);
+    assert.equal((await profileAcquire(restoredProfile, "engine-profile-restored-acquisition")).status, "acquired");
     const policy = {
       mode: "native-required",
       owner: sqlServerContractReconciliationOwner,

@@ -25,6 +25,7 @@ import { createSqlServerOdbcNativeContractAdapter } from "../src/odbc-contracts.
 import { sqlserverProfile } from "../src/profile.js";
 import { createSqlServerContractReconciler } from "../src/reconciliation.js";
 import { readSqlServerServerEvidence, sqlServerServerQueries } from "../src/server-evidence.js";
+import { SQLSERVER_LANGUAGE_SUPPORT } from "../src/support.js";
 import { ServiceHarness } from "./helpers/verification-services.js";
 
 const schemaSession = await new ServiceHarness().acquire();
@@ -73,6 +74,7 @@ function fixture() {
   let lsn = "00000001:00000001:0001",
     version = "17.0.5035.5",
     dateFirst = 7,
+    compatibilityLevel = 170,
     defaultSchema = "dbo",
     visible = 1;
   let hook = async (_sql: string, _values: readonly unknown[]) => {};
@@ -124,6 +126,7 @@ function fixture() {
                 ...row,
                 version,
                 date_first: dateFirst,
+                compatibility_level: compatibilityLevel,
                 default_schema: defaultSchema,
                 can_view_definition: visible,
               }));
@@ -151,6 +154,9 @@ function fixture() {
     },
     set lsn(value) {
       lsn = value;
+    },
+    set compatibilityLevel(value: number) {
+      compatibilityLevel = value;
     },
     set defaultSchema(value: string) {
       defaultSchema = value;
@@ -206,6 +212,29 @@ function tableFixture() {
 }
 
 await describe("guarded SQL Server contract acquisition", async () => {
+  await it("rejects old contexts across every alternate declared compatibility profile", async () => {
+    for (const level of SQLSERVER_LANGUAGE_SUPPORT.compatibilityLevels.filter(
+      (value) => value <= Number(schema.server.versionKey) * 10 && value !== schema.server.settings.compatibilityLevel,
+    )) {
+      const f = fixture();
+      const adapter = createSqlServerNativeContractAdapter({ pool: f.pool, schema });
+      const before = await adapter.inspectContext();
+      f.compatibilityLevel = level;
+      const after = await adapter.inspectContext();
+      strict.equal(after.schemaHash, before.schemaHash);
+      strict.equal(after.typePolicyHash, before.typePolicyHash);
+      strict.equal(after.codecHash, before.codecHash);
+      strict.notEqual(after.databaseContextHash, before.databaseContextHash);
+      strict.deepEqual(await acquireNativeQueryContract({ adapter, context: before, candidate: candidate() }), {
+        status: "unavailable",
+        reason: "context-mismatch",
+      });
+      strict.equal(
+        (await acquireNativeQueryContract({ adapter, context: after, candidate: candidate() })).status,
+        "acquired",
+      );
+    }
+  });
   await it("rejects prior contexts when only the native default schema changes", async () => {
     const f = fixture();
     const adapter = createSqlServerNativeContractAdapter({ pool: f.pool, schema });

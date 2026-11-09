@@ -49,13 +49,14 @@ export async function auditPostgresEngineBoundaries(connectionStrings: readonly 
     const targets = [];
     for (const connectionString of connectionStrings) {
       assert.ok(["postgres:", "postgresql:"].includes(new URL(connectionString).protocol));
-      const pool = new Pool({ connectionString, max: 1 });
+      const pool = new Pool({ connectionString, max: 1, connectionTimeoutMillis: 5000, query_timeout: 5000 });
       pools.push(pool);
       const row = (
         await pool.query<{ version: string; number: string }>(
           "SELECT current_setting('server_version') AS version,current_setting('server_version_num') AS number",
         )
       ).rows[0]!;
+      assert.equal(typeof row.version, "string");
       const versionNumber = Number(row.number);
       assert.ok(Number.isSafeInteger(versionNumber) && versionNumber > 0);
       const adapter = createPgNativeContractAdapter({ pool, schema });

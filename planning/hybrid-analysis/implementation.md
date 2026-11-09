@@ -2155,3 +2155,30 @@ for hosted Node-22 qualification. No timeout or performance budget is changed.
 The actual PostgreSQL 18.6 native-contract and watch-regeneration fixture also passes locally
 with both fixes in 97.20 seconds, including owned-container cleanup. This is a fresh uninstrumented
 run; the temporary diagnostic patch used during investigation is absent.
+
+
+## PostgreSQL engine and SQL Server compatibility boundaries
+
+The PostgreSQL endpoint audit now acquires contexts on actual 18.3 and 18.6 engines while keeping
+one empty compiler schema and the same type policy/codec. Both directed old-context acquisitions
+return context-mismatch; own-context acquisitions still succeed. Repeated actual engine versions
+fail coverage, and owned connections close on both paths. A local committed capture at `966a18f0`
+records 18.3 Debian 13 and 18.6 Debian 12; its collector hash matches Git. The helper now also
+bounds initial connection and metadata-query deadlines. This is endpoint/catalog evidence,
+not an in-place upgrade or version-only isolation claim. Required packed-database CI includes
+both service versions and uploads a report; fresh hosted execution remains pending.
+
+SQL Server's native fixture derives its compatibility targets from the grammar policy. It now
+changes the actual owned database level while retaining the original compiler schema/policy,
+checks old-context rejection, verifies fresh acquisition, restores the level in finally and
+verifies restored acquisition. The actual level is read independently from sys.databases before
+and after restoration. For 14's sole declared level, the real lower level must be explicitly
+refused by ODBC qualification and cannot acquire through the old adapter. All ten hosted cases
+are wired; none is claimed as actual engine proof before that run. Unit controls pass for every
+alternate supported level on the qualified 17 fixture, along with full SQL Server coverage,
+root types, all 53 repository contract files and quality.
+
+The preceding [aggregate at `44d04698`](https://github.com/Lojhan/typed-sql/actions/runs/42643620259)
+passes every required gate, including the editor-generation fix, cache FIFO, compatibility
+allocation optimization, unchanged performance budgets and all native/packed jobs. The optional
+MySQL canary remains unqualified. This new boundary-audit stage still needs its own hosted run.
