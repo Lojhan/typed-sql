@@ -1,6 +1,6 @@
 {
   "formatVersion": 2,
-  "sourceRevision": "5e9f5ae7aaa96eac7f666827d3b6b0dc67f6a987",
+  "sourceRevision": "2e100286aee1853b30047721638437e843027a33",
   "nodeVersion": "v24.22.2",
   "esbuildVersion": "0.28.2",
   "measurementToolDigest": "dc40a67dc6020756ad046212866c23512282904af1aba29c572d93170931ef5e",
@@ -553,7 +553,7 @@
       "scenario": "frozenHost",
       "minifiedBytes": 135593,
       "gzipBytes": 39468,
-      "brotliBytes": 34291,
+      "brotliBytes": 34296,
       "generatedInputBytes": 0,
       "globalCatalogInputs": [],
       "attribution": {
@@ -564,7 +564,7 @@
         "mysql/other": 10218,
         "mysql/parser": 5531
       },
-      "outputDigest": "c9b8856c37accd85ddd6c689bd7c5dac30b83f51a614f6475b7f9be7a0aad35d"
+      "outputDigest": "5f49e71481ca6bfb8a131471c357f74296562dda3f4b2727ad7f5e629a356052"
     },
     {
       "grammar": "mysql",
@@ -1307,14 +1307,14 @@
     "packages/analysis/src/analysis-errors.ts": "48fba632c3f86ee10d4e9696c2dae33270a080257b356664f82a581cf8fddf80",
     "packages/analysis/src/artifacts.ts": "a1c07b27b97474d84f8047c0b4f708e88ce1306fedfd6275c7d30af1902731d4",
     "packages/analysis/src/cache-files.ts": "80a6cbced91fe00eef35bed13465bb2e041b592ba631053c10b7af48d6ccecad",
-    "packages/analysis/src/cache.ts": "483f9fc315f70933a599577bc68fa199b9cccd54698b6acb59e8281e653c3044",
+    "packages/analysis/src/cache.ts": "f19939f0b07062dd1ba6ebfee16c240701f1eec9dd7e37932be11f07751b2d48",
     "packages/analysis/src/candidate.ts": "c4f00284a72f93227a70b3f84ff88c9b9096d25b5617c747684a92764b4ccab9",
     "packages/analysis/src/canonical.ts": "fafa6dac77106bb23de9424439420de66c04fc3b59394c9ba93307f1048ab0e2",
     "packages/analysis/src/configuration.ts": "8f028aa77adccd46244a5fc0517fbc6966e01e52fe6930439cb7457ee290a6d8",
     "packages/analysis/src/context-scope.ts": "d5c5801ef542e5b638fb7170269dba60898dd930790bf8cc0a597656dd5681d6",
     "packages/analysis/src/contracts.ts": "a3d82f64e89fd6630f3e947385158fc5b9c664c4fe4aacdc59c941f2b557add1",
     "packages/analysis/src/dialect.ts": "f67f6777ba6abb6f28d186a60949710d4c373090dd76ecb220b3b91bd04d9c1b",
-    "packages/analysis/src/index.ts": "67bfb54e49a579f152f48f98d12908168cae047e0a9f12cf342d10c524423875",
+    "packages/analysis/src/index.ts": "136fd3e38ef8bfefdac7755707ee5031d4b291fa51017084572c7e22b1e95daf",
     "packages/analysis/src/live-catalog.ts": "6f959ae34a530b1f1c838212bd51eda6302a19c52acd819edd586edd34d15b90",
     "packages/analysis/src/live-session.ts": "922dbee7e85531cd87f5c52eba2008b81090328eef104d93075453b112d5214a",
     "packages/analysis/src/live-view.ts": "ee8bb82fa785f77a08e57999dc2efde349403bdcb1427f6b0f15bfe339bc9077",

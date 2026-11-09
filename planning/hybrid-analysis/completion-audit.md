@@ -26,7 +26,7 @@ The source inspected begins at `fe344898`; subsequent additions below require th
 | 18 | Private bounded owned storage and namespace isolation | Cache validation, corrupt/linked-object rejection, concurrent writer/prune tests, factory traps and redacted diagnostics. New read-only status validates ownership/index snapshots and reports references, not certified remote validity. |
 | 19 | Expected ownership/topology and lightweight API transition | Package graph/public API/packed tests, explicit analyzer/pack/profile exports and migration documentation. New analysis inspection API requires those gates again. |
 | 20 | Explicit old requirement disposition | The table below maps every earlier specification section. Exhaustive offline semantic parity is replaced, not silently claimed complete. |
-| 21–22 | Measured costs, workload limits and phased delivery gates | Four cost reports share committed source `5e9f5ae7`; native workload limits are documented separately. New production changes require a fresh measurement pin. Final required CI remains open. |
+| 21–22 | Measured costs, workload limits and phased delivery gates | Four cost reports share committed source `2e100286`; native workload limits are documented separately. The current additions are measured at that pin; future production changes require a fresh measurement pin. Final required CI remains open. |
 | 23–24 | All acceptance scenarios and remaining decisions reconciled | Acceptance ledger retains declared boundaries. Full completion also requires closure of the additional host/tooling checks above, current required CI and review state. |
 
 ## Disposition of the earlier specification
