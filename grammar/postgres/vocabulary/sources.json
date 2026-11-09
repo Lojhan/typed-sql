@@ -1,0 +1,96 @@
+{
+  "formatVersion": 1,
+  "grammar": "postgres",
+  "profiles": [
+    {
+      "major": 14,
+      "version": "14.24",
+      "revision": "6b3806732b7c5df06bdd0ed150e8a07b4ad62315",
+      "keywords": {
+        "url": "https://raw.githubusercontent.com/postgres/postgres/6b3806732b7c5df06bdd0ed150e8a07b4ad62315/src/include/parser/kwlist.h",
+        "digest": "sha256:0791809f1c10761f76450c935710b47261a991d35adab212ddb888a958053548",
+        "bytes": 29243
+      },
+      "license": {
+        "url": "https://raw.githubusercontent.com/postgres/postgres/6b3806732b7c5df06bdd0ed150e8a07b4ad62315/COPYRIGHT",
+        "digest": "sha256:3d6af92ff8a4c2cdf69afb1cf44edea727922f5cd0cf8b5f72b11cdecac8fdfd",
+        "bytes": 1198
+      }
+    },
+    {
+      "major": 15,
+      "version": "15.19",
+      "revision": "2ff1375b5dd8bf09d8cb0e795974528180fd75ca",
+      "keywords": {
+        "url": "https://raw.githubusercontent.com/postgres/postgres/2ff1375b5dd8bf09d8cb0e795974528180fd75ca/src/include/parser/kwlist.h",
+        "digest": "sha256:d33997e04d510308f64958549ba27e123ea0dff9dd98eab24952039821fcb40d",
+        "bytes": 29432
+      },
+      "license": {
+        "url": "https://raw.githubusercontent.com/postgres/postgres/2ff1375b5dd8bf09d8cb0e795974528180fd75ca/COPYRIGHT",
+        "digest": "sha256:3d6af92ff8a4c2cdf69afb1cf44edea727922f5cd0cf8b5f72b11cdecac8fdfd",
+        "bytes": 1198
+      }
+    },
+    {
+      "major": 16,
+      "version": "16.15",
+      "revision": "7d3e000c5961a544302072058a1184e9a588837b",
+      "keywords": {
+        "url": "https://raw.githubusercontent.com/postgres/postgres/7d3e000c5961a544302072058a1184e9a588837b/src/include/parser/kwlist.h",
+        "digest": "sha256:b9db8bdeecc085e015e6e958a53545ebe0d8fbadf1094bc885ae511d32ace819",
+        "bytes": 30143
+      },
+      "license": {
+        "url": "https://raw.githubusercontent.com/postgres/postgres/7d3e000c5961a544302072058a1184e9a588837b/COPYRIGHT",
+        "digest": "sha256:3d6af92ff8a4c2cdf69afb1cf44edea727922f5cd0cf8b5f72b11cdecac8fdfd",
+        "bytes": 1198
+      }
+    },
+    {
+      "major": 17,
+      "version": "17.11",
+      "revision": "083ac033419f690758508e08c1736089384bbee8",
+      "keywords": {
+        "url": "https://raw.githubusercontent.com/postgres/postgres/083ac033419f690758508e08c1736089384bbee8/src/include/parser/kwlist.h",
+        "digest": "sha256:8fa117aec8410d483c9fb9e711b1fea7cefc4acc1483c13af40fd24cbd4470bf",
+        "bytes": 31429
+      },
+      "license": {
+        "url": "https://raw.githubusercontent.com/postgres/postgres/083ac033419f690758508e08c1736089384bbee8/COPYRIGHT",
+        "digest": "sha256:3d6af92ff8a4c2cdf69afb1cf44edea727922f5cd0cf8b5f72b11cdecac8fdfd",
+        "bytes": 1198
+      }
+    },
+    {
+      "major": 18,
+      "version": "18.6",
+      "revision": "724edf9bde9d356724ad384a2e196edc3c9f80f7",
+      "keywords": {
+        "url": "https://raw.githubusercontent.com/postgres/postgres/724edf9bde9d356724ad384a2e196edc3c9f80f7/src/include/parser/kwlist.h",
+        "digest": "sha256:fdcdf3694513cba63b4016f63032472b686e381bb35f17c5d645bc2f6f1dac16",
+        "bytes": 31620
+      },
+      "license": {
+        "url": "https://raw.githubusercontent.com/postgres/postgres/724edf9bde9d356724ad384a2e196edc3c9f80f7/COPYRIGHT",
+        "digest": "sha256:3d6af92ff8a4c2cdf69afb1cf44edea727922f5cd0cf8b5f72b11cdecac8fdfd",
+        "bytes": 1198
+      }
+    },
+    {
+      "major": 19,
+      "version": "19beta3",
+      "revision": "3638289fb57bdabec00deda98ee9624a35f5d66a",
+      "keywords": {
+        "url": "https://raw.githubusercontent.com/postgres/postgres/3638289fb57bdabec00deda98ee9624a35f5d66a/src/include/parser/kwlist.h",
+        "digest": "sha256:8c368f62af0d1090349c9ce74bdbd545e3f32111a406a875f55f8917f2995ae0",
+        "bytes": 32691
+      },
+      "license": {
+        "url": "https://raw.githubusercontent.com/postgres/postgres/3638289fb57bdabec00deda98ee9624a35f5d66a/COPYRIGHT",
+        "digest": "sha256:3d6af92ff8a4c2cdf69afb1cf44edea727922f5cd0cf8b5f72b11cdecac8fdfd",
+        "bytes": 1198
+      }
+    }
+  ]
+}

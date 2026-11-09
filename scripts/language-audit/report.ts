@@ -39,6 +39,8 @@ export async function renderReport(check = false) {
     "",
     "The SQLite reference is unversioned and can include compile-option or extension functions. Live captures qualify only their exact recorded engine/build. DuckDB live catalogs include macros, table functions, and symbolic operators. Internal PostgreSQL routines and SQL Server system objects are distinct from the public function reference inventory.",
     "",
+    "PostgreSQL keyword classifications come from the selected major's generated native reservation metadata, including unreserved, column-name, type/function-name and reserved classes. These classifications establish identifier context rules, not support for every associated syntax production.",
+    "",
     "## Coverage",
     "",
     "A number means the upstream inventory was observed. `—` means unavailable in that source, with the reason recorded in the baseline. Discovery coverage and semantic coverage are separate; unavailable and unverified categories never count as supported.",

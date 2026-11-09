@@ -16,8 +16,9 @@ native transport currently qualified by this PR.
 - Add MySQL builtin expression-query acquisition with an owned backup-locked session and independent reconciliation.
 - Add SQLite read-only native query acquisition and SQL Server guarded expression acquisition.
 
-The exhaustive upstream inventory, vendor fact extraction, global catalog model, generated
-completeness reports remain excluded. DuckDB has exact-engine full analyzers, a maintained
+The exhaustive routine inventory, giant vendor corpus, global catalog model and generated
+semantic-completeness claims remain excluded. Compact pinned keyword extraction is distinct
+from that removed pipeline. DuckDB has exact-engine full analyzers, a maintained
 bounded core and explicit compatibility packs. MySQL has selected-series analyzers and a core
 retaining all of its existing maintained families. Other grammars’ appropriate distribution
 boundaries and representative workload selection remain unfinished. Normal
@@ -1225,3 +1226,41 @@ SQL-standard-only appendix words without PostgreSQL reservation classes, while M
 reference snapshots do not supply a complete keyword category. Runtime keyword generation must
 use pinned authoritative word tables and grammar-owned contextual rules; treating those current
 reference lists as reserved-word truth would introduce incorrect mappings. This remains unfinished.
+
+## PostgreSQL authoritative vocabulary
+
+Selected PostgreSQL 14–19 analyzers consume compact generated keyword declarations with native
+reservation classes and bare-label permissions. `grammar/postgres/vocabulary/sources.json` pins
+exact source revisions, content hashes, lengths and notices; the refresh reads only those locked
+files. `pnpm postgres:vocabulary:refresh` is the explicit network-capable operation.
+`postgres:vocabulary:generate` and the quality gate's `postgres:vocabulary:check` operate offline
+from committed, digest-checked facts. Source parsing rejects unfamiliar declarations, categories,
+label flags, duplicate names and preprocessor conditions instead of omitting them.
+
+The six profiles represent 2,884 versioned declarations with 456 shared and 148 profile-specific
+stored tuples. They cover inventory classification and identifier contexts, not every associated
+SQL production. Selected cores import one version and shared facts. Lightweight runtime/profile
+and frozen consumers do not load the inventories; packed proofs remove the vocabulary directory.
+The interpreter identity carries only a digest and retires receipts from preceding interpretation
+rules. ASCII-only folding preserves Unicode identifier distinctions throughout resolution.
+
+Generated unit cases cover every profile's keyword lookup, quoting, ColId/CTE names, qualified
+columns, explicit/bare column labels and relation aliases. Native E2E discovers the actual major,
+compares `pg_get_keywords()` with the generated declarations, and checks independently generated
+PREPARE/DEALLOCATE probes without executing them. Bare-label probes reference the resulting name
+so postfix expressions such as `ISNULL` cannot count as successful aliases. Local PostgreSQL 18.3
+passes the complete oracle and native contract flow; other majors require the hosted matrix.
+The other four grammars' authoritative vocabulary integration remains outstanding.
+
+The refreshed language baseline changes 76 PostgreSQL function observations from unknown-call
+to unverified invocation for special forms (`ANY`/`SOME`, SQL value functions and related reserved
+syntax). No typed recognition is lost. Keyword findings now report native reservation classes;
+previous synthetic terminals (`COUNT`, `MIN`, `MAX`, `SUM`, and pre-introduction `MERGE`/`MATCHED`)
+are no longer represented as vendor keywords. Other grammars' observations are unchanged.
+
+Local validation for this milestone: clean build and root types; all 41 PostgreSQL package files
+with coverage 97.36% statements / 91.11% branches / 97.85% functions; all 49 repository contract
+files including packed consumers; nine soundness files; PostgreSQL and packed E2E project types;
+the full PostgreSQL 18.3 native helper; quality, documentation checks/build and isolated
+performance budgets. The language baseline changes were reviewed by category and status, rather
+than accepting new gaps as semantic support. Hosted multi-major qualification is still pending.

@@ -13,6 +13,7 @@ import { postgres } from "../../packages/postgres/src/analysis.js";
 import { postgresServerEvidence } from "../../packages/postgres/src/capabilities.js";
 import { postgresCoreCatalog } from "../../packages/postgres/src/catalog/index.js";
 import { tokenize as tokenizePostgres } from "../../packages/postgres/src/parser/tokenizer.js";
+import { postgresVocabulary } from "../../packages/postgres/src/vocabulary/index.js";
 import { sqlite } from "../../packages/sqlite/src/analysis.js";
 import { SQLITE_BUILTIN_FUNCTIONS } from "../../packages/sqlite/src/catalog/functions.js";
 import { SQLITE_JSON_TABLE_FUNCTIONS } from "../../packages/sqlite/src/catalog/json.js";
@@ -188,7 +189,7 @@ export function auditInventory(input: {
           observations:
             category === "functions"
               ? auditFunctions(source.rows!, grammar)
-              : auditOther(category, source.rows!, grammar, input.dialect),
+              : auditOther(category, source.rows!, grammar, input.dialect, input.target.version),
         },
       ];
     }),
@@ -201,6 +202,7 @@ function auditOther(
   rows: FunctionRow[],
   grammar: ReturnType<typeof grammarFor>,
   dialect: string,
+  version: string,
 ): Observation[] {
   const tokenize = {
     postgres: tokenizePostgres,
@@ -211,6 +213,16 @@ function auditOther(
   }[dialect];
   return [...new Set(rows.map((row) => row.name))].sort().map((name) => {
     if (category === "keywords" && /^[a-z_]+$/iu.test(name)) {
+      if (dialect === "postgres") {
+        const keywordLookup = postgresVocabulary(Number.parseInt(version, 10))?.lookup;
+        const token = tokenizePostgres(name, keywordLookup === undefined ? {} : { keywordLookup })[0];
+        return {
+          name,
+          status: token?.nativeKeyword
+            ? `keyword-${token.nativeKeyword.category.toLowerCase().replace("_keyword", "")}-observed`
+            : "contextual-or-unclassified-keyword",
+        };
+      }
       const token = tokenize!(name)[0];
       return {
         name,

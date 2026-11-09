@@ -7,6 +7,7 @@ import type {
 } from "@typed-sql/schema";
 import { defineSchemaSnapshotV2, upgradeSchemaSnapshotV1 } from "@typed-sql/schema";
 import type { PostgresCatalogProvider } from "./catalog/provider.js";
+import { postgresAsciiFold, postgresAsciiUpper } from "./identifier-case.js";
 
 export const POSTGRES_EXTENSION_MANIFEST_FORMAT_VERSION = 1 as const;
 
@@ -127,16 +128,16 @@ function routineKey(routine: RoutineSnapshot): string {
 function routineSignature(routine: RoutineSnapshot): string {
   return `${routineKey(routine)}(${routine.arguments
     .filter(({ mode }) => mode !== "out")
-    .map(({ databaseType }) => databaseType.toLowerCase())
+    .map(({ databaseType }) => postgresAsciiFold(databaseType))
     .join(",")})`;
 }
 
 function operatorSignature(operator: PostgresExtensionOperator): string {
-  return `${operator.name.toUpperCase()}(${operator.argumentTypes.map((type) => type.toLowerCase()).join(",")})`;
+  return `${postgresAsciiUpper(operator.name)}(${operator.argumentTypes.map((type) => postgresAsciiFold(type)).join(",")})`;
 }
 
 function castSignature(cast: PostgresExtensionCast): string {
-  return `${cast.sourceType.toLowerCase()}>${cast.targetType.toLowerCase()}`;
+  return `${postgresAsciiFold(cast.sourceType)}>${postgresAsciiFold(cast.targetType)}`;
 }
 
 export function definePostgresExtensionManifest(manifest: PostgresExtensionManifest): PostgresExtensionManifest {
@@ -185,7 +186,7 @@ export function definePostgresExtensionManifest(manifest: PostgresExtensionManif
   for (const codec of manifest.codecs ?? []) {
     nonEmpty(codec.databaseType, "PostgreSQL extension codec database type");
     if (typeof codec.decode !== "function") throw new TypeError("PostgreSQL extension codec decode must be a function");
-    const identity = `codec:${codec.databaseType.toLowerCase()}`;
+    const identity = `codec:${postgresAsciiFold(codec.databaseType)}`;
     if (identities.has(identity)) throw new TypeError(`Duplicate PostgreSQL extension declaration ${identity}`);
     identities.add(identity);
   }
@@ -302,7 +303,7 @@ export function resolvePostgresExtensionManifests(
       casts.push(cast);
     }
     for (const codec of manifest.codecs ?? []) {
-      const key = codec.databaseType.toLowerCase();
+      const key = postgresAsciiFold(codec.databaseType);
       if (codecs.has(key)) issues.push(issue(`PostgreSQL extension codec ${key} is ambiguous across active manifests`));
       else codecs.set(key, codec);
     }

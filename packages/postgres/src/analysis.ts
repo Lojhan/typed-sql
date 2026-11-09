@@ -1,7 +1,9 @@
 import { createPostgresDialect } from "./analysis-factory.js";
 import type { PostgresDialectOptions } from "./analysis-options.js";
 import { postgresCatalogProvider } from "./catalog/index.js";
+import { parsePostgresMajor as vocabularyMajor } from "./support.js";
 import { postgresTypeResolver } from "./type-resolution.js";
+import { postgresVocabulary } from "./vocabulary/index.js";
 
 export type { PostgresDialectOptions, PostgresSchemaSnapshot } from "./analysis-options.js";
 export type {
@@ -40,7 +42,14 @@ export {
 export { POSTGRES_DIALECT_VERSION } from "./version.js";
 
 export function postgres(options: PostgresDialectOptions = {}) {
-  return createPostgresDialect(postgresCatalogProvider, postgresTypeResolver, options);
+  return createPostgresDialect(
+    postgresCatalogProvider,
+    postgresTypeResolver,
+    options,
+    undefined,
+    false,
+    (snapshot) => postgresVocabulary(vocabularyMajor(snapshot.server?.versionKey ?? snapshot.version ?? "18"))?.lookup,
+  );
 }
 
 export { sql } from "@typed-sql/core";

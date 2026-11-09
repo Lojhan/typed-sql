@@ -19,6 +19,7 @@ import { parsePostgresMajor } from "./support.js";
 import { defaultPostgresTypePolicy, type PostgresTypePolicy } from "./type-policy.js";
 import type { PostgresTypeResolver } from "./type-resolution-factory.js";
 import { POSTGRES_DIALECT_VERSION } from "./version.js";
+import type { PostgresKeywordLookup } from "./vocabulary/types.js";
 
 function matchesMajor(snapshot: PostgresSchemaSnapshot, major: number): boolean {
   const evidence = snapshot.server?.versionKey ?? snapshot.version;
@@ -31,6 +32,7 @@ export function createPostgresDialect(
   options: PostgresDialectOptions = {},
   selectedMajor?: number,
   core = false,
+  vocabulary?: (snapshot: PostgresSchemaSnapshot) => PostgresKeywordLookup | undefined,
 ): DialectPlugin<PostgresSchemaSnapshot, PostgresTypePolicy> {
   const defaultTypePolicy = options.typePolicy ?? defaultPostgresTypePolicy;
   const versionPolicy = options.versionPolicy ?? "stable";
@@ -92,7 +94,8 @@ export function createPostgresDialect(
             semantics: unknownQuerySemantics(range, "PostgreSQL major does not match the selected analyzer."),
           };
         }
-        const statement = parseStatement(sql);
+        const keywords = vocabulary?.(snapshot);
+        const statement = parseStatement(sql, keywords === undefined ? {} : { keywordLookup: keywords });
         let extensions: ReturnType<typeof resolvePostgresExtensionManifests> | undefined;
         if ((options.extensions?.length ?? 0) > 0) {
           extensions = extensionCache.get(snapshot);

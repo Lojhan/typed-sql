@@ -7,6 +7,7 @@ import {
 import type { PostgresCatalogProvider } from "./catalog/provider.js";
 import type { PostgresCastContext, PostgresTypeCategory } from "./catalog/types.js";
 import { postgresExtensionCasts, postgresExtensionOperators } from "./extension-resolution.js";
+import { postgresAsciiFold, postgresAsciiUpper } from "./identifier-case.js";
 
 const comparisonOperators = new Set([
   "<",
@@ -103,9 +104,7 @@ export function createPostgresTypeResolver(catalog: PostgresCatalogProvider) {
   }
 
   function normalize(value: string): string {
-    return value
-      .trim()
-      .toLowerCase()
+    return postgresAsciiFold(value.trim())
       .replace(/\(\d+(?:,\s*\d+)?\)/gu, "")
       .replace(/\s+/gu, " ");
   }
@@ -719,7 +718,7 @@ export function createPostgresTypeResolver(catalog: PostgresCatalogProvider) {
     const cached = cache.get(operator);
     if (cached !== undefined) return cached;
     const extension = postgresExtensionOperators(schema)
-      .filter((candidate) => candidate.name.toUpperCase() === operator && candidate.argumentTypes.length === 2)
+      .filter((candidate) => postgresAsciiUpper(candidate.name) === operator && candidate.argumentTypes.length === 2)
       .map((candidate) => ({
         value: operator,
         argumentTypes: candidate.argumentTypes,
@@ -838,7 +837,7 @@ export function createPostgresTypeResolver(catalog: PostgresCatalogProvider) {
     operand: string | undefined,
     schema?: SchemaSnapshot,
   ): PostgresOperatorResolution {
-    const normalizedOperator = operator.toUpperCase();
+    const normalizedOperator = postgresAsciiUpper(operator);
     const builtins: readonly PostgresCandidate<string>[] =
       normalizedOperator === "NOT"
         ? [{ value: normalizedOperator, argumentTypes: ["boolean"], resultType: "boolean" }]
@@ -899,7 +898,8 @@ export function createPostgresTypeResolver(catalog: PostgresCatalogProvider) {
                           : [];
     const extension = postgresExtensionOperators(schema)
       .filter(
-        (candidate) => candidate.name.toUpperCase() === normalizedOperator && candidate.argumentTypes.length === 1,
+        (candidate) =>
+          postgresAsciiUpper(candidate.name) === normalizedOperator && candidate.argumentTypes.length === 1,
       )
       .map((candidate) => ({
         value: normalizedOperator,
@@ -920,7 +920,7 @@ export function createPostgresTypeResolver(catalog: PostgresCatalogProvider) {
     right: string | undefined,
     schema?: SchemaSnapshot,
   ): PostgresOperatorResolution {
-    const normalizedOperator = operator.toUpperCase();
+    const normalizedOperator = postgresAsciiUpper(operator);
     const cache =
       schema === undefined
         ? defaultOperatorResolutions

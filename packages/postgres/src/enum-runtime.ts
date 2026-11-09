@@ -1,6 +1,7 @@
 import type { RuntimeValueType } from "@typed-sql/core";
 import type { SchemaSnapshot } from "@typed-sql/schema";
 import { postgresCodecTypeMapping } from "./codecs/index.js";
+import { postgresAsciiFold } from "./identifier-case.js";
 import { tokenize } from "./parser/tokenizer.js";
 import type { PostgresTypePolicy } from "./policy.js";
 
@@ -14,7 +15,7 @@ function nameKey(source: string): string | undefined {
       if (index % 2) {
         if (token.text !== ".") return undefined;
       } else if (token.kind === "quoted-identifier") parts.push(token.value);
-      else if (token.kind === "identifier" || token.kind === "keyword") parts.push(token.value.toLowerCase());
+      else if (token.kind === "identifier" || token.kind === "keyword") parts.push(postgresAsciiFold(token.value));
       else return undefined;
     }
     return JSON.stringify(parts);

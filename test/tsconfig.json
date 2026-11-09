@@ -9,6 +9,7 @@
     "../planning/hybrid-analysis/measure-native.mjs",
     "../scripts/language-audit/**/*.ts",
     "../scripts/language-audit/**/*.mjs",
+    "../scripts/vocabulary/**/*.mjs",
     "../packages/*/test/**/*.test.ts",
     "../editors/vscode/test/**/*.test.ts",
     "../packages/*/test/helpers/**/*.ts",

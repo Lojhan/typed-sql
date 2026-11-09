@@ -1,11 +1,12 @@
 import type { SchemaSnapshot } from "@typed-sql/schema";
 import { postgresCodecTypeMapping } from "./codecs/index.js";
+import { postgresAsciiFold } from "./identifier-case.js";
 
 import type { PostgresTypePolicy } from "./policy.js";
 
 export { defaultPostgresTypePolicy, type PostgresTypePolicy } from "./policy.js";
 
-const normalized = (databaseType: string): string => databaseType.trim().toLowerCase().replace(/\s+/g, " ");
+const normalized = (databaseType: string): string => postgresAsciiFold(databaseType.trim()).replace(/\s+/g, " ");
 const withoutModifiers = (databaseType: string): string => databaseType.replace(/\(\d+(?:,\s*\d+)?\)/g, "");
 
 function arrayType(databaseType: string): { readonly base: string; readonly dimensions: number } {

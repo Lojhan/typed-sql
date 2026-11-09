@@ -22,6 +22,7 @@
     "dist/**/*.map",
     "README.md",
     "LICENSE",
+    "POSTGRES_VOCABULARY_NOTICE",
     "CHANGELOG.md"
   ],
   "publishConfig": {

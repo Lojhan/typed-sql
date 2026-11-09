@@ -3,11 +3,12 @@ import type { PostgresDialectOptions } from "../analysis-options.js";
 import catalog from "../catalog/generated/19.js";
 import { createPostgresCatalogProvider } from "../catalog/provider.js";
 import { createPostgresTypeResolver } from "../type-resolution-factory.js";
+import { vocabulary } from "../vocabulary/generated/19.js";
 
 export type { PostgresDialectOptions } from "../analysis-options.js";
 
 const owner = createPostgresCatalogProvider([catalog], 19);
 const types = createPostgresTypeResolver(owner);
 export function postgres(options: PostgresDialectOptions = {}) {
-  return createPostgresDialect(owner, types, options, 19);
+  return createPostgresDialect(owner, types, options, 19, false, () => vocabulary.lookup);
 }

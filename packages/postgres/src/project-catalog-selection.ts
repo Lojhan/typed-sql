@@ -1,3 +1,4 @@
+import { postgresAsciiFold } from "./identifier-case.js";
 import { parseStatement, SqlParseError, walkStatement } from "./parser/index.js";
 export function postgresProjectRoutineReferences(
   sqlStatements: readonly string[],
@@ -24,13 +25,13 @@ export function postgresProjectRoutineReferences(
             throw new SqlParseError("Project routine metadata requires quoted non-ASCII identifiers", identifier.range);
         }
 
-        const name = expression.name.quoted ? expression.name.name : expression.name.name.toLowerCase();
+        const name = expression.name.quoted ? expression.name.name : postgresAsciiFold(expression.name.name);
         const namespace =
           expression.schema === undefined
             ? undefined
             : expression.schema.quoted
               ? expression.schema.name
-              : expression.schema.name.toLowerCase();
+              : postgresAsciiFold(expression.schema.name);
         const namespaces = calls.get(name) ?? new Set<string | undefined>();
         if (!namespaces.has(namespace) && ++references > 16_384)
           throw new RangeError("PostgreSQL project routine selection limit exceeded");

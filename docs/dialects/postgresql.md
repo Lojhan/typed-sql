@@ -48,6 +48,15 @@ the newest grammar behavior. Unqualified names follow the captured search path a
 visibility. Prefer schema-qualified names when compilation and execution can use different roles or
 search paths.
 
+## Keyword and identifier rules
+
+Each selected major consumes a compact keyword inventory generated from that release's pinned
+PostgreSQL declarations. Reservation classes and bare-label permissions distinguish ordinary
+identifiers, qualified names and column aliases. Quoted identifiers retain their literal identity;
+unquoted identifiers fold ASCII letters without folding Unicode lookalikes into built-ins.
+Keyword recognition does not imply support for every syntax production: unsupported forms still
+produce a diagnostic. Runtime tags and frozen contract consumption do not load the keyword inventory.
+
 ## Selecting an offline analyzer
 
 Development tooling can load one major explicitly, for example:

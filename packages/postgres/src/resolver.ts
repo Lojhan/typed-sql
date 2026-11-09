@@ -31,6 +31,7 @@ import type {
 import type { PostgresCatalogProvider } from "./catalog/provider.js";
 import { postgresEnumRuntimeType } from "./enum-runtime.js";
 import { fingerprintPostgresExpression, postgresExpressionIdentity } from "./expression-evidence.js";
+import { postgresAsciiFold, postgresAsciiUpper } from "./identifier-case.js";
 import type {
   CallExpression,
   CommonTableExpression,
@@ -194,7 +195,7 @@ export interface ResolveOptions {
 }
 
 function sqlName(identifier: Identifier): string {
-  return identifier.quoted ? identifier.name : identifier.name.toLowerCase();
+  return identifier.quoted ? identifier.name : postgresAsciiFold(identifier.name);
 }
 
 function qualifiedSqlName(identifier: QualifiedIdentifier): string {
@@ -206,9 +207,7 @@ function qualifiedNameIsCaseSensitive(identifier: QualifiedIdentifier): boolean 
 }
 
 function normalizeDatabaseType(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
+  return postgresAsciiFold(value.trim())
     .replace(/\(\d+(?:,\s*\d+)?\)/gu, "")
     .replace(/\s+/gu, " ");
 }
@@ -280,7 +279,7 @@ class Resolver {
     this.#schema = schema;
     this.#runtimeValidation = options.runtimeValidation === true;
     this.#catalogTables = new WeakSet(Object.values(schema.tables));
-    this.#index = ResolverSchemaIndex.for(schema);
+    this.#index = ResolverSchemaIndex.for(schema, postgresAsciiFold);
     this.#policy = options.typePolicy ?? defaultPostgresTypePolicy;
     this.#strictExpressions = options.strictExpressions ?? true;
     this.#serverMajor = parsePostgresMajor(
@@ -777,7 +776,7 @@ class Resolver {
     const primaryKey = this.#index
       .relation(relation.table)
       ?.constraints.find(({ kind }) => kind === "primary-key")
-      ?.columns.map((column) => `column:${relation.alias}.${column.toLowerCase()}`);
+      ?.columns.map((column) => `column:${relation.alias}.${postgresAsciiFold(column)}`);
     return (
       primaryKey !== undefined &&
       primaryKey.length > 0 &&
@@ -804,7 +803,7 @@ class Resolver {
       expression.schema === undefined ? undefined : sqlName(expression.schema),
     );
     if (project.length) return project.every((routine) => routine.kind === "aggregate");
-    const name = expression.name.name.toUpperCase();
+    const name = postgresAsciiUpper(expression.name.name);
     const rule = this.#catalog.routineRule(name, this.#schema);
     if (rule !== undefined && aggregateRoutineRules.has(rule)) return true;
     if (aggregateExtrema.has(name)) return true;
@@ -968,7 +967,7 @@ class Resolver {
         scope,
         expression.column.quoted,
       );
-      if (matches.length === 1) return `column:${matches[0]![0].alias}.${matches[0]![1].name.toLowerCase()}`;
+      if (matches.length === 1) return `column:${matches[0]![0].alias}.${postgresAsciiFold(matches[0]![1].name)}`;
     }
     return `expression:${postgresExpressionIdentity(expression)}`;
   }
@@ -1214,13 +1213,13 @@ class Resolver {
             statement.source.rows.every((row) => this.#isDefaultValue(row[index]))
           )
             return [];
-          return [column.name.toLowerCase()];
+          return [postgresAsciiFold(column.name)];
         }),
       );
       const required = this.#index.requiredInsertColumns(target.table);
       if (required !== "unknown") {
         for (const column of required) {
-          if (!supplied.has(column.name.toLowerCase())) {
+          if (!supplied.has(postgresAsciiFold(column.name))) {
             this.#diagnostic("TSQ219", `INSERT omits required column ${column.name}`, statement.table.range);
           }
         }
@@ -1239,7 +1238,7 @@ class Resolver {
           if (constraint.kind !== "primary-key" && constraint.kind !== "unique" && constraint.kind !== "exclusion")
             return false;
           const name = constraint.identity.slice(constraint.identity.lastIndexOf(".") + 1);
-          return targetConstraint.constraint.quoted ? name === requested : name.toLowerCase() === requested;
+          return targetConstraint.constraint.quoted ? name === requested : postgresAsciiFold(name) === requested;
         });
         if (relation !== undefined && match === undefined) {
           this.#diagnostic("TSQ226", `Unknown conflict constraint ${requested}`, conflict.target.range);
@@ -1478,13 +1477,13 @@ class Resolver {
             const rows = action.source.rows;
             targetColumns.forEach((column, index) => {
               if (column !== undefined && !rows.every((row) => this.#isDefaultValue(row[index])))
-                supplied.add(column.name.toLowerCase());
+                supplied.add(postgresAsciiFold(column.name));
             });
           }
           const required = this.#index.requiredInsertColumns(target.table);
           if (required !== "unknown") {
             for (const column of required) {
-              if (!supplied.has(column.name.toLowerCase()))
+              if (!supplied.has(postgresAsciiFold(column.name)))
                 this.#diagnostic("TSQ219", `MERGE INSERT omits required column ${column.name}`, action.range);
             }
           }
@@ -1788,7 +1787,7 @@ class Resolver {
     const relation: Relation = { alias, table, nullable };
     scope.relations.push(relation);
     if (reference.kind === "table" && reference.sample !== undefined) {
-      const sampleMethod = reference.sample.method.name.toUpperCase();
+      const sampleMethod = postgresAsciiUpper(reference.sample.method.name);
       if ((sampleMethod === "SYSTEM" || sampleMethod === "BERNOULLI") && reference.sample.arguments.length !== 1) {
         this.#diagnostic(
           "TSQ227",
@@ -2180,7 +2179,11 @@ class Resolver {
         { name: "key", databaseType: "text", tsType: "string", nullable: false },
         {
           name: "value",
-          databaseType: json ? (expression.name.name.toUpperCase().startsWith("JSONB") ? "jsonb" : "json") : "text",
+          databaseType: json
+            ? postgresAsciiUpper(expression.name.name).startsWith("JSONB")
+              ? "jsonb"
+              : "json"
+            : "text",
           tsType: json ? this.#policy.json : "string",
           nullable: false,
         },
@@ -2191,7 +2194,11 @@ class Resolver {
       return [
         {
           name: "value",
-          databaseType: json ? (expression.name.name.toUpperCase().startsWith("JSONB") ? "jsonb" : "json") : "text",
+          databaseType: json
+            ? postgresAsciiUpper(expression.name.name).startsWith("JSONB")
+              ? "jsonb"
+              : "json"
+            : "text",
           tsType: json ? this.#policy.json : "string",
           nullable: false,
         },
@@ -2364,7 +2371,7 @@ class Resolver {
           for (const column of Object.values(relation.table.columns)) {
             if (
               star.relation === undefined &&
-              (scope.usingColumns.has(column.name) || scope.usingColumns.has(column.name.toLowerCase()))
+              (scope.usingColumns.has(column.name) || scope.usingColumns.has(postgresAsciiFold(column.name)))
             )
               continue;
             add({ name: column.name, ...this.#columnType(relation, column), range: item.range });
@@ -2618,7 +2625,7 @@ class Resolver {
         }
         const fieldName = sqlName(expression.field);
         const field = composite.fields.find((candidate) =>
-          expression.field.quoted ? candidate.name === fieldName : candidate.name.toLowerCase() === fieldName,
+          expression.field.quoted ? candidate.name === fieldName : postgresAsciiFold(candidate.name) === fieldName,
         );
         if (field === undefined) {
           this.#diagnostic(
@@ -4009,7 +4016,7 @@ class Resolver {
         this.#diagnostic("TSQ222", `Unknown window ${expression.over.name}`, expression.over.range);
       }
     }
-    const name = expression.name.name.toUpperCase();
+    const name = postgresAsciiUpper(expression.name.name);
     if (name === "MERGE_ACTION" && expression.arguments.length === 0) {
       this.#requireServerMajor(17, "merge_action()", expression.range);
       if (!this.#insideMergeReturning)
@@ -4466,7 +4473,7 @@ class Resolver {
 
   #isBuiltinJsonCall(expression: CallExpression): boolean {
     const name = sqlName(expression.name);
-    if (name !== name.toLowerCase()) return false;
+    if (name !== postgresAsciiFold(name)) return false;
     const schema = expression.schema === undefined ? undefined : sqlName(expression.schema);
     if (schema !== undefined && schema !== "pg_catalog") return false;
     return (
@@ -4918,7 +4925,7 @@ class Resolver {
           positional += 1;
         } else {
           index = inputs.findIndex(
-            (argument) => argument.name !== undefined && argument.name.toLowerCase() === sqlName(name),
+            (argument) => argument.name !== undefined && postgresAsciiFold(argument.name) === sqlName(name),
           );
         }
         if (index < 0 || index >= inputs.length || used.has(index)) return undefined;
@@ -5406,7 +5413,7 @@ class Resolver {
       const matchesNamedEvidence = (candidate: string | undefined, name: string, caseSensitive: boolean): boolean => {
         if (candidate === undefined) return false;
         const candidateName = name.includes(".") ? candidate : candidate.slice(candidate.lastIndexOf(".") + 1);
-        return caseSensitive ? candidateName === name : candidateName.toLowerCase() === name;
+        return caseSensitive ? candidateName === name : postgresAsciiFold(candidateName) === name;
       };
       for (const element of requested) {
         const index = remaining.findIndex((candidate) => {
@@ -5415,7 +5422,7 @@ class Resolver {
               ? candidate.expressionHash === element.expressionHash
               : element.columnCaseSensitive
                 ? candidate.column === element.column
-                : candidate.column?.toLowerCase() === element.column;
+                : (candidate.column === undefined ? undefined : postgresAsciiFold(candidate.column)) === element.column;
           return (
             identityMatches &&
             (element.operatorClass === undefined ||
@@ -5490,7 +5497,7 @@ class Resolver {
             requestedColumns.some((requestedColumn) =>
               requestedColumn.columnCaseSensitive
                 ? column === requestedColumn.column
-                : column.toLowerCase() === requestedColumn.column,
+                : postgresAsciiFold(column) === requestedColumn.column,
             ),
           )
         )

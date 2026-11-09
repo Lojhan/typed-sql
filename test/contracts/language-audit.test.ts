@@ -25,6 +25,22 @@ import { renderReport } from "../../scripts/language-audit/report.js";
 import { signatureFacts } from "../../scripts/language-audit/signatures.mjs";
 
 await describe("independent upstream language auditing", async () => {
+  await it("refuses to silently omit unfamiliar or conditional PostgreSQL keyword declarations", async () => {
+    const { parsePostgresKeywords } = await import("../../scripts/vocabulary/postgres.mjs");
+    const record = 'PG_KEYWORD("new_word", NEW_WORD, UNRESERVED_KEYWORD, BARE_LABEL)';
+    strict.deepEqual(parsePostgresKeywords(`/* source notice */\n${record}`), [
+      ["new_word", "UNRESERVED_KEYWORD", true, "NEW_WORD"],
+    ]);
+    for (const source of [
+      `${record}\n#if FEATURE\n${record}\n#endif`,
+      `${record}\nPG_KEYWORD_NEW("unseen")`,
+      record.replace("UNRESERVED_KEYWORD", "NEW_CATEGORY"),
+      record.replace("BARE_LABEL", "NEW_LABEL"),
+      `${record}\n${record}`,
+      "/* no records */",
+    ])
+      strict.throws(() => parsePostgresKeywords(source));
+  });
   await it("requires discovery adapters and upstream evidence for every grammar in the feature ledger", async () => {
     const ledger = JSON.parse(await readFile(new URL("../../grammar/features/ledger.json", import.meta.url), "utf8"));
     strict.deepEqual([...DIALECTS].sort(), Object.keys(ledger.dialects).sort());

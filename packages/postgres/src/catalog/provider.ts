@@ -1,4 +1,5 @@
 import type { SchemaSnapshot } from "@typed-sql/schema";
+import { postgresAsciiFold, postgresAsciiUpper } from "../identifier-case.js";
 import { parsePostgresMajor } from "../support.js";
 import type {
   PostgresCastContext,
@@ -55,9 +56,7 @@ function index(catalog: PostgresCoreCatalog): CatalogIndex {
 }
 
 function normalizeType(value: string): string {
-  const normalized = value
-    .trim()
-    .toLowerCase()
+  const normalized = postgresAsciiFold(value.trim())
     .replace(/\[\]$/u, "")
     .replace(/\(\d+(?:,\s*\d+)?\)/gu, "")
     .replace(/\s+/gu, " ");
@@ -144,18 +143,18 @@ export function createPostgresCatalogProvider(
     operator: string,
     schema?: SchemaSnapshot,
   ): PostgresOperatorResultRule | undefined {
-    return index(postgresCoreCatalogForSchema(schema)).operators.get(operator.toUpperCase());
+    return index(postgresCoreCatalogForSchema(schema)).operators.get(postgresAsciiUpper(operator));
   }
 
   function postgresCatalogRoutineRule(routine: string, schema?: SchemaSnapshot): PostgresRoutineResultRule | undefined {
-    return index(postgresCoreCatalogForSchema(schema)).routines.get(routine.toUpperCase());
+    return index(postgresCoreCatalogForSchema(schema)).routines.get(postgresAsciiUpper(routine));
   }
 
   function postgresCatalogTableRoutineRule(
     routine: string,
     schema?: SchemaSnapshot,
   ): PostgresTableRoutineResultRule | undefined {
-    return index(postgresCoreCatalogForSchema(schema)).tableRoutines.get(routine.toUpperCase());
+    return index(postgresCoreCatalogForSchema(schema)).tableRoutines.get(postgresAsciiUpper(routine));
   }
   return Object.freeze({
     catalog: postgresCoreCatalog,

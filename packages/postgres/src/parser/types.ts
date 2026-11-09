@@ -1,3 +1,5 @@
+import type { PostgresKeyword } from "../vocabulary/types.js";
+
 export interface SourceRange {
   readonly start: number;
   readonly end: number;
@@ -18,6 +20,8 @@ export type TokenKind =
 
 export interface Token {
   readonly kind: TokenKind;
+  /** Vendor word classification is separate from the parser's syntax-terminal kind. */
+  readonly nativeKeyword?: PostgresKeyword;
   readonly text: string;
   readonly value: string;
   readonly range: SourceRange;

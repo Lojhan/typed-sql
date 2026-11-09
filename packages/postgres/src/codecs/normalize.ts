@@ -1,7 +1,6 @@
+import { postgresAsciiFold } from "../identifier-case.js";
 export function normalizePostgresDatabaseType(value: string): string {
-  const normalized = value
-    .trim()
-    .toLowerCase()
+  const normalized = postgresAsciiFold(value.trim())
     .replace(/\[\]$/u, "")
     .replace(/\(\d+(?:,\s*\d+)?\)/gu, "")
     .replace(/\s+/gu, " ");
