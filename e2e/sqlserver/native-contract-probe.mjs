@@ -25,8 +25,30 @@ const name = `typed_sql_contract_${major}_${randomBytes(6).toString("hex")}`;
 const dsn = (database) =>
   `Driver={ODBC Driver 18 for SQL Server};Server=127.0.0.1,1433;Database=${database};UID=sa;PWD=${password};Encrypt=yes;TrustServerCertificate=yes;`;
 const admin = await createSqlServerOdbcDatabase({ connectionString: dsn("master") });
-const evidence = { formatVersion: 1, major, build, cases: [] };
+const evidence = {
+  formatVersion: 1,
+  major,
+  build,
+  caseStatus: "incomplete",
+  cleanupStatus: "pending",
+  cases: [],
+  contextAttempts: [],
+};
+async function stableContext(adapter, compatibility, stage) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const context = await adapter.inspectContext();
+      evidence.contextAttempts.push({ compatibility, stage, attempt, status: "observed" });
+      return context;
+    } catch (error) {
+      evidence.contextAttempts.push({ compatibility, stage, attempt, status: error.reason ?? "failed" });
+      if (error.reason !== "context-changed" || attempt === 2) throw error;
+    }
+  }
+  throw Error("No stable native context observed");
+}
 let created = false;
+const failures = [];
 const profile = sqlserverProfile();
 const candidate = (sql, schema) => ({
   sql,
@@ -90,13 +112,13 @@ try {
     assert.equal(schema.server.version, build);
     assert.equal(schema.server.settings.compatibilityLevel, compatibility);
     const adapter = createSqlServerNativeContractAdapter({ pool, schema });
-    const baselineContext = await adapter.inspectContext();
+    const baselineContext = await stableContext(adapter, compatibility, "baseline");
     const changedPolicyAdapter = createSqlServerNativeContractAdapter({
       pool,
       schema,
       typePolicy: { ...profile.defaultTypePolicy, bigint: "string" },
     });
-    const changedPolicyContext = await changedPolicyAdapter.inspectContext();
+    const changedPolicyContext = await stableContext(changedPolicyAdapter, compatibility, "codec-policy");
     assert.equal(changedPolicyContext.databaseContextHash, baselineContext.databaseContextHash);
     assert.notEqual(changedPolicyContext.typePolicyHash, baselineContext.typePolicyHash);
     assert.notEqual(changedPolicyContext.codecHash, baselineContext.codecHash);
@@ -113,7 +135,7 @@ try {
     const permissionSetup = await createSqlServerOdbcDatabase({ connectionString: dsn(name) });
     try {
       await permissionSetup.queryable.all("GRANT SELECT ON dbo.records TO contract_context_audit");
-      const granted = await adapter.inspectContext();
+      const granted = await stableContext(adapter, compatibility, "permission-grant");
       assert.notEqual(granted.databaseContextHash, baselineContext.databaseContextHash);
       assert.equal(granted.schemaHash, baselineContext.schemaHash);
       assert.deepEqual(
@@ -201,14 +223,32 @@ try {
       evidence.cases.push({ compatibility, id: `reject-${relation}`, status: "pass" });
     }
   }
-  const output = resolve(`../../artifacts/sqlserver/native-contracts-${major}.json`);
-  await mkdir(resolve("../../artifacts/sqlserver"), { recursive: true });
-  await writeFile(output, `${JSON.stringify(evidence, null, 2)}\n`);
+  evidence.caseStatus = "passed";
   console.log(`SQL Server ${major}: guarded native query contracts passed`);
-} finally {
-  if (created) {
-    await admin.queryable.all(`ALTER DATABASE [${name}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE`);
-    await admin.queryable.all(`DROP DATABASE [${name}]`);
-  }
-  await admin.close();
+} catch (error) {
+  failures.push(error);
 }
+const [cleanup] = await Promise.allSettled([
+  (async () => {
+    try {
+      if (created) {
+        await admin.queryable.all(`ALTER DATABASE [${name}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE`);
+        await admin.queryable.all(`DROP DATABASE [${name}]`);
+      }
+    } finally {
+      await admin.close();
+    }
+  })(),
+]);
+evidence.cleanupStatus = cleanup.status === "fulfilled" ? "passed" : "failed";
+if (cleanup.status === "rejected") failures.push(cleanup.reason);
+const [publication] = await Promise.allSettled([
+  (async () => {
+    const output = resolve(`../../artifacts/sqlserver/native-contracts-${major}.json`);
+    await mkdir(resolve("../../artifacts/sqlserver"), { recursive: true });
+    await writeFile(output, `${JSON.stringify(evidence, null, 2)}\n`);
+  })(),
+]);
+if (publication.status === "rejected") failures.push(publication.reason);
+if (failures.length === 1) throw failures[0];
+if (failures.length > 1) throw new AggregateError(failures, "SQL Server qualification or cleanup failed");

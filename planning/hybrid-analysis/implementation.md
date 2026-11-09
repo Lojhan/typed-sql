@@ -1656,3 +1656,16 @@ reference refresh separately fails on HTTP 403 from the MySQL documentation endp
 optional MySQL canary remains unqualified. Fresh qualification must evaluate the current code
 and capture version 2 SQL Server facet records. Scenario 8's remaining applicable mutation
 classes, workload scaling and final measurements are still open.
+
+The first permission-mutation [run at `2f32cdfe`](https://github.com/Lojhan/typed-sql/actions/runs/42596294995)
+stops all four SQL Server native-contract probes at the new bare initial context observation:
+the existing consistency guard reports `context-changed` before any grant mutation runs.
+The 14/140 job subsequently passes its packed native consumer checks. This does not qualify
+the new permission cases or provide missing facet samples.
+
+Initial context observations now use the same three-attempt, context-change-only bound as
+the pre-existing acquisition fixtures. Every attempt is recorded, exhaustion still fails,
+and other errors fail immediately. There is no sleep, enlarged deadline or accepted inconsistent
+context. Probe artifacts retain incomplete case status, observation attempts and cleanup status
+even on failure, with acquisition/cleanup/publication failures preserved together. Fresh hosted
+execution must establish whether a stable initial observation and every mutation case pass.
