@@ -45,6 +45,9 @@ export interface WorkspaceToolsOptions {
   readonly trusted: () => boolean;
   readonly origin: () => string;
   readonly dialect: DialectPlugin;
+  readonly prepare?: (
+    source: string,
+  ) => Promise<{ dialect: DialectPlugin; schema: SchemaSnapshot; assertCurrent(): Promise<void> }>;
   readonly typePolicy: unknown;
   readonly schema: () => SchemaSnapshot;
   readonly schemaSource?: () => string;
@@ -408,10 +411,17 @@ export class AgentWorkspaceToolServer {
       "Analyze SQL against the captured schema and selected grammar/type policy without executing. Unknown/unsupported SQL remains diagnostic.",
       { sql },
       async (input) => {
-        const snapshot = this.options.schema(),
-          analysis = analyzeSql(input.sql, this.options.dialect, snapshot, this.options.typePolicy);
+        const prepared = await this.options.prepare?.(input.sql);
+        const snapshot = prepared?.schema ?? this.options.schema(),
+          analysis = analyzeSql(
+            input.sql,
+            prepared?.dialect ?? this.options.dialect,
+            snapshot,
+            this.options.typePolicy,
+          );
+        await prepared?.assertCurrent();
         return {
-          schemaHash: calculateSchemaHash(snapshot),
+          schemaHash: calculateSchemaHash(this.options.schema()),
           diagnostics: analysis.compiled.sourceDiagnostics,
           parameters: analysis.parameters,
           query: analysis.compiled.query ?? null,
@@ -559,9 +569,11 @@ export class AgentWorkspaceToolServer {
     expectedIdentity?: { database: string; server: string },
   ): Promise<Record<string, unknown>> {
     if (!this.options.target) throw new WorkspaceError("OFFLINE", "Configure an explicit target before querying", 409);
-    const snapshot = this.options.schema(),
-      schemaHash = calculateSchemaHash(snapshot),
-      analysis = analyzeSql(source, this.options.dialect, snapshot, this.options.typePolicy);
+    const prepared = await this.options.prepare?.(source);
+    const snapshot = prepared?.schema ?? this.options.schema(),
+      schemaHash = calculateSchemaHash(this.options.schema()),
+      analysis = analyzeSql(source, prepared?.dialect ?? this.options.dialect, snapshot, this.options.typePolicy);
+    await prepared?.assertCurrent();
     if (!analysis.compiled.query || analysis.compiled.sourceDiagnostics.length)
       return { schemaHash, diagnostics: analysis.compiled.sourceDiagnostics, executed: false };
     const bound = bindSql(analysis, values).map((value) => decodeValue(value));
@@ -608,6 +620,7 @@ export class AgentWorkspaceToolServer {
         );
       if (calculateSchemaHash(this.options.schema()) !== schemaHash)
         throw new WorkspaceError("SCHEMA_STALE", "Captured schema changed; analyze again", 409);
+      await prepared?.assertCurrent();
       const raw = await bounded(
         target.query({
           text: analysis.compiled.query.query.sql,

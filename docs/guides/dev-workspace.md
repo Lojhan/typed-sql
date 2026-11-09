@@ -23,6 +23,23 @@ Open the printed local URL. Its session fragment authorizes this browser; keep i
 
 Use `--project tsconfig.json` to select a project, `--port 5179` to choose a local port, and omit `--no-open` to open the browser automatically. The host requires Node.js 22.11 or newer, matching the CLI's minimum; this repository exercises its connected workflow with Node.js 24.22.2.
 
+## Query contracts and live analysis
+
+The workspace uses the project's [analysis configuration](../getting-started/configuration.md#explicit-live-query-checking)
+for SQL previews, TypeScript queries, generated SQL declarations, agent SQL tools and captured runs.
+Offline mode reuses compatible recorded evidence and ordinary grammar rules. Frozen mode requires
+matching durable contracts and keeps analyzer and native factories unloaded.
+
+Live acquisition starts only after you enable trusted project execution. It uses the explicitly
+configured analysis adapter; selecting an execution target alone does not enable native qualification.
+Unsaved editor text uses the packaged language server's live analysis. Captured runs check saved
+sources and compile against their prepared schema and decoding plans, including selected routine
+catalogs. Changing SQL in frozen mode requires regenerating its contract first.
+
+A live schema refresh resets native analysis sessions. A changed saved configuration or compiler
+snapshot requires restarting the workspace. Disabling trust closes owned native sessions; future
+previews use offline evidence. Native query support retains each grammar adapter's documented scope.
+
 ## Connect PostgreSQL explicitly
 
 Install the application-owned PostgreSQL drivers:

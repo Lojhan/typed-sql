@@ -52,7 +52,8 @@
     "./next": "./dist/packages/build/src/next.js",
     "./register": "./dist/packages/build/src/register.js",
     "./bun": "./dist/packages/build/src/bun.js",
-    "./bun-register": "./dist/packages/build/src/bun-register.js"
+    "./bun-register": "./dist/packages/build/src/bun-register.js",
+    "./analysis": "./dist/packages/build/src/analysis-document.js"
   },
   "scripts": {
     "test": "poku test --reporter=compact --enforce"

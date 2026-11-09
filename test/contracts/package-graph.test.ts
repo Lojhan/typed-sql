@@ -106,6 +106,7 @@ const expectedEntrypoints: Readonly<Record<(typeof publicPackages)[number], read
     "./register",
     "./bun",
     "./bun-register",
+    "./analysis",
   ],
   adapters: [".", "./d1", "./libsql", "./neon-http", "./neon-ws", "./postgres-js", "./sqlite-wasm"],
   ast: [".", "./toolkit"],

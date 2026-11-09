@@ -2,7 +2,7 @@ import { type ChildProcess, fork } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
-import { dirname, isAbsolute, join } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { BuildSession } from "@typed-sql/build";
 import { checkFile, compileSqlFile, listProjectSourceFiles } from "@typed-sql/compiler";
@@ -11,6 +11,7 @@ import type { SchemaSnapshot } from "@typed-sql/core";
 import { calculateSchemaHash, calculateTypePolicyHash } from "@typed-sql/schema";
 import { parse } from "acorn";
 import { build, transform } from "esbuild";
+import type { WorkspaceAnalysis } from "./analysis-service.js";
 import { validatePlaygroundConfiguration } from "./configuration.js";
 import type { PlaygroundLimits } from "./contracts.js";
 import { databaseDiagnostic, type RunDatabaseDiagnostic } from "./database-diagnostics.js";
@@ -46,6 +47,8 @@ export interface RunRecord {
     totalMs: number | null;
   };
   schemaHash: string | null;
+  /** Compiler identity may include selected declarations beyond the workspace snapshot. */
+  analysisSchemaHash?: string;
   readonly typePolicyHash: string;
   finishedAt?: string;
   status: "checking" | "running" | "cancelling" | "succeeded" | "failed" | "cancelled" | "outcome-unknown";
@@ -104,6 +107,7 @@ export class RunManager {
   private readonly resultDirectories = new Map<string, string>();
   private readonly requests = new Map<string, { fingerprint: string; recordId: string }>();
   private active: { record: RunRecord; controller: AbortController; child?: ChildProcess } | undefined;
+  analysis: WorkspaceAnalysis | undefined;
   trusted = false;
   schema: SchemaSnapshot | undefined;
   expectedSchemaHash: string | undefined;
@@ -323,10 +327,23 @@ export class RunManager {
           409,
         );
     }
-    const session = new BuildSession({ cwd: this.loaded.directory, config: this.loaded.file });
-    const project = await session.project();
+    let session = new BuildSession({ cwd: this.loaded.directory, config: this.loaded.file });
+    const baseSchema = this.loaded.config.dialect.validateSnapshot(
+      JSON.parse(await readFile(resolve(this.loaded.directory, this.loaded.config.schema.file), "utf8")),
+    );
+    const project = this.analysis
+      ? {
+          loaded: this.loaded,
+          snapshot: baseSchema,
+          watchedFiles: [
+            ...(this.loaded.dependencies ?? [this.loaded.file]),
+            resolve(this.loaded.directory, this.loaded.config.schema.file),
+          ],
+          configIdentity: contentHash(JSON.stringify(baseSchema)),
+        }
+      : await session.project();
     record.schemaHash = calculateSchemaHash(project.snapshot);
-    if (this.expectedSchemaHash !== undefined && calculateSchemaHash(project.snapshot) !== this.expectedSchemaHash)
+    if (this.expectedSchemaHash !== undefined && calculateSchemaHash(baseSchema) !== this.expectedSchemaHash)
       throw new WorkspaceError(
         "SCHEMA_CHANGED",
         "Saved compiler schema changed. Restart the workspace before execution.",
@@ -337,18 +354,35 @@ export class RunManager {
         "SCHEMA_STALE",
         "Live schema differs from the saved compiler snapshot. Regenerate the application contract and restart before execution.",
       );
+    let dialect = this.loaded.config.dialect;
+    let compilerSchema = project.snapshot;
+    let assertAnalysis: (() => Promise<void>) | undefined;
+    const prepare = async (sources?: readonly { source: string; sqlFile: boolean }[]) => {
+      if (!this.analysis) return;
+      const view = await this.analysis.prepare(request.file, source.source, baseSchema, sources);
+      dialect = view.dialect;
+      compilerSchema = view.schema;
+      record.analysisSchemaHash = calculateSchemaHash(compilerSchema);
+      assertAnalysis = view.assertCurrent;
+      session = new BuildSession(
+        { cwd: this.loaded.directory, config: this.loaded.file },
+        {
+          ...project,
+          snapshot: compilerSchema,
+          loaded: { ...this.loaded, config: { ...this.loaded.config, dialect } },
+          watchedFiles: [...new Set([...project.watchedFiles, ...(view.files ?? [])])],
+          configIdentity: view.revision,
+        },
+      );
+    };
     const captured = new Map<string, string>();
     let sql: string | undefined;
     let sqlOffsets: readonly number[] | undefined;
     let boundValues = request.values;
     if (request.mode === "sql") {
       if (!request.file.endsWith(".sql")) throw new WorkspaceError("RUN_MODE", "SQL mode requires a SQL file");
-      const sqlAnalysis = analyzeSql(
-        source.source,
-        this.loaded.config.dialect,
-        project.snapshot,
-        this.loaded.config.typePolicy,
-      );
+      await prepare();
+      const sqlAnalysis = analyzeSql(source.source, dialect, compilerSchema, this.loaded.config.typePolicy);
       const compiled = sqlAnalysis.compiled;
       if (!compiled.query || compiled.sourceDiagnostics.some((d) => d.severity === "error"))
         throw new WorkspaceError(
@@ -387,13 +421,20 @@ export class RunManager {
           );
         throw error;
       });
+      const entryFile = await this.files.path(request.file);
+      const otherSources = await Promise.all(
+        reachable
+          .filter((path) => path !== entryFile && path !== request.file)
+          .map(async (path) => ({ source: await readFile(path, "utf8"), sqlFile: path.endsWith(".sql") })),
+      );
+      await prepare(otherSources);
       for (const sqlFile of reachable.filter((path) => path.endsWith(".sql"))) {
         const sqlSource = await readFile(sqlFile, "utf8");
         const declarationFile = sqlFile.replace(/\.sql$/u, ".d.sql.ts");
         const declaration = compileSqlFile({
           source: sqlSource,
-          dialect: this.loaded.config.dialect,
-          schema: project.snapshot,
+          dialect,
+          schema: compilerSchema,
           typePolicy: this.loaded.config.typePolicy,
         });
         if (!declaration.query) throw new WorkspaceError("SQL_CHECK", `Imported SQL failed analysis: ${sqlFile}`);
@@ -421,8 +462,8 @@ export class RunManager {
       const checked = await checkFile({
         file: await this.files.path(request.file),
         project: this.project,
-        dialect: this.loaded.config.dialect,
-        schema: project.snapshot,
+        dialect,
+        schema: compilerSchema,
         typePolicy: this.loaded.config.typePolicy,
         typeScriptTimeoutMs: this.limits.timeoutMs,
       });
@@ -433,7 +474,8 @@ export class RunManager {
         );
       for (const file of checked.files ?? []) captured.set(file.file, file.analysis.source);
     }
-    for (const file of project.watchedFiles) if (!captured.has(file)) captured.set(file, await readFile(file, "utf8"));
+    for (const file of (await session.project()).watchedFiles)
+      if (!captured.has(file)) captured.set(file, await readFile(file, "utf8"));
     for (const file of [
       this.project,
       join(this.loaded.directory, "package.json"),
@@ -596,6 +638,7 @@ export class RunManager {
       );
       record.timings.buildMs = performance.now() - buildStarted;
       const workerStarted = performance.now();
+      await assertAnalysis?.();
       const child = fork(worker, [], {
         cwd: this.loaded.directory,
         stdio: ["ignore", "pipe", "pipe", "ipc"],

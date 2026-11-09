@@ -2,13 +2,13 @@ import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { loadConfig } from "@typed-sql/config";
+import { loadConfigSource } from "@typed-sql/config";
 
 /** Resolve the optional host from the application, never from the CLI dependency graph. */
 export async function runPlayground(options: Readonly<Record<string, string>>): Promise<void> {
   const accepted = new Set(["config", "project", "target", "port", "no-open"]);
   for (const key of Object.keys(options)) if (!accepted.has(key)) throw new Error(`Unknown playground option --${key}`);
-  const loaded = await loadConfig({ ...(options.config === undefined ? {} : { file: options.config }) });
+  const loaded = await loadConfigSource({ ...(options.config === undefined ? {} : { file: options.config }) });
   const require = createRequire(join(loaded.directory, "package.json"));
   let entry: string;
   try {

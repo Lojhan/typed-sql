@@ -58,6 +58,7 @@ async function fixture(
   }) => Promise<void>,
   targetOverride?: () => PlaygroundTarget,
   expectedDatabase = "expected",
+  preparedCatalog = false,
 ) {
   const root = await mkdtemp(join(tmpdir(), "typed-sql-mcp-"));
   await mkdir(join(root, "playground"));
@@ -129,6 +130,27 @@ async function fixture(
     files: new WorkspaceFiles(root, ["playground"], ["playground"]),
     trusted: () => state.trusted,
     origin: () => origin,
+    ...(preparedCatalog
+      ? {
+          prepare: async () => ({
+            dialect: postgres(),
+            schema: {
+              ...snapshot,
+              formatVersion: 1 as const,
+              functions: {
+                selected: {
+                  name: "selected",
+                  argumentTypes: [],
+                  returnType: "number",
+                  databaseReturnType: "integer",
+                  nullable: true,
+                },
+              },
+            },
+            assertCurrent: async () => {},
+          }),
+        }
+      : {}),
     dialect: postgres(),
     typePolicy: undefined,
     schema: () => ({
@@ -473,3 +495,15 @@ if (process.env.TYPED_SQL_PLAYGROUND_PG_URL) {
     });
   });
 }
+
+await it("keeps agent capture identity on the base schema when analysis uses selected catalogs", async () =>
+  fixture(
+    async (f) => {
+      const queried = await f.call("typed_sql_query_readonly", { sql: "select 1 as value" });
+      strict.equal(queried.structuredContent.executed, true, JSON.stringify(queried));
+      strict.equal(f.state.queries.length, 1);
+    },
+    undefined,
+    "expected",
+    true,
+  ));

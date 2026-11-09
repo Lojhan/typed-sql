@@ -56,7 +56,8 @@
     "decimal.js": "^10.6.0",
     "esbuild": "0.28.2",
     "tsx": "4.23.15",
-    "zod": "4.6.7"
+    "zod": "4.6.7",
+    "@typed-sql/analysis": "workspace:*"
   },
   "peerDependencies": {
     "@typed-sql/postgres": ">=2.5.0 <3",

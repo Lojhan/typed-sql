@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
-import { loadConfig } from "@typed-sql/config";
+import { loadConfigSource } from "@typed-sql/config";
 import type { Database } from "@typed-sql/core";
 import { register } from "tsx/esm/api";
 import type { PlaygroundTarget } from "./contracts.js";
@@ -65,7 +65,7 @@ async function run(request: WorkerRequest): Promise<void> {
       if (contentHash(await readFile(file.path, "utf8")) !== file.hash)
         throw new WorkspaceError("STALE_SOURCE", "Run inputs changed before config loading; run again");
     }
-    const loaded = await loadConfig({
+    const loaded = await loadConfigSource({
       file: request.config,
       importer: async (file, onImport) => {
         notifyImport = onImport;
