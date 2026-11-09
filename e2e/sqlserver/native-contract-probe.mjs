@@ -47,6 +47,27 @@ async function stableContext(adapter, compatibility, stage) {
   }
   throw Error("No stable native context observed");
 }
+// Owned fixture DDL can advance the log while an acquisition opens its guard. Retry only that
+// classified race, keeping the caller's original context and expected outcome unchanged.
+async function stableAcquisition(request, compatibility, stage) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const result = await acquireNativeQueryContract(request);
+      evidence.contextAttempts.push({ compatibility, stage, attempt, operation: "acquire", status: result.status });
+      return result;
+    } catch (error) {
+      evidence.contextAttempts.push({
+        compatibility,
+        stage,
+        attempt,
+        operation: "acquire",
+        status: error.reason ?? "failed",
+      });
+      if (error.reason !== "context-changed" || attempt === 2) throw error;
+    }
+  }
+  throw Error("No stable native acquisition observed");
+}
 let created = false;
 let principalCreated = false;
 let resolutionPrincipalCreated = false;
@@ -159,11 +180,15 @@ try {
     assert.equal(principalContext.codecHash, baselineContext.codecHash);
     assert.notEqual(principalContext.databaseContextHash, baselineContext.databaseContextHash);
     assert.deepEqual(
-      await acquireNativeQueryContract({
-        adapter: principalAdapter,
-        context: baselineContext,
-        candidate: candidate("SELECT CAST(@__typed_sql_1 AS bigint) AS value", schema),
-      }),
+      await stableAcquisition(
+        {
+          adapter: principalAdapter,
+          context: baselineContext,
+          candidate: candidate("SELECT CAST(@__typed_sql_1 AS bigint) AS value", schema),
+        },
+        compatibility,
+        "context-control",
+      ),
       { status: "unavailable", reason: "context-mismatch" },
       "Distinct server logins cannot reuse context even when both map to dbo with sysadmin permissions",
     );
@@ -188,11 +213,15 @@ try {
     const resolutionContext = await stableContext(resolutionAdapter, compatibility, "default-schema-before");
     assert.equal(
       (
-        await acquireNativeQueryContract({
-          adapter: resolutionAdapter,
-          context: resolutionContext,
-          candidate: candidate("SELECT CAST(@__typed_sql_1 AS bigint) AS value", schema),
-        })
+        await stableAcquisition(
+          {
+            adapter: resolutionAdapter,
+            context: resolutionContext,
+            candidate: candidate("SELECT CAST(@__typed_sql_1 AS bigint) AS value", schema),
+          },
+          compatibility,
+          "context-control",
+        )
       ).status,
       "acquired",
     );
@@ -208,20 +237,28 @@ try {
       assert.equal(changedResolution.codecHash, resolutionContext.codecHash);
       assert.notEqual(changedResolution.databaseContextHash, resolutionContext.databaseContextHash);
       assert.deepEqual(
-        await acquireNativeQueryContract({
-          adapter: resolutionAdapter,
-          context: resolutionContext,
-          candidate: candidate("SELECT CAST(@__typed_sql_1 AS bigint) AS value", schema),
-        }),
+        await stableAcquisition(
+          {
+            adapter: resolutionAdapter,
+            context: resolutionContext,
+            candidate: candidate("SELECT CAST(@__typed_sql_1 AS bigint) AS value", schema),
+          },
+          compatibility,
+          "context-control",
+        ),
         { status: "unavailable", reason: "context-mismatch" },
       );
       assert.equal(
         (
-          await acquireNativeQueryContract({
-            adapter: resolutionAdapter,
-            context: changedResolution,
-            candidate: candidate("SELECT CAST(@__typed_sql_1 AS bigint) AS value", schema),
-          })
+          await stableAcquisition(
+            {
+              adapter: resolutionAdapter,
+              context: changedResolution,
+              candidate: candidate("SELECT CAST(@__typed_sql_1 AS bigint) AS value", schema),
+            },
+            compatibility,
+            "context-control",
+          )
         ).status,
         "acquired",
       );
@@ -260,11 +297,15 @@ try {
     assert.notEqual(changedPolicyContext.typePolicyHash, baselineContext.typePolicyHash);
     assert.notEqual(changedPolicyContext.codecHash, baselineContext.codecHash);
     assert.deepEqual(
-      await acquireNativeQueryContract({
-        adapter: changedPolicyAdapter,
-        context: baselineContext,
-        candidate: candidate("SELECT CAST(@__typed_sql_1 AS bigint) AS value", schema),
-      }),
+      await stableAcquisition(
+        {
+          adapter: changedPolicyAdapter,
+          context: baselineContext,
+          candidate: candidate("SELECT CAST(@__typed_sql_1 AS bigint) AS value", schema),
+        },
+        compatibility,
+        "context-control",
+      ),
       { status: "unavailable", reason: "context-mismatch" },
       "A changed BIGINT decoding policy cannot reuse the old native context",
     );
@@ -276,11 +317,15 @@ try {
       assert.notEqual(granted.databaseContextHash, baselineContext.databaseContextHash);
       assert.equal(granted.schemaHash, baselineContext.schemaHash);
       assert.deepEqual(
-        await acquireNativeQueryContract({
-          adapter,
-          context: baselineContext,
-          candidate: candidate("SELECT CAST(@__typed_sql_1 AS bigint) AS value", schema),
-        }),
+        await stableAcquisition(
+          {
+            adapter,
+            context: baselineContext,
+            candidate: candidate("SELECT CAST(@__typed_sql_1 AS bigint) AS value", schema),
+          },
+          compatibility,
+          "context-control",
+        ),
         { status: "unavailable", reason: "context-mismatch" },
         "A permission grant must retire context even when the current principal and schema are unchanged",
       );

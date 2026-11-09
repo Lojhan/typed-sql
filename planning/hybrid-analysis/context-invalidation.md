@@ -82,7 +82,10 @@ context after the change and acquires with the fresh context. The default schema
 and the owned login is dropped even on failure. Server-state permissions follow the actual
 engine requirement ([metadata API reference](https://learn.microsoft.com/en-us/sql/relational-databases/system-dynamic-management-objects/sys-dm-exec-connections-transact-sql)).
 A unit control changes only the native default-schema field and verifies rejection before any
-candidate-description call. This is implemented regression coverage; all ten actual hosted
+candidate-description call. The context controls record bounded acquisition attempts and retry
+only a classified `context-changed` guard race, keeping the supplied old context unchanged.
+The required stale-context rejection remains asserted; permissions, timeouts and other errors
+are never converted into successful outcomes. This is implemented regression coverage; all ten actual hosted
 executions are still required before the mutation matrix can claim native proof.
 
 Schema/routine changes already have separate native evidence: PostgreSQL routine and table
