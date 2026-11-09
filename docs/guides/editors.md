@@ -39,6 +39,10 @@ queries unknown. Templates and raw SQL documents use the same prepared contract 
 manifest and cache-index changes participate in editor invalidation, and each request validates its
 recorded inputs before publishing types.
 
+Query hovers show the evidence origin and recorded context digest. Matching recorded evidence is
+labelled with unverified remote freshness; TypeScript preview verification does not establish
+current database validity. Offline analysis without a query contract is identified separately.
+
 In `"live"` mode, an explicit `analysis.live.adapter` registration enables native acquisition.
 The project shares one owned adapter and bounded query scheduler. Context checks are coalesced
 across requests, with a five-second default interval; `analysis.live.contextIntervalMs` adjusts it.

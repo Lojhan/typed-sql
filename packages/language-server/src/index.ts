@@ -37,7 +37,12 @@ import {
 } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
 
-import { type LiveEditorSessionInput, prepareRecordedDocument, recordedContractPaths } from "./recorded-contracts.js";
+import {
+  type LiveEditorSessionInput,
+  prepareRecordedDocument,
+  type RecordedDocumentView,
+  recordedContractPaths,
+} from "./recorded-contracts.js";
 
 export type {
   TypedSqlProtocolCapability,
@@ -99,6 +104,21 @@ interface DocumentAnalysis {
   readonly typePolicy: unknown;
   readonly projectFile?: string;
   readonly analysis: BridgeAnalysis;
+  readonly evidence?: RecordedDocumentView["evidence"];
+}
+
+function contractEvidenceText(
+  evidence: DocumentAnalysis["evidence"],
+  range?: { readonly start: number; readonly end: number },
+): string {
+  const matching = evidence?.filter((item) => !range || (item.start < range.end && item.end > range.start)) ?? [];
+  return [
+    ...new Set(
+      matching.map(
+        (item) => `Evidence: ${item.origin}. Recorded context: \`${item.contextDigest}\`; remote freshness unverified.`,
+      ),
+    ),
+  ].join("\n\n");
 }
 
 export interface TypedSqlCacheMetrics {
@@ -359,7 +379,12 @@ export class TypedSqlLanguageService {
       return {
         contents: {
           kind: MarkupKind.Markdown,
-          value: `**typed-sql query (project snapshot)**\n\n\`\`\`typescript\nRows: ${raw.query.rowType}\nParameters: ${raw.query.parameterType}\n\`\`\``,
+          value: [
+            `**typed-sql query (project snapshot)**\n\n\`\`\`typescript\nRows: ${raw.query.rowType}\nParameters: ${raw.query.parameterType}\n\`\`\``,
+            contractEvidenceText(result.evidence),
+          ]
+            .filter(Boolean)
+            .join("\n\n"),
         },
       };
     }
@@ -385,6 +410,7 @@ export class TypedSqlLanguageService {
           nativeType === undefined
             ? "Resolver result; native TypeScript 7 preview verification was unavailable."
             : "Verified through a temporary TypeScript 7.1 preview snapshot.",
+          contractEvidenceText(result.evidence, query.sourceRange),
         ].join("\n"),
       },
       range: {
@@ -802,6 +828,7 @@ export class TypedSqlLanguageService {
         typePolicy: loaded.config.typePolicy ?? view.dialect.defaultTypePolicy,
         ...(projectFile === undefined ? {} : { projectFile }),
         analysis,
+        ...(view.evidence ? { evidence: view.evidence } : {}),
       };
       cancelled(token);
       await view.assertCurrent().catch(inputFailure);

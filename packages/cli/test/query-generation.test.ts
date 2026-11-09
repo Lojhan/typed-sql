@@ -29,6 +29,34 @@ async function contents(directory: string): Promise<unknown> {
   return result;
 }
 await describe("durable query generation", async () => {
+  await it("emits a complete semantic JSON diff with current callers and keeps check-only exports unchanged", async () => {
+    await fixture(async (directory) => {
+      await allowOfflineOwner(directory);
+      const output = join(directory, "generated/contracts"),
+        before = await contents(output);
+      const path = join(directory, "src/query.ts");
+      await writeFile(path, (await readFile(path, "utf8")).replace("AS value", "AS renamed"));
+      await strict.rejects(generate(directory, ["--check", "--json"]), (error: unknown) => {
+        const report = JSON.parse((error as { stdout: string }).stdout);
+        strict.equal(report.operation, "check");
+        strict.equal(report.matches, false);
+        strict.equal(report.diff.queries.length, 2);
+        const added = report.diff.queries.find((change: { kind: string }) => change.kind === "added");
+        strict.equal(added.after[0].columns[0].name, "renamed");
+        strict.equal(added.after[0].parameters[0].index, 1);
+        strict.equal(added.callers[0].file, "src/query.ts");
+        strict.ok(added.callers[0].line > 0);
+        return true;
+      });
+      strict.deepEqual(await contents(output), before);
+      const generated = JSON.parse((await generate(directory, ["--json"])).stdout);
+      strict.equal(generated.operation, "generate");
+      strict.equal(generated.diff.queries.length, 2);
+      const matched = JSON.parse((await generate(directory, ["--check", "--json"])).stdout);
+      strict.equal(matched.matches, true);
+      strict.deepEqual(matched.diff.queries, []);
+    });
+  });
   await it("reports the source and qualification diagnostic for a missing native-required candidate", async () => {
     await fixture(async (directory) => {
       await allowOfflineOwner(directory);

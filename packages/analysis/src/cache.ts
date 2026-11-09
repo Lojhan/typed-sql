@@ -57,6 +57,26 @@ export interface AnalysisCacheToken {
   readonly requestKey: string;
   readonly entryRevision: string | null;
 }
+export interface AnalysisCacheInspection {
+  readonly formatVersion: 1;
+  readonly status: "absent" | "present";
+  readonly freshness: "unverified";
+  /** Index references, not a substitute for qualified contract lookup. */
+  readonly indexedContracts: readonly {
+    readonly digest: string;
+    readonly contextHash: string;
+    readonly recordedAt: number;
+  }[];
+  readonly indexedCatalogs: readonly { readonly digest: string; readonly contextHash: string }[];
+  readonly outcomes: Readonly<Record<string, number>>;
+  readonly failures: readonly (LiveAnalysisFailure & { readonly contextHash: string; readonly recordedAt: number })[];
+  readonly contexts: readonly {
+    readonly scopeHash: string;
+    readonly contextHash: string;
+    readonly status: "usable" | "stale";
+    readonly observedAt: number;
+  }[];
+}
 export interface AnalysisCacheLookup {
   readonly token: AnalysisCacheToken;
   readonly cached?: {
@@ -261,6 +281,92 @@ async function names(path: string): Promise<string[]> {
 // The filesystem lock coordinates processes. A FIFO per resolved cache directory prevents handles
 // in one process from exhausting its retry budget by competing with each other.
 const publicationQueues = new Map<string, Promise<void>>();
+
+/** Read one validated index snapshot without creating a cache, taking a write lock or connecting. */
+export async function inspectAnalysisCache(options: {
+  readonly directory: string;
+  readonly workspaceContext: string;
+}): Promise<AnalysisCacheInspection> {
+  hash(options.workspaceContext);
+  const root = resolve(options.directory),
+    limit = 8 * 1024 * 1024;
+  const absent = (): AnalysisCacheInspection =>
+    Object.freeze({
+      formatVersion: 1,
+      status: "absent",
+      freshness: "unverified",
+      indexedContracts: Object.freeze([]),
+      indexedCatalogs: Object.freeze([]),
+      outcomes: Object.freeze({}),
+      failures: Object.freeze([]),
+      contexts: Object.freeze([]),
+    });
+  const directory = async (path: string) => {
+    const stat = await lstat(path);
+    if (!stat.isDirectory() || stat.isSymbolicLink()) throw new TypeError("Unsafe analysis cache directory");
+  };
+  try {
+    await directory(root);
+  } catch (error) {
+    if (cacheMissing(error)) return absent();
+    throw error;
+  }
+  const ownership = () => readCacheFile(join(root, "ownership.json"), limit).then((text) => owner(JSON.parse(text)));
+  const before = await ownership();
+  let current: Index;
+  try {
+    await directory(join(root, "indexes"));
+    current = index(
+      JSON.parse(await readCacheFile(join(root, "indexes", `${options.workspaceContext}.json`), limit)),
+      options.workspaceContext,
+      65_535,
+    );
+  } catch (error) {
+    if (cacheMissing(error)) return absent();
+    throw error;
+  }
+  if ((await ownership()).instance !== before.instance) throw new TypeError("Analysis cache owner instance changed");
+  const outcomes: Record<string, number> = {};
+  for (const entry of current.entries) outcomes[entry.result.kind] = (outcomes[entry.result.kind] ?? 0) + 1;
+  return Object.freeze({
+    formatVersion: 1,
+    status: "present",
+    freshness: "unverified",
+    indexedContracts: Object.freeze(
+      current.entries.flatMap((entry) =>
+        entry.result.kind === "usable-recorded-context"
+          ? [
+              Object.freeze({
+                digest: entry.result.contractDigest,
+                contextHash: entry.contextHash,
+                recordedAt: entry.recordedAt,
+              }),
+            ]
+          : [],
+      ),
+    ),
+    indexedCatalogs: Object.freeze(
+      current.entries.flatMap((entry) =>
+        entry.result.kind === "project-catalog"
+          ? [Object.freeze({ digest: entry.result.catalogDigest, contextHash: entry.contextHash })]
+          : [],
+      ),
+    ),
+    outcomes: Object.freeze(outcomes),
+    failures: Object.freeze(
+      current.entries.flatMap((entry) =>
+        entry.result.kind === "usable-recorded-context" || entry.result.kind === "project-catalog"
+          ? []
+          : [Object.freeze({ ...entry.result, contextHash: entry.contextHash, recordedAt: entry.recordedAt })],
+      ),
+    ),
+    contexts: Object.freeze(
+      (current.heads ?? []).map(({ scopeHash, contextHash, status, observedAt }) =>
+        Object.freeze({ scopeHash, contextHash, status, observedAt }),
+      ),
+    ),
+  });
+}
 
 /** Opens owned disposable storage. It never connects, executes SQL, or writes durable compiler inputs. */
 export async function openAnalysisCache(options: AnalysisCacheOptions): Promise<AnalysisCache> {

@@ -72,6 +72,25 @@ The packed SQL Server editor fixture revisits its original query live after the 
 check before testing that same query offline; an intervening observed drift can legitimately
 retire its earlier proof. Hosted qualification remains required.
 
+## Evidence review and cache maintenance
+
+The full specification audit found three user-facing gaps beyond the scenario checklist. The CLI
+now provides read-only `cache status` and owned `cache prune` commands; status includes indexed
+outcomes/failure codes, contexts and query/catalog selections missing from durable export. It
+explicitly cannot observe other processes' active requests. Read-only inspection does not create
+storage or invoke native/analyzer/provider factories.
+
+Query generation now reports semantic query/declaration changes. `--json` retains complete old/new
+facts, ordered parameters, native evidence, decoding policy, qualification, unresolved facets and
+current source callers. Check-only differences preserve durable files. Exact SQL changes remain
+removal/addition; review does not invent an equivalence or grant inference permissions.
+
+Template and SQL-file hovers now identify evidence origin and recorded context with unverified
+remote freshness. Focused and complete CLI/editor suites, public API/packed contracts, root types,
+build, documentation, analysis coverage, quality and isolated unchanged performance checks pass.
+The [full completion audit](./completion-audit.md) retains the native-pending diagnostic host check
+and fresh hosted qualification as open requirements.
+
 ## Measurements and workload limits
 
 The canonical reports distinguish costs rather than combining generated inputs with application

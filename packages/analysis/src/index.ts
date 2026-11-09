@@ -16,12 +16,13 @@ export {
 } from "./artifacts.js";
 export type {
   AnalysisCache,
+  AnalysisCacheInspection,
   AnalysisCacheLookup,
   AnalysisCacheOptions,
   AnalysisCacheToken,
   AnalysisContextLookup,
 } from "./cache.js";
-export { openAnalysisCache } from "./cache.js";
+export { inspectAnalysisCache, openAnalysisCache } from "./cache.js";
 export { canonicalContractData, exactSqlDigest, queryContractDigest } from "./canonical.js";
 export type {
   AnalysisConfiguration,

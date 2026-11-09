@@ -5,6 +5,7 @@ import {
   createContractDialect,
   type createLiveContractSession,
   defineAnalysisRegistration,
+  exactSqlDigest,
   LiveContextUnavailableError,
   type LiveContractView,
   loadFrozenContractView,
@@ -58,6 +59,12 @@ export interface RecordedDocumentView {
   readonly revision: string;
   readonly schema: SchemaSnapshot;
   readonly files?: readonly string[];
+  readonly evidence?: readonly {
+    readonly start: number;
+    readonly end: number;
+    readonly origin: QueryContract["origin"] | "offline-analysis" | "missing-contract";
+    readonly contextDigest: string;
+  }[];
   assertCurrent(): Promise<void>;
 }
 /** Prepares only recorded inputs/offline rules. No live factory is called at this boundary. */
@@ -93,6 +100,7 @@ export async function prepareRecordedDocument(input: {
       return null;
     });
   const before = await manifest();
+  let candidates: ReturnType<typeof collectSourceQueryCandidates>["candidates"] = [];
   let view: {
     readonly dialect: DialectPlugin<SchemaSnapshot, unknown>;
     readonly context: QueryContractContext;
@@ -111,6 +119,7 @@ export async function prepareRecordedDocument(input: {
       typePolicy,
       ...loaded.config.compiler,
     });
+    candidates = collection.candidates;
     if (
       !collection.complete ||
       collection.diagnostics.some((diagnostic) => diagnostic.severity === "error") ||
@@ -189,6 +198,13 @@ export async function prepareRecordedDocument(input: {
         ? { loadProjectCatalogContributions: () => runConfigFactory(loaded, () => projectCatalogs.loadContributions()) }
         : {}),
     });
+    candidates = (input.sqlFile ? collectSqlFileQueryCandidates : collectSourceQueryCandidates)({
+      source: input.source,
+      profile,
+      schema: view.schema ?? schema,
+      typePolicy,
+      ...loaded.config.compiler,
+    }).candidates;
   } else {
     const cache = configuration.cache
       ? await openAnalysisCache({
@@ -263,6 +279,7 @@ export async function prepareRecordedDocument(input: {
       typePolicy,
       ...loaded.config.compiler,
     });
+    candidates = collection.candidates;
     // Candidate extraction remains conservative; the compiler reports unsupported source.
     const prepared = await prepareOfflineContractView({
       profile,
@@ -298,10 +315,24 @@ export async function prepareRecordedDocument(input: {
     await guard();
   };
   await assertCurrent();
+  const contextDigest = queryContractDigest(view.context);
+  const origins = new Map(
+    view.contracts
+      .filter((contract) => queryContractDigest(contract.context) === contextDigest)
+      .map((contract) => [contract.sqlDigest, contract.origin]),
+  );
   return {
     dialect: view.dialect,
     schema: view.schema ?? schema,
     ...(view.files ? { files: view.files } : {}),
+    evidence: candidates.map((candidate) => ({
+      start: candidate.sourceRange.start,
+      end: candidate.sourceRange.end,
+      origin:
+        origins.get(exactSqlDigest(candidate.sql)) ??
+        (configuration.mode === "frozen" ? ("missing-contract" as const) : ("offline-analysis" as const)),
+      contextDigest,
+    })),
     revision: queryContractDigest({
       context: view.context,
       contracts: view.contracts.map((contract) => contract.digest).sort(),

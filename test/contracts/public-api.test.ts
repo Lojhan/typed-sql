@@ -1633,6 +1633,7 @@ await describe("query contract public API", async () => {
         "createQueryContractIndex",
         "exactSqlDigest",
         "exportQueryContracts",
+        "inspectAnalysisCache",
         "loadQueryContracts",
         "loadQueryContractContext",
         "createAnalysisContextScope",

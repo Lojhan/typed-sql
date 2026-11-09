@@ -329,12 +329,46 @@ selects a contract directory relative to the config, and `--project` selects a c
 Single-file query generation is rejected because it would replace a project closure with a partial
 set of queries. The exported manifest contains exactly the selected projects' contracts.
 
+Generation prints a semantic diff of queries and reusable declarations. Add `--json` for the
+complete before/after records, including ordered parameters, result fields, native evidence,
+decoding policy, qualification and incomplete native facets:
+
+```sh
+pnpm exec typed-sql generate --queries --offline --check --json
+```
+
+The report identifies current callers by relative file and source position. A removed query has
+no current caller; durable contracts do not retain historical application paths. SQL changes appear
+as removal/addition rather than an assumed equivalence. `--check --json` still exits unsuccessfully
+when the prospective export differs and preserves the durable manifest.
+
 Publication serializes cooperating exporters and checks the original manifest identity. Source,
 config, schema and project inputs are checked again immediately before the atomic manifest update.
 A failed input fence leaves the old manifest available; immutable unreferenced objects may remain.
 Old objects are retained so readers that captured the previous manifest can finish loading it.
 Commit the manifest and referenced `contexts/` and `queries/` objects for frozen CI. Disposable cache
 refresh alone does not update those reviewed inputs.
+
+## Inspecting and pruning analysis cache
+
+With `analysis.cache` configured, inspect its workspace/configuration namespace without connecting
+or creating cache storage:
+
+```sh
+pnpm exec typed-sql cache status
+pnpm exec typed-sql cache status --json
+pnpm exec typed-sql cache prune --retention-days 30
+```
+
+Status reports indexed outcomes, observed contexts, unverified remote freshness and indexed query
+contracts/catalog selections missing from the durable export. These are index observations, not
+proof of current database validity or full project coverage. Active requests in other processes
+are unobserved; editor status reports its own live session.
+
+Pruning removes unreachable owned objects after the retention interval, or earlier when enforcing
+the cache byte limit. `--retention-days 0` removes all unreachable objects. Indexed objects across
+workspace namespaces, durable exports and unrelated `.typed-sql` artifacts are preserved. An absent
+namespace remains absent. Invalid ownership or corrupted indexes produce an error.
 
 ## Production profile
 

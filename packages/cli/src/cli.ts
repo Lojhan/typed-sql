@@ -44,6 +44,7 @@ import {
   parseSchemaSnapshot,
   writeArtifactFiles,
 } from "@typed-sql/schema";
+import { runCacheCli } from "./cache.js";
 import { reportCheckedFiles } from "./check-report.js";
 import { watchChecks } from "./check-watch.js";
 import { runContractCommand } from "./contract-check.js";
@@ -68,6 +69,7 @@ const commands = new Set([
   "drift",
   "manifest",
   "verify",
+  "cache",
 ]);
 
 async function packageVersion(): Promise<string> {
@@ -107,6 +109,7 @@ Commands:
   drift      Compare the generated contract with the live database catalog
   manifest   Emit a deterministic manifest for every project query
   verify     Verify a manifest from cached proof or native live metadata
+  cache      Inspect or prune disposable analysis evidence
 
 Global options:
   -h, --help       Show this help
@@ -120,6 +123,8 @@ Examples:
   typed-sql check --watch --live --project tsconfig.json
   typed-sql generate --queries --live
   typed-sql generate --queries --offline --check
+  typed-sql cache status --json
+  typed-sql cache prune --retention-days 30
   typed-sql check --project tsconfig.json
   typed-sql check --file src/query.ts --project tsconfig.json --show-types
   typed-sql compat --before schema.before.json --after schema.after.json --before-manifest old.json --after-manifest new.json
@@ -389,6 +394,10 @@ async function main(): Promise<void> {
   }
   if (args.includes("--version") || args.includes("-v")) {
     process.stdout.write(`${version}\n`);
+    return;
+  }
+  if (args[0] === "cache") {
+    await runCacheCli(args.slice(1));
     return;
   }
 

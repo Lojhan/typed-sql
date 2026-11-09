@@ -15,15 +15,16 @@ The [acceptance audit](./acceptance-audit.md) records scoped proof, open checks 
 qualification evidence against the unchanged requirements below.
 
 This document supersedes the requirement to reproduce every engine's complete semantics offline
-in [the preceding catalog specification](../grammar-completeness/spec.md). Its acquisition,
+in [the preceding catalog specification](https://github.com/Lojhan/typed-sql/blob/e194abb4f55523f435995a74d7d8ab58c2c42977/planning/grammar-completeness/spec.md). Its acquisition,
 provenance, registry, generation and independent-auditing requirements remain useful. Existing
 implementation evidence is historical evidence, not proof that this design is implemented.
 
 The source investigation and engine-specific limitations are in [research.md](./research.md).
 Measured source-graph bundle sizes and their remaining workload/installation gaps are in
 [bundle-size.md](./bundle-size.md), with [machine-readable evidence](./bundle-measurements.json).
-All commands, configuration fields, interfaces and paths introduced below describe proposed
-behavior. They are not statements that the current CLI supports them.
+The sections below define required behavior. Current availability and declared profile limits are
+documented under `docs/`; the acceptance and [completion audit](./completion-audit.md) record evidence
+and remaining work. Example interfaces are architectural contracts rather than exact API declarations.
 
 ## 1. Product decision
 

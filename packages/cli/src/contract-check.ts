@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { lstat, readFile, realpath } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { dirname, relative, resolve, sep } from "node:path";
 import {
   type AnalysisRegistration,
   createAnalysisContextScope,
@@ -8,6 +8,7 @@ import {
   createQueryContractIndex,
   defineAnalysisConfiguration,
   defineAnalysisRegistration,
+  exactSqlDigest,
   exportQueryContracts,
   loadFrozenContractView,
   loadQueryContractContext,
@@ -41,6 +42,7 @@ import {
 } from "@typed-sql/config";
 import type { SqlDiagnostic } from "@typed-sql/core";
 import { reportCheckedFiles } from "./check-report.js";
+import { buildContractExportDiff } from "./contract-diff.js";
 import { materializeOfflineContract } from "./offline-contract.js";
 
 const hash = (text: string) => `sha256:${createHash("sha256").update(text).digest("hex")}`;
@@ -98,6 +100,8 @@ export async function runContractCommand(
     return loadQueryContracts(directory);
   };
   const initialContracts = await durable();
+  const baselineCatalogs =
+    generating && baselineManifest !== null ? (await loadQueryContractInputs(directory)).projectCatalogs : undefined;
   if (generating && expectedManifestDigest !== (await manifestDigest()))
     throw new Error("Query contract manifest changed before generation; retry generation");
   const closure = async () => queryContractDigest((await durable()).map((item) => item.digest).sort());
@@ -424,7 +428,7 @@ export async function runContractCommand(
       output: "typeScript" in result ? (result.typeScript?.output ?? "") : "",
       ok: result.ok,
       directory: loaded.directory,
-      showTypes: options["show-types"] === "true",
+      showTypes: options["show-types"] === "true" && !(generating && options.json === "true"),
     });
   }
   const assertInputs = async () => {
@@ -448,18 +452,68 @@ export async function runContractCommand(
   if (generating) {
     if (process.exitCode === 1) return;
     const digest = queryContractManifestDigest(generated, selection ? { selection } : {});
+    const semanticDiff = buildContractExportDiff({
+      before: initialContracts,
+      after: generated,
+      ...(baselineCatalogs ? { beforeCatalogs: baselineCatalogs } : {}),
+      ...(selectedCatalogs ? { afterCatalogs: selectedCatalogs } : {}),
+    });
+    const callers = new Map<string, { file: string; line: number; column: number }[]>();
+    for (const { path, collection } of collections)
+      for (const candidate of collection.candidates) {
+        const key = exactSqlDigest(candidate.sql);
+        callers.set(key, [
+          ...(callers.get(key) ?? []),
+          {
+            file: relative(loaded.directory, path).split(sep).join("/"),
+            line: candidate.sourceRange.line,
+            column: candidate.sourceRange.column,
+          },
+        ]);
+      }
+    const diff = {
+      ...semanticDiff,
+      queries: semanticDiff.queries.map((change) => ({
+        ...change,
+        callers: callers.get((change.after[0] ?? change.before[0])!.sqlDigest) ?? [],
+      })),
+    };
+    const report = {
+      formatVersion: 1,
+      operation: options.check === "true" ? "check" : "generate",
+      manifestDigest: digest,
+      matches: digest === expectedManifestDigest,
+      contracts: generated.length,
+      diff,
+    };
+    if (options.json !== "true") {
+      process.stdout.write(
+        `Semantic export diff: ${diff.queries.length} query change(s), ${diff.declarations.length} declaration change(s), ${diff.unresolvedFacets.length} query(s) with incomplete native facets.\n`,
+      );
+      for (const change of diff.queries) {
+        process.stdout.write(`  ${change.kind} ${change.identity}: ${change.facets.join(", ")}\n`);
+        for (const caller of change.callers)
+          process.stdout.write(`    ${caller.file}:${caller.line}:${caller.column}\n`);
+      }
+      for (const change of diff.declarations)
+        process.stdout.write(`  ${change.kind} declaration ${change.identity}: ${change.facets.join(", ")}\n`);
+    }
     if (options.check === "true") {
       if (digest !== expectedManifestDigest) {
         process.stderr.write("Query contract export differs from the durable manifest; regenerate and review it.\n");
         process.exitCode = 1;
-      } else process.stdout.write(`Query contract export matches ${digest} (${generated.length} contract(s)).\n`);
+      } else if (options.json !== "true")
+        process.stdout.write(`Query contract export matches ${digest} (${generated.length} contract(s)).\n`);
+      if (options.json === "true") process.stdout.write(`${JSON.stringify(report)}\n`);
     } else {
       await exportQueryContracts(directory, generated, {
         expectedManifestDigest: expectedManifestDigest ?? null,
         beforeCommit: assertInputs,
         ...(selection ? { selection } : {}),
       });
-      process.stdout.write(`Generated ${generated.length} query contract(s) at ${directory} (${digest}).\n`);
+      if (options.json !== "true")
+        process.stdout.write(`Generated ${generated.length} query contract(s) at ${directory} (${digest}).\n`);
+      else process.stdout.write(`${JSON.stringify(report)}\n`);
     }
     return;
   }

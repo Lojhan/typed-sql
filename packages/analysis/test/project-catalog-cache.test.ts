@@ -7,6 +7,7 @@ import {
   type AnalysisCache,
   createProjectCatalog,
   createProjectCatalogClosure,
+  inspectAnalysisCache,
   openAnalysisCache,
   type ProjectCatalogClosure,
   queryContractDigest,
@@ -79,6 +80,9 @@ await describe("persisted project catalog selections", async () => {
     await temporary(async (directory, cache) => {
       strict.equal((await cache.lookupProjectCatalog(query)).cached, undefined);
       strict.equal((await publish(cache)).status, "published");
+      strict.deepEqual((await inspectAnalysisCache({ directory, workspaceContext: hash })).indexedCatalogs, [
+        { digest: closure().digest, contextHash: queryContractDigest(closure().baseContext) },
+      ]);
       const reopened = await openAnalysisCache({ directory, workspaceContext: hash });
       const hit = await reopened.lookupProjectCatalog({ scope, sql: [...query.sql].reverse().concat(query.sql) });
       strict.deepEqual(hit.cached?.closure, closure());
