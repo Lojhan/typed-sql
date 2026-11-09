@@ -66,6 +66,18 @@ export class ProtocolClient {
     return result;
   }
 
+  /** Qualification fixtures must inspect settled evidence, never count a pending info report as success. */
+  async settledDiagnostics(params: { readonly textDocument: { readonly uri: string } }): Promise<unknown> {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const result = await this.request("textDocument/diagnostic", params);
+      const items = (result as { readonly items?: readonly { readonly code?: unknown }[] } | null)?.items;
+      if (!Array.isArray(items) || !items.some((item) => item.code === "TSQ409")) return result;
+      // Hover is a semantic barrier: the proxy waits for the current native view/overlay first.
+      await this.request("textDocument/hover", { ...params, position: { line: 0, character: 0 } });
+    }
+    throw new Error("Native query diagnostics did not settle");
+  }
+
   notify(method: string, params: unknown): void {
     this.#send({ jsonrpc: "2.0", method, params });
   }

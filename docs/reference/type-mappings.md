@@ -26,6 +26,10 @@ The inferred row type describes values returned by the typed-sql adapter under t
 | nullable column | `T | null` | `null` bypasses scalar codecs |
 
 The PostgreSQL adapter installs parsers per query and does not mutate global `pg.types`.
+
+PostgreSQL built-in semantics use the versioned offline catalog. Unknown signatures and
+unproven result types remain conservative. Native query contracts provide additional evidence
+for qualified queries during explicit generation or configured live analysis.
 Policy-controlled scalar and array OIDs use typed-sql codecs. Active extension manifests may add
 connection-local OID decoders; other OIDs delegate to the installed driver parser table.
 

@@ -1,5 +1,6 @@
 import { requireAdapterCapability } from "@typed-sql/core";
-import { postgresCopy, sql } from "@typed-sql/postgres";
+import { sql } from "@typed-sql/postgres";
+import { postgresCopy } from "@typed-sql/postgres/analysis";
 import type { PostgresDatabase } from "@typed-sql/postgres/runtime";
 import { bulkAccountInsert, type NewAccount } from "./mutations.js";
 

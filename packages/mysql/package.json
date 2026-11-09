@@ -22,13 +22,25 @@
     "dist/**/*.map",
     "README.md",
     "LICENSE",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "MYSQL_VOCABULARY_NOTICE"
   ],
   "publishConfig": {
     "access": "public"
   },
   "typedSql": {
-    "releaseTrack": "stable"
+    "releaseTrack": "stable",
+    "developmentEntrypoints": [
+      "./analysis",
+      "./mysql2-contracts",
+      "./reconciliation",
+      "./analysis/8.4",
+      "./analysis/core/8.4",
+      "./analysis/9.7",
+      "./analysis/core/9.7",
+      "./analysis/26.7",
+      "./analysis/core/26.7"
+    ]
   },
   "sideEffects": false,
   "type": "module",
@@ -41,12 +53,24 @@
     ".": "./dist/packages/mysql/src/index.js",
     "./runtime": "./dist/packages/mysql/src/runtime.js",
     "./mysql2": "./dist/packages/mysql/src/mysql2.js",
-    "./query": "./dist/packages/mysql/src/query.js"
+    "./query": "./dist/packages/mysql/src/query.js",
+    "./profile": "./dist/packages/mysql/src/profile.js",
+    "./analysis": "./dist/packages/mysql/src/analysis.js",
+    "./mysql2-contracts": "./dist/packages/mysql/src/mysql2-contracts.js",
+    "./contract-profile": "./dist/packages/mysql/src/contract-profile.js",
+    "./reconciliation": "./dist/packages/mysql/src/reconciliation.js",
+    "./analysis/8.4": "./dist/packages/mysql/src/analysis/8.4.js",
+    "./analysis/core/8.4": "./dist/packages/mysql/src/analysis/core/8.4.js",
+    "./analysis/9.7": "./dist/packages/mysql/src/analysis/9.7.js",
+    "./analysis/core/9.7": "./dist/packages/mysql/src/analysis/core/9.7.js",
+    "./analysis/26.7": "./dist/packages/mysql/src/analysis/26.7.js",
+    "./analysis/core/26.7": "./dist/packages/mysql/src/analysis/core/26.7.js"
   },
   "dependencies": {
     "@typed-sql/ast": "workspace:*",
     "@typed-sql/core": "workspace:*",
-    "@typed-sql/schema": "workspace:*"
+    "@typed-sql/schema": "workspace:*",
+    "@typed-sql/analysis": "workspace:*"
   },
   "devDependencies": {
     "@typed-sql/conformance": "workspace:*"

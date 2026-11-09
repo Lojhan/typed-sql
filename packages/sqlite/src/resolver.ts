@@ -36,6 +36,7 @@ import {
   sqliteNumericOperands,
   sqliteOperator,
 } from "./catalog/index.js";
+import { sqliteAsciiFold, sqliteAsciiUpper } from "./identifier-case.js";
 import type {
   CallExpression,
   CommonTableExpression,
@@ -51,12 +52,14 @@ import type {
   WithClause,
 } from "./parser/index.js";
 import { walkStatement } from "./parser/index.js";
+import { sqliteRuntimeValueType } from "./query.js";
 import { compareSqliteVersions, parseSqliteVersion, sqliteVersionSupport } from "./support.js";
 import {
   defaultSqliteTypePolicy,
   isKnownSqliteType,
   mapSqliteCastType,
   type SqliteTypePolicy,
+  sqliteAffinity,
   sqliteFlexibleType,
 } from "./type-policy.js";
 
@@ -101,10 +104,11 @@ export interface ResolveSqliteOptions {
   readonly runtimeValidation?: boolean;
   readonly typePolicy?: SqliteTypePolicy;
   readonly strictExpressions?: boolean;
+  readonly unknownRoutineRequiresContract?: boolean;
 }
 
 function name(identifier: Identifier): string {
-  return identifier.quoted ? identifier.name : identifier.name.toLowerCase();
+  return identifier.quoted ? identifier.name : sqliteAsciiFold(identifier.name);
 }
 
 function unionSqliteTypes(types: readonly string[]): string {
@@ -183,6 +187,7 @@ class Resolver {
   readonly #schema: SchemaSnapshot;
   readonly #policy: SqliteTypePolicy;
   readonly #strict: boolean;
+  readonly #unknownRoutineRequiresContract: boolean;
   readonly #diagnostics: SqlDiagnostic[] = [];
   readonly #parameters = new ParameterCollector();
   readonly #index: ResolverSchemaIndex;
@@ -196,9 +201,10 @@ class Resolver {
     this.#projections = projections;
     this.#runtimeValidation = options.runtimeValidation === true;
     this.#schema = schema;
-    this.#index = ResolverSchemaIndex.for(schema);
+    this.#index = ResolverSchemaIndex.for(schema, sqliteAsciiFold);
     this.#policy = options.typePolicy ?? defaultSqliteTypePolicy;
     this.#strict = options.strictExpressions ?? true;
+    this.#unknownRoutineRequiresContract = options.unknownRoutineRequiresContract === true;
   }
 
   resolve(statement: Statement): ResolvedSqliteQuery {
@@ -680,7 +686,12 @@ class Resolver {
     for (const statement of statements) {
       const probe = new Resolver(
         this.#schema,
-        { typePolicy: this.#policy, strictExpressions: false, runtimeValidation: this.#runtimeValidation },
+        {
+          typePolicy: this.#policy,
+          strictExpressions: false,
+          runtimeValidation: this.#runtimeValidation,
+          unknownRoutineRequiresContract: this.#unknownRoutineRequiresContract,
+        },
         this.#projections,
       );
       const columns = probe.#select(statement, outer, inherited, false);
@@ -914,7 +925,7 @@ class Resolver {
     if (reference.kind === "table-function") {
       if (reference.lateral) this.#unsupported("SQLite does not support the LATERAL keyword", reference.range);
       for (const argument of reference.arguments) this.#expression(argument, scope, ctes);
-      const functionName = reference.name.name.toUpperCase();
+      const functionName = sqliteAsciiUpper(reference.name.name);
       const definition = [...SQLITE_JSON_TABLE_FUNCTIONS, ...SQLITE_EXTENSION_TABLE_FUNCTIONS].find(
         ({ name }) => name === functionName,
       );
@@ -1094,7 +1105,7 @@ class Resolver {
       if (
         expression.relation === undefined &&
         !expression.column.quoted &&
-        SQLITE_CURRENT_TIME_KEYWORDS.has(expression.column.name.toUpperCase())
+        SQLITE_CURRENT_TIME_KEYWORDS.has(sqliteAsciiUpper(expression.column.name))
       )
         return { tsType: "string", nullable: false, databaseType: "text" };
       return this.#resolveColumn(expression.relation, expression.column, scope);
@@ -1160,11 +1171,7 @@ class Resolver {
           ),
         };
       }
-      return {
-        tsType: mapSqliteCastType(expression.databaseType.name, this.#policy),
-        nullable: source.nullable,
-        databaseType: normalizeSqliteDatabaseType(expression.databaseType.name),
-      };
+      return this.#databaseType(expression.databaseType.name, source.nullable);
     }
     if (expression.kind === "unary") {
       const operand = this.#expression(expression.expression, scope, ctes);
@@ -1173,12 +1180,7 @@ class Resolver {
         expression.operator !== "NOT" &&
         (operand.json !== undefined || operand.scalarJsonShape !== undefined || operand.jsonEmbedding !== undefined)
       )
-        return {
-          tsType: unionSqliteTypes([this.#policy.integer, "number"]),
-          nullable: operand.nullable,
-          databaseType: "numeric",
-          runtimeType: { union: [this.#policy.integer, "number"] },
-        };
+        return this.#numericType(operand.nullable);
       return expression.operator === "NOT"
         ? { tsType: this.#policy.integer, nullable: operand.nullable, databaseType: "integer" }
         : operand;
@@ -1323,11 +1325,7 @@ class Resolver {
       );
     }
     if (operator?.result === "numeric" && sqliteNumericOperands(left.databaseType, right.databaseType)) {
-      return {
-        tsType: unionSqliteTypes([this.#policy.integer, "number"]),
-        nullable: left.nullable || right.nullable,
-        databaseType: "numeric",
-      };
+      return this.#numericType(left.nullable || right.nullable);
     }
     if (left.tsType === "unknown" || right.tsType === "unknown")
       return { tsType: "unknown", nullable: left.nullable || right.nullable };
@@ -1347,7 +1345,7 @@ class Resolver {
     } else if (expression.over !== undefined && !this.#activeWindows.has(name(expression.over))) {
       this.#diagnostic("TSQ222", `Unknown window ${expression.over.name}`, expression.over.range);
     }
-    const functionName = expression.name.name.toUpperCase();
+    const functionName = sqliteAsciiUpper(expression.name.name);
     const routineCandidates = this.#index.routineOverloads(
       name(expression.name),
       values.length,
@@ -1472,7 +1470,15 @@ class Resolver {
       );
       return { tsType: "unknown", nullable: true };
     }
-    this.#diagnostic("TSQ202", `Unknown function ${expression.name.name}`, expression.range, undefined, "warning");
+    this.#diagnostic(
+      this.#unknownRoutineRequiresContract ? "TSQ408" : "TSQ202",
+      this.#unknownRoutineRequiresContract
+        ? `No offline rule for function ${expression.name.name}; generate a qualified query contract.`
+        : `Unknown function ${expression.name.name}`,
+      expression.range,
+      undefined,
+      this.#unknownRoutineRequiresContract ? "error" : "warning",
+    );
     return { tsType: "unknown", nullable: true };
   }
 
@@ -1619,11 +1625,7 @@ class Resolver {
     scope: Scope,
     ctes: ReadonlyMap<string, TableSnapshot>,
   ): void {
-    const numeric = {
-      tsType: unionSqliteTypes([this.#policy.integer, "number"]),
-      nullable: true,
-      databaseType: "numeric",
-    };
+    const numeric = this.#numericType(true);
     const text = { tsType: "string", nullable: true, databaseType: "text" };
     const json = this.#jsonInput();
     const jsonValue = { tsType: sqliteFlexibleType(this.#policy), nullable: true };
@@ -1795,17 +1797,9 @@ class Resolver {
       case "nullif":
         return { ...first, nullable: true };
       case "numeric-from-arguments":
-        return {
-          tsType: unionSqliteTypes([this.#policy.integer, "number"]),
-          nullable: values.some((value) => value.nullable),
-          databaseType: "numeric",
-        };
+        return this.#numericType(values.some((value) => value.nullable));
       case "numeric-nullable":
-        return {
-          tsType: unionSqliteTypes([this.#policy.integer, "number"]),
-          nullable: true,
-          databaseType: "numeric",
-        };
+        return this.#numericType(true);
       case "real":
         return { tsType: "number", nullable: false, databaseType: "real" };
       case "real-nullable":
@@ -1954,14 +1948,19 @@ class Resolver {
       ...(hasScalar
         ? {
             scalarJsonShape: unionJsonShapes(scalarShapes as readonly JsonShape[]),
+          }
+        : {}),
+      ...(hasScalar || values.some((value) => value.runtimeType !== undefined)
+        ? {
             runtimeType: {
-              union: values.map(
-                (value) =>
-                  value.runtimeType ??
-                  (value.tsType === "string" || value.tsType === "number" || value.tsType === "bigint"
-                    ? value.tsType
-                    : "unknown"),
-              ),
+              union: [
+                ...new Set(
+                  values.flatMap((value): readonly RuntimeValueType[] => {
+                    const type = value.runtimeType ?? sqliteRuntimeValueType(value, this.#policy);
+                    return typeof type === "object" && "union" in type ? type.union : [type];
+                  }),
+                ),
+              ],
             } as RuntimeValueType,
           }
         : {}),
@@ -2425,9 +2424,19 @@ class Resolver {
 
   #databaseType(databaseType: string, nullable: boolean): ResolvedType {
     return {
+      ...(sqliteAffinity(databaseType) === "numeric" ? this.#numericType(nullable) : {}),
       tsType: mapSqliteCastType(databaseType, this.#policy),
       nullable,
       databaseType: normalizeSqliteDatabaseType(databaseType),
+    };
+  }
+
+  #numericType(nullable: boolean): ResolvedType {
+    return {
+      tsType: unionSqliteTypes([this.#policy.integer, "number"]),
+      nullable,
+      databaseType: "numeric",
+      runtimeType: { union: [...new Set<RuntimeValueType>([this.#policy.integer, "number"])] },
     };
   }
 

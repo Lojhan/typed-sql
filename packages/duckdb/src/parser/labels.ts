@@ -1,35 +1,21 @@
-import { formatDuckDBType, parseDuckDBType } from "../native-types.js";
+import { duckDBAsciiFold, formatDuckDBType, parseDuckDBType } from "../native-types.js";
+import type { DuckDBVocabulary } from "../vocabulary/types.js";
 import type { Expression } from "./types.js";
 
-const reserved = new Set([
-  "if",
-  "row",
-  "map",
-  "left",
-  "right",
-  "select",
-  "system",
-  "from",
-  "where",
-  "order",
-  "group",
-  "limit",
-  "union",
-  "case",
-  "end",
-  "null",
-  "true",
-  "false",
-]);
-const ident = (name: string) =>
-  /^[A-Za-z_][A-Za-z_0-9]*$/u.test(name) && !reserved.has(name.toLowerCase())
-    ? name
-    : `"${name.replaceAll('"', '""')}"`;
 /** Native display labels are versioned SQL syntax. Unproved forms require an explicit application alias. */
-export function duckDBExpressionLabel(expression: Expression, version: string, depth = 0): string | undefined {
+export function duckDBExpressionLabel(
+  expression: Expression,
+  version: string,
+  vocabulary: DuckDBVocabulary,
+  depth = 0,
+): string | undefined {
+  const ident = (name: string) =>
+    /^[A-Za-z_][A-Za-z_0-9]*$/u.test(name) && vocabulary.lookup(name) === undefined
+      ? name
+      : `"${name.replaceAll('"', '""')}"`;
   if (depth > 128) return undefined;
   const label = (value: Expression | undefined) =>
-    value ? duckDBExpressionLabel(value, version, depth + 1) : undefined;
+    value ? duckDBExpressionLabel(value, version, vocabulary, depth + 1) : undefined;
   const args = (expression.args ?? []).map(label),
     all = args.every((value): value is string => value !== undefined);
   switch (expression.kind) {
@@ -109,7 +95,7 @@ export function duckDBExpressionLabel(expression: Expression, version: string, d
       return undefined;
     case "call": {
       if (!all || expression.window || expression.filter || expression.context?.length) return undefined;
-      let name = expression.names?.at(-1)?.toLowerCase() ?? "";
+      let name = duckDBAsciiFold(expression.names?.at(-1) ?? "");
       if (name === "count" && (!expression.args?.length || expression.args?.[0]?.kind === "star"))
         return "count_star()";
       if (["if", "ifnull", "nullif", "between", "not between", "in", "not in"].includes(name)) return undefined;

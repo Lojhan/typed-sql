@@ -16,7 +16,7 @@ port.on(
       const { BuildSession } = await import("./engine.js");
       session ??= new BuildSession(request.options);
       let value: unknown;
-      if (request.operation === "identity") value = await session.identity();
+      if (request.operation === "identity") value = await session.identity(request.source, request.id);
       else {
         const result = await session.transform(request.source!, request.id!);
         if (request.operation === "javascript") {

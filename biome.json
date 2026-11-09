@@ -18,8 +18,10 @@
       "!!artifacts",
       "!!test/fixtures/language-audit",
       "!!packages/postgres/src/catalog/generated",
+      "!!packages/mysql/src/catalog/generated",
       "!!e2e/*/generated",
-      "!!examples/**/generated"
+      "!!examples/**/generated",
+      "!!packages/*/src/codecs/types-data.ts"
     ]
   },
   "formatter": {

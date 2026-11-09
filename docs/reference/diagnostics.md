@@ -17,6 +17,14 @@ Automation should depend on diagnostic codes and source ranges, not English mess
 | `TSQ005` | Runtime SQL cannot be analyzed statically. |
 | `TSQ006` | Source analysis exceeded a compiler resource limit. |
 | `TSQ007` | The schema snapshot and dialect do not match. |
+| `TSQ008` | An implicit SQL fragment list is empty. |
+| `TSQ009` | An implicit SQL fragment list mixes structural and value elements. |
+| `TSQ010` | An implicit SQL fragment list is nested. |
+| `TSQ011` | An implicit SQL fragment callback is asynchronous. |
+| `TSQ012` | An implicit SQL fragment callback has an unstable SQL skeleton. |
+| `TSQ013` | An implicit SQL fragment-list expression cannot be analyzed safely. |
+| `TSQ014` | An implicit SQL fragment list belongs to another grammar tag. |
+| `TSQ015` | An implicit SQL fragment list exceeded a compiler resource limit. |
 | `TSQ016` | The build cannot attach executable value metadata for this query structure. |
 | `TSQ100` | A referenced table does not exist. |
 | `TSQ101` | A referenced column does not exist. |
@@ -27,10 +35,12 @@ Automation should depend on diagnostic codes and source ranges, not English mess
 | `TSQ106` | A cast target is invalid or unknown. |
 | `TSQ107` | An unqualified table name is ambiguous. |
 | `TSQ108` | A relation alias is duplicated. |
+| `TSQ201` | An expression or statement is invalid for its grammar context. |
 | `TSQ202` | A function is unknown. |
 | `TSQ203` | An operator cannot be inferred safely. |
 | `TSQ204` | A function overload is ambiguous. |
 | `TSQ205` | A composed parameter has incompatible structural contexts. |
+| `TSQ207` | A result projection needs an explicit or unique output name. |
 | `TSQ210` | Recursive CTE inference is not supported safely. |
 | `TSQ211` | A CTE name is duplicated. |
 | `TSQ212` | A CTE does not return rows. |
@@ -58,11 +68,14 @@ Automation should depend on diagnostic codes and source ranges, not English mess
 | `TSQ403` | The recorded server version is outside the supported range. |
 | `TSQ404` | The SQL feature is newer than the recorded server version. |
 | `TSQ405` | The SQL feature was removed before the recorded server version. |
-| `TSQ406` | A required server feature, setting, or capability declaration is absent. |
+| `TSQ406` | Required server evidence, capability declarations or matching qualified query contracts are unavailable. |
 | `TSQ407` | Recorded server settings make SQL behavior ambiguous. |
+| `TSQ408` | Offline routine metadata cannot establish this invocation's result; a qualified query contract is required. |
+| `TSQ409` | Native query qualification is pending in the editor; results refresh after it finishes. |
 | `TSQ500` | Live database metadata differs from compiler evidence. |
 | `TSQ501` | A query could not be verified safely or completely. |
 | `TSQ502` | Native verification failed; driver details are not persisted. |
+| `TSQ901` | SQL source or binding metadata cannot be prepared safely. |
 
 ## Fixes
 

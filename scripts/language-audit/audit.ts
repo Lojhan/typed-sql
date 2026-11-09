@@ -1,25 +1,29 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import type { DialectServerEvidence } from "../../packages/core/src/index.js";
+import { duckdb } from "../../packages/duckdb/src/analysis.js";
 import { duckDBBuiltinCatalog } from "../../packages/duckdb/src/catalog/index.js";
-import { duckdb } from "../../packages/duckdb/src/index.js";
 import { tokenize as tokenizeDuckDB } from "../../packages/duckdb/src/parser/tokenizer.js";
 import { duckDBServerEvidence } from "../../packages/duckdb/src/support.js";
+import { duckDBVocabulary } from "../../packages/duckdb/src/vocabulary/index.js";
+import { mysql } from "../../packages/mysql/src/analysis.js";
 import { mySqlServerEvidence } from "../../packages/mysql/src/capabilities.js";
 import { mySqlCoreCatalog } from "../../packages/mysql/src/catalog/index.js";
-import { mysql } from "../../packages/mysql/src/index.js";
 import { tokenize as tokenizeMySql } from "../../packages/mysql/src/parser/tokenizer.js";
+import { mySqlVocabulary } from "../../packages/mysql/src/vocabulary/index.js";
+import { postgres } from "../../packages/postgres/src/analysis.js";
 import { postgresServerEvidence } from "../../packages/postgres/src/capabilities.js";
 import { postgresCoreCatalog } from "../../packages/postgres/src/catalog/index.js";
-import { postgres } from "../../packages/postgres/src/index.js";
 import { tokenize as tokenizePostgres } from "../../packages/postgres/src/parser/tokenizer.js";
+import { postgresVocabulary } from "../../packages/postgres/src/vocabulary/index.js";
+import { sqlite } from "../../packages/sqlite/src/analysis.js";
 import { SQLITE_BUILTIN_FUNCTIONS } from "../../packages/sqlite/src/catalog/functions.js";
 import { SQLITE_JSON_TABLE_FUNCTIONS } from "../../packages/sqlite/src/catalog/json.js";
-import { sqlite } from "../../packages/sqlite/src/index.js";
 import { tokenize as tokenizeSqlite } from "../../packages/sqlite/src/parser/tokenizer.js";
+import { sqliteVocabulary } from "../../packages/sqlite/src/vocabulary/index.js";
+import { sqlserver } from "../../packages/sqlserver/src/analysis.js";
 import { sqlServerServerEvidence } from "../../packages/sqlserver/src/capabilities.js";
 import { SQLSERVER_BUILTINS } from "../../packages/sqlserver/src/catalog/index.js";
-import { sqlserver } from "../../packages/sqlserver/src/index.js";
 import { tokenize as tokenizeSqlServer } from "../../packages/sqlserver/src/parser/tokenizer.js";
 import { CATEGORIES, hash, serialize } from "./inventory.mjs";
 import { directory, loadReferences } from "./references.js";
@@ -142,6 +146,7 @@ export function auditFunctions(rows: FunctionRow[], grammar: ReturnType<typeof g
       )
         return { name, status: "typed-recognition-semantics-unverified", example };
       if (
+        result.diagnostics.some((row) => row.code === "TSQ408") ||
         diagnostics.some((message) => /unknown\s+(?:(?:or ambiguous|qualified)\s+)?(?:\w+\s+)?function/iu.test(message))
       )
         unknown = { example, diagnostics };
@@ -187,7 +192,7 @@ export function auditInventory(input: {
           observations:
             category === "functions"
               ? auditFunctions(source.rows!, grammar)
-              : auditOther(category, source.rows!, grammar, input.dialect),
+              : auditOther(category, source.rows!, grammar, input.dialect, input.target.version),
         },
       ];
     }),
@@ -200,6 +205,7 @@ function auditOther(
   rows: FunctionRow[],
   grammar: ReturnType<typeof grammarFor>,
   dialect: string,
+  version: string,
 ): Observation[] {
   const tokenize = {
     postgres: tokenizePostgres,
@@ -210,6 +216,63 @@ function auditOther(
   }[dialect];
   return [...new Set(rows.map((row) => row.name))].sort().map((name) => {
     if (category === "keywords" && /^[a-z_]+$/iu.test(name)) {
+      if (dialect === "postgres") {
+        const keywordLookup = postgresVocabulary(Number.parseInt(version, 10))?.lookup;
+        const token = tokenizePostgres(name, keywordLookup === undefined ? {} : { keywordLookup })[0];
+        return {
+          name,
+          status: token?.nativeKeyword
+            ? `keyword-${token.nativeKeyword.category.toLowerCase().replace("_keyword", "")}-observed`
+            : "contextual-or-unclassified-keyword",
+        };
+      }
+      if (dialect === "sqlite") {
+        const keywordLookup = sqliteVocabulary(version.replace(/^reference-/u, "")).forOptions();
+        const word = tokenizeSqlite(name, { keywordLookup })[0]?.nativeKeyword;
+        return {
+          name,
+          status: word?.contextual
+            ? "keyword-contextual-observed"
+            : word?.fallback
+              ? "keyword-identifier-fallback-observed"
+              : word?.identifier
+                ? "keyword-identifier-class-observed"
+                : word
+                  ? "keyword-syntax-observed"
+                  : keywordLookup.isDeclared(name)
+                    ? "keyword-build-gated-observed"
+                    : "contextual-or-unclassified-keyword",
+        };
+      }
+      if (dialect === "mysql") {
+        const keywordLookup = mySqlVocabulary(version.split(".").slice(0, 2).join("."))?.forMode();
+        const word = tokenizeMySql(name, keywordLookup === undefined ? {} : { keywordLookup })[0]?.nativeKeyword;
+        return {
+          name,
+          status:
+            word?.group === "function"
+              ? "function-lexical-name-observed"
+              : word?.reserved
+                ? "keyword-reserved-observed"
+                : word
+                  ? "keyword-unreserved-observed"
+                  : "contextual-or-unclassified-keyword",
+        };
+      }
+      if (dialect === "duckdb") {
+        const word = duckDBVocabulary(version)?.lookup(name);
+        return {
+          name,
+          status:
+            word?.classes === "R"
+              ? "keyword-reserved-observed"
+              : word?.classes === "U"
+                ? "keyword-unreserved-observed"
+                : word
+                  ? `keyword-name-classes-${word.classes.toLowerCase()}-observed`
+                  : "contextual-or-unclassified-keyword",
+        };
+      }
       const token = tokenize!(name)[0];
       return {
         name,

@@ -2,7 +2,8 @@ import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it, strict } from "poku";
-import { type PostgresSchemaSnapshot, postgres } from "../../postgres/src/index.js";
+import { postgres } from "../../postgres/src/analysis.js";
+import type { PostgresSchemaSnapshot } from "../../postgres/src/index.js";
 import { loadSchemaSnapshot } from "../../schema/src/index.js";
 import {
   analyzeSource,
@@ -24,6 +25,25 @@ const request = {
 } as const;
 
 await describe("authoritative source analysis service", async () => {
+  await it("analyzes SQL assets and enforces source and declaration budgets", () => {
+    const asset = { ...request, source: { id: "src/value.sql", text: "SELECT 1 AS value" } };
+    const valid = analyzeSource(asset, context);
+    strict.equal(valid.queries.length, 1);
+    strict.match(valid.transformedSource, /export default/u);
+    strict.deepEqual(valid.diagnostics, []);
+    for (const compiler of [{ maxSourceBytes: 1 }, { maxGeneratedDeclarationBytes: 1 }]) {
+      const limited = analyzeSource({ ...asset, compiler }, context);
+      strict.equal(limited.queries.length, 0);
+      strict.equal(limited.diagnostics[0]?.code, "TSQ006");
+      strict.match(limited.transformedSource, /query: never/u);
+    }
+    const invalid = analyzeSource(
+      { ...asset, source: { ...asset.source, text: "SELECT missing FROM absent" } },
+      context,
+    );
+    strict.ok(invalid.diagnostics.length > 0);
+  });
+
   await it("returns deterministic serializable compiler, source, schema, grammar, and capability identities", () => {
     const first = analyzeSource(request, context);
     const second = createSourceAnalysisService(context).analyze(request);

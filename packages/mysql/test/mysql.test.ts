@@ -2,16 +2,10 @@ import { performance } from "node:perf_hooks";
 import { resolveDialectCapabilityStates } from "@typed-sql/core";
 import { describe, it, strict } from "poku";
 import { type SchemaSnapshot, upgradeSchemaSnapshotV1 } from "../../schema/src/index.js";
-import {
-  mySqlServerEvidence,
-  mysql,
-  parseMySqlVersion,
-  resolveMySqlCapabilities,
-  sql,
-  typePolicy,
-} from "../src/index.js";
+import { mySqlServerEvidence, mysql, parseMySqlVersion, resolveMySqlCapabilities } from "../src/analysis.js";
+import { resolveMySqlStatement } from "../src/compatibility-resolver.js";
+import { sql, typePolicy } from "../src/index.js";
 import { parseStatement } from "../src/parser/index.js";
-import { resolveMySqlStatement } from "../src/resolver.js";
 import { defaultMySqlTypePolicy, isKnownMySqlType, mapMySqlType } from "../src/type-policy.js";
 
 const schema = {

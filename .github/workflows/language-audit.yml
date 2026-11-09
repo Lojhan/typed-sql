@@ -1,6 +1,7 @@
 name: Language audit
 
 on:
+  workflow_call:
   pull_request:
   schedule:
     - cron: '41 5 * * 2'
@@ -10,22 +11,28 @@ permissions:
   contents: read
 
 concurrency:
-  group: language-audit-${{ github.ref }}-${{ github.event_name }}
+  group: language-audit-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
+  embedded-targets:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.targets.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.2
+      - id: targets
+        run: node scripts/language-audit/embedded-targets.mjs >> "$GITHUB_OUTPUT"
+
   embedded:
+    needs: embedded-targets
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - dialect: duckdb
-            version: 1.5.6
-          - dialect: duckdb
-            version: 2.0.0
-          - dialect: sqlite
-            version: node-24.22.2
+      matrix: ${{ fromJSON(needs.embedded-targets.outputs.matrix) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
@@ -36,6 +43,8 @@ jobs:
           node-version: 24.22.2
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Build packed native contract consumers
+        run: pnpm build
       - name: Capture and review the complete embedded engine inventory
         env:
           AUDIT_DIALECT: ${{ matrix.dialect }}
@@ -46,11 +55,23 @@ jobs:
           else
             pnpm audit:language live --dialect "$AUDIT_DIALECT" --require-reviewed --output "artifacts/language-audit/$AUDIT_DIALECT-$AUDIT_VERSION.json"
           fi
+      - name: Verify native contracts, offline builds and packaged editor regeneration
+        if: matrix.dialect == 'duckdb'
+        env:
+          TYPED_SQL_DUCKDB_TARGET: ${{ matrix.version }}
+        run: pnpm --filter @typed-sql/e2e-duckdb e2e
+      - name: Verify SQLite native contracts and installed CLI/editor/offline consumers
+        if: matrix.dialect == 'sqlite'
+        run: |
+          pnpm --filter @typed-sql/sqlite test
+          pnpm exec poku test/contracts/packed-consumer.test.ts --reporter=compact --enforce
       - if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: language-audit-${{ matrix.dialect }}-${{ matrix.version }}
-          path: artifacts/language-audit
+          path: |
+            artifacts/language-audit
+            artifacts/duckdb/packed
           if-no-files-found: error
 
   upstream-reference-drift:

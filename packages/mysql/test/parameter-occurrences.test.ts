@@ -1,5 +1,5 @@
 import { it, strict } from "poku";
-import { mySqlServerEvidence, mysql } from "../src/index.js";
+import { mySqlServerEvidence, mysql } from "../src/analysis.js";
 
 await it("uses snapshot SQL mode to distinguish MySQL parameters from strings and comments", () => {
   const dialect = mysql();

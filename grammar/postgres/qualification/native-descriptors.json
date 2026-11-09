@@ -1,0 +1,143 @@
+{
+  "formatVersion": 1,
+  "scope": "Reviewed exact-version bootstrap non-relation type probes; acquisition is not universal query/type-family qualification. Other majors remain transport-unqualified.",
+  "engines": {
+    "14.24": {
+      "observationDigest": "2cba2a3e7013b4c9050eb7924927eacbaf91610ac9378e684a8bd20abcbc1a92",
+      "catalogNames": 319,
+      "counts": {
+        "described/unavailable": 639,
+        "rejected/unavailable": 11
+      },
+      "adapterQualified": false,
+      "capture": {
+        "sourceRevision": "bee9cb22caeff0b2de9570bd50f92fd420477b78",
+        "toolDigest": "39ce3366cbfe41fca964e41a4c218c8b916e6e73e90d4f67a0f93a334b4a1037",
+        "environment": {
+          "node": "v22.11.0",
+          "platform": "linux",
+          "architecture": "x64",
+          "driverVersion": "8.23.1"
+        }
+      }
+    },
+    "15.19": {
+      "observationDigest": "e8ad6099464b2e35f0c168a96aa192db865bf396152d88253ad85b257ecd130b",
+      "catalogNames": 324,
+      "counts": {
+        "described/unavailable": 649,
+        "rejected/unavailable": 11
+      },
+      "adapterQualified": false,
+      "capture": {
+        "sourceRevision": "bee9cb22caeff0b2de9570bd50f92fd420477b78",
+        "toolDigest": "39ce3366cbfe41fca964e41a4c218c8b916e6e73e90d4f67a0f93a334b4a1037",
+        "environment": {
+          "node": "v22.11.0",
+          "platform": "linux",
+          "architecture": "x64",
+          "driverVersion": "8.23.1"
+        }
+      }
+    },
+    "16.15": {
+      "observationDigest": "23a0ca37346168aa43eabea80a56f8140eaabebd7ae455a6198c5d036f0da396",
+      "catalogNames": 325,
+      "counts": {
+        "described/unavailable": 651,
+        "rejected/unavailable": 11
+      },
+      "adapterQualified": false,
+      "capture": {
+        "sourceRevision": "bee9cb22caeff0b2de9570bd50f92fd420477b78",
+        "toolDigest": "39ce3366cbfe41fca964e41a4c218c8b916e6e73e90d4f67a0f93a334b4a1037",
+        "environment": {
+          "node": "v22.11.0",
+          "platform": "linux",
+          "architecture": "x64",
+          "driverVersion": "8.23.1"
+        }
+      }
+    },
+    "17.11": {
+      "observationDigest": "cb02e450a852d5f047c7362c647c11a416d7e0ee278e372359c4725230f0bca9",
+      "catalogNames": 327,
+      "counts": {
+        "described/unavailable": 655,
+        "rejected/unavailable": 11
+      },
+      "adapterQualified": false,
+      "capture": {
+        "sourceRevision": "bee9cb22caeff0b2de9570bd50f92fd420477b78",
+        "toolDigest": "39ce3366cbfe41fca964e41a4c218c8b916e6e73e90d4f67a0f93a334b4a1037",
+        "environment": {
+          "node": "v22.11.0",
+          "platform": "linux",
+          "architecture": "x64",
+          "driverVersion": "8.23.1"
+        }
+      }
+    },
+    "18.3": {
+      "observationDigest": "894ece5afb201c2e76aa829c3b949d2e1fc7ce46cc6f6cfffc96045c551fc97a",
+      "catalogNames": 329,
+      "counts": {
+        "described/declined": 612,
+        "rejected/declined": 10,
+        "described/acquired": 46,
+        "described/unavailable": 2
+      },
+      "adapterQualified": true,
+      "capture": {
+        "sourceRevision": "745a48a0c13ad214ff96907436f70aa491c28ec6",
+        "toolDigest": "39ce3366cbfe41fca964e41a4c218c8b916e6e73e90d4f67a0f93a334b4a1037",
+        "environment": {
+          "node": "v24.22.2",
+          "platform": "darwin",
+          "architecture": "arm64",
+          "driverVersion": "8.23.1"
+        }
+      }
+    },
+    "18.6": {
+      "observationDigest": "0928d370a6664c9c4e82c799c29fca998a136732f12a73380f6a26ed19338257",
+      "catalogNames": 329,
+      "counts": {
+        "described/declined": 611,
+        "rejected/declined": 11,
+        "described/acquired": 46,
+        "described/unavailable": 2
+      },
+      "adapterQualified": true,
+      "capture": {
+        "sourceRevision": "bee9cb22caeff0b2de9570bd50f92fd420477b78",
+        "toolDigest": "39ce3366cbfe41fca964e41a4c218c8b916e6e73e90d4f67a0f93a334b4a1037",
+        "environment": {
+          "node": "v22.11.0",
+          "platform": "linux",
+          "architecture": "x64",
+          "driverVersion": "8.23.1"
+        }
+      }
+    },
+    "19beta3": {
+      "observationDigest": "77e0a6f7d1a81b5797d60d0a0b2d39218b9b0c3909d6315e8583b768d7b62ad2",
+      "catalogNames": 345,
+      "counts": {
+        "described/unavailable": 691,
+        "rejected/unavailable": 11
+      },
+      "adapterQualified": false,
+      "capture": {
+        "sourceRevision": "bee9cb22caeff0b2de9570bd50f92fd420477b78",
+        "toolDigest": "39ce3366cbfe41fca964e41a4c218c8b916e6e73e90d4f67a0f93a334b4a1037",
+        "environment": {
+          "node": "v22.11.0",
+          "platform": "linux",
+          "architecture": "x64",
+          "driverVersion": "8.23.1"
+        }
+      }
+    }
+  }
+}

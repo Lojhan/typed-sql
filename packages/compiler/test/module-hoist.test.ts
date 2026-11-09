@@ -2,7 +2,8 @@ import { execFileSync } from "node:child_process";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { it, strict } from "poku";
-import { type PostgresSchemaSnapshot, postgres } from "../../postgres/src/index.js";
+import { postgres } from "../../postgres/src/analysis.js";
+import type { PostgresSchemaSnapshot } from "../../postgres/src/index.js";
 import { loadSchemaSnapshot } from "../../schema/src/index.js";
 import { compileSource } from "../src/index.js";
 

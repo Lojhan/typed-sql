@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { describe, it } from "poku";
 import { assertSoundnessCase } from "../../../test/soundness/assert-corpus.js";
 import { soundnessCorpus } from "../../../test/soundness/corpus.js";
-import { postgres } from "../src/index.js";
+import { postgres } from "../src/analysis.js";
 
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const dialect = postgres();

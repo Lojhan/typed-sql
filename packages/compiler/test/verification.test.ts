@@ -1,6 +1,7 @@
 import { describe, it, strict } from "poku";
 import type { LiveQueryVerifier, SchemaSnapshot } from "../../core/src/index.js";
-import { type PostgresSchemaSnapshot, postgres, typePolicy as postgresTypePolicy } from "../../postgres/src/index.js";
+import { postgres } from "../../postgres/src/analysis.js";
+import { type PostgresSchemaSnapshot, typePolicy as postgresTypePolicy } from "../../postgres/src/index.js";
 import { createPgLiveVerifier } from "../../postgres/src/pg.js";
 import {
   assertQueryVerificationProofCurrent,
@@ -86,6 +87,33 @@ function nativeJsonVerifier(json?: "unknown" | "JsonValue" | "string", resultTyp
 }
 
 await describe("live query verification", async () => {
+  await it("leaves partial SQL identities unverified while retaining value and nullability comparisons", async () => {
+    const { manifest, candidates } = fixture();
+    const original = candidates[0]!;
+    const partial = {
+      ...original,
+      columns: original.columns.map((column) => ({ ...column, databaseTypeIsPartial: true as const })),
+    };
+    for (const mismatch of [false, true]) {
+      const adapter = verifier({
+        compareDatabaseTypes(_expected, _actual, target) {
+          strict.equal(target, "parameter");
+          return "equal";
+        },
+        async verify() {
+          return {
+            columns: [
+              { index: 1, databaseType: "bigint", tsType: mismatch ? "string" : "bigint" },
+              { index: 2, databaseType: "text", tsType: "string" },
+            ],
+            parameters: [{ index: 1, databaseType: "bigint", tsType: "bigint" }],
+          };
+        },
+      });
+      const result = await verifyQueryManifest({ manifest, candidates: [partial], verifier: adapter });
+      strict.ok(result.proof.entries.some((query) => query.status === (mismatch ? "mismatch" : "skipped")));
+    }
+  });
   await it("checks decoded JSON wire types without claiming native object-shape evidence or accepting policy mismatches", async () => {
     for (const json of ["unknown", "JsonValue", "string"] as const) {
       const typePolicy = { ...postgresTypePolicy, json };

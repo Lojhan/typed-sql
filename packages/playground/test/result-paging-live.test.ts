@@ -52,7 +52,7 @@ try {
           });
           await writeFile(
             join(directory, "typed-sql.config.mjs"),
-            "import {readFileSync} from 'node:fs';import {postgres} from '@typed-sql/postgres';import {createPgPlaygroundTarget} from '@typed-sql/playground/pg';const target=JSON.parse(readFileSync(new URL('./target.json',import.meta.url),'utf8'));export default {dialect:postgres(),schema:{file:'schema.json'},outDir:'generated',projects:['tsconfig.json'],playground:{targets:{local:{classification:'test',expected:{database:target.database},connect:()=>createPgPlaygroundTarget({connectionString:target.connectionString})}}}};",
+            "import {readFileSync} from 'node:fs';import { postgres } from '@typed-sql/postgres/analysis';import {createPgPlaygroundTarget} from '@typed-sql/playground/pg';const target=JSON.parse(readFileSync(new URL('./target.json',import.meta.url),'utf8'));export default {dialect:postgres(),schema:{file:'schema.json'},outDir:'generated',projects:['tsconfig.json'],playground:{targets:{local:{classification:'test',expected:{database:target.database},connect:()=>createPgPlaygroundTarget({connectionString:target.connectionString})}}}};",
           );
           const source = `select id,name from "${namespace}".accounts order by id`;
           await writeFile(join(directory, "playground/query.sql"), source);

@@ -1,5 +1,5 @@
 import { it, strict } from "poku";
-import { duckDBBuiltinCatalog, duckdb } from "../src/index.js";
+import { duckDBBuiltinCatalog, duckdb } from "../src/analysis.js";
 import { formatDuckDBType } from "../src/native-types.js";
 import { duckDBTypeFromSDK } from "../src/node-api.js";
 import { fixtureEvidence } from "./helpers/evidence.js";

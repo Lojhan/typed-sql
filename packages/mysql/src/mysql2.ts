@@ -11,7 +11,13 @@ import type { Connection as CallbackConnection, Query as CallbackQuery } from "m
 import type { FieldPacket, Pool, PoolConnection, PoolOptions } from "mysql2/promise";
 import { mySqlServerEvidence } from "./capabilities.js";
 import type { MySqlSchemaSnapshot } from "./index.js";
-import { type MySqlQueryable, MySqlSchemaProvider } from "./provider.js";
+import {
+  type MySqlProtocolField as MySql2VerificationField,
+  mySqlProtocolFlags as protocolFlags,
+  mySqlProtocolType as protocolType,
+} from "./protocol-fields.js";
+import type { MySqlQueryable } from "./provider-contracts.js";
+
 import {
   createMySqlDatabase,
   type MySqlConnectionLike,
@@ -59,20 +65,6 @@ export interface MySql2SchemaProviderOptions {
   readonly typePolicy?: MySqlTypePolicy;
   /** Test or host-injected loader. Applications normally leave this unset. */
   readonly driverImporter?: () => Promise<typeof import("mysql2/promise")>;
-}
-
-interface MySql2VerificationField {
-  readonly name?: string;
-  readonly orgName?: string;
-  readonly table?: string;
-  readonly orgTable?: string;
-  readonly db?: string;
-  readonly schema?: string;
-  readonly columnType?: number;
-  readonly type?: number;
-  readonly columnLength?: number;
-  readonly length?: number;
-  readonly flags?: number | readonly string[];
 }
 
 interface MySql2VerificationStatement {
@@ -161,36 +153,7 @@ async function uri(value: MySql2Options["connectionUri"]): Promise<string> {
   return result;
 }
 
-const MYSQL_LIVE_VERIFIER_VERSION = "mysql-com-stmt-prepare-v2";
-const mysqlTypeNames = new Map<number, string>([
-  [0, "decimal"],
-  [1, "tinyint"],
-  [2, "smallint"],
-  [3, "int"],
-  [4, "float"],
-  [5, "double"],
-  [6, "null"],
-  [7, "timestamp"],
-  [8, "bigint"],
-  [9, "mediumint"],
-  [10, "date"],
-  [11, "time"],
-  [12, "datetime"],
-  [13, "year"],
-  [15, "varchar"],
-  [16, "bit"],
-  [245, "json"],
-  [246, "decimal"],
-  [247, "enum"],
-  [248, "set"],
-  [249, "tinyblob"],
-  [250, "mediumblob"],
-  [251, "longblob"],
-  [252, "blob"],
-  [253, "varchar"],
-  [254, "char"],
-  [255, "geometry"],
-]);
+const MYSQL_LIVE_VERIFIER_VERSION = "mysql-com-stmt-prepare-v3";
 
 interface MySqlCatalogColumnRow extends Record<string, unknown> {
   readonly tableSchema: string;
@@ -211,9 +174,6 @@ function verificationField(
   catalogColumns?: ReadonlyMap<string, string>,
   exposeNullability = true,
 ) {
-  const code = field.columnType ?? field.type ?? 6;
-  const length = field.columnLength ?? field.length;
-  const base = mysqlTypeNames.get(code) ?? `mysql-type-${code}`;
   const originSchema = field.schema ?? field.db;
   const originTable = field.orgTable ?? field.table;
   const originColumn = field.orgName;
@@ -226,13 +186,15 @@ function verificationField(
     originColumn.length === 0
       ? undefined
       : catalogColumns?.get(catalogColumnKey(originSchema, originTable, originColumn));
-  const databaseType = catalogType ?? (code === 1 && length === 1 ? "tinyint(1)" : base);
-  const flags = field.flags;
+  const databaseType = catalogType ?? protocolType(field);
+  const flags = protocolFlags(field);
   return {
     index,
     ...(field.name === undefined || field.name.length === 0 ? {} : { name: field.name }),
-    databaseType,
-    ...(isKnownMySqlType(databaseType, schema) ? { tsType: mapMySqlType(databaseType, policy, schema) } : {}),
+    ...(databaseType === undefined ? {} : { databaseType }),
+    ...(databaseType !== undefined && isKnownMySqlType(databaseType, schema)
+      ? { tsType: mapMySqlType(databaseType, policy, schema) }
+      : {}),
     ...(exposeNullability && typeof flags === "number" ? { nullable: (flags & 1) === 0 } : {}),
   };
 }
@@ -786,6 +748,8 @@ export async function createMySql2Database(options: MySql2Options): Promise<MySq
     decimalNumbers: false,
     dateStrings: true,
     jsonStrings: true,
+    // Geometry follows the grammar's opaque-byte policy in both wire protocols.
+    typeCast: (field, next) => (field.type === "GEOMETRY" ? field.buffer() : next()),
     rowsAsArray: false,
     maxPreparedStatements: options.preparedStatementLimit ?? 16_000,
     multipleStatements: false,
@@ -812,6 +776,7 @@ export async function createMySql2Database(options: MySql2Options): Promise<MySq
 export function mysql2(options: MySql2SchemaProviderOptions): { introspect(): Promise<MySqlSchemaSnapshot> } {
   return {
     async introspect(): Promise<MySqlSchemaSnapshot> {
+      const { MySqlSchemaProvider } = await import("./provider.js");
       if (options.client !== undefined) {
         return (await new MySqlSchemaProvider({
           client: options.client,

@@ -15,7 +15,7 @@ export async function prepareSqlFileConsumer(consumer: string): Promise<string> 
   await writeFile(join(directory, "package.json"), JSON.stringify({ type: "module" }));
   await writeFile(
     join(directory, "typed-sql.config.mjs"),
-    `import { postgres } from "@typed-sql/postgres";
+    `import { postgres } from "@typed-sql/postgres/analysis";
 export default { dialect: postgres(), schema: { file: "schema.json" }, outDir: ".typed-sql" };`,
   );
   await writeFile(

@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { promisify } from "node:util";
 import { describe, it, strict } from "poku";
+import { POSTGRES_CORE_CATALOG_FORMAT_VERSION, POSTGRES_SUPPORT_POLICY, postgresCoreCatalog } from "../src/analysis.js";
 import {
   postgresCatalogCanCast,
   postgresCatalogCast,
@@ -10,7 +11,6 @@ import {
   postgresCatalogTableRoutineRule,
   postgresCatalogTypeMapping,
 } from "../src/catalog/index.js";
-import { POSTGRES_CORE_CATALOG_FORMAT_VERSION, POSTGRES_SUPPORT_POLICY, postgresCoreCatalog } from "../src/index.js";
 
 const execute = promisify(execFile);
 

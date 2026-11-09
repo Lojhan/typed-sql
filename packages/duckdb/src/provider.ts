@@ -10,6 +10,7 @@ import {
 } from "@typed-sql/schema";
 import { duckDBGeneratedColumns } from "./catalog/ddl.js";
 import { type DuckDBType, duckDBAsciiFold, formatDuckDBType, parseDuckDBType } from "./native-types.js";
+import type { DuckDBSchemaProviderOptions } from "./provider-contracts.js";
 import { assertDuckDBSemanticEvidence, DUCKDB_SEMANTIC_SETTINGS } from "./settings.js";
 import { type DuckDBSchemaSnapshot, duckDBRelationIdentity } from "./snapshot.js";
 import { duckDBServerEvidence, duckDBVersionSupport } from "./support.js";
@@ -21,15 +22,9 @@ import {
   validateDuckDBTypePolicy,
 } from "./type-policy.js";
 import { DUCKDB_DIALECT_VERSION } from "./version.js";
-export interface DuckDBQueryable {
-  all<Row extends Record<string, unknown>>(sql: string, values?: readonly unknown[]): Promise<readonly Row[]>;
-}
-export interface DuckDBSchemaProviderOptions {
-  readonly client: DuckDBQueryable;
-  readonly typePolicy?: DuckDBTypePolicy;
-  readonly catalogs?: readonly string[];
-  readonly schemas?: readonly string[];
-}
+
+export type { DuckDBQueryable, DuckDBSchemaProviderOptions } from "./provider-contracts.js";
+
 interface ColumnRow extends Record<string, unknown> {
   database_name: string;
   schema_name: string;

@@ -1,25 +1,12 @@
 import type { SchemaSnapshot } from "@typed-sql/schema";
-import { postgresCatalogTypeMapping } from "./catalog/index.js";
+import { postgresCodecTypeMapping } from "./codecs/index.js";
+import { postgresAsciiFold } from "./identifier-case.js";
 
-export interface PostgresTypePolicy {
-  readonly bigint: "bigint" | "string" | "number";
-  readonly numeric: "string" | "number" | "Decimal";
-  readonly date: "Date" | "string";
-  readonly json: "unknown" | "JsonValue" | "string";
-  readonly enums: "string-union" | "string";
-  readonly unknown: "unknown" | "never";
-}
+import type { PostgresTypePolicy } from "./policy.js";
 
-export const defaultPostgresTypePolicy: PostgresTypePolicy = Object.freeze({
-  bigint: "bigint",
-  numeric: "string",
-  date: "Date",
-  json: "unknown",
-  enums: "string-union",
-  unknown: "unknown",
-});
+export { defaultPostgresTypePolicy, type PostgresTypePolicy } from "./policy.js";
 
-const normalized = (databaseType: string): string => databaseType.trim().toLowerCase().replace(/\s+/g, " ");
+const normalized = (databaseType: string): string => postgresAsciiFold(databaseType.trim()).replace(/\s+/g, " ");
 const withoutModifiers = (databaseType: string): string => databaseType.replace(/\(\d+(?:,\s*\d+)?\)/g, "");
 
 function arrayType(databaseType: string): { readonly base: string; readonly dimensions: number } {
@@ -41,7 +28,7 @@ function snapshotType(databaseType: string, schema?: SchemaSnapshot) {
 
 export function isKnownPostgresType(databaseType: string, schema?: SchemaSnapshot): boolean {
   const type = withoutModifiers(arrayType(normalized(databaseType)).base);
-  if (postgresCatalogTypeMapping(type, schema) !== undefined) return true;
+  if (postgresCodecTypeMapping(type, schema) !== undefined) return true;
   if (snapshotType(type, schema) !== undefined) return true;
   return schema?.enums?.[type] !== undefined || schema?.domains?.[type] !== undefined;
 }
@@ -49,7 +36,7 @@ export function isKnownPostgresType(databaseType: string, schema?: SchemaSnapsho
 export function mapPostgresType(databaseType: string, policy: PostgresTypePolicy, schema?: SchemaSnapshot): string {
   const { base: unmodifiedType, dimensions } = arrayType(normalized(databaseType));
   const type = withoutModifiers(unmodifiedType);
-  const catalogMapping = postgresCatalogTypeMapping(type, schema);
+  const catalogMapping = postgresCodecTypeMapping(type, schema);
   const snapshotMapping = snapshotType(unmodifiedType, schema);
   let mapped: string;
   if (catalogMapping === "number") mapped = "number";

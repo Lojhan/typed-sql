@@ -13,6 +13,34 @@ the choice of deployment target to your bundler configuration.
 Keep your existing entrypoints, output format, framework plugins, and external dependencies.
 These snippets show where to add typed-sql to those configurations.
 
+Generated metadata constructors support tree shaking through application barrels, including
+template plans, conditional/repeated selectors and SQL-file plans. Static metadata is validated
+during compilation so unused constructors can be removed. Application initialization effects
+remain observable; your bundler's normal rules still govern unused application code.
+
+## Recorded query contracts
+
+Build adapters and `typed-sql-build types` consume [durable query contracts](../guides/query-manifests.md)
+from the configured `analysis.contractsDir`. Builds use saved schema and contract inputs and never
+invoke native adapter factories. An `analysis.mode` of `live` applies to live checking and generation;
+builds treat it as offline mode.
+
+Offline builds can use the installed analyzer for queries without recorded contracts. Frozen builds
+require matching recorded contracts and do not initialize the analyzer. Use a lightweight grammar
+profile with an explicit analyzer loader when configuring analysis modes.
+
+Builds read exported contracts independently of the disposable development cache. To export native
+evidence before building, run:
+
+```sh
+pnpm exec typed-sql generate --queries --live
+pnpm exec typed-sql-build types
+```
+
+Include the configured contract directory with the project's build inputs. Missing, corrupt or
+incompatible required contracts fail checking. The manifest and its referenced context/query files
+participate in build cache keys and watching, so regeneration invalidates compiled SQL and declarations.
+
 ## webpack
 
 ```sh

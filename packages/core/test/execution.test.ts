@@ -76,6 +76,46 @@ await describe("grammar-neutral execution capability types", async () => {
     strict.strictEqual(options.batchSize, 500);
   });
 
+  await it("rechecks wall time when a deadline timer fires early", async () => {
+    const originalTimer = globalThis.setTimeout,
+      originalNow = Date.now;
+    const timers: { callback: () => void; delay: number | undefined }[] = [];
+    let now = 1_000,
+      cancellations = 0;
+    const running = Promise.withResolvers<number>();
+    try {
+      Date.now = () => now;
+      globalThis.setTimeout = ((callback: () => void, delay?: number) => {
+        timers.push({ callback, delay });
+        return {} as ReturnType<typeof setTimeout>;
+      }) as typeof setTimeout;
+      const controlled = runControlledExecution(
+        { deadline: 1_100 },
+        () => running.promise,
+        (error) => {
+          cancellations++;
+          running.reject(error);
+        },
+      );
+      const rejected = strict.rejects(
+        controlled,
+        (error: unknown) => error instanceof QueryCancelledError && error.reason === "deadline",
+      );
+      strict.equal(timers[0]?.delay, 100);
+      now = 1_099;
+      timers[0]!.callback();
+      strict.equal(cancellations, 0);
+      strict.equal(timers[1]?.delay, 1);
+      now = 1_100;
+      timers[1]!.callback();
+      await rejected;
+      strict.equal(cancellations, 1);
+    } finally {
+      globalThis.setTimeout = originalTimer;
+      Date.now = originalNow;
+    }
+  });
+
   await it("coordinates pre-abort, in-flight abort, deadlines, and successful completion", async () => {
     const preAborted = new AbortController();
     preAborted.abort("request-closed");

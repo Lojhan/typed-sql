@@ -1,5 +1,5 @@
 import { describe, it, strict } from "poku";
-import { sqlServerServerEvidence, sqlserver } from "../src/index.js";
+import { sqlServerServerEvidence, sqlserver } from "../src/analysis.js";
 
 const server = sqlServerServerEvidence("17.0.5035.5", {
   compatibilityLevel: 170,

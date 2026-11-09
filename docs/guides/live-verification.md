@@ -21,7 +21,7 @@ The grammar package owns the native adapter, while the application owns the driv
 
 ```ts
 import { defineConfig } from "@typed-sql/core";
-import { postgres, typePolicy } from "@typed-sql/postgres";
+import { typePolicy } from "@typed-sql/postgres"; import { postgres } from "@typed-sql/postgres/analysis";
 import { createPgLiveVerifier, pg } from "@typed-sql/postgres/pg";
 
 const connectionString = () => process.env.DATABASE_URL!;
@@ -77,7 +77,10 @@ The default verifier accepts only evidence-backed `read` and `write` operations.
 - MySQL uses binary `COM_STMT_PREPARE` metadata through the application-installed `mysql2` adapter,
   resolves origin columns against the live `information_schema.columns` catalog, then closes the
   prepared statement without `COM_STMT_EXECUTE`. Origin lookup preserves catalog types such as enum
-  value sets that the prepare packet otherwise reports only as a string class. Parameter comparison
+  value sets that the prepare packet otherwise reports only as a string class. Protocol metadata
+  preserves decimal dimensions and integer signedness, and character-set evidence distinguishes
+  textual from binary fields. Missing dimensions, flags or character-set facts remain unavailable
+  where they are needed to identify the type. Parameter comparison
   is directional: a compiler-enforced literal subset is compatible with the broader native input
   class, while result columns still require native output evidence assignable to the inferred type.
 - DDL, transaction-control, unknown, dynamic, stale, and unsupported queries are explicit skips or errors. They are never silently marked verified.

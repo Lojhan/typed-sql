@@ -1,4 +1,3 @@
-import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
@@ -24,12 +23,13 @@ import {
   requireAdapterCapability,
   validateJsonValue,
 } from "@typed-sql/core";
-import { createPostgresRoutedDatabase, postgres, postgresCopy, sql, typePolicy } from "@typed-sql/postgres";
+import { sql, typePolicy } from "@typed-sql/postgres";
+import { createPostgresRoutedDatabase, postgres, postgresCopy } from "@typed-sql/postgres/analysis";
 import { createPgDatabase, createPgLiveVerifier } from "@typed-sql/postgres/pg";
 import { analyzeSource } from "@typed-sql/ts-bridge";
 import { NativePreviewTypeScriptBridge } from "@typed-sql/ts-bridge/native-preview";
 import { Pool } from "pg";
-import { describe, it, log, strict, waitForExpectedResult, waitForPort } from "poku";
+import { describe, it, log, strict } from "poku";
 import { calculateTypePolicyHash } from "../../../packages/schema/src/index.js";
 import {
   assertCompiledLegacyValuePlans,
@@ -37,15 +37,12 @@ import {
   assertLegacyValuePlans,
   assertPostgresRawJsonValuePlans,
 } from "../../../test/helpers/legacy-value-plans.js";
+import { assertMigrationContractConsumer } from "../../../test/helpers/migration-contracts.js";
+import { assertPostgresEnumCodecs } from "../../../test/helpers/postgres-enum-codecs.js";
 import { postgresCodecFidelity } from "../src/codec-query.js";
 import { postgresJsonEmptyAggregate, postgresJsonNonfinite, postgresJsonProjection } from "../src/json-query.js";
 import { postgresAccountStream, postgresAccountsAtOrAbove } from "../src/stream-query.js";
-
-interface CommandResult {
-  readonly code: number;
-  readonly stdout: string;
-  readonly stderr: string;
-}
+import { type CommandResult, startPostgresFixture } from "./helpers/database-fixture.js";
 
 interface GeneratedSnapshot {
   readonly formatVersion: 2;
@@ -78,127 +75,22 @@ const generatedDirectory = join(packageDirectory, "generated");
 const generatedDatabaseDirectory = join(generatedDirectory, "db");
 const generatedSnapshotPath = join(generatedDatabaseDirectory, "schema.json");
 const cliFile = join(workspaceDirectory, "packages", "cli", "dist", "packages", "cli", "src", "cli.js");
-const engine = process.env.TYPED_SQL_CONTAINER_ENGINE ?? "podman";
-const port = Number(process.env.TYPED_SQL_E2E_PORT ?? "55432");
-const expectedVersion = process.env.TYPED_SQL_POSTGRES_VERSION ?? "18.6";
-const matrixLabel = process.env.TYPED_SQL_POSTGRES_MATRIX_LABEL ?? `postgres-${expectedVersion}`;
-const matrixChannel = process.env.TYPED_SQL_POSTGRES_CHANNEL ?? "stable";
-const baseImage = process.env.TYPED_SQL_POSTGRES_IMAGE ?? `docker.io/library/postgres:${expectedVersion}-bookworm`;
-const containerName = `typed-sql-e2e-postgres-${process.pid}`;
-const imageName = `localhost/typed-sql-e2e-${matrixLabel}`;
-const connectionString = `postgresql://typed_sql:typed_sql_e2e@127.0.0.1:${port}/typed_sql_e2e`;
-let containerStarted = false;
-
-if (!Number.isInteger(port) || port < 1024 || port > 65_535)
-  throw new TypeError("TYPED_SQL_E2E_PORT must be an unprivileged TCP port");
-
-function run(command: string, args: readonly string[], cwd = packageDirectory): Promise<CommandResult> {
-  return new Promise((resolveResult, reject) => {
-    const child = spawn(command, [...args], { cwd, env: process.env, stdio: ["ignore", "pipe", "pipe"] });
-    let stdout = "";
-    let stderr = "";
-    child.stdout.setEncoding("utf8");
-    child.stderr.setEncoding("utf8");
-    child.stdout.on("data", (chunk: string) => {
-      stdout += chunk;
-    });
-    child.stderr.on("data", (chunk: string) => {
-      stderr += chunk;
-    });
-    child.once("error", reject);
-    child.once("close", (code) => resolveResult({ code: code ?? 1, stdout, stderr }));
-  });
-}
-
-async function mustRun(command: string, args: readonly string[], cwd = packageDirectory): Promise<CommandResult> {
-  const result = await run(command, args, cwd);
-  if (result.code !== 0)
-    throw new Error(`${command} ${args.join(" ")} failed (${result.code})\n${result.stdout}${result.stderr}`);
-  return result;
-}
-
-const cli = (...args: readonly string[]): Promise<CommandResult> => mustRun(process.execPath, [cliFile, ...args]);
-
 await rm(generatedDirectory, { recursive: true, force: true });
 await rm(join(packageDirectory, ".typed-sql"), { recursive: true, force: true });
-log(`Building ${imageName} from ${baseImage}`);
-await mustRun(engine, [
-  "build",
-  "--build-arg",
-  `POSTGRES_IMAGE=${baseImage}`,
-  "--tag",
-  imageName,
-  "--file",
-  "Containerfile",
-  ".",
-]);
-
+const fixture = await startPostgresFixture();
+const { engine, containerName, connectionString, expectedVersion, matrixLabel, matrixChannel, run, mustRun } = fixture;
+const cli = (...args: readonly string[]): Promise<CommandResult> => mustRun(process.execPath, [cliFile, ...args]);
 try {
-  await mustRun(engine, [
-    "run",
-    "--detach",
-    "--name",
-    containerName,
-    "--publish",
-    `127.0.0.1:${port}:5432`,
-    "--env",
-    "POSTGRES_DB=typed_sql_e2e",
-    "--env",
-    "POSTGRES_USER=typed_sql",
-    "--env",
-    "POSTGRES_PASSWORD=typed_sql_e2e",
-    imageName,
-  ]);
-  containerStarted = true;
-  try {
-    const initializationComplete = "PostgreSQL init process complete; ready for start up.";
-    const acceptingConnections = "database system is ready to accept connections";
-    await waitForExpectedResult(
-      async () => {
-        const logs = await run(engine, ["logs", containerName]);
-        const output = `${logs.stdout}${logs.stderr}`;
-        const initializationIndex = output.lastIndexOf(initializationComplete);
-        return (
-          initializationIndex >= 0 && output.indexOf(acceptingConnections, initializationIndex) > initializationIndex
-        );
-      },
-      true,
-      { interval: 250, timeout: 60_000, strict: true },
-    );
-    await waitForPort(port, { host: "127.0.0.1", timeout: 60_000 });
-    await waitForExpectedResult(
-      async () => {
-        const result = await run(engine, [
-          "exec",
-          containerName,
-          "psql",
-          "--username",
-          "typed_sql",
-          "--dbname",
-          "typed_sql_e2e",
-          "--tuples-only",
-          "--no-align",
-          "--command",
-          "SELECT count(*) FROM public.users",
-        ]);
-        return result.code === 0 ? result.stdout.trim() : "";
-      },
-      "2",
-      { interval: 250, timeout: 60_000, strict: true },
-    );
-  } catch (error) {
-    const state = await run(engine, ["inspect", "--format", "{{json .State}}", containerName]);
-    const logs = await run(engine, ["logs", containerName]);
-    throw new Error(
-      [
-        error instanceof Error ? error.message : String(error),
-        `Container state: ${state.stdout}${state.stderr}`,
-        `Container logs:\n${logs.stdout}${logs.stderr}`,
-      ].join("\n"),
-    );
-  }
-
   await describe("developer PostgreSQL flow", async () => {
+    await it("executes generated enum codecs and rejects labels outside the captured policy", async () => {
+      await assertPostgresEnumCodecs(connectionString, resolve(dirname(fileURLToPath(import.meta.url)), "../../.."));
+    });
+    await it("qualifies migration-derived contracts for a separate network-denied frozen consumer", async () => {
+      await assertMigrationContractConsumer(
+        connectionString,
+        resolve(dirname(fileURLToPath(import.meta.url)), "../../.."),
+      );
+    });
     await it("enforces attached value plans through actual pg buffered, prepared, pipeline and cursor paths", async () => {
       const database = await createPgDatabase({
         connectionString,
@@ -1178,5 +1070,5 @@ try {
     });
   });
 } finally {
-  if (containerStarted) await run(engine, ["rm", "--force", containerName]);
+  await fixture.close();
 }

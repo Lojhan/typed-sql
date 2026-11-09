@@ -1,5 +1,5 @@
 import { it, strict } from "poku";
-import { duckdb } from "../src/index.js";
+import { duckdb } from "../src/analysis.js";
 import { createNodeDuckDBDatabase } from "../src/node-api.js";
 import { DuckDBSchemaProvider } from "../src/provider.js";
 

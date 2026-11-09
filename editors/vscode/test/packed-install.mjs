@@ -18,23 +18,42 @@ export async function installPackedServer(root, run) {
   const dependencies = {};
   // Include each workspace dependency in the isolated install, never resolve a
   // prerelease workspace package from the registry or link production sources.
-  const directories = [
-    "build",
-    "ast",
-    "core",
-    "config",
-    "schema",
-    "compiler",
-    "conformance",
-    "postgres",
-    "mysql",
-    "sqlite",
-    "sqlserver",
-    "duckdb",
-    "ts-bridge",
-    "language-server",
-  ].map((name) => `packages/${name}`);
-  directories.push("examples/synthetic-grammar");
+  const packages = new Map();
+  const register = async (directory) => {
+    const source = await readFile(join(root, directory, "package.json"), "utf8").catch((error) => {
+      if (error.code === "ENOENT") return undefined;
+      throw error;
+    });
+    if (source === undefined) return undefined;
+    const manifest = JSON.parse(source);
+    packages.set(manifest.name, { directory, manifest });
+    return manifest.name;
+  };
+  for (const entry of await readdir(join(root, "packages"), { withFileTypes: true }))
+    if (entry.isDirectory()) await register(`packages/${entry.name}`);
+  const synthetic = await register("examples/synthetic-grammar");
+  assert.ok(synthetic, "synthetic grammar workspace package must exist");
+  const ledger = JSON.parse(await readFile(join(root, "grammar/features/ledger.json"), "utf8"));
+  const directories = new Set();
+  const select = (name) => {
+    const entry = packages.get(name);
+    assert.ok(entry, `workspace package ${name} must exist`);
+    if (directories.has(entry.directory)) return;
+    directories.add(entry.directory);
+    const dependencies = { ...entry.manifest.dependencies, ...entry.manifest.optionalDependencies };
+    for (const [dependency, range] of Object.entries(dependencies)) {
+      if (packages.has(dependency)) select(dependency);
+      else assert.ok(!range.startsWith("workspace:"), `missing workspace dependency ${dependency}`);
+    }
+  };
+  for (const name of [
+    "@typed-sql/build",
+    "@typed-sql/conformance",
+    "@typed-sql/language-server",
+    ...Object.keys(ledger.dialects).map((name) => `@typed-sql/${name}`),
+    synthetic,
+  ])
+    select(name);
   for (const directory of directories) {
     const manifest = JSON.parse(await readFile(join(root, directory, "package.json"), "utf8"));
     const before = new Set(await readdir(tarballs));

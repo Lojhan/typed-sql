@@ -25,22 +25,37 @@ const postgresContainer = `typed-sql-packed-postgres-${suffix}`;
 const mysqlContainer = `typed-sql-packed-mysql-${suffix}`;
 const postgresImage = "localhost/typed-sql-e2e-postgres:18.4";
 const mysqlImage = "localhost/typed-sql-e2e-mysql:8.4.11";
-const packageNames = [
-  "migrations",
-  "build",
-  "adapters",
-  "ast",
-  "core",
-  "config",
-  "schema",
-  "compiler",
-  "cli",
-  "postgres",
-  "mysql",
-  "sqlite",
-  "ts-bridge",
-  "language-server",
-] as const;
+const workspacePackages = new Map<string, { directory: string; dependencies: readonly string[] }>();
+for (const entry of await readdir(join(workspace, "packages"), { withFileTypes: true })) {
+  if (!entry.isDirectory()) continue;
+  const source = await readFile(join(workspace, "packages", entry.name, "package.json"), "utf8").catch(
+    (error: unknown) => {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+      throw error;
+    },
+  );
+  if (source === undefined) continue;
+  const manifest = JSON.parse(source) as {
+    name: string;
+    dependencies?: Readonly<Record<string, string>>;
+    optionalDependencies?: Readonly<Record<string, string>>;
+  };
+  workspacePackages.set(manifest.name, {
+    directory: entry.name,
+    dependencies: Object.keys({ ...manifest.dependencies, ...manifest.optionalDependencies }),
+  });
+}
+const packageNames = new Set<string>();
+function selectWorkspacePackage(name: string): void {
+  const entry = workspacePackages.get(name);
+  if (entry === undefined) throw new Error(`Missing workspace package ${name}`);
+  if (packageNames.has(entry.directory)) return;
+  packageNames.add(entry.directory);
+  for (const dependency of entry.dependencies)
+    if (workspacePackages.has(dependency)) selectWorkspacePackage(dependency);
+}
+for (const name of ["migrations", "build", "adapters", "cli", "postgres", "mysql", "sqlite", "language-server"])
+  selectWorkspacePackage(`@typed-sql/${name}`);
 const previewPackageNames = new Set(["@typed-sql/ts-bridge", "@typed-sql/language-server"]);
 const dialectNames = ["postgres", "mysql", "sqlite"] as const;
 const artifactParameterSentinel = "typed-sql-packed-parameter-sentinel";
@@ -408,7 +423,7 @@ await describe(`${consumerSource} real-database consumers`, async () => {
         join(consumer, "postgres", "typed-sql.config.ts"),
         `
         import { defineConfig } from "@typed-sql/core";
-        import { postgres, typePolicy } from "@typed-sql/postgres";
+        import { typePolicy } from "@typed-sql/postgres"; import { postgres } from "@typed-sql/postgres/analysis";
         import { createPgLiveVerifier, pg } from "@typed-sql/postgres/pg";
         const connectionString = "postgresql://typed_sql:${artifactCredentialSentinel}@127.0.0.1:${postgresPort}/typed_sql_e2e";
         const dialect = postgres({ typePolicy });
@@ -431,7 +446,7 @@ await describe(`${consumerSource} real-database consumers`, async () => {
         join(consumer, "mysql", "typed-sql.config.ts"),
         `
         import { defineConfig } from "@typed-sql/core";
-        import { mysql, typePolicy } from "@typed-sql/mysql";
+        import { typePolicy } from "@typed-sql/mysql"; import { mysql } from "@typed-sql/mysql/analysis";
         import { createMySql2LiveVerifier, mysql2 } from "@typed-sql/mysql/mysql2";
         const connectionUri = "mysql://typed_sql:${artifactCredentialSentinel}@127.0.0.1:${mysqlPort}/typed_sql_e2e";
         const dialect = mysql({ typePolicy });
@@ -495,7 +510,7 @@ await describe(`${consumerSource} real-database consumers`, async () => {
         `
         import { fileURLToPath } from "node:url";
         import { defineConfig } from "@typed-sql/core";
-        import { sqlite, typePolicy } from "@typed-sql/sqlite";
+        import { typePolicy } from "@typed-sql/sqlite"; import { sqlite } from "@typed-sql/sqlite/analysis";
         import { nodeSqlite } from "@typed-sql/sqlite/node-sqlite";
         const path = fileURLToPath(new URL("./database.sqlite", import.meta.url));
         const dialect = sqlite({ typePolicy });
@@ -938,9 +953,9 @@ await describe(`${consumerSource} real-database consumers`, async () => {
         `
         import { readFile } from "node:fs/promises";
         import { join } from "node:path";
-        import { mysql } from "@typed-sql/mysql";
-        import { postgres } from "@typed-sql/postgres";
-        import { sqlite } from "@typed-sql/sqlite";
+        import { mysql } from "@typed-sql/mysql/analysis";
+        import { postgres } from "@typed-sql/postgres/analysis";
+        import { sqlite } from "@typed-sql/sqlite/analysis";
         import { analyzeSource } from "@typed-sql/ts-bridge";
         import { NativePreviewTypeScriptBridge } from "@typed-sql/ts-bridge/native-preview";
         const cases = [

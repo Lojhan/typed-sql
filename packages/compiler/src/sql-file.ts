@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import {
   type DialectPlugin,
+  defineQueryValuePlan,
   parameterTypeLiteral,
   rowTypeLiteral,
   type SchemaSnapshot,
@@ -58,6 +59,11 @@ export function compileSqlFile(options: CompileSqlFileOptions): CompileSqlFileRe
     range: { start: 0, end: Math.min(content.length, 1), line: 1, column: 1 },
   });
   const failed = diagnostics.some((item) => item.severity === "error");
+  // Validate static metadata before emitting a pure constructor call that a bundler may remove.
+  const valuePlan =
+    !failed && analysis
+      ? defineQueryValuePlan(buildQueryValuePlan(dialect, analysis, policy, bindings.length))
+      : undefined;
   const row = analysis?.resultKind === "command" ? "never" : rowTypeLiteral(analysis?.columns ?? []);
   const parameters = parameterTypeLiteral(count, logicalParameters, dialect.runtimeSqlModule);
   const namedType = named
@@ -86,8 +92,8 @@ export function compileSqlFile(options: CompileSqlFileOptions): CompileSqlFileRe
       )});\n`
     : `import { sql } from ${codeLiteral(dialect.runtimeSqlModule ?? dialect.sqlModule)};
 import { defineQueryValuePlan, withQueryValuePlan } from ${codeLiteral(dialect.runtimeSqlModule)};
-export const valuePlan = defineQueryValuePlan(${codeLiteral(analysis === undefined ? undefined : buildQueryValuePlan(dialect, analysis, policy, bindings.length))});
-const parts = ${codeLiteral(parts)}.map((text) => sql.raw(text));
+export const valuePlan = /* @__PURE__ */ defineQueryValuePlan(${codeLiteral(valuePlan)});
+const parts = /* @__PURE__ */ ${codeLiteral(parts)}.map((text) => sql.raw(text));
 export default function query(${named ? "parameters" : "...values"}) {
   ${
     named

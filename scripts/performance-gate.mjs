@@ -20,19 +20,19 @@ import {
   runStaticConformanceProbe,
 } from "../packages/conformance/dist/packages/conformance/src/v2/index.js";
 import { renderQuery, sql } from "../packages/core/dist/packages/core/src/index.js";
-import { duckdb } from "../packages/duckdb/dist/packages/duckdb/src/index.js";
+import { duckdb } from "../packages/duckdb/dist/packages/duckdb/src/analysis.js";
 import { parseDuckDBStatement } from "../packages/duckdb/dist/packages/duckdb/src/parser/parser.js";
 import { TypedSqlLanguageService } from "../packages/language-server/dist/packages/language-server/src/index.js";
 import { parseStatement as parseMysqlStatement } from "../packages/mysql/dist/packages/mysql/src/parser/index.js";
 import {
   createPostgresQuerySemanticResolver,
   postgres,
-} from "../packages/postgres/dist/packages/postgres/src/index.js";
+} from "../packages/postgres/dist/packages/postgres/src/analysis.js";
 import { parseStatement as parsePostgresStatement } from "../packages/postgres/dist/packages/postgres/src/parser/index.js";
 import { calculateSchemaHash, canonicalizeSchemaValue } from "../packages/schema/dist/packages/schema/src/index.js";
-import { sqlite } from "../packages/sqlite/dist/packages/sqlite/src/index.js";
+import { sqlite } from "../packages/sqlite/dist/packages/sqlite/src/analysis.js";
 import { parseStatement as parseSqliteStatement } from "../packages/sqlite/dist/packages/sqlite/src/parser/index.js";
-import { sqlserver } from "../packages/sqlserver/dist/packages/sqlserver/src/index.js";
+import { sqlserver } from "../packages/sqlserver/dist/packages/sqlserver/src/analysis.js";
 import { parseStatement as parseSqlServerStatement } from "../packages/sqlserver/dist/packages/sqlserver/src/parser/index.js";
 import { grammarCases } from "../test/editor-hub/cases.mjs";
 import {
@@ -775,7 +775,9 @@ try {
   const alternateSchemaPath = join(temporary, "schema-alternate.json");
   const configPath = join(temporary, "typed-sql.config.mjs");
   const alternateConfigPath = join(temporary, "typed-sql.alternate.config.mjs");
-  const postgresModule = pathToFileURL(join(workspace, "packages/postgres/dist/packages/postgres/src/index.js")).href;
+  const postgresModule = pathToFileURL(
+    join(workspace, "packages/postgres/dist/packages/postgres/src/analysis.js"),
+  ).href;
   const alternateSnapshot = {
     ...snapshot,
     tables: {

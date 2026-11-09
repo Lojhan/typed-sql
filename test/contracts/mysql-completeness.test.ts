@@ -2,7 +2,7 @@ import { access, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, it, strict } from "poku";
 import { parseGrammarFeatureLedger } from "../../packages/conformance/src/index.js";
-import { MYSQL_SUPPORT_POLICY } from "../../packages/mysql/src/index.js";
+import { MYSQL_SUPPORT_POLICY } from "../../packages/mysql/src/analysis.js";
 
 const workspace = process.cwd();
 

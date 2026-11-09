@@ -3,7 +3,8 @@ import { fileURLToPath } from "node:url";
 import type { DialectServerEvidence } from "@typed-sql/core";
 import { matchesTypePolicyHash, type SchemaSnapshotV2 } from "@typed-sql/schema";
 import { sqliteServerEvidence } from "./capabilities.js";
-import { type SqliteQueryable, SqliteSchemaProvider } from "./provider.js";
+import type { SqliteQueryable, SqliteSchemaProviderOptions } from "./provider-contracts.js";
+
 import { createSqliteDatabase, type SqliteConnectionLike, type SqliteDatabase } from "./runtime.js";
 import { parseSqliteSchemaSnapshot, type SqliteSchemaSnapshotV2 } from "./snapshot.js";
 import { isNodeSqliteRuntimeSupported, NODE_SQLITE_RUNTIME_SUPPORT } from "./support.js";
@@ -57,8 +58,8 @@ export interface NodeSqliteSchemaProviderOptions extends Omit<NodeSqliteDatabase
   readonly path?: PathLike;
   readonly database?: NodeSqliteDatabaseLike;
   readonly schemas?: readonly string[];
-  readonly functions?: ConstructorParameters<typeof SqliteSchemaProvider>[0]["functions"];
-  readonly routines?: ConstructorParameters<typeof SqliteSchemaProvider>[0]["routines"];
+  readonly functions?: SqliteSchemaProviderOptions["functions"];
+  readonly routines?: SqliteSchemaProviderOptions["routines"];
 }
 
 function validateCacheSize(value: number | undefined): number {
@@ -302,6 +303,7 @@ export function nodeSqlite(options: NodeSqliteSchemaProviderOptions): {
 } {
   return {
     async introspect(): Promise<SqliteSchemaSnapshotV2> {
+      const { SqliteSchemaProvider } = await import("./provider.js");
       const ownsDatabase = options.database === undefined;
       if (ownsDatabase && options.path === undefined) {
         throw new TypeError("node:sqlite schema provider requires path or database");

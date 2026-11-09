@@ -18,10 +18,11 @@ import {
   type SourceAnalysisResult,
 } from "../../compiler/src/index.js";
 import type { DialectPlugin, SchemaSnapshot } from "../../core/src/index.js";
-import { mysql } from "../../mysql/src/index.js";
-import { postgres } from "../../postgres/src/index.js";
+import { mysql } from "../../mysql/src/analysis.js";
+import { postgres } from "../../postgres/src/analysis.js";
 import { loadSchemaSnapshot } from "../../schema/src/index.js";
-import { type SqliteSchemaSnapshot, sqlite } from "../../sqlite/src/index.js";
+import { sqlite } from "../../sqlite/src/analysis.js";
+import type { SqliteSchemaSnapshot } from "../../sqlite/src/index.js";
 import { TypedSqlLanguageService } from "../src/index.js";
 
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -152,7 +153,7 @@ await describe("editor service soundness parity", async () => {
   const sqliteSchemaPath = join(sqliteDirectory, "schema.json");
   const sqliteConfigPath = join(sqliteDirectory, "typed-sql.config.mjs");
   const sqliteProjectPath = join(sqliteDirectory, "tsconfig.json");
-  const sqliteModule = pathToFileURL(resolve(workspace, "packages/sqlite/dist/packages/sqlite/src/index.js")).href;
+  const sqliteModule = pathToFileURL(resolve(workspace, "packages/sqlite/dist/packages/sqlite/src/analysis.js")).href;
   await Promise.all([
     writeFile(sqliteSchemaPath, `${JSON.stringify(sqliteSchema, null, 2)}\n`),
     writeFile(

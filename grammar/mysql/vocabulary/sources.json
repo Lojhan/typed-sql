@@ -1,0 +1,117 @@
+{
+  "formatVersion": 1,
+  "grammar": "mysql",
+  "profiles": [
+    {
+      "version": "8.4.11",
+      "series": "8.4",
+      "revision": "99960bf74fa919347e4f4e3ca47672f333d6e91f",
+      "files": {
+        "sql/lex.h": {
+          "url": "https://raw.githubusercontent.com/mysql/mysql-server/99960bf74fa919347e4f4e3ca47672f333d6e91f/sql/lex.h",
+          "digest": "sha256:840953f229edea7af4e9bfe214e44ae1982c8d3efbc6ff68c8f2bd0356faa2cf",
+          "bytes": 33048
+        },
+        "sql/lex_symbol.h": {
+          "url": "https://raw.githubusercontent.com/mysql/mysql-server/99960bf74fa919347e4f4e3ca47672f333d6e91f/sql/lex_symbol.h",
+          "digest": "sha256:5fc17161692e5faec01c356eae71dd7359d9133dfce91c0da9ea3b34c7d4c96b",
+          "bytes": 1990
+        },
+        "sql/sql_yacc.yy": {
+          "url": "https://raw.githubusercontent.com/mysql/mysql-server/99960bf74fa919347e4f4e3ca47672f333d6e91f/sql/sql_yacc.yy",
+          "digest": "sha256:d23e6df858a2a9df6fe5ea6bc620dc866b2b37b8181cca1c9c55481c5012c829",
+          "bytes": 572173
+        },
+        "sql/gen_keyword_list.cc": {
+          "url": "https://raw.githubusercontent.com/mysql/mysql-server/99960bf74fa919347e4f4e3ca47672f333d6e91f/sql/gen_keyword_list.cc",
+          "digest": "sha256:152f1760bc812eab7bb720944cfd18ade0c6117fed43cfc43f6ae89716525429",
+          "bytes": 6035
+        },
+        "LICENSE": {
+          "url": "https://raw.githubusercontent.com/mysql/mysql-server/99960bf74fa919347e4f4e3ca47672f333d6e91f/LICENSE",
+          "digest": "sha256:cb104b45f22bdecc7517916f792726056912586ffa5f4b1b0322d687bc3f3f1e",
+          "bytes": 259903
+        },
+        "sql/item_create.cc": {
+          "url": "https://raw.githubusercontent.com/mysql/mysql-server/99960bf74fa919347e4f4e3ca47672f333d6e91f/sql/item_create.cc",
+          "digest": "sha256:8f82c4c9c354afa8276e762b19243397ea405f0780ce6f9e099280af8e5f5532",
+          "bytes": 82016
+        }
+      }
+    },
+    {
+      "version": "9.7.2",
+      "series": "9.7",
+      "revision": "008e09c2834b98143a8c067d4d225c90953050cf",
+      "files": {
+        "sql/lex.h": {
+          "url": "https://raw.githubusercontent.com/mysql/mysql-server/008e09c2834b98143a8c067d4d225c90953050cf/sql/lex.h",
+          "digest": "sha256:ba70f43bc3c329c1b1c6bde687c5fab3da9180d2333aef06e440a886f24bb8f3",
+          "bytes": 34160
+        },
+        "sql/lex_symbol.h": {
+          "url": "https://raw.githubusercontent.com/mysql/mysql-server/008e09c2834b98143a8c067d4d225c90953050cf/sql/lex_symbol.h",
+          "digest": "sha256:5fc17161692e5faec01c356eae71dd7359d9133dfce91c0da9ea3b34c7d4c96b",
+          "bytes": 1990
+        },
+        "sql/sql_yacc.yy": {
+          "url": "https://raw.githubusercontent.com/mysql/mysql-server/008e09c2834b98143a8c067d4d225c90953050cf/sql/sql_yacc.yy",
+          "digest": "sha256:5d964ee2887ed734cec8dff5acc363efef255e6335784a3cb2066917dec9d2cb",
+          "bytes": 599383
+        },
+        "sql/gen_keyword_list.cc": {
+          "url": "https://raw.githubusercontent.com/mysql/mysql-server/008e09c2834b98143a8c067d4d225c90953050cf/sql/gen_keyword_list.cc",
+          "digest": "sha256:e81c93aa7f6a0e2dfd9ef81b3feaf9ca841e583f92ee57015d360f8c2bf3d65b",
+          "bytes": 6055
+        },
+        "LICENSE": {
+          "url": "https://raw.githubusercontent.com/mysql/mysql-server/008e09c2834b98143a8c067d4d225c90953050cf/LICENSE",
+          "digest": "sha256:b8a8e254d493955ab7ee0c61ba501c3224fa834fed061b14100b3909a89de598",
+          "bytes": 268080
+        },
+        "sql/item_create.cc": {
+          "url": "https://raw.githubusercontent.com/mysql/mysql-server/008e09c2834b98143a8c067d4d225c90953050cf/sql/item_create.cc",
+          "digest": "sha256:6e4018d4daafa6223d11a177bd16ac9f7840e2b6b08926789aa98b3ff6625757",
+          "bytes": 82811
+        }
+      }
+    },
+    {
+      "version": "26.7.0",
+      "series": "26.7",
+      "revision": "06a5c1c99c377fc41b2eba1ea244e8b220bdc3c8",
+      "files": {
+        "sql/lex.h": {
+          "url": "https://raw.githubusercontent.com/mysql/mysql-server/06a5c1c99c377fc41b2eba1ea244e8b220bdc3c8/sql/lex.h",
+          "digest": "sha256:116bcd3bc2b5d2e30f8b6e78204051d86f07fdcb5523e9c823a2ecab65ed0815",
+          "bytes": 34345
+        },
+        "sql/lex_symbol.h": {
+          "url": "https://raw.githubusercontent.com/mysql/mysql-server/06a5c1c99c377fc41b2eba1ea244e8b220bdc3c8/sql/lex_symbol.h",
+          "digest": "sha256:5fc17161692e5faec01c356eae71dd7359d9133dfce91c0da9ea3b34c7d4c96b",
+          "bytes": 1990
+        },
+        "sql/sql_yacc.yy": {
+          "url": "https://raw.githubusercontent.com/mysql/mysql-server/06a5c1c99c377fc41b2eba1ea244e8b220bdc3c8/sql/sql_yacc.yy",
+          "digest": "sha256:e9896830375b8f73d31f530b642b6333f4dbaf3daf037f923520cddb87ac8844",
+          "bytes": 603203
+        },
+        "sql/gen_keyword_list.cc": {
+          "url": "https://raw.githubusercontent.com/mysql/mysql-server/06a5c1c99c377fc41b2eba1ea244e8b220bdc3c8/sql/gen_keyword_list.cc",
+          "digest": "sha256:e81c93aa7f6a0e2dfd9ef81b3feaf9ca841e583f92ee57015d360f8c2bf3d65b",
+          "bytes": 6055
+        },
+        "LICENSE": {
+          "url": "https://raw.githubusercontent.com/mysql/mysql-server/06a5c1c99c377fc41b2eba1ea244e8b220bdc3c8/LICENSE",
+          "digest": "sha256:9ec6888641d8308596b984ed4902cd418ffc4b00990595357c857dea7742768e",
+          "bytes": 268084
+        },
+        "sql/item_create.cc": {
+          "url": "https://raw.githubusercontent.com/mysql/mysql-server/06a5c1c99c377fc41b2eba1ea244e8b220bdc3c8/sql/item_create.cc",
+          "digest": "sha256:6e4018d4daafa6223d11a177bd16ac9f7840e2b6b08926789aa98b3ff6625757",
+          "bytes": 82811
+        }
+      }
+    }
+  ]
+}

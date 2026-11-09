@@ -1,6 +1,6 @@
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import { MYSQL_SUPPORT_POLICY } from "../packages/mysql/dist/packages/mysql/src/index.js";
+import { MYSQL_SUPPORT_POLICY } from "../packages/mysql/dist/packages/mysql/src/analysis.js";
 
 const options = Object.create(null);
 for (let index = 2; index < process.argv.length; index += 2) {

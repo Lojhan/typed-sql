@@ -48,7 +48,7 @@ await describe("read-only workspace explorer protocol", async () => {
         join(directory, "typed-sql.config.mjs"),
         `
 import {appendFile,readFile} from 'node:fs/promises';
-import {postgres} from '@typed-sql/postgres';
+import { postgres } from '@typed-sql/postgres/analysis';
 export default {
  dialect:postgres(),schema:{file:'schema.json'},outDir:'generated',projects:['tsconfig.json'],
  migrations:{directory:'migrations',targets:{}},

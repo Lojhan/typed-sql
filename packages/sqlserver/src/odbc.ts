@@ -19,11 +19,7 @@ import {
   odbcPositiveInteger,
 } from "./odbc-protocol.js";
 import { SqlServerOdbcTransport } from "./odbc-transport.js";
-import {
-  readSqlServerServerEvidence,
-  SqlServerSchemaProvider,
-  type SqlServerSchemaProviderOptions,
-} from "./provider.js";
+import type { SqlServerSchemaProviderOptions } from "./provider-contracts.js";
 import {
   createSqlServerDatabase,
   type SqlServerConnectionLike,
@@ -37,6 +33,7 @@ import {
   validateSqlServerRuntimeOptions,
   withSqlServerInitializationLease,
 } from "./runtime.js";
+import { readSqlServerServerEvidence } from "./server-evidence.js";
 import { sqlServerVersionSupport } from "./support.js";
 export interface SqlServerOdbcOptions
   extends Omit<SqlServerDatabaseOptions, "connection" | "ownsConnection" | "serverEvidence"> {
@@ -388,6 +385,7 @@ export interface SqlServerOdbcSchemaProviderOptions extends SqlServerOdbcOptions
 export function sqlServerOdbc(options: SqlServerOdbcSchemaProviderOptions = {}): SchemaProvider<SchemaSnapshotV2> {
   return {
     async introspect(input) {
+      const { SqlServerSchemaProvider } = await import("./provider.js");
       const database = await createSqlServerOdbcDatabase({
         ...options,
         ...(!options.connectionString && input.url ? { connectionString: input.url } : {}),

@@ -1,5 +1,6 @@
 import type { SourceRange } from "@typed-sql/core";
-import { formatDuckDBType, parseDuckDBType } from "../native-types.js";
+import { duckDBAsciiUpper, formatDuckDBType, parseDuckDBType } from "../native-types.js";
+import type { DuckDBVocabulary } from "../vocabulary/types.js";
 import { DuckDBParseError, tokenize } from "./tokenizer.js";
 import type { CommonTable, Expression, Projection, Relation, Statement, Token } from "./types.js";
 
@@ -86,7 +87,10 @@ export class DuckDBParser {
   private anonymous = 0;
   private readonly named = new Map<string, number>();
   readonly tokens: readonly Token[];
-  constructor(readonly source: string) {
+  constructor(
+    readonly source: string,
+    private readonly vocabulary?: DuckDBVocabulary,
+  ) {
     this.tokens = tokenize(source);
   }
   token(offset = 0): Token {
@@ -96,7 +100,7 @@ export class DuckDBParser {
     return (
       this.token(offset).kind !== "quoted" &&
       this.token(offset).kind !== "string" &&
-      this.token(offset).value.toUpperCase() === value
+      duckDBAsciiUpper(this.token(offset).value) === value
     );
   }
   accept(value: string): boolean {
@@ -113,10 +117,21 @@ export class DuckDBParser {
     if (!this.accept(value))
       throw new DuckDBParseError(`Expected ${value}, found ${this.token().text || "end of SQL"}`, this.token().range);
   }
-  identifier(): Token {
+  canIdentifier(token: Token, role: "identifier" | "bareLabel" | "functionName" | "any" = "identifier"): boolean {
+    if (token.kind === "quoted") return true;
+    if (token.kind !== "word") return false;
+    const word = this.vocabulary?.lookup(token.value);
+    return role === "any" || word === undefined || word[role];
+  }
+  assertIdentifier(token: Token, role: "identifier" | "bareLabel" | "functionName" | "any" = "identifier"): void {
+    if (!this.canIdentifier(token, role))
+      throw new DuckDBParseError(`Keyword ${token.text} is not a DuckDB ${role} in this context`, token.range);
+  }
+  identifier(role: "identifier" | "bareLabel" | "functionName" | "any" = "identifier"): Token {
     const token = this.take();
     if (token.kind !== "word" && token.kind !== "quoted")
       throw new DuckDBParseError("Expected SQL identifier", token.range);
+    this.assertIdentifier(token, role);
     return token;
   }
   range(start: SourceRange): SourceRange {
@@ -126,7 +141,7 @@ export class DuckDBParser {
     const names = [this.identifier().value];
     while (this.is(".") && !this.is("*", 1)) {
       this.take();
-      names.push(this.identifier().value);
+      names.push(this.identifier("any").value);
     }
     return names;
   }
@@ -147,6 +162,16 @@ export class DuckDBParser {
       let left = this.prefix();
       for (;;) {
         const start = left.range;
+        if (
+          this.token().kind === "word" &&
+          this.vocabulary?.lookup(this.token().value)?.bareLabel &&
+          (this.token(1).kind === "eof" ||
+            [")", ",", ";"].includes(this.token(1).value) ||
+            (this.token(1).kind === "word" &&
+              clauses.has(duckDBAsciiUpper(this.token(1).value)) &&
+              !this.canIdentifier(this.token(1))))
+        )
+          break;
         if (this.accept("::")) {
           const type = this.nativeType();
           left = { kind: "cast", left, nativeType: type, range: this.range(start) };
@@ -165,11 +190,11 @@ export class DuckDBParser {
           continue;
         }
         if (this.accept(".")) {
-          const field = this.accept("*") ? "*" : this.identifier().value;
+          const field = this.accept("*") ? "*" : this.identifier("any").value;
           left = { kind: field === "*" ? "star" : "name", names: [field], left, range: this.range(start) };
           continue;
         }
-        if (this.accept("FILTER")) {
+        if (this.is("FILTER") && this.is("(", 1) && this.accept("FILTER")) {
           this.expect("(");
           this.expect("WHERE");
           const filter = this.expression();
@@ -194,9 +219,9 @@ export class DuckDBParser {
           };
           continue;
         }
-        let op = this.token().value.toUpperCase();
+        let op = duckDBAsciiUpper(this.token().value);
         const negate = op === "NOT" && ["IN", "LIKE", "ILIKE", "BETWEEN"].some((word) => this.is(word, 1));
-        if (negate) op = this.token(1).value.toUpperCase();
+        if (negate) op = duckDBAsciiUpper(this.token(1).value);
         const power = precedence[op];
         if (power === undefined || power < min) break;
         this.take();
@@ -258,7 +283,8 @@ export class DuckDBParser {
   prefix(): Expression {
     const token = this.take(),
       range = token.range,
-      upper = token.value.toUpperCase();
+      upper = duckDBAsciiUpper(token.value);
+    if (token.kind === "quoted") return this.nameExpression(token);
     if (token.kind === "number" || token.kind === "string" || ["NULL", "TRUE", "FALSE"].includes(upper))
       return {
         kind: "literal",
@@ -292,7 +318,10 @@ export class DuckDBParser {
         throw new DuckDBParseError("Invalid DuckDB parameter slot", range);
       return { kind: "parameter", value, parameterRange: range, range };
     }
-    if (["NOT", "+", "-", "~", "EXISTS"].includes(upper)) {
+    if (
+      ["NOT", "+", "-", "~"].includes(upper) ||
+      (upper === "EXISTS" && this.is("(") && ["SELECT", "WITH", "FROM"].some((word) => this.is(word, 1)))
+    ) {
       const left = this.expression(upper === "NOT" ? 3 : 8);
       if (upper === "-" && left.kind === "literal" && /^\d/u.test(left.value ?? ""))
         return {
@@ -379,6 +408,7 @@ export class DuckDBParser {
           const field = this.take();
           if (!["word", "quoted", "string"].includes(field.kind))
             throw new DuckDBParseError("Expected struct field name", field.range);
+          if (field.kind === "word") this.assertIdentifier(field);
           names.push(field.value);
           this.expect(":");
           args.push(this.expression());
@@ -405,7 +435,7 @@ export class DuckDBParser {
       this.expect("END");
       return { kind: "case", args, range: this.range(range) };
     }
-    if (upper === "CAST" || upper === "TRY_CAST") {
+    if ((upper === "CAST" || upper === "TRY_CAST") && this.is("(")) {
       this.expect("(");
       const left = this.expression();
       this.expect("AS");
@@ -413,8 +443,7 @@ export class DuckDBParser {
       this.expect(")");
       return { kind: "cast", value: upper, left, nativeType, range: this.range(range) };
     }
-    if (token.kind !== "word" && token.kind !== "quoted")
-      throw new DuckDBParseError(`Expected SQL expression, found ${token.text}`, range);
+    if (token.kind !== "word") throw new DuckDBParseError(`Expected SQL expression, found ${token.text}`, range);
     if (
       [
         "DATE",
@@ -437,11 +466,18 @@ export class DuckDBParser {
         range: this.range(range),
       };
     }
+    return this.nameExpression(token);
+  }
+  nameExpression(token: Token): Expression {
+    const range = token.range;
     const names = [token.value];
+    let functionNameQuoted = token.kind === "quoted";
     while (this.is(".") && ["word", "quoted"].includes(this.token(1).kind)) {
       this.take();
+      functionNameQuoted = this.token().kind === "quoted";
       names.push(this.take().value);
     }
+    this.assertIdentifier(token, names.length === 1 && this.is("(") ? "functionName" : "identifier");
     if (this.accept("(")) {
       const distinct = this.accept("DISTINCT"),
         args: Expression[] = [],
@@ -463,13 +499,22 @@ export class DuckDBParser {
         } while (this.accept(",") && !this.is(")"));
         this.expect(")");
       }
-      return { kind: "call", names, args, argumentNames, distinct, context, range: this.range(range) };
+      return {
+        kind: "call",
+        names,
+        args,
+        argumentNames,
+        ...(functionNameQuoted ? { functionNameQuoted: true } : {}),
+        distinct,
+        context,
+        range: this.range(range),
+      };
     }
     return { kind: "name", names, range: this.range(range) };
   }
   nativeType(): string {
     const start = this.index;
-    this.identifier();
+    this.identifier("any");
     if ((this.is("WITH") || this.is("WITHOUT")) && this.is("TIME", 1)) {
       this.take();
       this.take();
@@ -560,7 +605,7 @@ export class DuckDBParser {
       let alias: string | undefined;
       let expression: Expression;
       if (["word", "quoted"].includes(this.token().kind) && this.is(":", 1)) {
-        alias = this.take().value;
+        alias = this.identifier().value;
         this.take();
         expression = this.expression();
       } else expression = this.expression();
@@ -586,11 +631,12 @@ export class DuckDBParser {
           rename = this.accept("(") ? this.list(item, ")") : [item()];
         }
       }
-      if (this.accept("AS")) alias = this.identifier().value;
+      if (this.accept("AS")) alias = this.identifier("any").value;
       else if (
         ["word", "quoted"].includes(this.token().kind) &&
-        !clauses.has(this.token().value.toUpperCase()) &&
-        !joinWords.has(this.token().value.toUpperCase())
+        this.canIdentifier(this.token(), "bareLabel") &&
+        (this.vocabulary !== undefined ||
+          (!clauses.has(duckDBAsciiUpper(this.token().value)) && !joinWords.has(duckDBAsciiUpper(this.token().value))))
       )
         alias = this.take().value;
       return {
@@ -620,8 +666,9 @@ export class DuckDBParser {
     if (this.accept("AS")) alias = this.identifier().value;
     else if (
       ["word", "quoted"].includes(this.token().kind) &&
-      !clauses.has(this.token().value.toUpperCase()) &&
-      !joinWords.has(this.token().value.toUpperCase())
+      this.canIdentifier(this.token()) &&
+      (this.vocabulary !== undefined ||
+        (!clauses.has(duckDBAsciiUpper(this.token().value)) && !joinWords.has(duckDBAsciiUpper(this.token().value))))
     )
       alias = this.take().value;
     if (alias && this.accept("(")) columns = this.list(() => this.identifier().value, ")");
@@ -643,7 +690,7 @@ export class DuckDBParser {
         values.push({ ...this.relation(), join: "cross" });
         continue;
       }
-      if (!joinWords.has(this.token().value.toUpperCase())) break;
+      if (!joinWords.has(duckDBAsciiUpper(this.token().value))) break;
       const natural = this.accept("NATURAL");
       let asof = this.accept("ASOF");
       let kind: NonNullable<Relation["join"]> = "inner";
@@ -931,8 +978,8 @@ export class DuckDBParser {
     };
   }
 }
-export function parseDuckDBStatement(source: string): Statement {
-  const parser = new DuckDBParser(source),
+export function parseDuckDBStatement(source: string, vocabulary?: DuckDBVocabulary): Statement {
+  const parser = new DuckDBParser(source, vocabulary),
     statement = parser.statement();
   parser.accept(";");
   if (parser.token().kind !== "eof")

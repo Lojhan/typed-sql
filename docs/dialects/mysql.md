@@ -6,15 +6,125 @@ description: MySQL grammar coverage, catalog introspection, application-owned my
 
 # MySQL
 
-`@typed-sql/mysql` contains the MySQL grammar, catalog model, resolver, type policy, and runtime codecs. The optional `@typed-sql/mysql/mysql2` entrypoint loads the `mysql2` driver installed by your application.
+`@typed-sql/mysql` provides the `sql` tag, rendering and runtime type policy. Offline analysis uses the explicit entrypoints below. The optional `@typed-sql/mysql/mysql2` entrypoint loads the `mysql2` driver installed by your application.
+
+## Selected-series offline analysis
+
+Use an explicit series analyzer to retain that series' existing offline rules:
+
+```ts
+import { mysql } from "@typed-sql/mysql/analysis/9.7";
+
+export const dialect = mysql();
+```
+
+The selected analyzer requires explicit matching snapshot version evidence. Patch compatibility
+and SQL-mode/edition checks follow the existing support policy. The general
+`@typed-sql/mysql/analysis` import retains its supported series and offline behavior.
+
+| Import | Scope |
+| --- | --- |
+| `@typed-sql/mysql/analysis/8.4` | Full offline 8.4 analyzer |
+| `@typed-sql/mysql/analysis/9.7` | Full offline 9.7 analyzer |
+| `@typed-sql/mysql/analysis/26.7` | Full offline canary-series analyzer; requires `versionPolicy: "canary"` |
+| `@typed-sql/mysql/analysis/core/8.4` | Bounded offline 8.4 core |
+| `@typed-sql/mysql/analysis/core/9.7` | Bounded offline 9.7 core |
+| `@typed-sql/mysql/analysis/core/26.7` | Bounded offline canary core; requires the canary policy |
+
+For common SQL and [generated query contracts](../guides/query-manifests.md), select a core:
+
+```ts
+import { mysql } from "@typed-sql/mysql/analysis/core/9.7";
+
+export const dialect = mysql();
+```
+
+The core retains all existing maintained routine families plus type, coercion, collation,
+operator, JSON and structural-expression rules. This set already fits the compact-core scope;
+there is no separate MySQL compatibility data pack. Selecting one series excludes other full
+catalogs. Shared compact runtime codec/type metadata and cross-series availability vocabulary
+remain available.
+
+An unmapped function produces `TSQ408` with guidance to
+[generate a qualified query contract](../guides/query-manifests.md). Argument analysis retains
+casts and parameter order. Unsupported versions, SQL modes, editions and ambiguous calls remain
+blocking. Native generation needs explicit configuration and does not occur on import.
+
+The full analyzer entrypoints retain their existing diagnostic behavior, including a warning
+and unknown result for unrecognized functions. Core entrypoints request a qualified contract for
+that case. Neither import installs or initializes a driver. Application queries continue to
+import `sql` from `@typed-sql/mysql`.
+
+
+## Keyword and function-name contexts
+
+Each selected series consumes compact keyword metadata generated from pinned lexical, grammar and
+native-dispatch declarations. Reserved words require quoting in ordinary identifier positions;
+qualified names and aliases follow their respective grammar rules. Special function names also
+depend on the following parenthesis, intervening whitespace and `IGNORE_SPACE`. Quoting or spacing
+a special name can select an ordinary routine instead of its built-in rule. Such calls retain
+argument evidence and require an applicable routine declaration or qualified query contract.
+
+Normal builds and offline checks do not fetch upstream sources. Runtime tags and frozen contract
+consumption do not load the keyword inventory. Inventory recognition does not imply support for
+every associated SQL production or a universal function signature.
 
 ## Public entrypoints
 
+- `@typed-sql/mysql/profile` — driver-free `mysqlProfile()` for [query contract consumption](../guides/query-manifests.md#consume-durable-query-contracts-in-a-compiler-host), without semantic catalogs or an analyzer loader.
+
 - `@typed-sql/mysql/query` — portable `sql`, renderer, and runtime value descriptors for buffered adapters.
 
-- `@typed-sql/mysql` — `sql`, dialect factory, default type policy, analysis, type mapping, semantic routing, and transaction retry classification.
+- `@typed-sql/mysql` — `sql`, runtime plan primitives, renderer and type policy.
+- `@typed-sql/mysql/analysis` — explicit eager analyzer and compatibility exports, including schema introspection and semantic routing.
 - `@typed-sql/mysql/runtime` — driver-neutral rendering and codec utilities.
 - `@typed-sql/mysql/mysql2` — schema provider, executable database adapter, lazy live verifier, and structured-plan inspector for application-owned `mysql2`.
+- `@typed-sql/mysql/mysql2-contracts` — explicit native query-contract acquisition through an owned `mysql2` connection.
+- `@typed-sql/mysql/contract-profile` — driver-free query-contract identity and reconciliation-owner declarations.
+- `@typed-sql/mysql/reconciliation` — independent comparison of offline claims and native descriptions.
+
+## Native query contracts
+
+`createMySql2NativeContractAdapter({ connectionUri, schema, typePolicy })` describes builtin
+expressions and guarded table queries using binary preparation. Use the generated versioned schema with its
+recorded SQL mode, `mySqlContractIdentity()` and `createMySqlContractReconciler()` with the
+[query contract configuration](../guides/query-manifests.md). Importing the adapter does not open
+a connection or load the optional driver; acquisition is explicit.
+
+The qualified native targets are MySQL 8.4.11 and 9.7.2. Each acquisition owns a fresh connection,
+holds `LOCK INSTANCE FOR BACKUP`, and prepares within a read-only transaction. The qualification
+account needs `BACKUP_ADMIN`, access to the selected schema and read access to the relevant
+`performance_schema` metadata. The backup lock holds conflicting DDL until the short acquisition
+lease closes; ordinary row writes can proceed. Deadlines and cancellation close the owned
+connection and release its lock. Candidate SQL is never bound, executed or supplied sample values.
+
+Native contexts include the selected database, account, enabled roles, direct grants and effective
+role grants. Changes to this authorization evidence require a fresh context even when the
+compiler schema is unchanged. Acquisition reads grant metadata for the current account; missing,
+denied or overlarge evidence cannot qualify a contract. See MySQL's
+[SHOW GRANTS reference](https://dev.mysql.com/doc/refman/8.4/en/show-grants.html) for direct and
+role-derived privilege reporting.
+
+The adapter accepts ordinary `?` parameters in occurrence order, builtin expression projections,
+ordinary InnoDB table projections, stars, filters and joins. Referenced tables must belong to the
+selected database, use `lower_case_table_names=0` and have no generated columns. The adapter checks
+live dictionary metadata before preparing the candidate. Views, other storage engines, explicit
+partition selectors, subqueries, stored/loadable routines, window clauses, executable comments
+and structural session operations remain outside this profile. Unsupported shapes and unavailable
+metadata fail closed. Native rejection reflects the actual target engine's available functions.
+
+The context includes table and column definitions captured under the backup lock. It excludes
+row counts and other data statistics: ordinary row writes preserve the context, while table DDL
+changes it even if the supplied schema has not been refreshed. Acquisition admits at most 4,096
+visible tables and 65,536 visible columns in the selected database; larger dictionaries report
+unavailable metadata. The existing routine/UDF limits and acquisition deadline still apply.
+
+Decimal dimensions, unsigned integer identity and text/binary distinctions are preserved.
+Absence of a native non-null flag supplies a conservative nullable bound.
+String and temporal wire families retain partial native identities where dimensions or collations
+are not established. The configured required qualification facets determine whether that evidence
+is sufficient. Parameter metadata remains independent of result casts, and missing input facts
+cannot become usable parameter types. Matching exported contracts support disconnected checking.
 
 ## Supported SQL
 

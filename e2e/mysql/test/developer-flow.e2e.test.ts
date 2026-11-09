@@ -1,4 +1,3 @@
-import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
@@ -24,28 +23,34 @@ import {
   type Query,
   requireAdapterCapability,
 } from "@typed-sql/core";
-import { createMySqlRoutedDatabase, mysql, mysqlBulk, sql, typePolicy } from "@typed-sql/mysql";
+import { sql, typePolicy } from "@typed-sql/mysql";
+import { createMySqlRoutedDatabase, mysql, mysqlBulk } from "@typed-sql/mysql/analysis";
 import { createMySql2Database, createMySql2LiveVerifier } from "@typed-sql/mysql/mysql2";
 import { analyzeSource } from "@typed-sql/ts-bridge";
 import { NativePreviewTypeScriptBridge } from "@typed-sql/ts-bridge/native-preview";
 import { createPool } from "mysql2/promise";
-import { describe, it, log, strict, waitForExpectedResult, waitForPort } from "poku";
+import { describe, it, log, strict } from "poku";
 import { calculateTypePolicyHash } from "../../../packages/schema/src/index.js";
+import { prepareMySql } from "../../../scripts/language-audit/native.mjs";
 import {
   assertCompiledLegacyValuePlans,
   assertLegacyTextValuePlans,
   assertLegacyValuePlans,
   assertMySqlRawJsonValuePlans,
 } from "../../../test/helpers/legacy-value-plans.js";
+import {
+  assertMySqlContractProtocol,
+  assertMySqlVerificationMetadata,
+} from "../../../test/helpers/mysql-contract-protocol.js";
+import { assertMySqlJsonInputs } from "../../../test/helpers/mysql-json-inputs.js";
+import { assertMySqlNativeContracts } from "../../../test/helpers/mysql-native-contracts.js";
+import { assertMySqlNumericConformance } from "../../../test/helpers/mysql-numeric-conformance.js";
+import { assertMySqlPackedContracts } from "../../../test/helpers/mysql-packed-contracts.js";
 import { mysqlCodecFidelity } from "../src/codec-query.js";
 import { mysqlJsonEmptyAggregate, mysqlJsonMutations, mysqlJsonProjection } from "../src/json-query.js";
 import { streamAccountsQuery } from "../src/stream-query.js";
+import { type CommandResult, startMySqlFixture } from "./helpers/database-fixture.js";
 
-interface CommandResult {
-  readonly code: number;
-  readonly stdout: string;
-  readonly stderr: string;
-}
 interface GeneratedSnapshot {
   readonly formatVersion: 2;
   readonly dialect: string;
@@ -74,127 +79,19 @@ const generatedDirectory = join(packageDirectory, "generated");
 const generatedDatabaseDirectory = join(generatedDirectory, "db");
 const generatedSnapshotPath = join(generatedDatabaseDirectory, "schema.json");
 const cliFile = join(workspaceDirectory, "packages", "cli", "dist", "packages", "cli", "src", "cli.js");
-const engine = process.env.TYPED_SQL_CONTAINER_ENGINE ?? "podman";
-const port = Number(process.env.TYPED_SQL_MYSQL_E2E_PORT ?? "53306");
-const containerName = `typed-sql-e2e-mysql-${process.pid}`;
-const matrixLabel = process.env.TYPED_SQL_MYSQL_MATRIX_LABEL ?? "mysql-8.4.11-local";
-const expectedVersion = process.env.TYPED_SQL_MYSQL_VERSION ?? "8.4.11";
-const baseImage = process.env.TYPED_SQL_MYSQL_IMAGE;
-const channel = process.env.TYPED_SQL_MYSQL_CHANNEL ?? "stable";
-const modeProfile = process.env.TYPED_SQL_MYSQL_MODE_PROFILE ?? "default";
-const sqlMode = process.env.TYPED_SQL_MYSQL_SQL_MODE;
-const imageName = `localhost/typed-sql-e2e-${matrixLabel.replaceAll(/[^a-zA-Z0-9_.-]/gu, "-").toLowerCase()}`;
-const connectionUri = `mysql://typed_sql:typed_sql_e2e@127.0.0.1:${port}/typed_sql_e2e`;
-let containerStarted = false;
-
-if (channel !== "stable" && channel !== "canary")
-  throw new TypeError("TYPED_SQL_MYSQL_CHANNEL must be stable or canary");
-if (!new Set(["default", "lexical", "numeric"]).has(modeProfile))
-  throw new TypeError("TYPED_SQL_MYSQL_MODE_PROFILE must be default, lexical, or numeric");
-
-const versionPolicy = channel;
-const dialect = () => mysql({ typePolicy, versionPolicy });
-
-if (!Number.isInteger(port) || port < 1024 || port > 65_535)
-  throw new TypeError("TYPED_SQL_MYSQL_E2E_PORT must be an unprivileged TCP port");
-
-function run(command: string, args: readonly string[], cwd = packageDirectory): Promise<CommandResult> {
-  return new Promise((resolveResult, reject) => {
-    const child = spawn(command, [...args], { cwd, env: process.env, stdio: ["ignore", "pipe", "pipe"] });
-    let stdout = "";
-    let stderr = "";
-    child.stdout.setEncoding("utf8");
-    child.stderr.setEncoding("utf8");
-    child.stdout.on("data", (chunk: string) => {
-      stdout += chunk;
-    });
-    child.stderr.on("data", (chunk: string) => {
-      stderr += chunk;
-    });
-    child.once("error", reject);
-    child.once("close", (code) => resolveResult({ code: code ?? 1, stdout, stderr }));
-  });
-}
-
-async function mustRun(command: string, args: readonly string[], cwd = packageDirectory): Promise<CommandResult> {
-  const result = await run(command, args, cwd);
-  if (result.code !== 0)
-    throw new Error(`${command} ${args.join(" ")} failed (${result.code})\n${result.stdout}${result.stderr}`);
-  return result;
-}
-
-const cli = (...args: readonly string[]): Promise<CommandResult> => mustRun(process.execPath, [cliFile, ...args]);
-
 await rm(generatedDirectory, { recursive: true, force: true });
 await rm(join(packageDirectory, ".typed-sql"), { recursive: true, force: true });
-log(`Building ${imageName} for ${matrixLabel}`);
-const buildArguments = ["build", "--tag", imageName, "--file", "Containerfile"];
-if (baseImage !== undefined) buildArguments.push("--build-arg", `MYSQL_BASE_IMAGE=${baseImage}`);
-buildArguments.push(".");
-await mustRun(engine, buildArguments);
-
+const fixture = await startMySqlFixture();
+const { engine, containerName, connectionUri, port, expectedVersion, matrixLabel, channel, modeProfile, run, mustRun } =
+  fixture;
+const versionPolicy = channel === "canary" ? "canary" : "stable";
+const dialect = () => mysql({ typePolicy, versionPolicy });
+const cli = (...args: readonly string[]): Promise<CommandResult> => mustRun(process.execPath, [cliFile, ...args]);
 try {
-  await mustRun(engine, [
-    "run",
-    "--detach",
-    "--name",
-    containerName,
-    "--publish",
-    `127.0.0.1:${port}:3306`,
-    "--env",
-    "MYSQL_DATABASE=typed_sql_e2e",
-    "--env",
-    "MYSQL_USER=typed_sql",
-    "--env",
-    "MYSQL_PASSWORD=typed_sql_e2e",
-    "--env",
-    "MYSQL_ROOT_PASSWORD=typed_sql_root",
-    imageName,
-    "--local-infile=ON",
-    ...(sqlMode === undefined ? [] : [`--sql-mode=${sqlMode}`]),
-  ]);
-  containerStarted = true;
-  try {
-    await waitForExpectedResult(
-      async () => {
-        const logs = await run(engine, ["logs", containerName]);
-        return `${logs.stdout}${logs.stderr}`.toLowerCase().includes("mysql init process done. ready for start up.");
-      },
-      true,
-      { interval: 250, timeout: 90_000, strict: true },
-    );
-    await waitForPort(port, { host: "127.0.0.1", timeout: 90_000 });
-    await waitForExpectedResult(
-      async () => {
-        const result = await run(engine, [
-          "exec",
-          containerName,
-          "mysql",
-          "--batch",
-          "--skip-column-names",
-          "--user=typed_sql",
-          "--password=typed_sql_e2e",
-          "typed_sql_e2e",
-          "--execute=SELECT COUNT(*) FROM users",
-        ]);
-        return result.code === 0 ? result.stdout.trim() : "";
-      },
-      "2",
-      { interval: 250, timeout: 90_000, strict: true },
-    );
-  } catch (error) {
-    const state = await run(engine, ["inspect", "--format", "{{json .State}}", containerName]);
-    const logs = await run(engine, ["logs", containerName]);
-    throw new Error(
-      [
-        error instanceof Error ? error.message : String(error),
-        `Container state: ${state.stdout}${state.stderr}`,
-        `Container logs:\n${logs.stdout}${logs.stderr}`,
-      ].join("\n"),
-    );
-  }
-
   await describe("developer MySQL flow", async () => {
+    await it("executes compiled JSON inputs with DDL type spellings under each JSON policy", async () => {
+      await assertMySqlJsonInputs(connectionUri, workspaceDirectory);
+    });
     await it("enforces attached value plans through actual mysql2 buffered, prepared and streaming paths", async () => {
       const database = await createMySql2Database({ connectionUri, typePolicy });
       try {
@@ -261,6 +158,63 @@ try {
       }
       strict.strictEqual(snapshot.metadata.schemaHash.length, 64);
       strict.strictEqual(snapshot.metadata.typePolicyHash.length, 64);
+    });
+
+    await it("captures native input and result metadata independently without executing candidates", async () => {
+      const pool = createPool({ uri: connectionUri });
+      try {
+        const connection = await pool.getConnection();
+        try {
+          await assertMySqlContractProtocol((sql) => prepareMySql(connection, sql));
+          const verifier = createMySql2LiveVerifier({ connectionUri });
+          try {
+            await assertMySqlVerificationMetadata(verifier);
+          } finally {
+            await verifier.close();
+          }
+        } finally {
+          connection.release();
+        }
+      } finally {
+        await pool.end();
+      }
+    });
+
+    await it("acquires guarded native query contracts, reuses them offline and rejects conflicts", async () => {
+      await assertMySqlNativeContracts(`mysql://root:typed_sql_root@127.0.0.1:${port}/typed_sql_e2e`);
+    });
+
+    await it("regenerates native contracts through installed CLI and editor artifacts", async () => {
+      await assertMySqlPackedContracts(
+        workspaceDirectory,
+        `mysql://root:typed_sql_root@127.0.0.1:${port}/typed_sql_e2e`,
+      );
+    });
+
+    await it("matches native numeric descriptors and compiled runtime values", async () => {
+      const snapshot = dialect().validateSnapshot(JSON.parse(await readFile(generatedSnapshotPath, "utf8")));
+      const pool = createPool({ uri: connectionUri });
+      try {
+        const connection = await pool.getConnection();
+        try {
+          const database = await createMySql2Database({ connectionUri, typePolicy });
+          try {
+            await assertMySqlNumericConformance(
+              database,
+              dialect(),
+              snapshot,
+              (sql) => prepareMySql(connection, sql),
+              packageDirectory,
+            );
+          } finally {
+            await database.close();
+          }
+        } finally {
+          connection.release();
+        }
+      } finally {
+        await pool.end();
+      }
     });
 
     await it("records a redacted conformance v2 differential report", async () => {
@@ -1044,5 +998,5 @@ try {
     });
   });
 } finally {
-  if (containerStarted) await run(engine, ["rm", "--force", containerName]);
+  await fixture.close();
 }

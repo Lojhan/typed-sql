@@ -1,7 +1,4 @@
-import { spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
-import { readFile, writeFile } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
+import { writeOfflineCatalogs } from "./write-offline-catalogs.mjs";
 
 const version = process.env.TYPED_SQL_DUCKDB_SDK === "15" ? "1.5.6" : "2.0.0";
 const sdk = await import(version === "1.5.6" ? "duckdb-node-15" : "@duckdb/node-api");
@@ -72,24 +69,7 @@ try {
       result.closeSync();
     }
   }
-  const checksum = createHash("sha256")
-    .update(JSON.stringify({ signatures: unique, casts }))
-    .digest("hex");
-  const source = `// Generated from DuckDB ${version} duckdb_functions() and can_cast_implicitly(); do not edit by hand.\n// Source snapshot sha256:${checksum}\nimport type { DuckDBBuiltinSignature } from "./types.js";\nexport const signatures: readonly DuckDBBuiltinSignature[] = ${JSON.stringify(unique)};\nexport const implicitCasts: readonly (readonly [string,string])[] = ${JSON.stringify(casts)};\n`;
-  const file = new URL(`../src/catalog/${version}.ts`, import.meta.url);
-  const formatted = spawnSync("pnpm", ["exec", "biome", "format", "--stdin-file-path", fileURLToPath(file)], {
-    input: source,
-    encoding: "utf8",
-    maxBuffer: 8 * 1024 * 1024,
-  });
-  if (formatted.status !== 0) throw new Error(formatted.stderr);
-  if (process.argv.includes("--check")) {
-    if ((await readFile(file, "utf8")) !== formatted.stdout)
-      throw new Error(`DuckDB${version} builtin catalog is stale`);
-  } else await writeFile(file, formatted.stdout);
-  console.log(
-    `DuckDB${version}: ${unique.length} exact native overloads, ${casts.length} implicit casts; sha256:${checksum}`,
-  );
+  await writeOfflineCatalogs(version, unique, casts, process.argv.includes("--check"));
 } finally {
   connection.closeSync();
   instance.closeSync();

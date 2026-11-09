@@ -919,10 +919,11 @@ function schemaChanges(before: SchemaSnapshot, after: SchemaSnapshot): InternalC
   );
 }
 
-function matchingTables(snapshot: SchemaSnapshot, name: string, schema?: string) {
-  return Object.entries(snapshot.tables).filter(
+function matchingTables(tables: readonly [string, SchemaSnapshot["tables"][string]][], name: string, schema?: string) {
+  const suffix = `.${name}`;
+  return tables.filter(
     ([key, table]) =>
-      (key === name || table.name === name || key.endsWith(`.${name}`)) &&
+      (key === name || table.name === name || key.endsWith(suffix)) &&
       (schema === undefined || table.schema === schema),
   );
 }
@@ -979,6 +980,7 @@ function reference(
 }
 
 function manifestReferences(manifest: QueryManifest, snapshot: SchemaSnapshot): ManifestReferences {
+  const tables = Object.entries(snapshot.tables);
   const byKey = new Map<string, CompatibilityQueryReference[]>();
   const unknown: CompatibilityQueryReference[] = [];
   for (const entry of manifest.queries) {
@@ -998,7 +1000,7 @@ function manifestReferences(manifest: QueryManifest, snapshot: SchemaSnapshot): 
       }
       const relationMatches = new Map<QueryDependency, readonly [string, SchemaSnapshot["tables"][string]][]>();
       for (const dependency of variant.semantics.dependencies.filter((item) => item.kind === "relation")) {
-        const matches = matchingTables(snapshot, dependency.name, dependency.schema);
+        const matches = matchingTables(tables, dependency.name, dependency.schema);
         relationMatches.set(dependency, matches);
         const item = reference(entry.id, variant, entry.source, dependency);
         if (matches.length === 1) {
@@ -1009,7 +1011,7 @@ function manifestReferences(manifest: QueryManifest, snapshot: SchemaSnapshot): 
       for (const dependency of variant.semantics.dependencies.filter((item) => item.kind !== "relation")) {
         const item = reference(entry.id, variant, entry.source, dependency);
         if (dependency.kind === "column") {
-          let matches = dependency.parent === undefined ? [] : matchingTables(snapshot, dependency.parent);
+          let matches = dependency.parent === undefined ? [] : matchingTables(tables, dependency.parent);
           if (matches.length === 0) {
             matches = [...new Map([...relationMatches.values()].flat().map((value) => [value[0], value])).values()];
           }

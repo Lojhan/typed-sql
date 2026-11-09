@@ -5,7 +5,8 @@ import {
   fragmentListCases,
   fragmentRows as rows,
 } from "../../../test/helpers/fragment-list.js";
-import { type SqliteSchemaSnapshot, sql, sqlite } from "../src/index.js";
+import { sqlite } from "../src/analysis.js";
+import { type SqliteSchemaSnapshot, sql } from "../src/index.js";
 import { sqliteRenderer } from "../src/runtime.js";
 
 const snapshot = {

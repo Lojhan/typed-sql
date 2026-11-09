@@ -26,7 +26,7 @@ await describe("typed-sql stdio language server", async () => {
     const client = new ProtocolClient(process.execPath, [serverFile, "--stdio"], workspaceDirectory);
     const uri = pathToFileURL(queryFile).href.replace("query.ts", "query%2Ets");
     const source =
-      'import { sql } from "@typed-sql/postgres";\nimport { db } from "./database.js";\nconst query = sql`SELECT user.name FROM users AS user`;\nasync function read() { const rows = await db.execute(query); return rows; }';
+      'import { sql } from "@typed-sql/postgres";\nimport { db } from "./database.js";\nconst query = sql`SELECT usr_.name FROM users AS usr_`;\nasync function read() { const rows = await db.execute(query); return rows; }';
     try {
       await client.request("initialize", {
         processId: process.pid,
@@ -208,7 +208,7 @@ await describe("typed-sql stdio language server", async () => {
     const source = [
       'import { sql } from "@typed-sql/postgres";',
       "declare const selected: boolean;",
-      "const query = sql`SELECT user.id ${selected ? `, user.name` : sql.empty} FROM users AS user`;",
+      "const query = sql`SELECT usr_.id ${selected ? `, usr_.name` : sql.empty} FROM users AS usr_`;",
     ].join("\n");
     const uri = pathToFileURL(join(fixtureDirectory, "structural-fix.ts")).href;
     try {
@@ -341,7 +341,7 @@ await describe("typed-sql stdio language server", async () => {
 
       const completion = (await client.request("textDocument/completion", {
         textDocument: { uri },
-        position: positionAt(source, source.indexOf("user.name") + "user.".length),
+        position: positionAt(source, source.indexOf("usr_.name") + "usr_.".length),
       })) as { readonly items?: readonly { readonly label?: string }[] };
       strict.deepStrictEqual(completion.items?.map((item) => item.label).sort(), ["age", "id", "name"]);
 
@@ -359,7 +359,7 @@ await describe("typed-sql stdio language server", async () => {
       );
       client.notify("textDocument/didChange", {
         textDocument: { uri, version: 2 },
-        contentChanges: [{ text: source.replace("user.name", "user.nam") }],
+        contentChanges: [{ text: source.replace("usr_.name", "usr_.nam") }],
       });
       const changedDiagnostics = (await changedDiagnosticsPromise) as {
         readonly diagnostics?: readonly {
@@ -403,17 +403,17 @@ await describe("typed-sql stdio language server", async () => {
           (params as { readonly uri?: string; readonly version?: number }).uri === uri &&
           (params as { readonly version?: number }).version === 4,
       );
-      const versionTwoSource = source.replace("user.name", "user.nam");
-      const versionThreeSource = source.replace("user.name", "user.stale");
+      const versionTwoSource = source.replace("usr_.name", "usr_.nam");
+      const versionThreeSource = source.replace("usr_.name", "usr_.stale");
       client.notify("textDocument/didChange", {
         textDocument: { uri, version: 3 },
         contentChanges: [
           {
             range: {
-              start: positionAt(versionTwoSource, versionTwoSource.indexOf("user.nam")),
-              end: positionAt(versionTwoSource, versionTwoSource.indexOf("user.nam") + "user.nam".length),
+              start: positionAt(versionTwoSource, versionTwoSource.indexOf("usr_.nam")),
+              end: positionAt(versionTwoSource, versionTwoSource.indexOf("usr_.nam") + "usr_.nam".length),
             },
-            text: "user.stale",
+            text: "usr_.stale",
           },
         ],
       });
@@ -422,10 +422,10 @@ await describe("typed-sql stdio language server", async () => {
         contentChanges: [
           {
             range: {
-              start: positionAt(versionThreeSource, versionThreeSource.indexOf("user.stale")),
-              end: positionAt(versionThreeSource, versionThreeSource.indexOf("user.stale") + "user.stale".length),
+              start: positionAt(versionThreeSource, versionThreeSource.indexOf("usr_.stale")),
+              end: positionAt(versionThreeSource, versionThreeSource.indexOf("usr_.stale") + "usr_.stale".length),
             },
-            text: "user.name",
+            text: "usr_.name",
           },
         ],
       });

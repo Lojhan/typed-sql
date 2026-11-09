@@ -1,5 +1,5 @@
 import type { SchemaSnapshot } from "@typed-sql/schema";
-import { mySqlCatalogType } from "./catalog/index.js";
+import { mySqlCodecTypeMapping } from "./codecs/index.js";
 
 export interface MySqlTypePolicy {
   readonly bigint: "bigint" | "string" | "number";
@@ -37,6 +37,16 @@ function normalized(value: string): string {
     pendingSpace = false;
   }
   return output;
+}
+
+/** Preserve dimensions for result descriptions; SIGNED/UNSIGNED are native cast spellings. */
+export function mySqlTypeDeclaration(value: string): string {
+  const type = normalized(value);
+  if (/^signed(?: integer)?$/u.test(type)) return "bigint";
+  if (/^unsigned(?: integer)?$/u.test(type)) return "bigint unsigned";
+  const decimal = /^(?:decimal|dec|fixed|numeric)(?:\s*\(\s*(\d+)\s*\))?$/u.exec(type);
+  if (decimal) return `decimal(${decimal[1] ?? "10"},0)`;
+  return type;
 }
 
 function baseType(value: string): string {
@@ -96,16 +106,27 @@ export function mySqlSetValues(databaseType: string): readonly string[] | undefi
 
 export function isKnownMySqlType(databaseType: string, schema?: SchemaSnapshot): boolean {
   const type = baseType(databaseType);
-  return mySqlCatalogType(type, schema) !== undefined || schema?.domains?.[type] !== undefined;
+  if (["decimal", "dec", "fixed", "numeric"].includes(type)) {
+    const dimensions =
+      /^(?:decimal|dec|fixed|numeric)(?:\s*\(\s*(\d+)\s*(?:,\s*(\d+)\s*)?\))?(?:\s+(?:unsigned|signed|zerofill))?$/u.exec(
+        normalized(databaseType),
+      );
+    if (!dimensions) return false;
+    const precision = Number(dimensions[1] ?? "10"),
+      scale = Number(dimensions[2] ?? "0");
+    if (precision < 1 || precision > 65 || scale > precision || scale > 30) return false;
+  }
+  return mySqlCodecTypeMapping(type, schema) !== undefined || schema?.domains?.[type] !== undefined;
 }
 
 export function mapMySqlType(databaseType: string, policy: MySqlTypePolicy, schema?: SchemaSnapshot): string {
+  if (!isKnownMySqlType(databaseType, schema)) return policy.unknown;
   const type = baseType(databaseType);
   const values = mySqlEnumValues(databaseType);
   if (values !== undefined) return values.map((value) => JSON.stringify(value)).join(" | ") || "never";
   if (type === "enum") return policy.unknown;
   if (type === "tinyint" && /^tinyint\(1\)/iu.test(databaseType)) return policy.tinyint1;
-  const mapping = mySqlCatalogType(type, schema)?.mapping;
+  const mapping = mySqlCodecTypeMapping(type, schema);
   if (mapping === "number") return "number";
   if (mapping === "bytes") return "Uint8Array";
   if (mapping === "bigint") return policy.bigint;

@@ -6,7 +6,7 @@ import {
   type SchemaSnapshotV2,
 } from "@typed-sql/schema";
 import { assertPostgresServerEvidence } from "./capabilities.js";
-import { postgresCoreCatalog } from "./catalog/index.js";
+import { postgresCatalogRevisions } from "./codecs/types-data.js";
 import { parsePostgresMajor } from "./support.js";
 import type { PostgresTypePolicy } from "./type-policy.js";
 import { POSTGRES_DIALECT_VERSION } from "./version.js";
@@ -86,7 +86,7 @@ export function validatePostgresRuntimeCompatibility(
     }
   }
   const major = parsePostgresMajor(actual.versionKey);
-  const runtimeRevision = major === undefined ? undefined : postgresCoreCatalog(major)?.revision;
+  const runtimeRevision = major === undefined ? undefined : postgresCatalogRevisions[major];
   const snapshotRevision = snapshot.extension?.attributes.catalogRevision;
   if (typeof snapshotRevision !== "string" || runtimeRevision === undefined || snapshotRevision !== runtimeRevision) {
     throw new PostgresRuntimeCompatibilityError(

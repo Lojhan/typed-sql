@@ -3,7 +3,7 @@ import { Readable, Writable } from "node:stream";
 import { type DatabaseOperationEnd, requireAdapterCapability, sql } from "@typed-sql/core";
 import type { Pool as PgPool } from "pg";
 import { describe, it, strict } from "poku";
-import { postgresCopy } from "../src/index.js";
+import { postgresCopy } from "../src/analysis.js";
 import {
   adaptPgPool,
   createPgDatabase,

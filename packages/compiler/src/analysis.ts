@@ -3,6 +3,7 @@ import { type DialectPlugin, resolveDialectCapabilityStates, type SchemaSnapshot
 import { calculateSchemaHash, calculateTypePolicyHash } from "@typed-sql/schema";
 import {
   type CompileSourceOptions,
+  type CompileSourceResult,
   compileSource,
   DEFAULT_MAX_GENERATED_DECLARATION_BYTES,
   DEFAULT_MAX_QUERIES,
@@ -11,6 +12,7 @@ import {
 } from "./compiler.js";
 import { javascriptProjection } from "./javascript.js";
 import { insertionOffsets, sourceBindings } from "./source-mapping.js";
+import { compileSqlFile } from "./sql-file.js";
 
 export const SOURCE_ANALYSIS_FORMAT_VERSION = 1 as const;
 
@@ -212,7 +214,49 @@ export function analyzeSource<Snapshot extends SchemaSnapshot, Policy>(
     typePolicy: effectiveTypePolicy,
     ...compiler,
   };
-  const initial = compileSource(compilationOptions);
+  let initial: CompileSourceResult;
+  if (/\.sql$/iu.test(request.source.id)) {
+    if (Buffer.byteLength(request.source.text) > compiler.maxSourceBytes) {
+      initial = {
+        transformedSource: "declare const query: never; export default query;",
+        insertions: [],
+        queries: [],
+        fragments: [],
+        diagnostics: [
+          {
+            code: "TSQ006",
+            severity: "error",
+            message: "SQL asset exceeds the configured source limit.",
+            range: { start: 0, end: request.source.text.length, line: 1, column: 1 },
+          },
+        ],
+      };
+    } else {
+      const compiled = compileSqlFile({
+        source: request.source.text,
+        dialect: context.dialect,
+        schema: context.schema,
+        typePolicy: effectiveTypePolicy,
+      });
+      const tooLarge = Buffer.byteLength(compiled.text) > compiler.maxGeneratedDeclarationBytes;
+      initial = {
+        transformedSource: tooLarge ? "declare const query: never; export default query;" : compiled.text,
+        insertions: [],
+        queries: tooLarge || !compiled.query ? [] : [compiled.query],
+        fragments: [],
+        diagnostics: tooLarge
+          ? [
+              {
+                code: "TSQ006",
+                severity: "error",
+                message: "SQL asset declaration exceeds the configured output limit.",
+                range: { start: 0, end: request.source.text.length, line: 1, column: 1 },
+              },
+            ]
+          : compiled.sourceDiagnostics,
+      };
+    }
+  } else initial = compileSource(compilationOptions);
   const compilation = /\.(?:[cm]?js|jsx)$/u.test(request.source.id)
     ? javascriptProjection(request.source.text, initial, compiler.maxGeneratedDeclarationBytes)
     : initial;

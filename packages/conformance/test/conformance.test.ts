@@ -1,7 +1,9 @@
 import { describe, it, strict } from "poku";
-import { mySqlServerEvidence, mysql, sql as mysqlSql, typePolicy as mysqlTypePolicy } from "../../mysql/src/index.js";
+import { mySqlServerEvidence, mysql } from "../../mysql/src/analysis.js";
+import { sql as mysqlSql, typePolicy as mysqlTypePolicy } from "../../mysql/src/index.js";
 import { mysqlRenderer } from "../../mysql/src/runtime.js";
-import { postgres, sql as postgresSql, typePolicy as postgresTypePolicy } from "../../postgres/src/index.js";
+import { postgres } from "../../postgres/src/analysis.js";
+import { sql as postgresSql, typePolicy as postgresTypePolicy } from "../../postgres/src/index.js";
 import { postgresRenderer } from "../../postgres/src/runtime.js";
 import {
   assertCodecConformance,

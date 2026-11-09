@@ -30,6 +30,13 @@ export { brandBaseType, brandValue } from "./brand.js";
 export type { BulkRowOptions, BulkRowPolicy, BulkRowProgress } from "./bulk.js";
 export { executeBulkRows } from "./bulk.js";
 export type {
+  RoutineArgumentBinding,
+  RoutineBindingPolicy,
+  RoutineCallShape,
+  RoutineParameterSlot,
+} from "./catalog/arguments.js";
+export { bindRoutineArguments } from "./catalog/arguments.js";
+export type {
   DebugEvent,
   DebugEventInput,
   DebugRedactionOptions,
@@ -241,6 +248,8 @@ export type {
   DialectAnalysisContext,
   DialectCapabilities,
   DialectPlugin,
+  DialectProfile,
+  DialectRegistration,
   DomainSnapshot,
   FunctionSnapshot,
   GeneratedSchemaMetadata,
@@ -261,6 +270,7 @@ export type {
   QueryPlanSample,
   QueryPlanSampleProvider,
   QueryPlanSampleRequest,
+  RegisteredTypedSqlConfig,
   ResolvedColumn,
   ResolvedParameter,
   SchemaProvider,
@@ -275,9 +285,11 @@ export type {
   StructuralRoutineSnapshot,
   TableSnapshot,
   TypedSqlConfig,
+  TypedSqlConfigSource,
 } from "./types.js";
 export {
   assertDialectPlugin,
+  assertDialectProfile,
   DIALECT_CONTRACT_VERSION,
   defineConfig,
   parameterTypeLiteral,

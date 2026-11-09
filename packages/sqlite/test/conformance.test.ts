@@ -7,7 +7,8 @@ import {
 } from "@typed-sql/conformance";
 import { runAdaptedGrammarConformanceV1 } from "@typed-sql/conformance/v2";
 import { describe, it, strict } from "poku";
-import { type SqliteSchemaSnapshot, sqlite } from "../src/index.js";
+import { sqlite } from "../src/analysis.js";
+import type { SqliteSchemaSnapshot } from "../src/index.js";
 import { accountTable, serverEvidence } from "./helpers/schema.js";
 
 const snapshot = {

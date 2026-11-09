@@ -41,6 +41,9 @@ interface Manifest {
 export async function createPackedNativeEditorConsumer(
   workspace: string,
   env: NodeJS.ProcessEnv,
+  dialects: readonly string[] = ["sqlserver", "duckdb"],
+  extraPackages: readonly string[] = [],
+  applicationTools: readonly string[] = [],
 ): Promise<{ consumer: string; close(): Promise<void> }> {
   const temporary = await mkdtemp(join(tmpdir(), "typed-sql-packed-native-editors-"));
   const consumer = join(temporary, "consumer");
@@ -73,16 +76,28 @@ export async function createPackedNativeEditorConsumer(
         if (packages.has(dependency)) await pack(dependency);
       await execFile("pnpm", ["--silent", "--filter", name, "pack", "--out", archive], { cwd: workspace, env });
     };
-    for (const name of ["@typed-sql/cli", "@typed-sql/language-server", "@typed-sql/sqlserver", "@typed-sql/duckdb"])
+    for (const name of [
+      "@typed-sql/cli",
+      "@typed-sql/language-server",
+      ...dialects.map((dialect) => `@typed-sql/${dialect}`),
+      ...extraPackages,
+    ])
       await pack(name);
+    const overrides = packedConsumerOverrides(workspace, dependencies);
+    const tools = Object.fromEntries(
+      applicationTools.map((name) => {
+        if (!overrides[name]) throw new Error(`No pinned packed-consumer tool ${name}`);
+        return [name, overrides[name]];
+      }),
+    );
     await writeFile(
       join(consumer, "package.json"),
       JSON.stringify(
         {
           private: true,
           type: "module",
-          dependencies: { ...dependencies, typescript: `link:${join(workspace, "node_modules/typescript")}` },
-          pnpm: { overrides: packedConsumerOverrides(workspace, dependencies) },
+          dependencies: { ...dependencies, ...tools, typescript: `link:${join(workspace, "node_modules/typescript")}` },
+          pnpm: { overrides },
         },
         null,
         2,

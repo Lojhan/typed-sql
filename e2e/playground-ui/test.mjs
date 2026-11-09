@@ -77,7 +77,7 @@ try {
   );
   await writeFile(
     join(root, "typed-sql.config.mjs"),
-    `import {postgres} from '@typed-sql/postgres';
+    `import { postgres } from '@typed-sql/postgres/analysis';
 import {readFile} from 'node:fs/promises';
 const identity={database:'visual-fixture',server:'explicit fake UI fixture',adapter:'fake-ui',readOnly:true};
 const a=[[1,'Alice'],[2,'Béatrice'],[3,'Review 3'],[4,'Review 4']];

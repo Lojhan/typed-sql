@@ -24,7 +24,7 @@ pnpm add pg-copy-streams
 
 ```ts
 import { requireAdapterCapability } from "@typed-sql/core";
-import { postgresCopy, sql, typePolicy } from "@typed-sql/postgres";
+import { sql, typePolicy } from "@typed-sql/postgres"; import { postgresCopy } from "@typed-sql/postgres/analysis";
 import { createPgDatabase } from "@typed-sql/postgres/pg";
 
 const query = sql`

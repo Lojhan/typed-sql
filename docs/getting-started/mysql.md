@@ -94,13 +94,17 @@ Create `typed-sql.config.ts`:
 
 ```ts
 import { defineConfig } from "@typed-sql/core";
-import { mysql, typePolicy } from "@typed-sql/mysql";
+import { typePolicy } from "@typed-sql/mysql";
+import { mysqlProfile } from "@typed-sql/mysql/profile";
 import { mysql2 } from "@typed-sql/mysql/mysql2";
 
 const connectionUri = () => process.env.DATABASE_URL!;
 
 export default defineConfig({
-  dialect: mysql({ typePolicy }),
+  dialect: {
+    ...mysqlProfile({ typePolicy }),
+    loadAnalyzer: async () => (await import("@typed-sql/mysql/analysis")).mysql({ typePolicy }),
+  },
   schema: {
     file: "generated/db/schema.json",
     provider: mysql2({ connectionUri, schemas: ["app"], typePolicy }),

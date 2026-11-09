@@ -53,7 +53,7 @@ void query;`,
     `import { readFile, writeFile } from "node:fs/promises";
 import { compileSource } from "@typed-sql/compiler";
 import { loadSchemaSnapshot } from "@typed-sql/schema";
-import { postgres } from "@typed-sql/postgres";
+import { postgres } from "@typed-sql/postgres/analysis";
 const target = process.argv[2];
 const source = 'import {sql} from "@typed-sql/postgres"; export const inline=sql\`SELECT id, name FROM users WHERE id = \${7}\`;';
 const result=compileSource({source, schema:await loadSchemaSnapshot(target+"/schema.json"), dialect:postgres(), runtimeMetadata:true});

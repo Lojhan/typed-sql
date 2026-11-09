@@ -7,7 +7,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { describe, it, skip, strict } from "poku";
 import { buildQueryManifest, serializeQueryManifest } from "../../compiler/src/index.js";
-import { postgres } from "../../postgres/src/index.js";
+import { postgres } from "../../postgres/src/analysis.js";
 import { loadPgDriver } from "../../postgres/src/pg.js";
 import { parseSchemaSnapshot } from "../../schema/src/index.js";
 
@@ -37,7 +37,7 @@ try {
   await scratch.query(`create schema "${schema}"`);
   const targetDatabase = (await target.query<{ name: string }>("select current_database() as name")).rows[0]!.name,
     scratchDatabase = (await scratch.query<{ name: string }>("select current_database() as name")).rows[0]!.name;
-  const grammar = pathToFileURL(join(workspace, "packages/postgres/dist/packages/postgres/src/index.js")).href,
+  const grammar = pathToFileURL(join(workspace, "packages/postgres/dist/packages/postgres/src/analysis.js")).href,
     adapter = pathToFileURL(join(workspace, "packages/postgres/dist/packages/postgres/src/migrations.js")).href;
   await writeFile(
     join(root, "typed-sql.config.mjs"),

@@ -9,6 +9,8 @@ import {
   type TypeSnapshot,
 } from "@typed-sql/schema";
 import { sqliteServerEvidence } from "./capabilities.js";
+import { sqliteAsciiUpper } from "./identifier-case.js";
+import type { SqliteQueryable, SqliteRoutineDeclaration, SqliteSchemaProviderOptions } from "./provider-contracts.js";
 import {
   sqliteCheckExpressions,
   sqliteColumnCollation,
@@ -26,43 +28,13 @@ import type {
 import { defaultSqliteTypePolicy, mapSqliteCastType, mapSqliteType, type SqliteTypePolicy } from "./type-policy.js";
 import { SQLITE_DIALECT_VERSION } from "./version.js";
 
-type MaybePromise<Value> = Value | Promise<Value>;
-
-export interface SqliteQueryable {
-  all<Row extends Record<string, unknown>>(sql: string, values?: readonly unknown[]): MaybePromise<readonly Row[]>;
-}
-
-export interface SqliteSchemaProviderOptions {
-  readonly client: SqliteQueryable;
-  readonly schemas?: readonly string[];
-  /** @deprecated Use routines to preserve scalar, aggregate, and window kind evidence. */
-  readonly functions?: Readonly<Record<string, FunctionSnapshot>>;
-  readonly routines?: Readonly<Record<string, SqliteRoutineDeclaration>>;
-  readonly typePolicy?: SqliteTypePolicy;
-}
-
-export interface SqliteRoutineArgumentDeclaration {
-  readonly databaseType: string;
-  readonly tsType?: string;
-}
-
-export interface SqliteRoutineResultDeclaration {
-  readonly databaseType: string;
-  readonly tsType?: string;
-  readonly nullable: boolean;
-}
-
-/** Explicit application registry for routines installed on an SQLite connection. */
-export interface SqliteRoutineDeclaration {
-  readonly name: string;
-  readonly schema?: string;
-  readonly kind: "aggregate" | "scalar" | "window";
-  readonly arguments: readonly SqliteRoutineArgumentDeclaration[];
-  readonly result: SqliteRoutineResultDeclaration;
-  readonly deterministic?: boolean;
-  readonly volatility?: "immutable" | "stable" | "volatile";
-  readonly nullInput?: "called" | "strict";
-}
+export type {
+  SqliteQueryable,
+  SqliteRoutineArgumentDeclaration,
+  SqliteRoutineDeclaration,
+  SqliteRoutineResultDeclaration,
+  SqliteSchemaProviderOptions,
+} from "./provider-contracts.js";
 
 interface TableListRow extends Record<string, unknown> {
   readonly schema: string;
@@ -155,7 +127,7 @@ function indexOrigin(origin: IndexListRow["origin"]): SqliteIndexSnapshot["origi
 function foreignKeyAction(
   value: string,
 ): "no-action" | "restrict" | "cascade" | "set-null" | "set-default" | "unknown" {
-  const normalized = value.toUpperCase();
+  const normalized = sqliteAsciiUpper(value);
   if (normalized === "NO ACTION") return "no-action";
   if (normalized === "RESTRICT") return "restrict";
   if (normalized === "CASCADE") return "cascade";
@@ -295,7 +267,7 @@ export class SqliteSchemaProvider implements SchemaProvider<SqliteSchemaSnapshot
       const rowidAlias =
         !withoutRowid &&
         primaryColumns.length === 1 &&
-        primaryColumns[0]!.type.trim().toUpperCase() === "INTEGER" &&
+        sqliteAsciiUpper(primaryColumns[0]!.type.trim()) === "INTEGER" &&
         !tableIndexes.some(({ origin }) => origin === "primary-key")
           ? primaryColumns[0]!.name
           : undefined;
@@ -419,7 +391,7 @@ export class SqliteSchemaProvider implements SchemaProvider<SqliteSchemaSnapshot
                 name: column.name,
                 position,
                 databaseType: column.databaseType || "BLOB",
-                typeIdentity: `sqlite:${(column.databaseType || "BLOB").toUpperCase()}`,
+                typeIdentity: `sqlite:${sqliteAsciiUpper(column.databaseType || "BLOB")}`,
                 tsType: column.tsType,
                 nullable: column.nullable,
                 nullabilitySource: column.generated === undefined ? ("declared" as const) : ("generated" as const),
@@ -483,7 +455,7 @@ export class SqliteSchemaProvider implements SchemaProvider<SqliteSchemaSnapshot
       };
       for (const column of Object.values(table.columns)) {
         const databaseType = column.databaseType || "BLOB";
-        const typeKey = databaseType.trim().toUpperCase();
+        const typeKey = sqliteAsciiUpper(databaseType.trim());
         if (types[typeKey] !== undefined) continue;
         const tsType = mapSqliteType(databaseType, this.#policy);
         types[typeKey] =
@@ -491,7 +463,7 @@ export class SqliteSchemaProvider implements SchemaProvider<SqliteSchemaSnapshot
             ? {
                 kind: "opaque",
                 name: databaseType,
-                identity: `sqlite:${databaseType.toUpperCase()}`,
+                identity: `sqlite:${sqliteAsciiUpper(databaseType)}`,
                 databaseType,
                 tsType,
                 reason: "The SQLite declared type has no configured strict type-policy mapping.",
@@ -499,7 +471,7 @@ export class SqliteSchemaProvider implements SchemaProvider<SqliteSchemaSnapshot
             : {
                 kind: "scalar",
                 name: databaseType,
-                identity: `sqlite:${databaseType.toUpperCase()}`,
+                identity: `sqlite:${sqliteAsciiUpper(databaseType)}`,
                 databaseType,
                 tsType,
               };
@@ -515,14 +487,14 @@ export class SqliteSchemaProvider implements SchemaProvider<SqliteSchemaSnapshot
         kind: "function",
         arguments: fn.argumentTypes.map((databaseType) => ({
           mode: "in",
-          typeIdentity: `sqlite:${databaseType.toUpperCase()}`,
+          typeIdentity: `sqlite:${sqliteAsciiUpper(databaseType)}`,
           databaseType,
           tsType: mapSqliteType(databaseType, this.#policy),
           default: "unknown",
         })),
         result: {
           kind: fn.setReturning ? "set" : "scalar",
-          typeIdentity: `sqlite:${(fn.databaseReturnType ?? fn.returnType).toUpperCase()}`,
+          typeIdentity: `sqlite:${sqliteAsciiUpper(fn.databaseReturnType ?? fn.returnType)}`,
           databaseType: fn.databaseReturnType ?? fn.returnType,
           tsType: fn.returnType,
           nullable: fn.nullable,
@@ -545,14 +517,14 @@ export class SqliteSchemaProvider implements SchemaProvider<SqliteSchemaSnapshot
         kind: declaration.kind === "scalar" ? "function" : declaration.kind,
         arguments: declaration.arguments.map(({ databaseType, tsType }) => ({
           mode: "in",
-          typeIdentity: `sqlite:${databaseType.toUpperCase()}`,
+          typeIdentity: `sqlite:${sqliteAsciiUpper(databaseType)}`,
           databaseType,
           tsType: tsType ?? mapSqliteCastType(databaseType, this.#policy),
           default: "none",
         })),
         result: {
           kind: "scalar",
-          typeIdentity: `sqlite:${declaration.result.databaseType.toUpperCase()}`,
+          typeIdentity: `sqlite:${sqliteAsciiUpper(declaration.result.databaseType)}`,
           databaseType: declaration.result.databaseType,
           tsType: declaration.result.tsType ?? mapSqliteCastType(declaration.result.databaseType, this.#policy),
           nullable: declaration.result.nullable,

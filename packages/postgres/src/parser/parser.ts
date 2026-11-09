@@ -1,4 +1,5 @@
 import { SqlToolkitError, TokenCursor } from "@typed-sql/ast/toolkit";
+import { postgresAsciiUpper } from "../identifier-case.js";
 import { SqlTokenizeError, type TokenizeOptions, tokenize } from "./tokenizer.js";
 import {
   type BetweenExpression,
@@ -155,12 +156,14 @@ const simpleTypedLiteralTypes = new Set(["JSON", "JSONB", "JSONPATH"]);
 
 class Parser {
   readonly #source: string;
+  readonly #nativeVocabulary: boolean;
   readonly #cursor: TokenCursor;
   readonly #syntax: string = "postgres";
   #stopSelectListBeforeJsonFormat = false;
 
   constructor(source: string, options: ParseOptions) {
     this.#source = source;
+    this.#nativeVocabulary = options.keywordLookup !== undefined;
     this.#cursor = new TokenCursor(tokenize(source, options), {
       maxDepth: options.maxDepth ?? DEFAULT_MAX_PARSE_DEPTH,
     });
@@ -480,7 +483,7 @@ class Parser {
     const start = withClause?.range ?? this.#expectKeyword("INSERT").range;
     if (withClause !== undefined) this.#expectKeyword("INSERT");
     this.#expectKeyword("INTO");
-    const table = this.#parseNamedTableReference(true);
+    const table = this.#parseNamedTableReference(true, false, this.#current().range, "OVERRIDING");
     const columns: Identifier[] = [];
     if (this.#matchPunctuation("(")) {
       if (!this.#matchPunctuation(")")) {
@@ -538,7 +541,7 @@ class Parser {
   #parseUpdate(withClause?: WithClause): UpdateStatement {
     const start = withClause?.range ?? this.#expectKeyword("UPDATE").range;
     if (withClause !== undefined) this.#expectKeyword("UPDATE");
-    const table = this.#parseNamedTableReference(true);
+    const table = this.#parseNamedTableReference(true, false, this.#current().range, "SET");
     this.#expectKeyword("SET");
     const assignments = this.#parseUpdateAssignments();
     let from: TableReference | undefined;
@@ -793,9 +796,8 @@ class Parser {
     } while (this.#matchPunctuation(","));
     this.#expectPunctuation(")");
     let alias: Identifier | undefined;
-    if (this.#matchKeyword("AS")) alias = this.#parseIdentifier(true);
-    else if (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier")
-      alias = this.#parseIdentifier();
+    if (this.#matchKeyword("AS")) alias = this.#parseIdentifier();
+    else if (this.#canColId(this.#current())) alias = this.#parseIdentifier();
     const columns: Identifier[] = [];
     if (alias !== undefined && this.#matchPunctuation("(")) {
       do columns.push(this.#parseIdentifier());
@@ -874,12 +876,9 @@ class Parser {
     do {
       const expression = this.#parseExpression();
       let alias: Identifier | undefined;
-      if (this.#matchKeyword("AS")) alias = this.#parseIdentifier();
-      else if (
-        (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier") &&
-        !this.#isJsonArrayQueryFormatStart()
-      )
-        alias = this.#parseIdentifier();
+      if (this.#matchKeyword("AS")) alias = this.#parseIdentifier(true);
+      else if (this.#canBareColumnLabel(this.#current()) && !this.#isJsonArrayQueryFormatStart())
+        alias = this.#parseIdentifier(true);
       items.push({
         expression,
         ...(alias === undefined ? {} : { alias }),
@@ -900,12 +899,8 @@ class Parser {
       if (statement.kind !== "select") throw this.#error("FROM subquery must be SELECT", statement.range);
       const close = this.#expectPunctuation(")");
       let alias: Identifier | undefined;
-      if (this.#matchKeyword("AS")) alias = this.#parseIdentifier(true);
-      else if (
-        !this.#isJsonArrayQueryFormatStart() &&
-        (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier")
-      )
-        alias = this.#parseIdentifier();
+      if (this.#matchKeyword("AS")) alias = this.#parseIdentifier();
+      else if (!this.#isJsonArrayQueryFormatStart() && this.#canColId(this.#current())) alias = this.#parseIdentifier();
       const columns: Identifier[] = [];
       if (alias !== undefined && this.#matchPunctuation("(")) {
         do columns.push(this.#parseIdentifier());
@@ -924,7 +919,7 @@ class Parser {
     if (this.#isWord(this.#current(), "JSON_TABLE") && this.#peekToken(1).value === "(") {
       return this.#parseJsonTableReference(lateral, start);
     }
-    if (this.#current().value === "ROWS" || this.#isTableFunctionStart()) {
+    if ((this.#current().value === "ROWS" && this.#peekToken(1).value === "FROM") || this.#isTableFunctionStart()) {
       return this.#parseFunctionTableReference(lateral, start);
     }
     return this.#parseNamedTableReference(true, lateral, start);
@@ -945,12 +940,8 @@ class Parser {
     const onError = this.#isJsonTableBehaviorStart() ? this.#parseJsonOnErrorBehavior() : undefined;
     const close = this.#expectPunctuation(")");
     let alias: Identifier | undefined;
-    if (this.#matchKeyword("AS")) alias = this.#parseIdentifier(true);
-    else if (
-      !this.#isJsonArrayQueryFormatStart() &&
-      (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier")
-    )
-      alias = this.#parseIdentifier();
+    if (this.#matchKeyword("AS")) alias = this.#parseIdentifier();
+    else if (!this.#isJsonArrayQueryFormatStart() && this.#canColId(this.#current())) alias = this.#parseIdentifier();
     const columns: Identifier[] = [];
     if (alias !== undefined && this.#matchPunctuation("(")) {
       do columns.push(this.#parseIdentifier());
@@ -1105,9 +1096,7 @@ class Parser {
     if (withOrdinality) this.#expectKeyword("ORDINALITY");
     const hasAs = this.#matchKeyword("AS");
     const alias =
-      !this.#isJsonArrayQueryFormatStart() && this.#isIdentifierLike(this.#current())
-        ? this.#parseIdentifier(true)
-        : undefined;
+      !this.#isJsonArrayQueryFormatStart() && this.#canColId(this.#current()) ? this.#parseIdentifier() : undefined;
     if (hasAs && alias === undefined && this.#current().value !== "(") {
       throw this.#error("Expected table-function alias or column definition list", this.#current().range);
     }
@@ -1164,22 +1153,28 @@ class Parser {
     return columns;
   }
 
-  #parseNamedTableReference(allowAlias: boolean, lateral = false, start = this.#current().range): NamedTableReference {
+  #parseNamedTableReference(
+    allowAlias: boolean,
+    lateral = false,
+    start = this.#current().range,
+    bareStopWord?: "SET" | "OVERRIDING",
+  ): NamedTableReference {
     const only = this.#matchKeyword("ONLY");
     const first = this.#parseIdentifier();
     let schema: Identifier | undefined;
     let name = first;
     if (this.#matchPunctuation(".")) {
       schema = first;
-      name = this.#parseIdentifier();
+      name = this.#parseIdentifier(true);
     }
     const includeDescendants = this.#matchOperator("*");
     let alias: Identifier | undefined;
-    if (allowAlias && this.#matchKeyword("AS")) alias = this.#parseIdentifier(true);
+    if (allowAlias && this.#matchKeyword("AS")) alias = this.#parseIdentifier(!this.#nativeVocabulary);
     else if (
       allowAlias &&
+      this.#current().value !== bareStopWord &&
       !this.#isJsonArrayQueryFormatStart() &&
-      (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier")
+      this.#canColId(this.#current())
     )
       alias = this.#parseIdentifier();
     let sample: NamedTableReference["sample"];
@@ -1327,6 +1322,13 @@ class Parser {
     return this.#nested(() => {
       let left = this.#parseUnary();
       while (true) {
+        // The vendor permits some operator words as bare labels when no operand follows.
+        if (
+          this.#nativeVocabulary &&
+          this.#current().nativeKeyword?.bareLabel &&
+          this.#endsProjection(this.#peekToken(1))
+        )
+          break;
         if (this.#current().value === ".") {
           left = this.#parseFieldAccess(left);
           continue;
@@ -1511,7 +1513,7 @@ class Parser {
         range: mergeRanges(token.range, expression.range),
       };
     }
-    if (this.#matchKeyword("EXISTS")) {
+    if (this.#peekToken(1).value === "(" && this.#matchKeyword("EXISTS")) {
       this.#expectPunctuation("(");
       const statement = this.#parseStatement();
       if (statement.kind !== "select") throw this.#error("EXISTS requires a SELECT subquery", statement.range);
@@ -1588,7 +1590,7 @@ class Parser {
       const close = this.#previous().value === "]" ? this.#previous() : this.#expectPunctuation("]");
       return { kind: "array", elements, range: mergeRanges(token.range, close.range) };
     }
-    if (this.#matchKeyword("ROW")) {
+    if (this.#peekToken(1).value === "(" && this.#matchKeyword("ROW")) {
       this.#expectPunctuation("(");
       const elements = this.#matchPunctuation(")") ? [] : [...this.#parseExpressionList()];
       const close = this.#previous().value === ")" ? this.#previous() : this.#expectPunctuation(")");
@@ -1663,6 +1665,33 @@ class Parser {
     }
     if (this.#matchOperator("*")) return { kind: "star", range: token.range };
     if (this.#isIdentifierLike(token)) {
+      if (this.#nativeVocabulary && token.nativeKeyword !== undefined) {
+        const category = token.nativeKeyword.category;
+        if (category === "RESERVED_KEYWORD") {
+          throw this.#error(
+            `Keyword ${token.text} requires its PostgreSQL syntax production or quoting`,
+            token.range,
+            [
+              "current_date",
+              "current_time",
+              "current_timestamp",
+              "localtime",
+              "localtimestamp",
+              "current_role",
+              "current_user",
+              "session_user",
+              "system_user",
+              "user",
+              "current_catalog",
+              "current_schema",
+            ].includes(token.nativeKeyword.name)
+              ? "TSQ401"
+              : "TSQ001",
+          );
+        }
+        if (category === "TYPE_FUNC_NAME_KEYWORD" && this.#peekToken(1).value !== "(")
+          throw this.#error(`Keyword ${token.text} cannot be an unquoted column name`, token.range);
+      }
       const first = this.#parseIdentifier(true);
       if (this.#matchPunctuation("(")) return this.#parseCall(undefined, first);
       if (this.#matchPunctuation(".")) {
@@ -1825,7 +1854,7 @@ class Parser {
     }
     let over: Identifier | WindowSpecification | undefined;
     if (this.#matchKeyword("OVER")) {
-      if (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier") {
+      if (this.#canColId(this.#current())) {
         over = this.#parseIdentifier();
       } else {
         over = this.#parseWindowSpecification();
@@ -2226,8 +2255,7 @@ class Parser {
     }
     let over: Identifier | WindowSpecification | undefined;
     if (this.#matchKeyword("OVER")) {
-      if (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier")
-        over = this.#parseIdentifier();
+      if (this.#canColId(this.#current())) over = this.#parseIdentifier();
       else over = this.#parseWindowSpecification();
       close = { ...close, range: over.range };
     }
@@ -2528,9 +2556,54 @@ class Parser {
     };
   }
 
+  #canBareColumnLabel(token: Token): boolean {
+    if (token.kind === "quoted-identifier") return true;
+    if (!this.#isIdentifierLike(token)) return false;
+    if (!this.#nativeVocabulary) return token.kind === "identifier";
+    return token.nativeKeyword?.bareLabel ?? true;
+  }
+
+  #canColId(token: Token): boolean {
+    if (token.kind === "quoted-identifier") return true;
+    if (!this.#isIdentifierLike(token)) return false;
+    if (!this.#nativeVocabulary) return token.kind === "identifier";
+    return (
+      token.nativeKeyword?.category !== "RESERVED_KEYWORD" && token.nativeKeyword?.category !== "TYPE_FUNC_NAME_KEYWORD"
+    );
+  }
+
+  #endsProjection(token: Token): boolean {
+    return (
+      token.kind === "eof" ||
+      [
+        ",",
+        ")",
+        ";",
+        "FROM",
+        "WHERE",
+        "GROUP",
+        "HAVING",
+        "WINDOW",
+        "ORDER",
+        "LIMIT",
+        "OFFSET",
+        "FETCH",
+        "UNION",
+        "INTERSECT",
+        "EXCEPT",
+        "FOR",
+        "INTO",
+      ].includes(postgresAsciiUpper(token.value))
+    );
+  }
+
   #parseIdentifier(allowKeyword = false): Identifier {
     const token = this.#current();
-    if (!this.#isIdentifierLike(token) || (token.kind === "keyword" && !allowKeyword)) {
+    const disallowed = this.#nativeVocabulary
+      ? token.nativeKeyword?.category === "RESERVED_KEYWORD" ||
+        token.nativeKeyword?.category === "TYPE_FUNC_NAME_KEYWORD"
+      : token.kind === "keyword";
+    if (!this.#isIdentifierLike(token) || (disallowed && !allowKeyword)) {
       throw this.#error(`Expected identifier, found ${token.text || "end of query"}`, token.range);
     }
     this.#advance();
@@ -2538,7 +2611,7 @@ class Parser {
   }
 
   #parseQualifiedIdentifier(): { readonly parts: readonly Identifier[]; readonly range: SourceRange } {
-    const first = this.#parseIdentifier(true);
+    const first = this.#parseIdentifier();
     const parts = [first];
     if (this.#matchPunctuation(".")) parts.push(this.#parseIdentifier(true));
     return { parts, range: mergeRanges(first.range, parts.at(-1)!.range) };
@@ -2593,7 +2666,9 @@ class Parser {
   }
 
   #isWord(token: Token, word: string): boolean {
-    return token.kind !== "quoted-identifier" && this.#isIdentifierLike(token) && token.value.toUpperCase() === word;
+    return (
+      token.kind !== "quoted-identifier" && this.#isIdentifierLike(token) && postgresAsciiUpper(token.value) === word
+    );
   }
 
   #matchOperator(operator: string): boolean {

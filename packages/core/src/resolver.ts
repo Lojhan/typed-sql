@@ -19,6 +19,7 @@ export interface ResolverType {
   readonly tsType: string;
   readonly nullable: boolean;
   readonly databaseType?: string;
+  readonly databaseTypeIsPartial?: true;
 }
 
 /** Shared parameter inference state for grammar implementations. */
@@ -87,6 +88,11 @@ export class ParameterCollector {
       ...(current.databaseType === candidate.databaseType && current.databaseType !== undefined
         ? { databaseType: current.databaseType }
         : {}),
+      ...(current.databaseType === candidate.databaseType &&
+      current.databaseType !== undefined &&
+      (current.databaseTypeIsPartial || candidate.databaseTypeIsPartial)
+        ? { databaseTypeIsPartial: true as const }
+        : {}),
     };
     this.#parameters.set(index, merged);
     return merged;
@@ -115,16 +121,20 @@ function addToIndex<Value>(index: Map<string, Value[]>, key: string, value: Valu
   else if (!values.includes(value)) values.push(value);
 }
 
-/** Precomputed case-sensitive and folded schema lookups shared by SQL grammars. */
+const legacyIdentifierFold = (value: string): string => value.toLowerCase();
+
+/** Precomputed case-sensitive and caller-folded schema lookups shared by SQL grammars. */
 export class ResolverSchemaIndex {
-  static readonly #cache = new WeakMap<SchemaSnapshot, ResolverSchemaIndex>();
+  static readonly #cache = new WeakMap<SchemaSnapshot, WeakMap<(value: string) => string, ResolverSchemaIndex>>();
 
   /** Reuses immutable snapshot indexes across resolver and semantic passes. */
-  static for(snapshot: SchemaSnapshot): ResolverSchemaIndex {
-    const cached = ResolverSchemaIndex.#cache.get(snapshot);
+  static for(snapshot: SchemaSnapshot, fold = legacyIdentifierFold): ResolverSchemaIndex {
+    const policies = ResolverSchemaIndex.#cache.get(snapshot) ?? new WeakMap();
+    const cached = policies.get(fold);
     if (cached !== undefined) return cached;
-    const index = new ResolverSchemaIndex(snapshot);
-    ResolverSchemaIndex.#cache.set(snapshot, index);
+    const index = new ResolverSchemaIndex(snapshot, fold);
+    policies.set(fold, index);
+    ResolverSchemaIndex.#cache.set(snapshot, policies);
     return index;
   }
 
@@ -136,14 +146,17 @@ export class ResolverSchemaIndex {
   readonly #routines = new Map<string, StructuralRoutineSnapshot[]>();
   readonly #routinesByName = new Map<string, StructuralRoutineSnapshot[]>();
   readonly #relationEvidence = new WeakMap<TableSnapshot, StructuralRelationSnapshot>();
+  readonly #fold: (value: string) => string;
 
-  constructor(snapshot: SchemaSnapshot) {
+  /** Callers own identifier comparison; the default retains the historical Unicode fold. */
+  constructor(snapshot: SchemaSnapshot, fold = legacyIdentifierFold) {
+    this.#fold = fold;
     for (const [key, table] of Object.entries(snapshot.tables)) {
       const indexed = { key, table };
       const unqualifiedKey = key.slice(key.lastIndexOf(".") + 1);
       for (const candidate of new Set([key, unqualifiedKey, table.name])) {
         addToIndex(this.#exactTables, candidate, indexed);
-        addToIndex(this.#foldedTables, candidate.toLowerCase(), indexed);
+        addToIndex(this.#foldedTables, this.#fold(candidate), indexed);
       }
       this.#indexColumns(table);
       const relation = snapshot.relations?.[key];
@@ -153,8 +166,8 @@ export class ResolverSchemaIndex {
       for (const overloads of Object.values(snapshot.routines)) {
         for (const routine of overloads) {
           const inputs = routine.arguments.filter(({ mode }) => mode !== "out");
-          addToIndex(this.#routines, `${routine.name.toLowerCase()}/${inputs.length}`, routine);
-          addToIndex(this.#routinesByName, routine.name.toLowerCase(), routine);
+          addToIndex(this.#routines, `${this.#fold(routine.name)}/${inputs.length}`, routine);
+          addToIndex(this.#routinesByName, this.#fold(routine.name), routine);
           if (routine.kind === "procedure") continue;
           const result = routine.result;
           const value: FunctionSnapshot = {
@@ -167,42 +180,44 @@ export class ResolverSchemaIndex {
             ...(result.kind === "set" ? { setReturning: true } : {}),
             ...(routine.volatility === "unknown" ? {} : { volatility: routine.volatility }),
           };
-          addToIndex(this.#functions, `${value.name.toLowerCase()}/${value.argumentTypes.length}`, value);
+          addToIndex(this.#functions, `${this.#fold(value.name)}/${value.argumentTypes.length}`, value);
         }
       }
     } else {
       for (const value of Object.values(snapshot.functions ?? {})) {
-        addToIndex(this.#functions, `${value.name.toLowerCase()}/${value.argumentTypes.length}`, value);
+        addToIndex(this.#functions, `${this.#fold(value.name)}/${value.argumentTypes.length}`, value);
       }
     }
   }
 
   tables(name: string, schema?: string, caseSensitive = false): readonly IndexedTable[] {
     const index = caseSensitive ? this.#exactTables : this.#foldedTables;
-    const matches = index.get(caseSensitive ? name : name.toLowerCase()) ?? [];
+    const matches = index.get(caseSensitive ? name : this.#fold(name)) ?? [];
     if (schema === undefined) return matches;
     return matches.filter(({ key, table }) => {
       const tableSchema = table.schema ?? key.slice(0, Math.max(0, key.lastIndexOf(".")));
-      return caseSensitive ? tableSchema === schema : tableSchema.toLowerCase() === schema.toLowerCase();
+      return caseSensitive ? tableSchema === schema : this.#fold(tableSchema) === this.#fold(schema);
     });
   }
 
   column(table: TableSnapshot, name: string, caseSensitive = false): ColumnSnapshot | undefined {
     if (!this.#exactColumns.has(table)) this.#indexColumns(table);
     const index = caseSensitive ? this.#exactColumns : this.#foldedColumns;
-    return index.get(table)?.get(caseSensitive ? name : name.toLowerCase());
+    return index.get(table)?.get(caseSensitive ? name : this.#fold(name));
   }
 
   functions(name: string, arity: number, schema?: string): readonly FunctionSnapshot[] {
-    const matches = this.#functions.get(`${name.toLowerCase()}/${arity}`) ?? [];
+    const matches = this.#functions.get(`${this.#fold(name)}/${arity}`) ?? [];
     return schema === undefined
       ? matches
-      : matches.filter((candidate) => candidate.schema?.toLowerCase() === schema.toLowerCase());
+      : matches.filter(
+          (candidate) => candidate.schema !== undefined && this.#fold(candidate.schema) === this.#fold(schema),
+        );
   }
 
   routineOverloads(name: string, arity: number, schema?: string): readonly StructuralRoutineSnapshot[] {
-    const exact = this.#routines.get(`${name.toLowerCase()}/${arity}`) ?? [];
-    const flexible = (this.#routinesByName.get(name.toLowerCase()) ?? []).filter((candidate) => {
+    const exact = this.#routines.get(`${this.#fold(name)}/${arity}`) ?? [];
+    const flexible = (this.#routinesByName.get(this.#fold(name)) ?? []).filter((candidate) => {
       const inputs = candidate.arguments.filter(({ mode }) => mode !== "out");
       const variadic = inputs.at(-1)?.mode === "variadic";
       const fixed = variadic ? inputs.slice(0, -1) : inputs;
@@ -212,7 +227,9 @@ export class ResolverSchemaIndex {
     const matches = [...new Set([...exact, ...flexible])];
     return schema === undefined
       ? matches
-      : matches.filter((candidate) => candidate.schema?.toLowerCase() === schema.toLowerCase());
+      : matches.filter(
+          (candidate) => candidate.schema !== undefined && this.#fold(candidate.schema) === this.#fold(schema),
+        );
   }
 
   /** Returns exact v2 structural evidence or undefined for v1/derived relations. */
@@ -237,14 +254,14 @@ export class ResolverSchemaIndex {
   isUnique(table: TableSnapshot, columns: readonly string[]): boolean | "unknown" {
     const relation = this.#relationEvidence.get(table);
     if (relation === undefined) return "unknown";
-    const requested = new Set(columns.map((column) => column.toLowerCase()));
+    const requested = new Set(columns.map((column) => this.#fold(column)));
     return relation.constraints.some(
       (constraint) =>
         (constraint.kind === "primary-key" || constraint.kind === "unique") &&
         constraint.partial === false &&
         constraint.expressionBased === false &&
         constraint.columns.length === requested.size &&
-        constraint.columns.every((column) => requested.has(column.toLowerCase())),
+        constraint.columns.every((column) => requested.has(this.#fold(column))),
     );
   }
 
@@ -280,8 +297,8 @@ export class ResolverSchemaIndex {
     for (const [columnKey, column] of Object.entries(table.columns)) {
       exactColumns.set(columnKey, column);
       exactColumns.set(column.name, column);
-      foldedColumns.set(columnKey.toLowerCase(), column);
-      foldedColumns.set(column.name.toLowerCase(), column);
+      foldedColumns.set(this.#fold(columnKey), column);
+      foldedColumns.set(this.#fold(column.name), column);
     }
     this.#exactColumns.set(table, exactColumns);
     this.#foldedColumns.set(table, foldedColumns);

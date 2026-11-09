@@ -2,9 +2,9 @@ import { describe, it, strict } from "poku";
 import { rowTypeLiteral } from "../../core/src/index.js";
 import { type SchemaSnapshot, upgradeSchemaSnapshotV1 } from "../../schema/src/index.js";
 import { postgresServerEvidence } from "../src/capabilities.js";
+import { resolveSelect, resolveStatement } from "../src/compatibility-resolver.js";
 import { fingerprintPostgresExpressionSql } from "../src/expression-evidence.js";
 import { parseSelect, parseStatement } from "../src/parser/index.js";
-import { resolveSelect, resolveStatement } from "../src/resolver.js";
 
 const schema = {
   formatVersion: 1,
@@ -51,9 +51,9 @@ const v2Schema = (() => {
 await describe("query resolver", async () => {
   await it("infers the acceptance row and cast policy", async () => {
     const statement = parseSelect(`
-      SELECT user.id, user.name, user.age::BIGINT AS age
-      FROM users AS user
-      LEFT JOIN ages AS age ON user.id = age.user_id
+      SELECT usr_.id, usr_.name, usr_.age::BIGINT AS age
+      FROM users AS usr_
+      LEFT JOIN ages AS age ON usr_.id = age.user_id
     `);
     const result = resolveSelect(statement, schema);
     strict.deepStrictEqual(result.diagnostics, []);

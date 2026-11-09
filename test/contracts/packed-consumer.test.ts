@@ -6,13 +6,15 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { describe, it, strict } from "poku";
+import { assertColdCoreConsumer } from "../helpers/cold-core-consumer.js";
 import { assertFirstUseConsumer } from "../helpers/first-use-consumer.js";
+import { assertFrozenContractConsumer } from "../helpers/frozen-contract-consumer.js";
 import { assertMinimalGrammarConsumer } from "../helpers/minimal-grammar-consumer.js";
 import { packedConsumerOverrides } from "../helpers/packed-editor-consumer.js";
-import { assertPackedEditorProject } from "../helpers/packed-editor-project.js";
 import { ensurePackedEditorSdk } from "../helpers/packed-editor-sdk.js";
 import { assertPortableWorkerConsumer } from "../helpers/portable-worker-consumer.js";
 import { assertSqlFileConsumer } from "../helpers/sql-file-consumer.js";
+import { assertSqliteNativeContractConsumer } from "../helpers/sqlite-native-contract-consumer.js";
 
 const execFile = promisify(execFileCallback);
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -26,6 +28,7 @@ const publicPackages = [
   "core",
   "opentelemetry",
   "config",
+  "analysis",
   "schema",
   "postgres",
   "mysql",
@@ -47,6 +50,7 @@ const declarationCheckedPackages = new Set([
   "core",
   "opentelemetry",
   "config",
+  "analysis",
   "schema",
   "postgres",
   "mysql",
@@ -287,6 +291,7 @@ await describe("packed public packages", async () => {
           env: { ...isolatedEnvironment, CI: "true" },
         },
       );
+      await assertColdCoreConsumer(consumer, isolatedEnvironment);
       await assertFirstUseConsumer({
         directory: join(temporary, "first-use"),
         workspace,
@@ -298,21 +303,21 @@ await describe("packed public packages", async () => {
         `
         import { createRequire } from "node:module";
         import { synthetic, sql as syntheticSql, typePolicy as syntheticTypePolicy } from "@acme/typed-sql-synthetic";
-        import { assertDialectPlugin, defineConfig, renderQuery } from "@typed-sql/core";
-        import { postgres, sql as postgresSql, typePolicy as postgresTypePolicy } from "@typed-sql/postgres";
+        import { assertDialectPlugin, bindRoutineArguments, defineConfig, renderQuery } from "@typed-sql/core";
+        import { sql as postgresSql, typePolicy as postgresTypePolicy } from "@typed-sql/postgres"; import { postgres, POSTGRES_SUPPORT_POLICY, postgresServerEvidence } from "@typed-sql/postgres/analysis";
         import { postgresRenderer } from "@typed-sql/postgres/runtime";
         import { loadPgDriver } from "@typed-sql/postgres/pg";
-        import { mysql, sql as mysqlSql, typePolicy as mysqlTypePolicy } from "@typed-sql/mysql";
+        import { sql as mysqlSql, typePolicy as mysqlTypePolicy } from "@typed-sql/mysql"; import { mysql, MYSQL_SUPPORT_POLICY, mySqlServerEvidence } from "@typed-sql/mysql/analysis";
         import { mysqlRenderer } from "@typed-sql/mysql/runtime";
         import { loadMySql2Driver } from "@typed-sql/mysql/mysql2";
-        import { sqlite, sql as sqliteSql, typePolicy as sqliteTypePolicy } from "@typed-sql/sqlite";
+        import { sql as sqliteSql, typePolicy as sqliteTypePolicy } from "@typed-sql/sqlite"; import { sqlite } from "@typed-sql/sqlite/analysis";
         import { sqliteRenderer } from "@typed-sql/sqlite/runtime";
-        import { sqlserver } from "@typed-sql/sqlserver";
+        import { sqlserver } from "@typed-sql/sqlserver/analysis";
         import { loadSqlServerOdbcDriver } from "@typed-sql/sqlserver/odbc";
         import "@typed-sql/sqlserver/runtime";
         import "@typed-sql/sqlserver/msnodesqlv8";
         import "@typed-sql/sqlserver/browser";
-        import { duckdb } from "@typed-sql/duckdb";
+        import { duckdb, duckDBServerEvidence, DUCKDB_SUPPORT_POLICY } from "@typed-sql/duckdb/analysis";
         import "@typed-sql/duckdb/node-api";
         import "@typed-sql/duckdb/runtime";
         import "@typed-sql/duckdb/browser";
@@ -329,14 +334,64 @@ await describe("packed public packages", async () => {
         import "@typed-sql/language-server";
 
         const require = createRequire(import.meta.url);
+        const contributedBinding = bindRoutineArguments(
+          [{ name: "graph", optional: false }, { name: "limit", optional: true }],
+          { argumentCount: 1, names: ["graph"], variadic: "expanded" },
+          { positionalAfterNamed: false, expandedVariadicNames: false, minimumVariadicElements: 1 },
+        );
+        if (JSON.stringify(contributedBinding) !== JSON.stringify([{ parameterIndex: 0, variadicElement: false }])) {
+          throw new Error("Third-party catalog argument binding failed through the packed public entrypoint");
+        }
         for (const driver of ["pg", "mysql2", "@libsql/client", "@neondatabase/serverless", "postgres", "mssql", "tedious", "koffi", "msnodesqlv8", "@duckdb/node-api", "@duckdb/node-bindings"]) {
           try { require.resolve(driver); throw new Error(driver + " was installed transitively"); }
           catch (error) { if (error.message === driver + " was installed transitively") throw error; }
         }
         if (postgres().id !== "postgres") throw new Error("dialect import failed");
+        for (const major of [...POSTGRES_SUPPORT_POLICY.stableMajors, POSTGRES_SUPPORT_POLICY.canary.major]) {
+          const selected = await import("@typed-sql/postgres/analysis/"+major);
+          const core = await import("@typed-sql/postgres/analysis/core/"+major);
+          if(Object.keys(selected).join(",")!=="postgres"||Object.keys(core).join(",")!=="postgres")throw Error("PostgreSQL selected/core exports changed");
+          assertDialectPlugin(selected.postgres());assertDialectPlugin(core.postgres());
+          const schema={formatVersion:1,dialect:"postgres",server:postgresServerEvidence(major+".0"),tables:{}};
+          if(selected.postgres().validateSnapshot(schema).server.versionKey!==String(major))throw Error("Selected PostgreSQL major changed");
+          let refused=false;try{core.postgres().validateSnapshot({...schema,server:undefined});}catch{refused=true;}
+          if(!refused)throw Error("Selected PostgreSQL core accepted missing major evidence");
+        }
         if (mysql().id !== "mysql") throw new Error("MySQL dialect import failed");
+        for(const target of [...MYSQL_SUPPORT_POLICY.stable,MYSQL_SUPPORT_POLICY.canary]) {
+          const selected=await import("@typed-sql/mysql/analysis/"+target.series);
+          const core=await import("@typed-sql/mysql/analysis/core/"+target.series);
+          if(Object.keys(selected).join(",")!=="mysql"||Object.keys(core).join(",")!=="mysql")throw Error("MySQL selected/core exports changed");
+          assertDialectPlugin(selected.mysql());assertDialectPlugin(core.mysql());
+          const schema={formatVersion:1,dialect:"mysql",server:mySqlServerEvidence(target.matrixVersion),tables:{}};
+          if(selected.mysql().validateSnapshot(schema).server.versionKey!==target.matrixVersion)throw Error("Selected MySQL series changed");
+          let refused=false;try{core.mysql().validateSnapshot({...schema,server:undefined});}catch{refused=true;}
+          if(!refused)throw Error("Selected MySQL core accepted missing series evidence");
+        }
+
+        const sqliteCore=await import("@typed-sql/sqlite/analysis/core");
+        const sqlServerCore=await import("@typed-sql/sqlserver/analysis/core");
+        if(Object.keys(sqliteCore).join(",")!=="sqlite"||Object.keys(sqlServerCore).join(",")!=="sqlserver")throw Error("Portable core exports changed");
+        assertDialectPlugin(sqliteCore.sqlite());assertDialectPlugin(sqlServerCore.sqlserver());
         if (sqlserver().id !== "sqlserver" || sqlserver().sqlModule !== "@typed-sql/sqlserver") throw new Error("SQL Server public grammar contract failed");
         if (duckdb().id !== "duckdb" || duckdb().sqlModule !== "@typed-sql/duckdb") throw new Error("DuckDB public grammar contract failed");
+        for (const version of DUCKDB_SUPPORT_POLICY.qualifiedEngines) {
+          const module = await import("@typed-sql/duckdb/analysis/" + version);
+          if (Object.keys(module).join(",") !== "duckdb") throw new Error("Versioned analyzer exports changed");
+          const analyzer = module.duckdb();
+          assertDialectPlugin(analyzer);
+          const schema = {formatVersion:1,dialect:"duckdb",server:duckDBServerEvidence(version),tables:{}};
+          if (analyzer.validateSnapshot(schema).server.versionKey !== version) throw new Error("Selected engine snapshot changed");
+          let refused = false;
+          try { analyzer.validateSnapshot({...schema,server:duckDBServerEvidence("0.0.0")}); } catch { refused = true; }
+          if (!refused) throw new Error("Selected analyzer accepted a different engine");
+          const coreModule = await import("@typed-sql/duckdb/analysis/core/" + version);
+          const packModule = await import("@typed-sql/duckdb/analysis/packs/" + version + "/compatibility");
+          if (Object.keys(coreModule).join(",") !== "duckdb" || Object.keys(packModule).join(",") !== "duckdbCompatibilityPack") throw new Error("Offline core/pack exports changed");
+          assertDialectPlugin(coreModule.duckdb());
+          assertDialectPlugin(coreModule.duckdb({packs:[packModule.duckdbCompatibilityPack]}));
+          if (packModule.duckdbCompatibilityPack.engineVersion !== version) throw new Error("Offline pack engine changed");
+        }
         if (sqlite().id !== "sqlite") throw new Error("SQLite dialect import failed");
         if (sqlserver().id !== "sqlserver" || sqlserver().sqlModule !== "@typed-sql/sqlserver") throw new Error("SQL Server public grammar contract failed");
         if (sqlserver().id !== "sqlserver" || duckdb().id !== "duckdb") throw new Error("native grammar import failed");
@@ -491,9 +546,8 @@ await describe("packed public packages", async () => {
           createRequire(join(workspace, "packages/adapters/package.json")).resolve("miniflare"),
         ).href,
       });
-      for (const dialect of ["postgres", "mysql", "sqlite"] as const) {
-        await assertPackedEditorProject(consumer, dialect, isolatedEnvironment);
-      }
+      await assertSqliteNativeContractConsumer(consumer, isolatedEnvironment);
+      await assertFrozenContractConsumer(consumer, isolatedEnvironment);
     } finally {
       await rm(temporary, { recursive: true, force: true });
     }

@@ -309,6 +309,23 @@ await describe("application-owned mysql2 integration", async () => {
     strict.strictEqual((raw.createdPoolOptions as { maxPreparedStatements?: unknown }).maxPreparedStatements, 16_000);
     strict.strictEqual((raw.createdPoolOptions as { multipleStatements?: unknown }).multipleStatements, false);
     strict.strictEqual((raw.createdPoolOptions as { jsonStrings?: unknown }).jsonStrings, true);
+    const cast = (raw.createdPoolOptions as Pool["config"]).typeCast;
+    strict.equal(typeof cast, "function");
+    if (typeof cast !== "function") throw new Error("Owned pools must preserve geometry bytes");
+    const bytes = Buffer.from([1, 2, 3]);
+    const field = { type: "GEOMETRY", buffer: () => bytes } as Parameters<typeof cast>[0];
+    strict.equal(
+      cast(field, () => strict.fail("Geometry must remain opaque bytes")),
+      bytes,
+    );
+    strict.equal(
+      cast({ ...field, type: "VAR_STRING" }, () => "text"),
+      "text",
+    );
+    strict.equal(
+      cast({ ...field, buffer: () => null }, () => strict.fail("NULL geometry stays null")),
+      null,
+    );
     strict.deepStrictEqual(await database.execute(prepared(1n)), [{ value: 1n }]);
     strict.strictEqual(raw.executeCount, 1);
     strict.strictEqual(raw.queryCount, 0);

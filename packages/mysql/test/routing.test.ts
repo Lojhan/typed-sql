@@ -5,8 +5,9 @@ import {
   createMySqlQuerySemanticResolver,
   createMySqlRoutedDatabase,
   isMySqlRetryableTransactionError,
-  typePolicy,
-} from "../src/index.js";
+  mySqlServerEvidence,
+} from "../src/analysis.js";
+import { typePolicy } from "../src/index.js";
 
 const schema = {
   formatVersion: 1,
@@ -80,6 +81,28 @@ await describe("MySQL semantic routing adapter", async () => {
 
     await createMySqlRoutedDatabase({ primary: database("primary", calls), schema }).execute(read);
     strict.strictEqual(calls.at(-1), "primary");
+  });
+
+  await it("keeps ordinary routine spellings on the primary instead of borrowing native aggregate semantics", async () => {
+    const snapshot = {
+      ...schema,
+      server: mySqlServerEvidence("8.4.11", { sqlMode: "", versionComment: "MySQL Community Server - GPL" }),
+    };
+    const resolver = createMySqlQuerySemanticResolver({ schema: snapshot });
+    const spaced = sql`SELECT SUM (1) AS value`,
+      quoted = sql`SELECT \`COALESCE\`(1,2) AS value`;
+    strict.equal(resolver.resolve(sql`SELECT SUM(1) AS value`).volatility.value, "immutable");
+    strict.equal(resolver.resolve(spaced).volatility.value, "unknown");
+    strict.equal(resolver.resolve(quoted).volatility.value, "unknown");
+    const calls: string[] = [];
+    const routed = createMySqlRoutedDatabase({
+      schema: snapshot,
+      primary: database("primary", calls),
+      replicas: [database("replica", calls)],
+    });
+    await routed.execute(spaced);
+    await routed.execute(quoted);
+    strict.deepEqual(calls, ["primary", "primary"]);
   });
 
   await it("classifies only documented MySQL deadlock identities", () => {

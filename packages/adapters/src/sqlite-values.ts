@@ -7,7 +7,7 @@ export function sqliteWireOptions(options: BufferedOptions, d1: boolean): Buffer
     ...options,
     profile: {
       ...options.profile,
-      normalizeValue(value, type) {
+      normalizeValue(value, type, descriptor) {
         const members: readonly RuntimeValueType[] = (
           typeof type === "object" && "union" in type ? type.union : [type]
         ).map(
@@ -33,7 +33,7 @@ export function sqliteWireOptions(options: BufferedOptions, d1: boolean): Buffer
         }
         return options.profile.normalizeValue === undefined
           ? normalized
-          : options.profile.normalizeValue(normalized, type);
+          : options.profile.normalizeValue(normalized, type, descriptor);
       },
     },
   };

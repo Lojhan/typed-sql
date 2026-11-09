@@ -1,16 +1,8 @@
 import { resolveDialectCapabilityStates } from "@typed-sql/core";
 import { describe, it, strict } from "poku";
 import { type SchemaSnapshot, upgradeSchemaSnapshotV1 } from "../../schema/src/index.js";
-import {
-  defaultPostgresTypePolicy,
-  POSTGRES_SUPPORT_POLICY,
-  type PostgresSchemaSnapshot,
-  postgres,
-  postgresServerEvidence,
-  postgresVersionSupport,
-  sql,
-  typePolicy,
-} from "../src/index.js";
+import { POSTGRES_SUPPORT_POLICY, postgres, postgresServerEvidence, postgresVersionSupport } from "../src/analysis.js";
+import { defaultPostgresTypePolicy, type PostgresSchemaSnapshot, sql, typePolicy } from "../src/index.js";
 import { parseStatement } from "../src/parser/index.js";
 import { analyzePostgresSemantics } from "../src/semantics.js";
 

@@ -1,12 +1,12 @@
 import { calculateSchemaHash, calculateTypePolicyHash, defineSchemaSnapshotV2 } from "@typed-sql/schema";
 import { describe, it, strict } from "poku";
 import {
-  POSTGRES_DIALECT_VERSION,
   PostgresRuntimeCompatibilityError,
   postgresCoreCatalog,
   postgresServerEvidence,
   validatePostgresRuntimeCompatibility,
-} from "../src/index.js";
+} from "../src/analysis.js";
+import { POSTGRES_DIALECT_VERSION } from "../src/index.js";
 
 const server = postgresServerEvidence("18.6", ["plpgsql:1.0"], {
   searchPath: '"$user", public',

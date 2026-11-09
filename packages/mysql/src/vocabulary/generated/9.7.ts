@@ -1,0 +1,40 @@
+// Generated from hash-locked MySQL lexical and grammar declarations; run mysql:vocabulary:refresh.
+// See MYSQL_VOCABULARY_NOTICE and grammar/mysql/vocabulary/sources.json.
+import type { MySqlKeywordDeclaration } from "../types.js";
+import { createMySqlVocabulary } from "../vocabulary.js";
+import { commonKeywords } from "./common.js";
+
+const local = [
+  ["ABSENT", 0],
+  ["ALLOW_MISSING_FILES", 0],
+  ["AUTO_REFRESH", 0],
+  ["AUTO_REFRESH_SOURCE", 0],
+  ["DUALITY", 0],
+  ["EXTERNAL", 1],
+  ["EXTERNAL_FORMAT", 0],
+  ["FILES", 0],
+  ["FILE_FORMAT", 0],
+  ["FILE_NAME", 0],
+  ["FILE_PATTERN", 0],
+  ["FILE_PREFIX", 0],
+  ["GUIDED", 0],
+  ["HEADER", 0],
+  ["JSON_DUALITY_OBJECT", 10],
+  ["LIBRARY", 1],
+  ["MASKING", 0],
+  ["MATERIALIZED", 0],
+  ["PARAMETERS", 0],
+  ["POLICY", 0],
+  ["RELATIONAL", 0],
+  ["SETS", 0],
+  ["STRICT_LOAD", 0],
+  ["URI", 0],
+  ["VALIDATE", 0],
+  ["VECTOR", 0],
+  ["VERIFY_KEY_CONSTRAINTS", 0],
+] as const satisfies readonly MySqlKeywordDeclaration[];
+export const vocabulary = createMySqlVocabulary(commonKeywords, local);
+export const source = {
+  version: "9.7.2",
+  digest: "sha256:e3b2d8279ce9d5fe3931d9a78c938dc655ab06dd72d27c191c2bc3cf279bc0f6",
+} as const;

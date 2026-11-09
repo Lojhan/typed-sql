@@ -26,6 +26,45 @@ original source. It does not reimplement TypeScript's language service or load t
 If startup reports a TypeScript compatibility error, run `pnpm exec typed-sql doctor` in the
 workspace. The bridge refuses an overridden or mismatched preview patch before project loading.
 
+## Recorded query contracts
+
+The language server reads the project's `analysis` configuration. In `"frozen"` mode it uses only
+[declared durable query contracts](../getting-started/configuration.md#checking-durable-query-contracts);
+missing or incompatible evidence remains a diagnostic. It does not open the disposable cache or
+initialize an analyzer, schema provider, or native adapter.
+
+In `"offline"` mode it reuses compatible durable or cached contracts. Hybrid qualification loads
+the configured offline analyzer for uncovered queries; native-required qualification leaves those
+queries unknown. Templates and raw SQL documents use the same prepared contract view. Contract
+manifest and cache-index changes participate in editor invalidation, and each request validates its
+recorded inputs before publishing types.
+
+Query hovers show the evidence origin and recorded context digest. Matching recorded evidence is
+labelled with unverified remote freshness; TypeScript preview verification does not establish
+current database validity. Offline analysis without a query contract is identified separately.
+
+In `"live"` mode, an explicit `analysis.live.adapter` registration enables native acquisition.
+The project shares one owned adapter and bounded query scheduler. Context checks are coalesced
+across requests, with a five-second default interval; `analysis.live.contextIntervalMs` adjusts it.
+Native descriptions retain their own consistency checks. SQL edits and project/context changes
+fence old views, and the proxy refreshes its TypeScript overlay before forwarding requests.
+
+While native qualification is pending, open queries can show informational `TSQ409` diagnostics
+at their source ranges. Short operations finish before that message appears. The diagnostic
+does not certify the query or expose a previous incompatible type. Completion clears it and
+refreshes the current types and ordinary diagnostics. A follow-up diagnostic pull consumes the
+completed view rather than starting another qualification cycle.
+
+Connection failures preserve matching recorded evidence with unverified remote freshness. Native
+rejections, conflicts and known context changes remain blocking. Hybrid analysis can use independent
+offline rules when the native adapter does not support a statement class; that does not establish
+native qualification. The `typedSql/status` response includes connection state and the last context
+observation time. There is no idle database polling: external database changes are detected on a
+subsequent editor request. Closing or reconfiguring the project closes its owned native resources.
+
+SQL-file content mappers and other build hosts have separate configuration support. Live editor
+support does not imply native qualification for every grammar, transport or SQL statement class.
+
 ## Zed
 
 Install the native extension from the repository's [`editors/zed`](https://github.com/Lojhan/typed-sql/tree/main/editors/zed) directory as a development extension. The following opt-in configuration selects the proxy as the active TypeScript server; its upstream process supplies ordinary TypeScript language features:

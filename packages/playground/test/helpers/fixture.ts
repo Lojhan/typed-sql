@@ -49,7 +49,7 @@ export async function fixture(run: (directory: string) => Promise<void>): Promis
     );
     await writeFile(
       join(directory, "typed-sql.config.mjs"),
-      `import {postgres} from '@typed-sql/postgres';\nimport {createPostgresDatabase} from '@typed-sql/postgres/runtime';\nimport {renderer} from '@typed-sql/postgres/query';\nexport default {dialect:postgres(),schema:{file:'schema.json'},outDir:'generated',projects:['tsconfig.json'],playground:{readRoots:['playground'],writeRoots:['playground'],targets:{local:{classification:'development',expected:{database:'test'},connect:()=>({identity:async()=>({database:'test',server:'test',adapter:'fixture',readOnly:true}),query:async request=>({columns:[{name:'id'}],rows:[[request.values[0]??42]],truncated:false}),database:async()=>createPostgresDatabase({pool:{query:async()=>({rows:[{id:42,name:null}]}),end:async()=>{}}}),close:async()=>{}})}}}};\n`,
+      `import { postgres } from '@typed-sql/postgres/analysis';\nimport {createPostgresDatabase} from '@typed-sql/postgres/runtime';\nimport {renderer} from '@typed-sql/postgres/query';\nexport default {dialect:postgres(),schema:{file:'schema.json'},outDir:'generated',projects:['tsconfig.json'],playground:{readRoots:['playground'],writeRoots:['playground'],targets:{local:{classification:'development',expected:{database:'test'},connect:()=>({identity:async()=>({database:'test',server:'test',adapter:'fixture',readOnly:true}),query:async request=>({columns:[{name:'id'}],rows:[[request.values[0]??42]],truncated:false}),database:async()=>createPostgresDatabase({pool:{query:async()=>({rows:[{id:42,name:null}]}),end:async()=>{}}}),close:async()=>{}})}}}};\n`,
     );
     await run(directory);
   } finally {

@@ -1,0 +1,140 @@
+{
+  "formatVersion": 1,
+  "grammar": "duckdb",
+  "profiles": [
+    {
+      "version": "1.5.6",
+      "revision": "069cc9f9b5be802405797faecc284961b07c70ef",
+      "parser": "yacc",
+      "files": {
+        "third_party/libpg_query/grammar/keywords/reserved_keywords.list": {
+          "url": "https://raw.githubusercontent.com/duckdb/duckdb/069cc9f9b5be802405797faecc284961b07c70ef/third_party/libpg_query/grammar/keywords/reserved_keywords.list",
+          "digest": "sha256:02242cecb8056913f8ac40440314f0a0a1e78d2f0d89a0c33e7da83c155a4b49",
+          "bytes": 521
+        },
+        "third_party/libpg_query/grammar/keywords/unreserved_keywords.list": {
+          "url": "https://raw.githubusercontent.com/duckdb/duckdb/069cc9f9b5be802405797faecc284961b07c70ef/third_party/libpg_query/grammar/keywords/unreserved_keywords.list",
+          "digest": "sha256:c5c77ad9af9ac1c1ecb56254bd79ee1d3b7cfcc983807913e93fddf7c33fdc93",
+          "bytes": 2712
+        },
+        "third_party/libpg_query/grammar/keywords/column_name_keywords.list": {
+          "url": "https://raw.githubusercontent.com/duckdb/duckdb/069cc9f9b5be802405797faecc284961b07c70ef/third_party/libpg_query/grammar/keywords/column_name_keywords.list",
+          "digest": "sha256:bb9641952846e9b7b74cd79c67307e49ccde322decedb12ee353292e333b6286",
+          "bytes": 436
+        },
+        "third_party/libpg_query/grammar/keywords/func_name_keywords.list": {
+          "url": "https://raw.githubusercontent.com/duckdb/duckdb/069cc9f9b5be802405797faecc284961b07c70ef/third_party/libpg_query/grammar/keywords/func_name_keywords.list",
+          "digest": "sha256:06a24f14341b3a8dbc1201f587ef70325619fdc96d7cf51bbed2a4ef70b220ff",
+          "bytes": 212
+        },
+        "third_party/libpg_query/grammar/keywords/type_name_keywords.list": {
+          "url": "https://raw.githubusercontent.com/duckdb/duckdb/069cc9f9b5be802405797faecc284961b07c70ef/third_party/libpg_query/grammar/keywords/type_name_keywords.list",
+          "digest": "sha256:894cc06a52fdb09253836fcdaf535c14515d01ed73494d30296a0288847fc1fa",
+          "bytes": 228
+        },
+        "third_party/libpg_query/include/parser/kwlist.hpp": {
+          "url": "https://raw.githubusercontent.com/duckdb/duckdb/069cc9f9b5be802405797faecc284961b07c70ef/third_party/libpg_query/include/parser/kwlist.hpp",
+          "digest": "sha256:a14dafc04193e9b70eceed4cb0e83011a328a32f446ca47eed08d8835fc0e65c",
+          "bytes": 24761
+        },
+        "third_party/libpg_query/grammar/statements/common.y": {
+          "url": "https://raw.githubusercontent.com/duckdb/duckdb/069cc9f9b5be802405797faecc284961b07c70ef/third_party/libpg_query/grammar/statements/common.y",
+          "digest": "sha256:5f3bbd36f7166e92ca93fa62d20efee18b0d59c84ed05ae8fa2e45d61f6dd675",
+          "bytes": 2066
+        },
+        "third_party/libpg_query/grammar/statements/select.y": {
+          "url": "https://raw.githubusercontent.com/duckdb/duckdb/069cc9f9b5be802405797faecc284961b07c70ef/third_party/libpg_query/grammar/statements/select.y",
+          "digest": "sha256:88ea59bbde72e7d8ef5e65099822934280af5850ebc1d6f57f1574ea387322cf",
+          "bytes": 120716
+        },
+        "scripts/generate_grammar.py": {
+          "url": "https://raw.githubusercontent.com/duckdb/duckdb/069cc9f9b5be802405797faecc284961b07c70ef/scripts/generate_grammar.py",
+          "digest": "sha256:e62b0b90ae76ece2efa4d24fd9a0b1adcdf695ddc669a5b699eae60ac78cadab",
+          "bytes": 10222
+        },
+        "third_party/libpg_query/LICENSE": {
+          "url": "https://raw.githubusercontent.com/duckdb/duckdb/069cc9f9b5be802405797faecc284961b07c70ef/third_party/libpg_query/LICENSE",
+          "digest": "sha256:2780b6375a5ab1901472b7694958dd0c8c1381a21f0765cbb64e1923d94c6717",
+          "bytes": 1484
+        },
+        "LICENSE": {
+          "url": "https://raw.githubusercontent.com/duckdb/duckdb/069cc9f9b5be802405797faecc284961b07c70ef/LICENSE",
+          "digest": "sha256:7e17fd31249fa875cb3b1c5e05c6c3e99b75509f6a2804ca176c217834de1dcb",
+          "bytes": 1072
+        }
+      }
+    },
+    {
+      "version": "2.0.0",
+      "revision": "d54cbbe3df17e8e5ce68312f483b4155836112aa",
+      "parser": "peg",
+      "files": {
+        "src/parser/peg/grammar/keywords/reserved_keyword.list": {
+          "url": "https://raw.githubusercontent.com/duckdb/duckdb/d54cbbe3df17e8e5ce68312f483b4155836112aa/src/parser/peg/grammar/keywords/reserved_keyword.list",
+          "digest": "sha256:0e66c73b69c650f44d542840de6936fd6adc72bd6d8f80703209bc93aa7f4c41",
+          "bytes": 499
+        },
+        "src/parser/peg/grammar/keywords/unreserved_keyword.list": {
+          "url": "https://raw.githubusercontent.com/duckdb/duckdb/d54cbbe3df17e8e5ce68312f483b4155836112aa/src/parser/peg/grammar/keywords/unreserved_keyword.list",
+          "digest": "sha256:263deeb44f9d9785e61b3752a7bfe15e3f7ec16866c1d9a4fb09c1a3ed583a9d",
+          "bytes": 2647
+        },
+        "src/parser/peg/grammar/keywords/column_name_keyword.list": {
+          "url": "https://raw.githubusercontent.com/duckdb/duckdb/d54cbbe3df17e8e5ce68312f483b4155836112aa/src/parser/peg/grammar/keywords/column_name_keyword.list",
+          "digest": "sha256:39ad28d2ef56a744fc354ee6f37a79434f490401d7810250d3899ffbc19891c7",
+          "bytes": 430
+        },
+        "src/parser/peg/grammar/keywords/func_name_keyword.list": {
+          "url": "https://raw.githubusercontent.com/duckdb/duckdb/d54cbbe3df17e8e5ce68312f483b4155836112aa/src/parser/peg/grammar/keywords/func_name_keyword.list",
+          "digest": "sha256:6e0d26e4f6a6b47b4392542ed4c4a3f68db3792781d349874bd0cce537dfe877",
+          "bytes": 214
+        },
+        "src/parser/peg/grammar/keywords/type_name_keyword.list": {
+          "url": "https://raw.githubusercontent.com/duckdb/duckdb/d54cbbe3df17e8e5ce68312f483b4155836112aa/src/parser/peg/grammar/keywords/type_name_keyword.list",
+          "digest": "sha256:f999e346c982a548c8ede53d8a9022e4c366a1c54fb6380b7d97afedcf5ccad3",
+          "bytes": 224
+        },
+        "src/parser/peg/grammar/keywords/bare_label_keyword.list": {
+          "url": "https://raw.githubusercontent.com/duckdb/duckdb/d54cbbe3df17e8e5ce68312f483b4155836112aa/src/parser/peg/grammar/keywords/bare_label_keyword.list",
+          "digest": "sha256:0236b1321866323328fb5c5dc95903e906b03d613a8dda271dae7a3ff500cb21",
+          "bytes": 2769
+        },
+        "src/parser/peg/keyword_helper/default_keyword_maps.cpp": {
+          "url": "https://raw.githubusercontent.com/duckdb/duckdb/d54cbbe3df17e8e5ce68312f483b4155836112aa/src/parser/peg/keyword_helper/default_keyword_maps.cpp",
+          "digest": "sha256:25a0cf72b1bd025380e954bc6f120dc14e599b7a1791158490148dfb866739cf",
+          "bytes": 3635
+        },
+        "src/parser/peg/keyword_map.cpp": {
+          "url": "https://raw.githubusercontent.com/duckdb/duckdb/d54cbbe3df17e8e5ce68312f483b4155836112aa/src/parser/peg/keyword_map.cpp",
+          "digest": "sha256:6a366553ef9657b4906120ab2301cb92a346ba35f24ee2478f4e0c29e4d603fe",
+          "bytes": 38725
+        },
+        "src/parser/peg/grammar/statements/select.gram": {
+          "url": "https://raw.githubusercontent.com/duckdb/duckdb/d54cbbe3df17e8e5ce68312f483b4155836112aa/src/parser/peg/grammar/statements/select.gram",
+          "digest": "sha256:894bae17476ec7811bc21a3f085d51ae17cb2dc17e4e3b66f5e3e4f743b9266d",
+          "bytes": 9993
+        },
+        "src/parser/peg/grammar/statements/common.gram": {
+          "url": "https://raw.githubusercontent.com/duckdb/duckdb/d54cbbe3df17e8e5ce68312f483b4155836112aa/src/parser/peg/grammar/statements/common.gram",
+          "digest": "sha256:098c3b3262e6e7ea5a2a337f2ba9608cbb76c02b915e1a3f23ad89f6560101b9",
+          "bytes": 6147
+        },
+        "scripts/parser/inline_grammar.py": {
+          "url": "https://raw.githubusercontent.com/duckdb/duckdb/d54cbbe3df17e8e5ce68312f483b4155836112aa/scripts/parser/inline_grammar.py",
+          "digest": "sha256:9ecc979f47ab5d3c90121f3010fcd755b1e373c49c40a3b03eb9dcfcb2048500",
+          "bytes": 16719
+        },
+        "LICENSE": {
+          "url": "https://raw.githubusercontent.com/duckdb/duckdb/d54cbbe3df17e8e5ce68312f483b4155836112aa/LICENSE",
+          "digest": "sha256:075c33400ffcb0c586dd106a029d3e733e9da3693f8fcb9cebfc651c8a2f14e3",
+          "bytes": 1072
+        },
+        "src/parser/peg/grammar/statements/expression.gram": {
+          "url": "https://raw.githubusercontent.com/duckdb/duckdb/d54cbbe3df17e8e5ce68312f483b4155836112aa/src/parser/peg/grammar/statements/expression.gram",
+          "digest": "sha256:8105e1537dd51d3123b8dbb47c590751ccb1282ed160dff59d8c7848c16b48d0",
+          "bytes": 16088
+        }
+      }
+    }
+  ]
+}

@@ -8,6 +8,7 @@ import {
   type SemanticEvidence,
 } from "@typed-sql/core";
 import type { SchemaSnapshot } from "@typed-sql/schema";
+import { mySqlKeywordUpper } from "./keyword-case.js";
 import { type CallExpression, type Statement, walkStatement } from "./parser/index.js";
 
 const builtinVolatility: Readonly<Record<string, QueryVolatility>> = Object.freeze({
@@ -43,7 +44,8 @@ function key(dependency: QueryDependency): string {
 }
 
 function functionVolatility(expression: CallExpression, index: ResolverSchemaIndex): QueryVolatility {
-  const builtin = builtinVolatility[expression.name.name.toUpperCase()];
+  const builtin =
+    expression.nativeFunctionAllowed === false ? undefined : builtinVolatility[mySqlKeywordUpper(expression.name.name)];
   if (builtin !== undefined && expression.schema === undefined) return builtin;
   const candidates = index.functions(expression.name.name, expression.arguments.length, expression.schema?.name);
   return candidates.length === 1 ? (candidates[0]!.volatility ?? "unknown") : "unknown";

@@ -22,13 +22,32 @@
     "dist/**/*.map",
     "README.md",
     "LICENSE",
+    "POSTGRES_VOCABULARY_NOTICE",
     "CHANGELOG.md"
   ],
   "publishConfig": {
     "access": "public"
   },
   "typedSql": {
-    "releaseTrack": "stable"
+    "releaseTrack": "stable",
+    "developmentEntrypoints": [
+      "./analysis",
+      "./reconciliation",
+      "./migrations",
+      "./project-catalog",
+      "./analysis/14",
+      "./analysis/core/14",
+      "./analysis/15",
+      "./analysis/core/15",
+      "./analysis/16",
+      "./analysis/core/16",
+      "./analysis/17",
+      "./analysis/core/17",
+      "./analysis/18",
+      "./analysis/core/18",
+      "./analysis/19",
+      "./analysis/core/19"
+    ]
   },
   "sideEffects": false,
   "type": "module",
@@ -42,13 +61,33 @@
     "./runtime": "./dist/packages/postgres/src/runtime.js",
     "./pg": "./dist/packages/postgres/src/pg.js",
     "./query": "./dist/packages/postgres/src/query.js",
-    "./migrations": "./dist/packages/postgres/src/migrations.js"
+    "./migrations": "./dist/packages/postgres/src/migrations.js",
+    "./profile": "./dist/packages/postgres/src/profile.js",
+    "./tag": "./dist/packages/postgres/src/tag.js",
+    "./pg-contracts": "./dist/packages/postgres/src/pg-contracts.js",
+    "./reconciliation": "./dist/packages/postgres/src/reconciliation.js",
+    "./contract-profile": "./dist/packages/postgres/src/contract-profile.js",
+    "./analysis": "./dist/packages/postgres/src/analysis.js",
+    "./project-catalog": "./dist/packages/postgres/src/project-catalog.js",
+    "./analysis/14": "./dist/packages/postgres/src/analysis/14.js",
+    "./analysis/core/14": "./dist/packages/postgres/src/analysis/core/14.js",
+    "./analysis/15": "./dist/packages/postgres/src/analysis/15.js",
+    "./analysis/core/15": "./dist/packages/postgres/src/analysis/core/15.js",
+    "./analysis/16": "./dist/packages/postgres/src/analysis/16.js",
+    "./analysis/core/16": "./dist/packages/postgres/src/analysis/core/16.js",
+    "./analysis/17": "./dist/packages/postgres/src/analysis/17.js",
+    "./analysis/core/17": "./dist/packages/postgres/src/analysis/core/17.js",
+    "./analysis/18": "./dist/packages/postgres/src/analysis/18.js",
+    "./analysis/core/18": "./dist/packages/postgres/src/analysis/core/18.js",
+    "./analysis/19": "./dist/packages/postgres/src/analysis/19.js",
+    "./analysis/core/19": "./dist/packages/postgres/src/analysis/core/19.js"
   },
   "dependencies": {
     "@typed-sql/ast": "workspace:*",
     "@typed-sql/core": "workspace:*",
     "@typed-sql/schema": "workspace:*",
-    "@types/pg": "8.23.1"
+    "@types/pg": "8.23.1",
+    "@typed-sql/analysis": "workspace:*"
   },
   "devDependencies": {
     "@typed-sql/conformance": "workspace:*",

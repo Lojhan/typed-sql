@@ -6,6 +6,7 @@ import {
   type SchemaSnapshotV2,
   type TableSnapshot,
 } from "@typed-sql/schema";
+import { sqliteAsciiFold, sqliteAsciiUpper } from "./identifier-case.js";
 import { isKnownStrictSqliteType } from "./type-policy.js";
 
 export interface SqliteColumnSnapshot extends ColumnSnapshot {
@@ -147,7 +148,7 @@ function assertSqliteV2Relation(relation: RelationSnapshot, path: string): void 
       column.classification === "rowid" &&
       (withoutRowid === true ||
         relation.kind !== "table" ||
-        column.databaseType.trim().toUpperCase() !== "INTEGER" ||
+        sqliteAsciiUpper(column.databaseType.trim()) !== "INTEGER" ||
         column.nullable ||
         column.identity !== "by-default")
     ) {
@@ -287,10 +288,10 @@ export function parseSqliteSchemaSnapshot(value: unknown): SqliteSchemaSnapshot 
       };
     }
     if (rowidAlias !== undefined) {
-      const column = Object.values(columns).find(({ name }) => name.toLowerCase() === rowidAlias.toLowerCase());
+      const column = Object.values(columns).find(({ name }) => sqliteAsciiFold(name) === sqliteAsciiFold(rowidAlias));
       if (
         column === undefined ||
-        column.databaseType.trim().toUpperCase() !== "INTEGER" ||
+        sqliteAsciiUpper(column.databaseType.trim()) !== "INTEGER" ||
         column.nullable ||
         column.primaryKeyPosition !== 1
       ) {

@@ -1,0 +1,280 @@
+{
+  "formatVersion": 1,
+  "scope": "Reviewed exact-build and compatibility-level builtin descriptor witnesses. Partial, declined and unavailable observations remain limitations; acquisition does not establish universal type/function semantics.",
+  "profiles": {
+    "14.0.3560.2:140": {
+      "major": 14,
+      "build": "14.0.3560.2",
+      "compatibility": 140,
+      "catalogNames": 34,
+      "cases": 44,
+      "observations": 156,
+      "counts": {
+        "described/acquired": 134,
+        "described/declined": 8,
+        "described/unavailable": 6,
+        "unavailable/not-attempted": 6,
+        "described/partial": 2
+      },
+      "observationDigest": "ff5da66b5f3e45575eb4c83b0f94dfa87dfab73a47749566de51a1e0e87a71e3",
+      "capture": {
+        "sourceRevision": "17e85eb2e9690119453b416af46d5eca9524902c",
+        "toolDigest": "2f5b6b92401ced2f98d643fb11089f3633a7cee9c205cd24e58cd0cb9e16401f",
+        "casesDigest": "fcea4c4104af0e928764fc86b6ababf76bddea0956d1707553bbed8f58a396ae",
+        "environment": {
+          "node": "v24.22.2",
+          "platform": "linux",
+          "architecture": "x64",
+          "odbcPackage": "msodbcsql18\t18.7.1.1-1"
+        }
+      }
+    },
+    "15.0.4500.2:140": {
+      "major": 15,
+      "build": "15.0.4500.2",
+      "compatibility": 140,
+      "catalogNames": 34,
+      "cases": 44,
+      "observations": 156,
+      "counts": {
+        "described/acquired": 134,
+        "described/declined": 8,
+        "described/unavailable": 6,
+        "unavailable/not-attempted": 6,
+        "described/partial": 2
+      },
+      "observationDigest": "8cd427b3169a579877bff8df3bd7fdbbab1af4b9534ee8087f6b754b719805ce",
+      "capture": {
+        "sourceRevision": "17e85eb2e9690119453b416af46d5eca9524902c",
+        "toolDigest": "2f5b6b92401ced2f98d643fb11089f3633a7cee9c205cd24e58cd0cb9e16401f",
+        "casesDigest": "fcea4c4104af0e928764fc86b6ababf76bddea0956d1707553bbed8f58a396ae",
+        "environment": {
+          "node": "v24.22.2",
+          "platform": "linux",
+          "architecture": "x64",
+          "odbcPackage": "msodbcsql18\t18.7.1.1-1"
+        }
+      }
+    },
+    "15.0.4500.2:150": {
+      "major": 15,
+      "build": "15.0.4500.2",
+      "compatibility": 150,
+      "catalogNames": 34,
+      "cases": 44,
+      "observations": 156,
+      "counts": {
+        "described/acquired": 134,
+        "described/declined": 8,
+        "described/unavailable": 6,
+        "unavailable/not-attempted": 6,
+        "described/partial": 2
+      },
+      "observationDigest": "59c1eb4cd292387bab4ea1c01b9b679ccdd21642014903faa627dc75d7889807",
+      "capture": {
+        "sourceRevision": "17e85eb2e9690119453b416af46d5eca9524902c",
+        "toolDigest": "2f5b6b92401ced2f98d643fb11089f3633a7cee9c205cd24e58cd0cb9e16401f",
+        "casesDigest": "fcea4c4104af0e928764fc86b6ababf76bddea0956d1707553bbed8f58a396ae",
+        "environment": {
+          "node": "v24.22.2",
+          "platform": "linux",
+          "architecture": "x64",
+          "odbcPackage": "msodbcsql18\t18.7.1.1-1"
+        }
+      }
+    },
+    "16.0.4305.5:140": {
+      "major": 16,
+      "build": "16.0.4305.5",
+      "compatibility": 140,
+      "catalogNames": 34,
+      "cases": 44,
+      "observations": 156,
+      "counts": {
+        "described/acquired": 134,
+        "described/declined": 8,
+        "described/unavailable": 6,
+        "unavailable/not-attempted": 6,
+        "described/partial": 2
+      },
+      "observationDigest": "6a5cc7467ee5fd56df2e2a03711dde80e8c97550a5f8291646fd9068984ef1d2",
+      "capture": {
+        "sourceRevision": "17e85eb2e9690119453b416af46d5eca9524902c",
+        "toolDigest": "2f5b6b92401ced2f98d643fb11089f3633a7cee9c205cd24e58cd0cb9e16401f",
+        "casesDigest": "fcea4c4104af0e928764fc86b6ababf76bddea0956d1707553bbed8f58a396ae",
+        "environment": {
+          "node": "v24.22.2",
+          "platform": "linux",
+          "architecture": "x64",
+          "odbcPackage": "msodbcsql18\t18.7.1.1-1"
+        }
+      }
+    },
+    "16.0.4305.5:150": {
+      "major": 16,
+      "build": "16.0.4305.5",
+      "compatibility": 150,
+      "catalogNames": 34,
+      "cases": 44,
+      "observations": 156,
+      "counts": {
+        "described/acquired": 134,
+        "described/declined": 8,
+        "described/unavailable": 6,
+        "unavailable/not-attempted": 6,
+        "described/partial": 2
+      },
+      "observationDigest": "971948cc63696e311be015fadfc339d538754d320bbf49c9f7f854d895f7e8a7",
+      "capture": {
+        "sourceRevision": "17e85eb2e9690119453b416af46d5eca9524902c",
+        "toolDigest": "2f5b6b92401ced2f98d643fb11089f3633a7cee9c205cd24e58cd0cb9e16401f",
+        "casesDigest": "fcea4c4104af0e928764fc86b6ababf76bddea0956d1707553bbed8f58a396ae",
+        "environment": {
+          "node": "v24.22.2",
+          "platform": "linux",
+          "architecture": "x64",
+          "odbcPackage": "msodbcsql18\t18.7.1.1-1"
+        }
+      }
+    },
+    "16.0.4305.5:160": {
+      "major": 16,
+      "build": "16.0.4305.5",
+      "compatibility": 160,
+      "catalogNames": 34,
+      "cases": 44,
+      "observations": 156,
+      "counts": {
+        "described/acquired": 134,
+        "described/declined": 8,
+        "described/unavailable": 6,
+        "unavailable/not-attempted": 6,
+        "described/partial": 2
+      },
+      "observationDigest": "80e8b6c515a38c2dd98e19db2efb0aec4f358b267e6d51af1ad6fc094e4d7691",
+      "capture": {
+        "sourceRevision": "17e85eb2e9690119453b416af46d5eca9524902c",
+        "toolDigest": "2f5b6b92401ced2f98d643fb11089f3633a7cee9c205cd24e58cd0cb9e16401f",
+        "casesDigest": "fcea4c4104af0e928764fc86b6ababf76bddea0956d1707553bbed8f58a396ae",
+        "environment": {
+          "node": "v24.22.2",
+          "platform": "linux",
+          "architecture": "x64",
+          "odbcPackage": "msodbcsql18\t18.7.1.1-1"
+        }
+      }
+    },
+    "17.0.5035.5:140": {
+      "major": 17,
+      "build": "17.0.5035.5",
+      "compatibility": 140,
+      "catalogNames": 36,
+      "cases": 46,
+      "observations": 162,
+      "counts": {
+        "described/acquired": 137,
+        "described/declined": 8,
+        "described/unavailable": 6,
+        "unavailable/not-attempted": 7,
+        "described/partial": 2,
+        "rejected/not-attempted": 2
+      },
+      "observationDigest": "6d679bc44d50aeadc13397786ab5fcfd850982adc3ba2c6c3ee202926f427230",
+      "capture": {
+        "sourceRevision": "17e85eb2e9690119453b416af46d5eca9524902c",
+        "toolDigest": "2f5b6b92401ced2f98d643fb11089f3633a7cee9c205cd24e58cd0cb9e16401f",
+        "casesDigest": "fcea4c4104af0e928764fc86b6ababf76bddea0956d1707553bbed8f58a396ae",
+        "environment": {
+          "node": "v24.22.2",
+          "platform": "linux",
+          "architecture": "x64",
+          "odbcPackage": "msodbcsql18\t18.7.1.1-1"
+        }
+      }
+    },
+    "17.0.5035.5:150": {
+      "major": 17,
+      "build": "17.0.5035.5",
+      "compatibility": 150,
+      "catalogNames": 36,
+      "cases": 46,
+      "observations": 162,
+      "counts": {
+        "described/acquired": 137,
+        "described/declined": 8,
+        "described/unavailable": 6,
+        "unavailable/not-attempted": 7,
+        "described/partial": 2,
+        "rejected/not-attempted": 2
+      },
+      "observationDigest": "83aeff833ab3b414d9b7cc19cafde55d3c2f13df335ababf338bd6d183b82532",
+      "capture": {
+        "sourceRevision": "17e85eb2e9690119453b416af46d5eca9524902c",
+        "toolDigest": "2f5b6b92401ced2f98d643fb11089f3633a7cee9c205cd24e58cd0cb9e16401f",
+        "casesDigest": "fcea4c4104af0e928764fc86b6ababf76bddea0956d1707553bbed8f58a396ae",
+        "environment": {
+          "node": "v24.22.2",
+          "platform": "linux",
+          "architecture": "x64",
+          "odbcPackage": "msodbcsql18\t18.7.1.1-1"
+        }
+      }
+    },
+    "17.0.5035.5:160": {
+      "major": 17,
+      "build": "17.0.5035.5",
+      "compatibility": 160,
+      "catalogNames": 36,
+      "cases": 46,
+      "observations": 162,
+      "counts": {
+        "described/acquired": 137,
+        "described/declined": 8,
+        "described/unavailable": 6,
+        "unavailable/not-attempted": 7,
+        "described/partial": 2,
+        "rejected/not-attempted": 2
+      },
+      "observationDigest": "ae32ea6624bf3992510b4a682688ce876875ebb421bd99fcba715aa9eb87afb5",
+      "capture": {
+        "sourceRevision": "17e85eb2e9690119453b416af46d5eca9524902c",
+        "toolDigest": "2f5b6b92401ced2f98d643fb11089f3633a7cee9c205cd24e58cd0cb9e16401f",
+        "casesDigest": "fcea4c4104af0e928764fc86b6ababf76bddea0956d1707553bbed8f58a396ae",
+        "environment": {
+          "node": "v24.22.2",
+          "platform": "linux",
+          "architecture": "x64",
+          "odbcPackage": "msodbcsql18\t18.7.1.1-1"
+        }
+      }
+    },
+    "17.0.5035.5:170": {
+      "major": 17,
+      "build": "17.0.5035.5",
+      "compatibility": 170,
+      "catalogNames": 36,
+      "cases": 46,
+      "observations": 162,
+      "counts": {
+        "described/acquired": 137,
+        "described/declined": 8,
+        "described/unavailable": 6,
+        "unavailable/not-attempted": 7,
+        "described/partial": 2,
+        "rejected/not-attempted": 2
+      },
+      "observationDigest": "7370d2ab4173cdbed629fe2e57940f4b802f176143b97f086a74b7524779c37e",
+      "capture": {
+        "sourceRevision": "17e85eb2e9690119453b416af46d5eca9524902c",
+        "toolDigest": "2f5b6b92401ced2f98d643fb11089f3633a7cee9c205cd24e58cd0cb9e16401f",
+        "casesDigest": "fcea4c4104af0e928764fc86b6ababf76bddea0956d1707553bbed8f58a396ae",
+        "environment": {
+          "node": "v24.22.2",
+          "platform": "linux",
+          "architecture": "x64",
+          "odbcPackage": "msodbcsql18\t18.7.1.1-1"
+        }
+      }
+    }
+  }
+}

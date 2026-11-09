@@ -26,7 +26,7 @@ function createDependencyExtractor(options: BuildOptions = {}): Extractor {
             ? { config: process.env.TYPED_SQL_BUILD_CONFIG }
             : {}),
         });
-        for (const dependency of session.request("identity").dependencies) dependencies.add(dependency);
+        for (const dependency of session.request("identity", source, file).dependencies) dependencies.add(dependency);
       }
       return dependencies;
     },

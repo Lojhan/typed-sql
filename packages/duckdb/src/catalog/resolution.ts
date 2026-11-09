@@ -1,5 +1,6 @@
 import { type DuckDBType, formatDuckDBType, parseDuckDBType } from "../native-types.js";
-import { type DuckDBBuiltinSignature, duckDBBuiltinSignatures, duckDBScalarImplicitCast } from "./index.js";
+import type { DuckDBCatalogProvider } from "./provider.js";
+import type { DuckDBBuiltinSignature } from "./types.js";
 
 interface Pattern {
   readonly name: string;
@@ -55,6 +56,7 @@ function match(
   actual: DuckDBType,
   bindings: Map<string, DuckDBType>,
   version: string,
+  catalog: DuckDBCatalogProvider,
 ): number | undefined {
   if (actual.kind === "scalar" && (actual.name === "NULL" || actual.name === "ANY")) return 50;
   if (["T", "K", "V"].includes(expected.name)) {
@@ -71,12 +73,12 @@ function match(
       (actual.kind !== "array" || (expected.arrayLength !== "any" && expected.arrayLength !== actual.length))
     )
       return undefined;
-    return match(expected.children![0]!, actual.element, bindings, version);
+    return match(expected.children![0]!, actual.element, bindings, version, catalog);
   }
   if (expected.name === "MAP") {
     if (actual.kind !== "map") return undefined;
-    const key = match(expected.children![0]!, actual.key, bindings, version),
-      value = match(expected.children![1]!, actual.value, bindings, version);
+    const key = match(expected.children![0]!, actual.key, bindings, version, catalog),
+      value = match(expected.children![1]!, actual.value, bindings, version, catalog);
     return key === undefined || value === undefined ? undefined : key + value;
   }
   if (expected.name === "TUPLE" && expected.children) {
@@ -89,7 +91,7 @@ function match(
     if (!elements || elements.length !== expected.children.length) return undefined;
     let score = 0;
     for (let i = 0; i < elements.length; i++) {
-      const value = match(expected.children[i]!, elements[i]!, bindings, version);
+      const value = match(expected.children[i]!, elements[i]!, bindings, version, catalog);
       if (value === undefined) return undefined;
       score += value;
     }
@@ -122,13 +124,13 @@ function match(
       TIMESTAMPTZ_NS: 124,
       VARCHAR: 149,
     };
-    return duckDBScalarImplicitCast(version, actual.name, target.name) ? (costs[target.name] ?? 110) : undefined;
+    return catalog.implicitCast(version, actual.name, target.name) ? (costs[target.name] ?? 110) : undefined;
   }
   return same(target, actual) ? 0 : undefined;
 }
 function resultType(expected: Pattern, bindings: Map<string, DuckDBType>): DuckDBType | undefined {
   if (
-    ["ANY", "DECIMAL", "STRUCT", "UNION", "TUPLE", "LAMBDA", "TABLE", "LIST"].includes(expected.name) &&
+    ["ANY", "DECIMAL", "MAP", "STRUCT", "UNION", "TUPLE", "LAMBDA", "TABLE", "LIST"].includes(expected.name) &&
     !expected.children
   )
     return undefined;
@@ -166,9 +168,10 @@ export function matchDuckDBBuiltin(
   version: string,
   name: string,
   args: readonly DuckDBType[],
+  catalog: DuckDBCatalogProvider,
 ): readonly DuckDBBuiltinMatch[] {
   const matches: DuckDBBuiltinMatch[] = [];
-  for (const signature of duckDBBuiltinSignatures(version, name)) {
+  for (const signature of catalog.signatures(version, name)) {
     if (args.length < signature[2].length || (!signature[4] && args.length !== signature[2].length)) continue;
     const bindings = new Map<string, DuckDBType>();
     let score = 0,
@@ -179,7 +182,7 @@ export function matchDuckDBBuiltin(
         valid = false;
         break;
       }
-      const matchScore = match(readPattern(source), args[i]!, bindings, version);
+      const matchScore = match(readPattern(source), args[i]!, bindings, version, catalog);
       if (matchScore === undefined) {
         valid = false;
         break;

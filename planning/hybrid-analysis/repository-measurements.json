@@ -1,0 +1,1085 @@
+{
+  "formatVersion": 1,
+  "sourceRevision": "c3eeb1cfb7f96a25d5ff29b80b26387af43bad63",
+  "measurementToolDigest": "f17df587bd2d41a1906a1695dde0ee3b0a150442a143a5b79ada281b18c653e4",
+  "method": {
+    "scope": "All Git-tracked files at exact revisions; no working-tree, build-output or installed-package files.",
+    "lines": "Physical UTF-8 text lines, including blank lines and comments. Not semantic statements or changed-line counts.",
+    "generatedCode": "Code files with an explicit generated/auto-generated/@generated header in the leading comment preamble (at most twelve lines). Data and reports remain separately classified.",
+    "maintainedCode": "Code files without that header; generated blocks inside maintained files are not separated.",
+    "sourceExtensions": [
+      ".bash",
+      ".c",
+      ".cjs",
+      ".cpp",
+      ".css",
+      ".cts",
+      ".go",
+      ".graphql",
+      ".h",
+      ".hpp",
+      ".html",
+      ".js",
+      ".jsx",
+      ".mjs",
+      ".mts",
+      ".py",
+      ".rs",
+      ".scss",
+      ".sh",
+      ".sql",
+      ".svelte",
+      ".ts",
+      ".tsx",
+      ".vue"
+    ],
+    "binary": "Known binary extensions or NUL/invalid UTF-8; bytes/files count, lines do not. Symlink targets count as bytes, not source lines.",
+    "limits": "Classification measures tracked ownership and size, not hand-editing effort, dead code, semantic coverage, publication payload or tree-shaken bytes."
+  },
+  "rows": {
+    "base": {
+      "revision": "3753571154bb3acf460a2a2031e9b20f88e21ea8",
+      "totals": {
+        "files": 1634,
+        "bytes": 48934742,
+        "lines": 457258,
+        "maintainedCodeLines": 217644,
+        "generatedCodeLines": 27521
+      },
+      "categories": {
+        "applicationEditorWebsiteSource": {
+          "files": 147,
+          "bytes": 604939,
+          "lines": 16589,
+          "maintainedCodeLines": 12507,
+          "generatedCodeLines": 4082
+        },
+        "auditFixtureAndReportData": {
+          "files": 26,
+          "bytes": 23746941,
+          "lines": 105432,
+          "maintainedCodeLines": 0,
+          "generatedCodeLines": 0
+        },
+        "binary": {
+          "files": 119,
+          "bytes": 10953226,
+          "lines": 0,
+          "maintainedCodeLines": 0,
+          "generatedCodeLines": 0
+        },
+        "configurationAndOtherData": {
+          "files": 195,
+          "bytes": 2716534,
+          "lines": 83293,
+          "maintainedCodeLines": 0,
+          "generatedCodeLines": 0
+        },
+        "documentation": {
+          "files": 166,
+          "bytes": 1516881,
+          "lines": 21435,
+          "maintainedCodeLines": 0,
+          "generatedCodeLines": 0
+        },
+        "otherSource": {
+          "files": 63,
+          "bytes": 530899,
+          "lines": 15833,
+          "maintainedCodeLines": 15833,
+          "generatedCodeLines": 0
+        },
+        "otherText": {
+          "files": 50,
+          "bytes": 114081,
+          "lines": 1933,
+          "maintainedCodeLines": 0,
+          "generatedCodeLines": 0
+        },
+        "packageSource": {
+          "files": 345,
+          "bytes": 4591232,
+          "lines": 115383,
+          "maintainedCodeLines": 91944,
+          "generatedCodeLines": 23439
+        },
+        "testSource": {
+          "files": 461,
+          "bytes": 3782729,
+          "lines": 88353,
+          "maintainedCodeLines": 88353,
+          "generatedCodeLines": 0
+        },
+        "toolingSource": {
+          "files": 62,
+          "bytes": 377280,
+          "lines": 9007,
+          "maintainedCodeLines": 9007,
+          "generatedCodeLines": 0
+        }
+      },
+      "packages": {
+        "adapters": {
+          "files": 9,
+          "bytes": 35215,
+          "lines": 893,
+          "maintainedCodeLines": 893,
+          "generatedCodeLines": 0
+        },
+        "ast": {
+          "files": 9,
+          "bytes": 83834,
+          "lines": 2523,
+          "maintainedCodeLines": 2523,
+          "generatedCodeLines": 0
+        },
+        "build": {
+          "files": 27,
+          "bytes": 52041,
+          "lines": 1322,
+          "maintainedCodeLines": 1322,
+          "generatedCodeLines": 0
+        },
+        "cli": {
+          "files": 13,
+          "bytes": 107410,
+          "lines": 2483,
+          "maintainedCodeLines": 2483,
+          "generatedCodeLines": 0
+        },
+        "compiler": {
+          "files": 22,
+          "bytes": 317185,
+          "lines": 7989,
+          "maintainedCodeLines": 7989,
+          "generatedCodeLines": 0
+        },
+        "config": {
+          "files": 1,
+          "bytes": 6296,
+          "lines": 171,
+          "maintainedCodeLines": 171,
+          "generatedCodeLines": 0
+        },
+        "conformance": {
+          "files": 15,
+          "bytes": 98536,
+          "lines": 2429,
+          "maintainedCodeLines": 2429,
+          "generatedCodeLines": 0
+        },
+        "core": {
+          "files": 23,
+          "bytes": 246067,
+          "lines": 6106,
+          "maintainedCodeLines": 6106,
+          "generatedCodeLines": 0
+        },
+        "duckdb": {
+          "files": 29,
+          "bytes": 930261,
+          "lines": 18954,
+          "maintainedCodeLines": 7701,
+          "generatedCodeLines": 11253
+        },
+        "language-server": {
+          "files": 9,
+          "bytes": 95497,
+          "lines": 2393,
+          "maintainedCodeLines": 2393,
+          "generatedCodeLines": 0
+        },
+        "migrations": {
+          "files": 7,
+          "bytes": 78252,
+          "lines": 1876,
+          "maintainedCodeLines": 1876,
+          "generatedCodeLines": 0
+        },
+        "mysql": {
+          "files": 27,
+          "bytes": 423750,
+          "lines": 10048,
+          "maintainedCodeLines": 10024,
+          "generatedCodeLines": 24
+        },
+        "opentelemetry": {
+          "files": 1,
+          "bytes": 4378,
+          "lines": 102,
+          "maintainedCodeLines": 102,
+          "generatedCodeLines": 0
+        },
+        "playground": {
+          "files": 31,
+          "bytes": 342024,
+          "lines": 8044,
+          "maintainedCodeLines": 8044,
+          "generatedCodeLines": 0
+        },
+        "postgres": {
+          "files": 35,
+          "bytes": 953221,
+          "lines": 30012,
+          "maintainedCodeLines": 17850,
+          "generatedCodeLines": 12162
+        },
+        "schema": {
+          "files": 14,
+          "bytes": 90556,
+          "lines": 2188,
+          "maintainedCodeLines": 2188,
+          "generatedCodeLines": 0
+        },
+        "sqlite": {
+          "files": 28,
+          "bytes": 312573,
+          "lines": 8018,
+          "maintainedCodeLines": 8018,
+          "generatedCodeLines": 0
+        },
+        "sqlserver": {
+          "files": 33,
+          "bytes": 390339,
+          "lines": 9244,
+          "maintainedCodeLines": 9244,
+          "generatedCodeLines": 0
+        },
+        "ts-bridge": {
+          "files": 12,
+          "bytes": 23797,
+          "lines": 588,
+          "maintainedCodeLines": 588,
+          "generatedCodeLines": 0
+        }
+      },
+      "generatedSourceFiles": 18,
+      "largestGeneratedSources": [
+        {
+          "path": "packages/duckdb/src/catalog/2.0.0.ts",
+          "lines": 4057,
+          "bytes": 264020
+        },
+        {
+          "path": "packages/duckdb/src/catalog/1.5.6.ts",
+          "lines": 3702,
+          "bytes": 242311
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/18.ts",
+          "lines": 2050,
+          "bytes": 40795
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/19.ts",
+          "lines": 2050,
+          "bytes": 40795
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/14.ts",
+          "lines": 2020,
+          "bytes": 40187
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/15.ts",
+          "lines": 2014,
+          "bytes": 40069
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/16.ts",
+          "lines": 2014,
+          "bytes": 40069
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/17.ts",
+          "lines": 2014,
+          "bytes": 40069
+        },
+        {
+          "path": "packages/duckdb/src/catalog/common-2.0.0.ts",
+          "lines": 1865,
+          "bytes": 58960
+        },
+        {
+          "path": "packages/duckdb/src/catalog/common-1.5.6.ts",
+          "lines": 1629,
+          "bytes": 50622
+        },
+        {
+          "path": "examples/multi-database/sqlite/generated/db/index.ts",
+          "lines": 1079,
+          "bytes": 31144
+        },
+        {
+          "path": "examples/sqlite/generated/db/index.ts",
+          "lines": 1079,
+          "bytes": 31144
+        }
+      ],
+      "largestTrackedData": [
+        {
+          "path": "test/fixtures/language-audit/baseline.json",
+          "lines": 31071,
+          "bytes": 2285299
+        },
+        {
+          "path": "test/fixtures/language-audit/native-findings.json",
+          "lines": 27253,
+          "bytes": 4684685
+        },
+        {
+          "path": "test/fixtures/language-audit/duckdb-2.0.0.json",
+          "lines": 10273,
+          "bytes": 4916503
+        },
+        {
+          "path": "test/fixtures/language-audit/duckdb-1.5.6.json",
+          "lines": 9347,
+          "bytes": 4411637
+        },
+        {
+          "path": "grammar/features/ledger.json",
+          "lines": 6282,
+          "bytes": 223820
+        },
+        {
+          "path": "test/fixtures/language-audit/live-baselines.json",
+          "lines": 3074,
+          "bytes": 121827
+        },
+        {
+          "path": "test/fixtures/language-audit/postgres-19.json",
+          "lines": 1880,
+          "bytes": 724433
+        },
+        {
+          "path": "test/fixtures/language-audit/postgres-18.json",
+          "lines": 1864,
+          "bytes": 715012
+        },
+        {
+          "path": "test/fixtures/language-audit/postgres-17.json",
+          "lines": 1845,
+          "bytes": 699223
+        },
+        {
+          "path": "test/fixtures/language-audit/postgres-16.json",
+          "lines": 1818,
+          "bytes": 677868
+        },
+        {
+          "path": "test/fixtures/language-audit/postgres-15.json",
+          "lines": 1783,
+          "bytes": 654919
+        },
+        {
+          "path": "test/fixtures/language-audit/postgres-14.json",
+          "lines": 1766,
+          "bytes": 644565
+        }
+      ]
+    },
+    "exhaustiveProposal": {
+      "revision": "e194abb4f55523f435995a74d7d8ab58c2c42977",
+      "totals": {
+        "files": 2015,
+        "bytes": 102997854,
+        "lines": 876109,
+        "maintainedCodeLines": 247705,
+        "generatedCodeLines": 4082
+      },
+      "categories": {
+        "applicationEditorWebsiteSource": {
+          "files": 147,
+          "bytes": 605518,
+          "lines": 16601,
+          "maintainedCodeLines": 12519,
+          "generatedCodeLines": 4082
+        },
+        "auditFixtureAndReportData": {
+          "files": 61,
+          "bytes": 52147360,
+          "lines": 335870,
+          "maintainedCodeLines": 0,
+          "generatedCodeLines": 0
+        },
+        "binary": {
+          "files": 119,
+          "bytes": 10953226,
+          "lines": 0,
+          "maintainedCodeLines": 0,
+          "generatedCodeLines": 0
+        },
+        "capturedCatalogData": {
+          "files": 5,
+          "bytes": 24929359,
+          "lines": 175882,
+          "maintainedCodeLines": 0,
+          "generatedCodeLines": 0
+        },
+        "configurationAndOtherData": {
+          "files": 199,
+          "bytes": 2727879,
+          "lines": 83568,
+          "maintainedCodeLines": 0,
+          "generatedCodeLines": 0
+        },
+        "documentation": {
+          "files": 218,
+          "bytes": 1756456,
+          "lines": 27000,
+          "maintainedCodeLines": 0,
+          "generatedCodeLines": 0
+        },
+        "otherSource": {
+          "files": 68,
+          "bytes": 552818,
+          "lines": 16310,
+          "maintainedCodeLines": 16310,
+          "generatedCodeLines": 0
+        },
+        "otherText": {
+          "files": 52,
+          "bytes": 117681,
+          "lines": 2002,
+          "maintainedCodeLines": 0,
+          "generatedCodeLines": 0
+        },
+        "packageSource": {
+          "files": 418,
+          "bytes": 4055136,
+          "lines": 99619,
+          "maintainedCodeLines": 99619,
+          "generatedCodeLines": 0
+        },
+        "testSource": {
+          "files": 533,
+          "bytes": 4386952,
+          "lines": 101778,
+          "maintainedCodeLines": 101778,
+          "generatedCodeLines": 0
+        },
+        "toolingSource": {
+          "files": 195,
+          "bytes": 765469,
+          "lines": 17479,
+          "maintainedCodeLines": 17479,
+          "generatedCodeLines": 0
+        }
+      },
+      "packages": {
+        "adapters": {
+          "files": 9,
+          "bytes": 35215,
+          "lines": 893,
+          "maintainedCodeLines": 893,
+          "generatedCodeLines": 0
+        },
+        "analysis": {
+          "files": 22,
+          "bytes": 197535,
+          "lines": 4504,
+          "maintainedCodeLines": 4504,
+          "generatedCodeLines": 0
+        },
+        "ast": {
+          "files": 9,
+          "bytes": 83834,
+          "lines": 2523,
+          "maintainedCodeLines": 2523,
+          "generatedCodeLines": 0
+        },
+        "build": {
+          "files": 27,
+          "bytes": 51987,
+          "lines": 1321,
+          "maintainedCodeLines": 1321,
+          "generatedCodeLines": 0
+        },
+        "cli": {
+          "files": 17,
+          "bytes": 139462,
+          "lines": 3251,
+          "maintainedCodeLines": 3251,
+          "generatedCodeLines": 0
+        },
+        "compiler": {
+          "files": 26,
+          "bytes": 343534,
+          "lines": 8628,
+          "maintainedCodeLines": 8628,
+          "generatedCodeLines": 0
+        },
+        "config": {
+          "files": 1,
+          "bytes": 10771,
+          "lines": 285,
+          "maintainedCodeLines": 285,
+          "generatedCodeLines": 0
+        },
+        "conformance": {
+          "files": 15,
+          "bytes": 98536,
+          "lines": 2429,
+          "maintainedCodeLines": 2429,
+          "generatedCodeLines": 0
+        },
+        "core": {
+          "files": 24,
+          "bytes": 253686,
+          "lines": 6274,
+          "maintainedCodeLines": 6274,
+          "generatedCodeLines": 0
+        },
+        "duckdb": {
+          "files": 35,
+          "bytes": 331694,
+          "lines": 8067,
+          "maintainedCodeLines": 8067,
+          "generatedCodeLines": 0
+        },
+        "language-server": {
+          "files": 10,
+          "bytes": 111083,
+          "lines": 2779,
+          "maintainedCodeLines": 2779,
+          "generatedCodeLines": 0
+        },
+        "migrations": {
+          "files": 7,
+          "bytes": 78252,
+          "lines": 1876,
+          "maintainedCodeLines": 1876,
+          "generatedCodeLines": 0
+        },
+        "mysql": {
+          "files": 31,
+          "bytes": 399848,
+          "lines": 10123,
+          "maintainedCodeLines": 10123,
+          "generatedCodeLines": 0
+        },
+        "opentelemetry": {
+          "files": 1,
+          "bytes": 4378,
+          "lines": 102,
+          "maintainedCodeLines": 102,
+          "generatedCodeLines": 0
+        },
+        "playground": {
+          "files": 31,
+          "bytes": 342024,
+          "lines": 8044,
+          "maintainedCodeLines": 8044,
+          "generatedCodeLines": 0
+        },
+        "postgres": {
+          "files": 58,
+          "bytes": 773434,
+          "lines": 19078,
+          "maintainedCodeLines": 19078,
+          "generatedCodeLines": 0
+        },
+        "schema": {
+          "files": 14,
+          "bytes": 90556,
+          "lines": 2188,
+          "maintainedCodeLines": 2188,
+          "generatedCodeLines": 0
+        },
+        "sqlite": {
+          "files": 32,
+          "bytes": 297897,
+          "lines": 7520,
+          "maintainedCodeLines": 7520,
+          "generatedCodeLines": 0
+        },
+        "sqlserver": {
+          "files": 37,
+          "bytes": 387613,
+          "lines": 9146,
+          "maintainedCodeLines": 9146,
+          "generatedCodeLines": 0
+        },
+        "ts-bridge": {
+          "files": 12,
+          "bytes": 23797,
+          "lines": 588,
+          "maintainedCodeLines": 588,
+          "generatedCodeLines": 0
+        }
+      },
+      "generatedSourceFiles": 5,
+      "largestGeneratedSources": [
+        {
+          "path": "examples/multi-database/sqlite/generated/db/index.ts",
+          "lines": 1079,
+          "bytes": 31144
+        },
+        {
+          "path": "examples/sqlite/generated/db/index.ts",
+          "lines": 1079,
+          "bytes": 31144
+        },
+        {
+          "path": "examples/multi-database/postgres/generated/db/index.ts",
+          "lines": 657,
+          "bytes": 19902
+        },
+        {
+          "path": "examples/postgres/generated/db/index.ts",
+          "lines": 652,
+          "bytes": 19352
+        },
+        {
+          "path": "examples/mysql/generated/db/index.ts",
+          "lines": 615,
+          "bytes": 18926
+        }
+      ],
+      "largestTrackedData": [
+        {
+          "path": "grammar/catalog/upstream.json",
+          "lines": 165165,
+          "bytes": 22057923
+        },
+        {
+          "path": "grammar/duckdb/facts/catalog.json",
+          "lines": 143447,
+          "bytes": 3520976
+        },
+        {
+          "path": "grammar/sqlite/facts/catalog.json",
+          "lines": 32432,
+          "bytes": 890044
+        },
+        {
+          "path": "test/fixtures/language-audit/baseline.json",
+          "lines": 31080,
+          "bytes": 2310666
+        },
+        {
+          "path": "planning/grammar-completeness/sqlite-function-coverage.json",
+          "lines": 18128,
+          "bytes": 504010
+        },
+        {
+          "path": "test/fixtures/language-audit/native-findings.json",
+          "lines": 16862,
+          "bytes": 4351532
+        },
+        {
+          "path": "planning/grammar-completeness/duckdb-routine-projection.json",
+          "lines": 12384,
+          "bytes": 4616504
+        },
+        {
+          "path": "test/fixtures/language-audit/duckdb-2.0.0.json",
+          "lines": 10273,
+          "bytes": 4916503
+        },
+        {
+          "path": "test/fixtures/language-audit/duckdb-1.5.6.json",
+          "lines": 9347,
+          "bytes": 4411637
+        },
+        {
+          "path": "grammar/features/ledger.json",
+          "lines": 6282,
+          "bytes": 223820
+        },
+        {
+          "path": "planning/grammar-completeness/sqlserver-source-coverage.json",
+          "lines": 5132,
+          "bytes": 115691
+        },
+        {
+          "path": "planning/grammar-completeness/postgres-source-coverage.json",
+          "lines": 4966,
+          "bytes": 125851
+        }
+      ]
+    },
+    "current": {
+      "revision": "c3eeb1cfb7f96a25d5ff29b80b26387af43bad63",
+      "totals": {
+        "files": 2136,
+        "bytes": 52799997,
+        "lines": 544168,
+        "maintainedCodeLines": 265383,
+        "generatedCodeLines": 33245
+      },
+      "categories": {
+        "applicationEditorWebsiteSource": {
+          "files": 147,
+          "bytes": 605538,
+          "lines": 16600,
+          "maintainedCodeLines": 12518,
+          "generatedCodeLines": 4082
+        },
+        "auditFixtureAndReportData": {
+          "files": 53,
+          "bytes": 24867255,
+          "lines": 132551,
+          "maintainedCodeLines": 0,
+          "generatedCodeLines": 0
+        },
+        "binary": {
+          "files": 119,
+          "bytes": 10953226,
+          "lines": 0,
+          "maintainedCodeLines": 0,
+          "generatedCodeLines": 0
+        },
+        "configurationAndOtherData": {
+          "files": 198,
+          "bytes": 2734966,
+          "lines": 83753,
+          "maintainedCodeLines": 0,
+          "generatedCodeLines": 0
+        },
+        "documentation": {
+          "files": 272,
+          "bytes": 1900798,
+          "lines": 26569,
+          "maintainedCodeLines": 0,
+          "generatedCodeLines": 0
+        },
+        "otherSource": {
+          "files": 84,
+          "bytes": 688752,
+          "lines": 19063,
+          "maintainedCodeLines": 19063,
+          "generatedCodeLines": 0
+        },
+        "otherText": {
+          "files": 56,
+          "bytes": 152035,
+          "lines": 2667,
+          "maintainedCodeLines": 0,
+          "generatedCodeLines": 0
+        },
+        "packageSource": {
+          "files": 537,
+          "bytes": 5455126,
+          "lines": 137243,
+          "maintainedCodeLines": 108080,
+          "generatedCodeLines": 29163
+        },
+        "testSource": {
+          "files": 579,
+          "bytes": 4945229,
+          "lines": 114142,
+          "maintainedCodeLines": 114142,
+          "generatedCodeLines": 0
+        },
+        "toolingSource": {
+          "files": 91,
+          "bytes": 497072,
+          "lines": 11580,
+          "maintainedCodeLines": 11580,
+          "generatedCodeLines": 0
+        }
+      },
+      "packages": {
+        "adapters": {
+          "files": 9,
+          "bytes": 35239,
+          "lines": 893,
+          "maintainedCodeLines": 893,
+          "generatedCodeLines": 0
+        },
+        "analysis": {
+          "files": 28,
+          "bytes": 265655,
+          "lines": 6013,
+          "maintainedCodeLines": 6013,
+          "generatedCodeLines": 0
+        },
+        "ast": {
+          "files": 9,
+          "bytes": 83834,
+          "lines": 2523,
+          "maintainedCodeLines": 2523,
+          "generatedCodeLines": 0
+        },
+        "build": {
+          "files": 28,
+          "bytes": 63104,
+          "lines": 1608,
+          "maintainedCodeLines": 1608,
+          "generatedCodeLines": 0
+        },
+        "cli": {
+          "files": 19,
+          "bytes": 155305,
+          "lines": 3618,
+          "maintainedCodeLines": 3618,
+          "generatedCodeLines": 0
+        },
+        "compiler": {
+          "files": 26,
+          "bytes": 345108,
+          "lines": 8663,
+          "maintainedCodeLines": 8663,
+          "generatedCodeLines": 0
+        },
+        "config": {
+          "files": 1,
+          "bytes": 10771,
+          "lines": 285,
+          "maintainedCodeLines": 285,
+          "generatedCodeLines": 0
+        },
+        "conformance": {
+          "files": 15,
+          "bytes": 98536,
+          "lines": 2429,
+          "maintainedCodeLines": 2429,
+          "generatedCodeLines": 0
+        },
+        "core": {
+          "files": 24,
+          "bytes": 253938,
+          "lines": 6277,
+          "maintainedCodeLines": 6277,
+          "generatedCodeLines": 0
+        },
+        "duckdb": {
+          "files": 58,
+          "bytes": 1032374,
+          "lines": 23073,
+          "maintainedCodeLines": 8831,
+          "generatedCodeLines": 14242
+        },
+        "language-server": {
+          "files": 11,
+          "bytes": 127431,
+          "lines": 3210,
+          "maintainedCodeLines": 3210,
+          "generatedCodeLines": 0
+        },
+        "migrations": {
+          "files": 7,
+          "bytes": 78252,
+          "lines": 1876,
+          "maintainedCodeLines": 1876,
+          "generatedCodeLines": 0
+        },
+        "mysql": {
+          "files": 60,
+          "bytes": 524756,
+          "lines": 12643,
+          "maintainedCodeLines": 11589,
+          "generatedCodeLines": 1054
+        },
+        "opentelemetry": {
+          "files": 1,
+          "bytes": 4378,
+          "lines": 102,
+          "maintainedCodeLines": 102,
+          "generatedCodeLines": 0
+        },
+        "playground": {
+          "files": 31,
+          "bytes": 342024,
+          "lines": 8044,
+          "maintainedCodeLines": 8044,
+          "generatedCodeLines": 0
+        },
+        "postgres": {
+          "files": 89,
+          "bytes": 1102842,
+          "lines": 33394,
+          "maintainedCodeLines": 20031,
+          "generatedCodeLines": 13363
+        },
+        "schema": {
+          "files": 14,
+          "bytes": 90556,
+          "lines": 2188,
+          "maintainedCodeLines": 2188,
+          "generatedCodeLines": 0
+        },
+        "sqlite": {
+          "files": 43,
+          "bytes": 363502,
+          "lines": 9090,
+          "maintainedCodeLines": 8806,
+          "generatedCodeLines": 284
+        },
+        "sqlserver": {
+          "files": 52,
+          "bytes": 453724,
+          "lines": 10726,
+          "maintainedCodeLines": 10506,
+          "generatedCodeLines": 220
+        },
+        "ts-bridge": {
+          "files": 12,
+          "bytes": 23797,
+          "lines": 588,
+          "maintainedCodeLines": 588,
+          "generatedCodeLines": 0
+        }
+      },
+      "generatedSourceFiles": 47,
+      "largestGeneratedSources": [
+        {
+          "path": "packages/duckdb/src/catalog/packs/2.0.0.ts",
+          "lines": 2889,
+          "bytes": 188406
+        },
+        {
+          "path": "packages/duckdb/src/catalog/packs/1.5.6.ts",
+          "lines": 2557,
+          "bytes": 168198
+        },
+        {
+          "path": "packages/duckdb/src/catalog/core/2.0.0.ts",
+          "lines": 2294,
+          "bytes": 94851
+        },
+        {
+          "path": "packages/duckdb/src/catalog/core/1.5.6.ts",
+          "lines": 2055,
+          "bytes": 89467
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/18.ts",
+          "lines": 2050,
+          "bytes": 40795
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/19.ts",
+          "lines": 2050,
+          "bytes": 40795
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/14.ts",
+          "lines": 2020,
+          "bytes": 40187
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/15.ts",
+          "lines": 2014,
+          "bytes": 40069
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/16.ts",
+          "lines": 2014,
+          "bytes": 40069
+        },
+        {
+          "path": "packages/postgres/src/catalog/generated/17.ts",
+          "lines": 2014,
+          "bytes": 40069
+        },
+        {
+          "path": "packages/duckdb/src/catalog/common-2.0.0.ts",
+          "lines": 1865,
+          "bytes": 58960
+        },
+        {
+          "path": "packages/duckdb/src/catalog/common-1.5.6.ts",
+          "lines": 1629,
+          "bytes": 50622
+        }
+      ],
+      "largestTrackedData": [
+        {
+          "path": "test/fixtures/language-audit/baseline.json",
+          "lines": 31071,
+          "bytes": 2266743
+        },
+        {
+          "path": "test/fixtures/language-audit/native-findings.json",
+          "lines": 27253,
+          "bytes": 4692771
+        },
+        {
+          "path": "test/fixtures/language-audit/duckdb-2.0.0.json",
+          "lines": 10273,
+          "bytes": 4916503
+        },
+        {
+          "path": "test/fixtures/language-audit/duckdb-1.5.6.json",
+          "lines": 9347,
+          "bytes": 4411637
+        },
+        {
+          "path": "planning/hybrid-analysis/native-project-measurements.json",
+          "lines": 7756,
+          "bytes": 273347
+        },
+        {
+          "path": "grammar/features/ledger.json",
+          "lines": 6282,
+          "bytes": 223820
+        },
+        {
+          "path": "planning/hybrid-analysis/native-measurements.json",
+          "lines": 4754,
+          "bytes": 205300
+        },
+        {
+          "path": "test/fixtures/language-audit/live-baselines.json",
+          "lines": 3074,
+          "bytes": 121827
+        },
+        {
+          "path": "grammar/sqlserver/vocabulary/facts.json",
+          "lines": 1952,
+          "bytes": 89952
+        },
+        {
+          "path": "planning/hybrid-analysis/project-measurements.json",
+          "lines": 1889,
+          "bytes": 71273
+        },
+        {
+          "path": "test/fixtures/language-audit/postgres-19.json",
+          "lines": 1880,
+          "bytes": 724433
+        },
+        {
+          "path": "test/fixtures/language-audit/postgres-18.json",
+          "lines": 1864,
+          "bytes": 715012
+        }
+      ]
+    }
+  },
+  "comparisons": {
+    "originalProposal": {
+      "netTrackedLines": 418851,
+      "netMaintainedCodeLines": 30061,
+      "netGeneratedCodeLines": -23439,
+      "shortstat": "705 files changed, 486674 insertions(+), 67823 deletions(-)",
+      "additions": 486674,
+      "deletions": 67823,
+      "binaryChanges": 0,
+      "physicalLineDeltaMatchesGitDiff": true
+    },
+    "currentProposal": {
+      "netTrackedLines": 86910,
+      "netMaintainedCodeLines": 47739,
+      "netGeneratedCodeLines": 5724,
+      "shortstat": "846 files changed, 104371 insertions(+), 17461 deletions(-)",
+      "additions": 104371,
+      "deletions": 17461,
+      "binaryChanges": 0,
+      "physicalLineDeltaMatchesGitDiff": true
+    },
+    "directionChange": {
+      "netTrackedLines": -331941,
+      "netMaintainedCodeLines": 17678,
+      "netGeneratedCodeLines": 29163,
+      "shortstat": "835 files changed, 139254 insertions(+), 471195 deletions(-)",
+      "additions": 139254,
+      "deletions": 471195,
+      "binaryChanges": 0,
+      "physicalLineDeltaMatchesGitDiff": true
+    }
+  }
+}

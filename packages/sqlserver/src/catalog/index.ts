@@ -48,6 +48,8 @@ export interface SqlServerBuiltin {
   readonly kind: "scalar" | "aggregate" | "window" | "table";
   readonly rule: SqlServerBuiltinRule;
   readonly nullable: boolean;
+  readonly intrinsicNullable?: boolean;
+  readonly resultType?: string;
   readonly volatility: "immutable" | "stable" | "volatile";
   readonly since?: number;
   readonly compatibility?: number;
@@ -58,7 +60,12 @@ function add(
   rule: SqlServerBuiltinRule,
   minimumArguments: number,
   maximumArguments = minimumArguments,
-  options: Partial<Pick<SqlServerBuiltin, "kind" | "nullable" | "volatility" | "since" | "compatibility">> = {},
+  options: Partial<
+    Pick<
+      SqlServerBuiltin,
+      "kind" | "nullable" | "volatility" | "since" | "compatibility" | "resultType" | "intrinsicNullable"
+    >
+  > = {},
 ): void {
   for (const name of names.split(" "))
     entries.push(
@@ -144,8 +151,10 @@ add("CHECKSUM BINARY_CHECKSUM", "integer", 1, 256);
 add("HASHBYTES", "bytes", 2);
 add("COMPRESS DECOMPRESS", "bytes", 1);
 add("OBJECT_ID", "integer", 1, 2, { volatility: "stable" });
-add("SCHEMA_ID DB_ID", "integer", 0, 1, { volatility: "stable" });
-add("COL_LENGTH OBJECTPROPERTY", "integer", 2, 2, { volatility: "stable" });
+add("SCHEMA_ID", "integer", 0, 1, { volatility: "stable" });
+add("DB_ID", "integer", 0, 1, { volatility: "stable", resultType: "smallint", intrinsicNullable: true });
+add("OBJECTPROPERTY", "integer", 2, 2, { volatility: "stable" });
+add("COL_LENGTH", "integer", 2, 2, { volatility: "stable", resultType: "smallint", intrinsicNullable: true });
 add("COLUMNPROPERTY", "integer", 3, 3, { volatility: "stable" });
 add("OBJECT_NAME", "string", 1, 2, { volatility: "stable" });
 add("SCHEMA_NAME DB_NAME USER_NAME SUSER_NAME SUSER_SNAME", "string", 0, 1, { volatility: "stable" });

@@ -1,8 +1,8 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 
 const options = Object.create(null);
 for (let index = 2; index < process.argv.length; index += 2) {
@@ -66,18 +66,35 @@ try {
 
   const output = resolve(options.output);
   await mkdir(resolve(output, ".."), { recursive: true });
-  await run(process.env.CC ?? "cc", [
-    "-O0",
-    "-DSQLITE_ENABLE_MATH_FUNCTIONS",
-    "-DSQLITE_ENABLE_PERCENTILE",
-    shellSource,
-    sqliteSource,
-    "-ldl",
-    "-lpthread",
-    "-lm",
-    "-o",
-    output,
-  ]);
+  const compiler = process.env.CC ?? "cc";
+  const flags = ["-O0", "-DSQLITE_ENABLE_MATH_FUNCTIONS", "-DSQLITE_ENABLE_PERCENTILE"];
+  const object = join(temporary, "sqlite3.o");
+  await run(compiler, [...flags, "-c", sqliteSource, "-o", object]);
+  const link = ["-I", dirname(sqliteSource), object, "-ldl", "-lpthread", "-lm"];
+  await run(compiler, [...flags, shellSource, ...link, "-o", output]);
+  const keywordSource = join(temporary, "keyword-inventory.c"),
+    keywordBinary = join(temporary, "keyword-inventory");
+  await writeFile(
+    keywordSource,
+    `#include "sqlite3.h"
+#include <stdio.h>
+int main(void) {
+  int count=sqlite3_keyword_count();
+  printf("{\\"version\\":\\"%s\\",\\"words\\":[",sqlite3_libversion());
+  for(int i=0;i<count;i++) {
+    const char *word; int length;
+    if(sqlite3_keyword_name(i,&word,&length)!=SQLITE_OK) return 2;
+    printf("%s\\"%.*s\\"",i?",":"",length,word);
+  }
+  puts("]}"); return 0;
+}
+`,
+  );
+  await run(compiler, [...flags, keywordSource, ...link, "-o", keywordBinary]);
+  const keywordInventory = JSON.parse(await run(keywordBinary, []));
+  if (keywordInventory.version !== options.version || !keywordInventory.words.length)
+    throw new Error("Native keyword inventory has a different source identity");
+  await writeFile(`${output}.keywords.json`, `${JSON.stringify(keywordInventory)}\n`);
   const actualVersion = (await run(output, ["--version"])).trim().split(/\s+/u)[0];
   if (actualVersion !== options.version) {
     throw new Error(`Built SQLite ${actualVersion || "<missing>"}; expected ${options.version}`);

@@ -40,6 +40,7 @@ export interface QueryVerificationExpectedField {
   readonly index: number;
   readonly name?: string;
   readonly databaseType?: string;
+  readonly databaseTypeIsPartial?: true;
   readonly tsType: string;
   readonly nullable: boolean;
 }
@@ -166,6 +167,7 @@ function expectedColumn(column: ResolvedColumn, index: number): QueryVerificatio
     tsType: column.tsType,
     nullable: column.nullable,
     ...(column.databaseType === undefined ? {} : { databaseType: column.databaseType }),
+    ...(column.databaseTypeIsPartial ? { databaseTypeIsPartial: true as const } : {}),
   };
 }
 
@@ -175,6 +177,7 @@ function expectedParameter(parameter: ResolvedParameter): QueryVerificationExpec
     tsType: parameter.tsType,
     nullable: parameter.nullable,
     ...(parameter.databaseType === undefined ? {} : { databaseType: parameter.databaseType }),
+    ...(parameter.databaseTypeIsPartial ? { databaseTypeIsPartial: true as const } : {}),
   };
 }
 
@@ -324,7 +327,7 @@ function compareField(
   verifier: Pick<LiveQueryVerifier, "compareDatabaseTypes">,
 ): { readonly mismatches: readonly QueryVerificationMismatch[]; readonly unavailable: boolean } {
   const mismatches: QueryVerificationMismatch[] = [];
-  let unavailable = false;
+  let unavailable = expected.databaseTypeIsPartial === true;
   const add = (kind: QueryVerificationMismatchKind, expectedValue: string, actualValue: string) =>
     mismatches.push({ kind, target, index: expected.index, expected: expectedValue, actual: actualValue });
   if (
@@ -336,7 +339,8 @@ function compareField(
     add("column-name", expected.name, actual.name);
   }
   if (verifier.compareDatabaseTypes !== undefined) {
-    if (expected.databaseType === undefined || actual.databaseType === undefined) unavailable = true;
+    if (expected.databaseTypeIsPartial || expected.databaseType === undefined || actual.databaseType === undefined)
+      unavailable = true;
     else {
       const comparison = verifier.compareDatabaseTypes(expected.databaseType, actual.databaseType, target);
       if (comparison === "unavailable") unavailable = true;
@@ -354,6 +358,7 @@ function compareField(
     }
   } else if (
     verifier.compareDatabaseTypes === undefined &&
+    !expected.databaseTypeIsPartial &&
     expected.databaseType !== undefined &&
     actual.databaseType !== undefined &&
     normalizedType(expected.databaseType) !== normalizedType(actual.databaseType)

@@ -24,10 +24,13 @@ export function buildPlugin(
   let dependencies: readonly string[] = [];
   let identity: string | undefined;
   let changed = true;
+  const watchFiles = (context: WatchContext, files: readonly string[]) => {
+    dependencies = files;
+    for (const file of files) context.addWatchFile(file);
+  };
   const watch = async (context: WatchContext) => {
     const current = await session.identity();
-    dependencies = current.dependencies;
-    for (const file of dependencies) context.addWatchFile(file);
+    watchFiles(context, current.dependencies);
     return current.key;
   };
   return {
@@ -60,6 +63,7 @@ export function buildPlugin(
         if (!id.endsWith(".sql") || !session.accepts(id)) return null;
         await watch(this);
         const result = await session.transform(await readFile(id, "utf8"), id);
+        if (result !== null) watchFiles(this, result.dependencies);
         return result === null ? null : { code: result.code, map: result.map };
       },
       async transform(source, id) {
@@ -71,10 +75,7 @@ export function buildPlugin(
           await watch(this);
           throw error;
         }
-        if (result !== null) {
-          dependencies = result.dependencies;
-          for (const file of dependencies) this.addWatchFile(file);
-        }
+        if (result !== null) watchFiles(this, result.dependencies);
         if (transpile) return javascript(result?.code ?? source, id, result?.map ?? identityMap(source, id));
         return result === null ? null : { code: result.code, map: result.map };
       },

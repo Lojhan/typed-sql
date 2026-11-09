@@ -25,6 +25,61 @@ import { renderReport } from "../../scripts/language-audit/report.js";
 import { signatureFacts } from "../../scripts/language-audit/signatures.mjs";
 
 await describe("independent upstream language auditing", async () => {
+  await it("refuses to silently omit unfamiliar or conditional PostgreSQL keyword declarations", async () => {
+    const { parsePostgresKeywords } = await import("../../scripts/vocabulary/postgres.mjs");
+    const record = 'PG_KEYWORD("new_word", NEW_WORD, UNRESERVED_KEYWORD, BARE_LABEL)';
+    strict.deepEqual(parsePostgresKeywords(`/* source notice */\n${record}`), [
+      ["new_word", "UNRESERVED_KEYWORD", true, "NEW_WORD"],
+    ]);
+    for (const source of [
+      `${record}\n#if FEATURE\n${record}\n#endif`,
+      `${record}\nPG_KEYWORD_NEW("unseen")`,
+      record.replace("UNRESERVED_KEYWORD", "NEW_CATEGORY"),
+      record.replace("BARE_LABEL", "NEW_LABEL"),
+      `${record}\n${record}`,
+      "/* no records */",
+    ])
+      strict.throws(() => parsePostgresKeywords(source));
+  });
+  await it("rejects unfamiliar SQLite build conditions instead of dropping keyword guards", async () => {
+    const { sqliteCondition } = await import("../../scripts/vocabulary/sqlite.mjs");
+    strict.deepEqual(sqliteCondition("defined(SQLITE_OMIT_FEATURE) || !defined(SQLITE_ENABLE_EXTRA)"), [
+      "or",
+      "OMIT_FEATURE",
+      ["not", "ENABLE_EXTRA"],
+    ]);
+    for (const source of ["SQLITE_FEATURE + 1", "defined(UNKNOWN)", "(SQLITE_FEATURE", "SQLITE_A SQLITE_B", ""])
+      strict.throws(() => sqliteCondition(source));
+  });
+
+  await it("reads grammar productions without promoting semantic action strings into declarations", async () => {
+    const { yaccProductions } = await import("../../scripts/vocabulary/yacc.mjs");
+    const source = `%token REAL_TOKEN 1
+%%
+call:
+ REAL_TOKEN '(' ')' { if (true) { const char *text="FAKE_TOKEN '(' ignored"; } /* } */ }
+ | alias
+ ;
+alias:
+ REAL_TOKEN '(' ')'
+ ;
+%%
+`;
+    const productions = yaccProductions(source);
+    strict.equal(productions.get("call")!.length, 2);
+    strict.ok(!productions.get("call")!.join(" ").includes("FAKE_TOKEN"));
+    const inline = yaccProductions("%%\none: FIRST ';' { ignored(); };\ntwo: SECOND;\n");
+    strict.deepEqual(
+      [...inline],
+      [
+        ["one", ["FIRST ';'"]],
+        ["two", ["SECOND"]],
+      ],
+    );
+    for (const broken of ["no grammar section", "%%\ncall: X {", '%%\ncall: X { auto text=R"(raw)"; } ;'])
+      strict.throws(() => yaccProductions(broken));
+  });
+
   await it("requires discovery adapters and upstream evidence for every grammar in the feature ledger", async () => {
     const ledger = JSON.parse(await readFile(new URL("../../grammar/features/ledger.json", import.meta.url), "utf8"));
     strict.deepEqual([...DIALECTS].sort(), Object.keys(ledger.dialects).sort());
@@ -242,6 +297,44 @@ await describe("independent upstream language auditing", async () => {
     strict.throws(() => expandFindings(corrupt), /Invalid shared native observation/u);
   });
 
+  await it("preserves independent MySQL parameter descriptors instead of copying result dimensions", async () => {
+    let closed = 0;
+    const captured = await prepareMySql(
+      {
+        prepare: async () => ({
+          statement: {
+            columns: [{ name: "value", columnType: 246, columnLength: 14, decimals: 3, flags: 128, characterSet: 63 }],
+            parameters: [{ name: "?", columnType: 246, columnLength: 67, decimals: 30, flags: 128, characterSet: 63 }],
+          },
+          close: async () => {
+            closed++;
+          },
+        }),
+      },
+      "SELECT CAST(? AS DECIMAL(12,3)) AS value",
+    );
+    strict.equal(captured.accepted, true);
+    strict.equal(closed, 1);
+    strict.deepEqual(captured.metadata, {
+      status: "native preparation metadata for this invocation",
+      columns: [{ name: "value", engineType: 246, columnLength: 14, decimals: 3, flags: 128, characterSet: 63 }],
+      parameterCount: 1,
+      parameters: [
+        { index: 1, name: "?", engineType: 246, columnLength: 67, decimals: 30, flags: 128, characterSet: 63 },
+      ],
+    });
+    const missing = await prepareMySql(
+      {
+        prepare: async () => ({ statement: { columns: [] }, close: async () => {} }),
+      },
+      "SELECT ? AS value",
+    );
+    if (!missing.metadata || !("parameterCount" in missing.metadata))
+      throw new Error("Expected the metadata outcome with a known column block");
+    strict.equal(missing.metadata.parameterCount, null, "A missing parameter block must not become zero inputs");
+    strict.equal(Object.hasOwn(missing.metadata, "parameters"), false);
+  });
+
   await it("recognizes modern MySQL server rejections without swallowing transport failures", async () => {
     const rejected = await prepareMySql(
       {
@@ -328,6 +421,12 @@ await describe("independent upstream language auditing", async () => {
     const gap = result.find((row) => row.name === "new_vendor_function_omitted_from_grammar");
     strict.equal(gap?.status, "unknown-function-observed");
     strict.ok(gap?.diagnostics?.some((message) => /Unknown function/u.test(message)));
+    const duckDBGap = auditFunctions(
+      [{ name: "new_vendor_function_omitted_from_grammar" }],
+      grammarFor("duckdb", "2.0.0"),
+    )[0];
+    strict.equal(duckDBGap?.status, "unknown-function-observed");
+    strict.ok(duckDBGap?.diagnostics?.some((message) => message.startsWith("TSQ408:")));
     const categories = { functions: { ...inventory([{ name: "count" }], "test"), fingerprint: "tampered" } };
     strict.throws(() => auditInventory({ dialect: "postgres", target: { version: "18" }, categories }), /fingerprint/u);
   });

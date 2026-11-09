@@ -182,6 +182,8 @@ export interface ResolvedColumn {
   readonly tsType: string;
   readonly nullable: boolean;
   readonly databaseType?: string;
+  /** Only the SQL type family is established; modifiers or logical identity remain incomplete. */
+  readonly databaseTypeIsPartial?: true;
   /** JSON structure and desired application representation; SQL nullability remains separate. */
   readonly json?: JsonValueDescriptor;
   readonly range: SourceRange;
@@ -197,6 +199,8 @@ export interface ResolvedParameter {
   readonly tsType: string;
   readonly nullable: boolean;
   readonly databaseType?: string;
+  /** Only the SQL type family is established; modifiers or logical identity remain incomplete. */
+  readonly databaseTypeIsPartial?: true;
   /** JSON structure and desired application representation; SQL nullability remains separate. */
   readonly json?: JsonValueDescriptor;
 }
@@ -225,7 +229,7 @@ export interface DialectAnalysisContext {
  */
 export type DialectCapabilities = Readonly<Record<string, boolean>>;
 
-export interface DialectPlugin<Snapshot extends SchemaSnapshot = SchemaSnapshot, Policy = unknown> {
+export interface DialectProfile<Snapshot extends SchemaSnapshot = SchemaSnapshot, Policy = unknown> {
   readonly contractVersion: typeof DIALECT_CONTRACT_VERSION;
   readonly id: string;
   /** Version of the grammar/snapshot semantics, independent of the npm artifact version. */
@@ -251,8 +255,19 @@ export interface DialectPlugin<Snapshot extends SchemaSnapshot = SchemaSnapshot,
     snapshot: Snapshot,
     policy?: Policy,
   ): readonly { readonly index: number; readonly name?: string; readonly range: SourceRange }[];
-  analyze(sql: string, snapshot: Snapshot, policy?: Policy, context?: DialectAnalysisContext): DialectAnalysis;
   validateSnapshot(value: unknown): Snapshot;
+}
+
+/** Synchronous grammar semantics loaded separately from the profile's rendering/codec mechanics. */
+export interface DialectPlugin<Snapshot extends SchemaSnapshot = SchemaSnapshot, Policy = unknown>
+  extends DialectProfile<Snapshot, Policy> {
+  analyze(sql: string, snapshot: Snapshot, policy?: Policy, context?: DialectAnalysisContext): DialectAnalysis;
+}
+
+/** Pure profile plus an optional explicit asynchronous semantic owner. */
+export interface DialectRegistration<Snapshot extends SchemaSnapshot = SchemaSnapshot, Policy = unknown>
+  extends DialectProfile<Snapshot, Policy> {
+  readonly loadAnalyzer?: () => DialectPlugin<Snapshot, Policy> | Promise<DialectPlugin<Snapshot, Policy>>;
 }
 
 export interface SchemaProvider<Snapshot extends SchemaSnapshot = SchemaSnapshot> {
@@ -415,6 +430,8 @@ export interface PlaygroundConfiguration {
 export interface TypedSqlConfig<Snapshot extends SchemaSnapshot = SchemaSnapshot, Policy = unknown> {
   /** Optional migration configuration, validated by @typed-sql/migrations without an implementation dependency. */
   readonly migrations?: unknown;
+  /** Validated by the artifact-aware host; core does not depend on its implementation. */
+  readonly analysis?: unknown;
   readonly dialect: DialectPlugin<Snapshot, Policy>;
   readonly schema: {
     readonly file: string;
@@ -457,6 +474,14 @@ export interface TypedSqlConfig<Snapshot extends SchemaSnapshot = SchemaSnapshot
   };
 }
 
+export interface RegisteredTypedSqlConfig<Snapshot extends SchemaSnapshot = SchemaSnapshot, Policy = unknown>
+  extends Omit<TypedSqlConfig<Snapshot, Policy>, "dialect"> {
+  readonly dialect: DialectRegistration<Snapshot, Policy>;
+}
+export type TypedSqlConfigSource<Snapshot extends SchemaSnapshot = SchemaSnapshot, Policy = unknown> =
+  | TypedSqlConfig<Snapshot, Policy>
+  | RegisteredTypedSqlConfig<Snapshot, Policy>;
+
 function record(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -482,7 +507,7 @@ function assertQueryPlanBudget(value: QueryPlanBudget, description: string): voi
   }
 }
 
-export function assertDialectPlugin(value: unknown): asserts value is DialectPlugin {
+function assertDialectContract(value: unknown, methods: readonly string[]): asserts value is DialectProfile {
   if (!record(value)) throw new TypeError("typed-sql dialect must be an object");
   if (value.contractVersion !== DIALECT_CONTRACT_VERSION) {
     throw new TypeError(`Unsupported typed-sql dialect contract ${String(value.contractVersion)}`);
@@ -517,9 +542,19 @@ export function assertDialectPlugin(value: unknown): asserts value is DialectPlu
     throw new TypeError("typed-sql dialect.runtimeSqlModule must be a non-empty string");
   if (value.runtimeValueType !== undefined && typeof value.runtimeValueType !== "function")
     throw new TypeError("typed-sql dialect.runtimeValueType must be a function");
-  for (const method of ["placeholder", "quoteIdentifier", "analyze", "validateSnapshot"] as const) {
+  if (value.parameterOccurrences !== undefined && typeof value.parameterOccurrences !== "function")
+    throw new TypeError("typed-sql dialect.parameterOccurrences must be a function");
+  for (const method of methods) {
     if (typeof value[method] !== "function") throw new TypeError(`typed-sql dialect.${method} must be a function`);
   }
+}
+
+/** Validates rendering/policy mechanics without requiring or reading an analyzer. */
+export function assertDialectProfile(value: unknown): asserts value is DialectProfile {
+  assertDialectContract(value, ["placeholder", "quoteIdentifier", "validateSnapshot"]);
+}
+export function assertDialectPlugin(value: unknown): asserts value is DialectPlugin {
+  assertDialectContract(value, ["placeholder", "quoteIdentifier", "analyze", "validateSnapshot"]);
 }
 
 function assertCompilerConfig(config: Pick<TypedSqlConfig, "compiler" | "manifest">): void {
@@ -634,8 +669,20 @@ function assertPlanBudgets(config: Pick<TypedSqlConfig, "plans">): void {
 
 export function defineConfig<Snapshot extends SchemaSnapshot, Policy>(
   config: TypedSqlConfig<Snapshot, Policy>,
-): TypedSqlConfig<Snapshot, Policy> {
-  assertDialectPlugin(config.dialect);
+): TypedSqlConfig<Snapshot, Policy>;
+export function defineConfig<Snapshot extends SchemaSnapshot, Policy>(
+  config: RegisteredTypedSqlConfig<Snapshot, Policy>,
+): RegisteredTypedSqlConfig<Snapshot, Policy>;
+export function defineConfig<Snapshot extends SchemaSnapshot, Policy>(
+  config: TypedSqlConfigSource<Snapshot, Policy>,
+): TypedSqlConfigSource<Snapshot, Policy> {
+  if (typeof config.dialect === "object" && config.dialect !== null && "analyze" in config.dialect)
+    assertDialectPlugin(config.dialect);
+  else {
+    assertDialectProfile(config.dialect);
+    if (config.dialect.loadAnalyzer !== undefined && typeof config.dialect.loadAnalyzer !== "function")
+      throw new TypeError("typed-sql dialect.loadAnalyzer must be a function");
+  }
   assertCompilerConfig(config);
   assertVerificationConfig(config);
   assertCompatibilityConfig(config);

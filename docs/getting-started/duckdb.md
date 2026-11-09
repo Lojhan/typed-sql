@@ -84,7 +84,7 @@ Create `typed-sql.config.ts`:
 
 ```ts
 import { defineConfig } from "@typed-sql/core";
-import { duckdb, typePolicy } from "@typed-sql/duckdb";
+import { typePolicy } from "@typed-sql/duckdb"; import { duckdb } from "@typed-sql/duckdb/analysis";
 import { nodeDuckDB } from "@typed-sql/duckdb/node-api";
 
 export default defineConfig({

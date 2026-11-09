@@ -8,6 +8,7 @@ import {
   type SemanticEvidence,
 } from "@typed-sql/core";
 import type { SchemaSnapshot } from "@typed-sql/schema";
+import { postgresAsciiFold, postgresAsciiUpper } from "./identifier-case.js";
 import { type CallExpression, type Statement, walkStatement } from "./parser/index.js";
 
 const builtinVolatility: Readonly<Record<string, QueryVolatility>> = Object.freeze({
@@ -51,7 +52,7 @@ function key(dependency: QueryDependency): string {
 }
 
 function functionVolatility(expression: CallExpression, index: ResolverSchemaIndex): QueryVolatility {
-  const builtin = builtinVolatility[expression.name.name.toUpperCase()];
+  const builtin = builtinVolatility[postgresAsciiUpper(expression.name.name)];
   if (builtin !== undefined && expression.schema === undefined) return builtin;
   const routines = index.routineOverloads(expression.name.name, expression.arguments.length, expression.schema?.name);
   if (routines.length === 1) return routines[0]!.volatility;
@@ -60,7 +61,7 @@ function functionVolatility(expression: CallExpression, index: ResolverSchemaInd
 }
 
 export function analyzePostgresSemantics(statement: Statement, snapshot: SchemaSnapshot): QuerySemantics {
-  const index = ResolverSchemaIndex.for(snapshot);
+  const index = ResolverSchemaIndex.for(snapshot, postgresAsciiFold);
   const dependencies = new Map<string, QueryDependency>();
   const capabilities = new Set<string>();
   const volatilities: QueryVolatility[] = [];
@@ -94,7 +95,9 @@ export function analyzePostgresSemantics(statement: Statement, snapshot: SchemaS
         table.kind !== "table" ||
         (table.schema === undefined &&
           context.ctes.some((cte) =>
-            cte.quoted ? cte.name === table.name.name : cte.name.toLowerCase() === table.name.name.toLowerCase(),
+            cte.quoted
+              ? cte.name === table.name.name
+              : postgresAsciiFold(cte.name) === postgresAsciiFold(table.name.name),
           ))
       )
         return;

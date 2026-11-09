@@ -5,13 +5,21 @@ import { assertLegacyValuePlans } from "../../../test/helpers/legacy-value-plans
 import { createMySqlDatabase, type MySqlConnectionLike, type MySqlProtocolStream } from "../src/runtime.js";
 import { defaultMySqlTypePolicy } from "../src/type-policy.js";
 
+async function collect<Row>(stream: AsyncIterable<Row>): Promise<Row[]> {
+  const rows: Row[] = [];
+  for await (const row of stream) rows.push(row);
+  return rows;
+}
+
 await it("enforces attached plans once across MySQL operations and retires rejected planned streams", async () => {
   let calls = 0;
   let closed = 0;
-  const result = (values: readonly unknown[] = []) => ({
-    rows: [{ doc: JSON.parse(String(values[0])) as unknown }],
-    fields: [{ name: "doc", columnType: 245 }],
-  });
+  let scalar: { rows: Record<string, unknown>[]; fields: { name: string; columnType: number }[] } | undefined;
+  const result = (values: readonly unknown[] = []) =>
+    scalar ?? {
+      rows: [{ doc: JSON.parse(String(values[0])) as unknown }],
+      fields: [{ name: "doc", columnType: 245 }],
+    };
   const connection: MySqlConnectionLike = {
     async execute(_text, values) {
       calls++;
@@ -28,7 +36,7 @@ await it("enforces attached plans once across MySQL operations and retires rejec
     stream(_text, values): MySqlProtocolStream {
       let sent = false;
       return {
-        fields: Promise.resolve([{ name: "doc", columnType: 245 }]),
+        fields: Promise.resolve(result(values).fields),
         connectionReusable: true,
         [Symbol.asyncIterator]() {
           return this;
@@ -88,6 +96,61 @@ await it("enforces attached plans once across MySQL operations and retires rejec
   });
   await strict.rejects(database.all(mismatch), /polic/u);
   strict.equal(calls, before);
+  scalar = {
+    rows: [{ id: "9007199254740993", bounded: "1" }],
+    fields: [
+      { name: "id", columnType: 8 },
+      { name: "bounded", columnType: 8 },
+    ],
+  };
+  const literals = withQueryValuePlan(sql`SELECT id,1 AS bounded`, {
+    dialect: "mysql",
+    typePolicyHash: hash,
+    parameters: [],
+    columns: [
+      { name: "id", databaseType: "bigint", type: "bigint", nullable: false },
+      { name: "bounded", databaseType: "bigint", type: "number", nullable: false },
+    ],
+  });
+  strict.deepEqual(await database.all(literals), [{ id: 9007199254740993n, bounded: 1 }]);
+  strict.deepEqual(await collect(database.stream(literals)), [{ id: 9007199254740993n, bounded: 1 }]);
+  scalar.rows[0]!.bounded = "9007199254740993";
+  await strict.rejects(database.all(literals), /expected number/u);
+  await strict.rejects(collect(database.stream(literals)), /expected number/u);
+  const strings = createMySqlDatabase({
+    pool: { execute: connection.execute, getConnection: async () => connection, end: async () => {} },
+    typePolicy: { ...defaultMySqlTypePolicy, bigint: "string" },
+  });
+  const stringPlan = withQueryValuePlan(sql`SELECT id,1 AS bounded`, {
+    dialect: "mysql",
+    typePolicyHash: calculateTypePolicyHash({ ...defaultMySqlTypePolicy, bigint: "string" }),
+    parameters: [],
+    columns: [
+      { name: "id", databaseType: "bigint", type: "string", nullable: false },
+      { name: "bounded", databaseType: "bigint", type: "number", nullable: false },
+    ],
+  });
+  scalar.rows[0]!.bounded = "1";
+  strict.deepEqual(await strings.all(stringPlan), [{ id: "9007199254740993", bounded: 1 }]);
+  strict.deepEqual(await collect(strings.stream(stringPlan)), [{ id: "9007199254740993", bounded: 1 }]);
+  const invalidText = withQueryValuePlan(sql`SELECT id,bounded`, {
+    dialect: "mysql",
+    typePolicyHash: calculateTypePolicyHash({ ...defaultMySqlTypePolicy, bigint: "string" }),
+    parameters: [],
+    columns: [
+      { name: "id", type: "string", nullable: false },
+      { name: "bounded", databaseType: "varchar", type: "number", nullable: false },
+    ],
+  });
+  await strict.rejects(strings.all(invalidText), /expected number/u);
+  scalar.rows[0]!.bounded = "9007199254740993";
+  await strict.rejects(strings.all(stringPlan), /expected number/u);
+  await strict.rejects(collect(strings.stream(stringPlan)), /expected number/u);
+  strict.deepEqual(
+    await database.all(sql`SELECT id,bounded`),
+    [{ id: 9007199254740993n, bounded: 9007199254740993n }],
+    "Unplanned BIGINT decoding must retain the configured bigint policy",
+  );
   strict.ok(
     completions.some((completion) => completion.status === "error" && completion.errorType === "TSQL_QUERY_VALUE"),
   );

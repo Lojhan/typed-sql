@@ -1,9 +1,13 @@
+import { postgresAsciiUpper } from "../identifier-case.js";
+import type { PostgresKeywordLookup } from "../vocabulary/types.js";
 import type { SourceRange, Token, TokenKind } from "./types.js";
 
 export const DEFAULT_MAX_SQL_LENGTH = 1_000_000;
 export const DEFAULT_MAX_TOKENS = 100_000;
 
 export interface TokenizeOptions {
+  /** Injected by the version-owned analyzer; lexical-only profiles do not load semantic inventories. */
+  readonly keywordLookup?: PostgresKeywordLookup;
   /** SQL asset frontend only; ordinary SQL analysis does not enable named bindings. */
   readonly sqlFileParameters?: boolean;
   readonly maxSqlLength?: number;
@@ -11,7 +15,8 @@ export interface TokenizeOptions {
   readonly syntax?: "postgres";
 }
 
-const keywords = new Set([
+// Syntax terminals include ordinary routine names; vendor membership is carried separately.
+const syntaxWords = new Set([
   "ALL",
   "AND",
   "ANY",
@@ -237,6 +242,7 @@ class Scanner {
   #column = 1;
   #parameterIndex = 0;
   readonly #sqlFileParameters: boolean;
+  readonly #keywordLookup: PostgresKeywordLookup | undefined;
   readonly #sqlFileBrackets: number[] = [];
   #sqlFileParentheses = 0;
   #sqlFilePreviousToken: Token | undefined;
@@ -257,6 +263,7 @@ class Scanner {
       );
     }
     this.#source = source;
+    this.#keywordLookup = options.keywordLookup;
     this.#sqlFileParameters = options.sqlFileParameters === true;
   }
 
@@ -354,9 +361,11 @@ class Scanner {
   #scanWord(start: Position): Token {
     while (isWordPart(this.#peek())) this.#advance();
     const text = this.#source.slice(start.index, this.#index);
-    const upper = text.toUpperCase();
-    const kind: TokenKind = keywords.has(upper) ? "keyword" : "identifier";
-    return this.#token(kind, text, kind === "keyword" ? upper : text, start);
+    const upper = postgresAsciiUpper(text);
+    const kind: TokenKind = syntaxWords.has(upper) ? "keyword" : "identifier";
+    const token = this.#token(kind, text, kind === "keyword" ? upper : text, start);
+    const nativeKeyword = this.#keywordLookup?.(text);
+    return nativeKeyword === undefined ? token : { ...token, nativeKeyword };
   }
 
   #scanNumber(start: Position): Token {

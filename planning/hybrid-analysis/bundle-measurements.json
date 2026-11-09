@@ -1,0 +1,1651 @@
+{
+  "formatVersion": 2,
+  "sourceRevision": "c3eeb1cfb7f96a25d5ff29b80b26387af43bad63",
+  "nodeVersion": "v24.22.2",
+  "esbuildVersion": "0.28.2",
+  "measurementToolDigest": "dc40a67dc6020756ad046212866c23512282904af1aba29c572d93170931ef5e",
+  "comparisonBaseline": {
+    "sourceRevision": "a1f27fc894e48021e91ce4c9a4b98929890f233d",
+    "lockfileDigest": "eebeeeafcca88627ce33a1522010ffea65afe001cc20635d15c5b630899f8df2",
+    "reportDigest": "5b6d300bd9ef220338dca2ea594fb9c8b1abb440b53fba484ef06530f867e9f0",
+    "rows": [
+      {
+        "grammar": "duckdb",
+        "scenario": "rootTag",
+        "minifiedBytes": 17828,
+        "gzipBytes": 5648,
+        "brotliBytes": 5102,
+        "generatedInputBytes": 0,
+        "outputDigest": "6379d6dbe447d6d32fa0fa019e3e37ad504fe3a39d187f165e0585b65b23f17b"
+      },
+      {
+        "grammar": "duckdb",
+        "scenario": "queryTag",
+        "minifiedBytes": 17828,
+        "gzipBytes": 5647,
+        "brotliBytes": 5105,
+        "generatedInputBytes": 0,
+        "outputDigest": "226a881374ee6693654f06e7b31e68c9ab2b5bcc984d326f39aa6cf6f2f00738"
+      },
+      {
+        "grammar": "duckdb",
+        "scenario": "execution",
+        "minifiedBytes": 103356,
+        "gzipBytes": 32344,
+        "brotliBytes": 28559,
+        "generatedInputBytes": 716,
+        "outputDigest": "b0224304b95caa5a551c99d953d744454efcf8041137f4492ed1912599610b88"
+      },
+      {
+        "grammar": "duckdb",
+        "scenario": "analyzer",
+        "minifiedBytes": 1372493,
+        "gzipBytes": 103869,
+        "brotliBytes": 61285,
+        "generatedInputBytes": 1248971,
+        "outputDigest": "dcb1c01d37af7d99e25bc46561024adc063966a62c0e050fa849216108bdcff0"
+      },
+      {
+        "grammar": "mysql",
+        "scenario": "rootTag",
+        "minifiedBytes": 17535,
+        "gzipBytes": 5534,
+        "brotliBytes": 5012,
+        "generatedInputBytes": 0,
+        "outputDigest": "363ae2a43be55a4fc08c2574a186de901b86a9885f0f483305eba2d83e1bf394"
+      },
+      {
+        "grammar": "mysql",
+        "scenario": "queryTag",
+        "minifiedBytes": 17630,
+        "gzipBytes": 5587,
+        "brotliBytes": 5066,
+        "generatedInputBytes": 0,
+        "outputDigest": "b04cbeb9442fb97fc79833c23fc759f2b6fb05dd4c2109baa39cf5ce801241e7"
+      },
+      {
+        "grammar": "mysql",
+        "scenario": "execution",
+        "minifiedBytes": 91705,
+        "gzipBytes": 27342,
+        "brotliBytes": 24054,
+        "generatedInputBytes": 970,
+        "outputDigest": "aed19e5a19607217ec30a12da670f91501ad479866b7591a2634b6ed9fd759ba"
+      },
+      {
+        "grammar": "mysql",
+        "scenario": "analyzer",
+        "minifiedBytes": 184948,
+        "gzipBytes": 44207,
+        "brotliBytes": 37513,
+        "generatedInputBytes": 38690,
+        "outputDigest": "5bf14160554ce5e896f51cfdb92ab5d38188019635e89ec046c091f36552574d"
+      },
+      {
+        "grammar": "postgres",
+        "scenario": "rootTag",
+        "minifiedBytes": 17535,
+        "gzipBytes": 5537,
+        "brotliBytes": 5010,
+        "generatedInputBytes": 0,
+        "outputDigest": "b744b5c049ca6a4a09a81b81888f272e9c05ee2aac1f7248dc3afecfb154a1a7"
+      },
+      {
+        "grammar": "postgres",
+        "scenario": "queryTag",
+        "minifiedBytes": 17631,
+        "gzipBytes": 5588,
+        "brotliBytes": 5067,
+        "generatedInputBytes": 0,
+        "outputDigest": "64c4666717c15cc4b0166501dc4d683cef21dbe6d491ec4958e1752f8b177989"
+      },
+      {
+        "grammar": "postgres",
+        "scenario": "execution",
+        "minifiedBytes": 113019,
+        "gzipBytes": 31725,
+        "brotliBytes": 27748,
+        "generatedInputBytes": 1342,
+        "outputDigest": "f2fd082020790cfa99ef6682eaef00f8a76eca9e8b1897426d4f4c80e8212a9f"
+      },
+      {
+        "grammar": "postgres",
+        "scenario": "analyzer",
+        "minifiedBytes": 1689516,
+        "gzipBytes": 134971,
+        "brotliBytes": 101707,
+        "generatedInputBytes": 1445470,
+        "outputDigest": "10d8e5adff82d11730d36130b8b46ca8a041f8be11f0ed4fc05f2b7c5e9a7558"
+      },
+      {
+        "grammar": "sqlite",
+        "scenario": "rootTag",
+        "minifiedBytes": 17535,
+        "gzipBytes": 5535,
+        "brotliBytes": 5022,
+        "generatedInputBytes": 0,
+        "outputDigest": "db77cdcc35f040d84456b6db0a149c2cb3273eeaa40deea03ef7123a5e93cf58"
+      },
+      {
+        "grammar": "sqlite",
+        "scenario": "queryTag",
+        "minifiedBytes": 17628,
+        "gzipBytes": 5586,
+        "brotliBytes": 5054,
+        "generatedInputBytes": 0,
+        "outputDigest": "9ae4a3ef6deba7a5f8a9138a3346ad721dfb946ca4a7ce5a08b9ea34a2d1f7be"
+      },
+      {
+        "grammar": "sqlite",
+        "scenario": "execution",
+        "minifiedBytes": 38070,
+        "gzipBytes": 11764,
+        "brotliBytes": 10591,
+        "generatedInputBytes": 0,
+        "outputDigest": "502f91b2ec601edb324fe5d99289069254a9ea0131baa8b49d290b51a65ecb25"
+      },
+      {
+        "grammar": "sqlite",
+        "scenario": "analyzer",
+        "minifiedBytes": 158362,
+        "gzipBytes": 40441,
+        "brotliBytes": 34628,
+        "generatedInputBytes": 19981,
+        "outputDigest": "9add76ff36809b6b9b4a8fc98e2e595d26ca19ba43dd8bbdb769bd006ac625ad"
+      },
+      {
+        "grammar": "sqlserver",
+        "scenario": "rootTag",
+        "minifiedBytes": 17535,
+        "gzipBytes": 5536,
+        "brotliBytes": 5015,
+        "generatedInputBytes": 0,
+        "outputDigest": "23bd7fa33b6518887dbb30bedc07e2873f29c5e3c5eadb7151ae09cd599bee4a"
+      },
+      {
+        "grammar": "sqlserver",
+        "scenario": "queryTag",
+        "minifiedBytes": 17900,
+        "gzipBytes": 5691,
+        "brotliBytes": 5144,
+        "generatedInputBytes": 0,
+        "outputDigest": "daeae7b7959e4145cf5ad147e3acdb6cb6b8c45b2349901c5a2f18d8b0c179f3"
+      },
+      {
+        "grammar": "sqlserver",
+        "scenario": "execution",
+        "minifiedBytes": 93898,
+        "gzipBytes": 28351,
+        "brotliBytes": 25050,
+        "generatedInputBytes": 3702,
+        "outputDigest": "4cfbfc419e4513e29e70237c6fee23b7795fca0b18fbe1aec9fab7325631e291"
+      },
+      {
+        "grammar": "sqlserver",
+        "scenario": "analyzer",
+        "minifiedBytes": 142021,
+        "gzipBytes": 36454,
+        "brotliBytes": 31386,
+        "generatedInputBytes": 23533,
+        "outputDigest": "5a1f8eeca7b2e8f3d2c9a7f40ea9d711eef3608b7341688242135f4f8e2b6bdb"
+      }
+    ]
+  },
+  "lockfileDigest": "3dd42212226234b44678b68d5c169e8fac598db1268227bc9738e65885f198f1",
+  "method": {
+    "source": "Git blobs at sourceRevision; public exports resolve to their committed source files",
+    "format": "esm",
+    "platform": "node",
+    "target": "es2022",
+    "treeShaking": true,
+    "minify": true,
+    "gzipLevel": 9,
+    "brotliQuality": 11,
+    "generatedAttribution": "Files with an explicit Generated by/from header; uncompressed esbuild bytesInOutput",
+    "attribution": "Uncompressed minified input groups; compression applies to whole outputs only",
+    "limitations": [
+      "Synthetic public entrypoints, not a representative project corpus or installation-size measurement.",
+      "Frozen host exports contract/compile helpers and a profile; it contains no project contracts or native acquisition.",
+      "External driver binaries and engine distributions are excluded."
+    ]
+  },
+  "rows": [
+    {
+      "grammar": "duckdb",
+      "scenario": "rootTag",
+      "minifiedBytes": 17535,
+      "gzipBytes": 5538,
+      "brotliBytes": 5009,
+      "generatedInputBytes": 0,
+      "globalCatalogInputs": [],
+      "attribution": {
+        "core/other": 17486,
+        "external/entry": 28
+      },
+      "outputDigest": "dfd9748c9aa04ee8287cb6a0591805fe797489807ab11ac055e29dad1e96c51c"
+    },
+    {
+      "grammar": "duckdb",
+      "scenario": "queryTag",
+      "minifiedBytes": 17828,
+      "gzipBytes": 5647,
+      "brotliBytes": 5106,
+      "generatedInputBytes": 0,
+      "globalCatalogInputs": [],
+      "attribution": {
+        "core/other": 17486,
+        "duckdb/other": 293,
+        "external/entry": 28
+      },
+      "outputDigest": "9c330490fbf2e5e736fc5799d26dd221c1c2d1ecc6f9c2214b3a0ca3cf9bddff"
+    },
+    {
+      "grammar": "duckdb",
+      "scenario": "execution",
+      "minifiedBytes": 104344,
+      "gzipBytes": 32630,
+      "brotliBytes": 28821,
+      "generatedInputBytes": 0,
+      "globalCatalogInputs": [],
+      "attribution": {
+        "duckdb/other": 45372,
+        "core/other": 35302,
+        "schema/other": 399,
+        "duckdb/parser": 23231
+      },
+      "outputDigest": "d7e5af708a39c5b6f94fee6836e2a0094d75c75f6b6344dc2cd2c025b04350a5"
+    },
+    {
+      "grammar": "duckdb",
+      "scenario": "analyzer",
+      "minifiedBytes": 656225,
+      "gzipBytes": 83789,
+      "brotliBytes": 51497,
+      "generatedInputBytes": 533398,
+      "globalCatalogInputs": [
+        "packages/duckdb/src/catalog/resolution.ts",
+        "packages/duckdb/src/catalog/core/1.5.6.ts",
+        "packages/duckdb/src/catalog/packs/1.5.6.ts",
+        "packages/duckdb/src/catalog/1.5.6.ts",
+        "packages/duckdb/src/catalog/common-1.5.6.ts",
+        "packages/duckdb/src/catalog/provider.ts",
+        "packages/duckdb/src/catalog/engines/1.5.6.ts",
+        "packages/duckdb/src/catalog/core/2.0.0.ts",
+        "packages/duckdb/src/catalog/packs/2.0.0.ts",
+        "packages/duckdb/src/catalog/2.0.0.ts",
+        "packages/duckdb/src/catalog/common-2.0.0.ts",
+        "packages/duckdb/src/catalog/engines/2.0.0.ts",
+        "packages/duckdb/src/catalog/index.ts"
+      ],
+      "attribution": {
+        "core/other": 10552,
+        "duckdb/other": 70319,
+        "duckdb/parser": 25821,
+        "schema/other": 23069,
+        "duckdb/catalog": 526435
+      },
+      "outputDigest": "ef4b512ed04efa4a250c5070f4e0c671ba0eb3aeda3de327d8bd13f7cb1ffb2b"
+    },
+    {
+      "grammar": "duckdb",
+      "scenario": "profile",
+      "minifiedBytes": 65689,
+      "gzipBytes": 18585,
+      "brotliBytes": 16236,
+      "generatedInputBytes": 0,
+      "globalCatalogInputs": [],
+      "attribution": {
+        "core/other": 8670,
+        "duckdb/other": 10721,
+        "duckdb/parser": 23227,
+        "schema/other": 23042
+      },
+      "outputDigest": "86ade95e2f75ff2357f6d0dd44764064188b968eba0c040346115b5eaca08c52"
+    },
+    {
+      "grammar": "duckdb",
+      "scenario": "frozenHost",
+      "minifiedBytes": 152843,
+      "gzipBytes": 43964,
+      "brotliBytes": 38453,
+      "generatedInputBytes": 0,
+      "globalCatalogInputs": [],
+      "attribution": {
+        "analysis/other": 22967,
+        "core/other": 31883,
+        "schema/other": 24086,
+        "compiler/other": 39807,
+        "duckdb/other": 10762,
+        "duckdb/parser": 23236
+      },
+      "outputDigest": "999bdccaa3da7c2a5c6e89ced7f8b7752a498b61ba9307d2866780f3602d893f"
+    },
+    {
+      "grammar": "duckdb",
+      "scenario": "analyzer:1.5.6",
+      "minifiedBytes": 377940,
+      "gzipBytes": 59290,
+      "brotliBytes": 47338,
+      "generatedInputBytes": 255833,
+      "globalCatalogInputs": [
+        "packages/duckdb/src/catalog/resolution.ts",
+        "packages/duckdb/src/catalog/core/1.5.6.ts",
+        "packages/duckdb/src/catalog/packs/1.5.6.ts",
+        "packages/duckdb/src/catalog/1.5.6.ts",
+        "packages/duckdb/src/catalog/common-1.5.6.ts",
+        "packages/duckdb/src/catalog/provider.ts",
+        "packages/duckdb/src/catalog/engines/1.5.6.ts"
+      ],
+      "attribution": {
+        "core/other": 10552,
+        "duckdb/other": 66313,
+        "duckdb/parser": 25821,
+        "schema/other": 23069,
+        "duckdb/catalog": 252156
+      },
+      "outputDigest": "7ba71e26fe936b65044985aa7dae07508c3ba65bf054d99774f7e3636ace7da5"
+    },
+    {
+      "grammar": "duckdb",
+      "scenario": "analyzer:2.0.0",
+      "minifiedBytes": 407217,
+      "gzipBytes": 62432,
+      "brotliBytes": 49836,
+      "generatedInputBytes": 285110,
+      "globalCatalogInputs": [
+        "packages/duckdb/src/catalog/resolution.ts",
+        "packages/duckdb/src/catalog/core/2.0.0.ts",
+        "packages/duckdb/src/catalog/packs/2.0.0.ts",
+        "packages/duckdb/src/catalog/2.0.0.ts",
+        "packages/duckdb/src/catalog/common-2.0.0.ts",
+        "packages/duckdb/src/catalog/provider.ts",
+        "packages/duckdb/src/catalog/engines/2.0.0.ts"
+      ],
+      "attribution": {
+        "core/other": 10552,
+        "duckdb/other": 70010,
+        "duckdb/parser": 25821,
+        "schema/other": 23069,
+        "duckdb/catalog": 277736
+      },
+      "outputDigest": "f2864f8ed0b1ee45fa67e6591d85d639f6e8f0a2d24c17983babd3ec36ee6c7c"
+    },
+    {
+      "grammar": "duckdb",
+      "scenario": "analyzer:core:1.5.6",
+      "minifiedBytes": 249282,
+      "gzipBytes": 51869,
+      "brotliBytes": 43355,
+      "generatedInputBytes": 126089,
+      "globalCatalogInputs": [
+        "packages/duckdb/src/catalog/common-1.5.6.ts",
+        "packages/duckdb/src/catalog/core/1.5.6.ts",
+        "packages/duckdb/src/catalog/provider.ts",
+        "packages/duckdb/src/catalog/resolution.ts"
+      ],
+      "attribution": {
+        "duckdb/catalog": 122949,
+        "core/other": 10552,
+        "duckdb/other": 66862,
+        "duckdb/parser": 25821,
+        "schema/other": 23069
+      },
+      "outputDigest": "4e39d1e97757fb6b4778cfbb347523eccf0ff2fb78e5d5abd293a0e9cea9da7d"
+    },
+    {
+      "grammar": "duckdb",
+      "scenario": "analyzer:core:2.0.0",
+      "minifiedBytes": 264897,
+      "gzipBytes": 54438,
+      "brotliBytes": 45391,
+      "generatedInputBytes": 141704,
+      "globalCatalogInputs": [
+        "packages/duckdb/src/catalog/common-2.0.0.ts",
+        "packages/duckdb/src/catalog/core/2.0.0.ts",
+        "packages/duckdb/src/catalog/provider.ts",
+        "packages/duckdb/src/catalog/resolution.ts"
+      ],
+      "attribution": {
+        "duckdb/catalog": 134867,
+        "core/other": 10552,
+        "duckdb/other": 70559,
+        "duckdb/parser": 25821,
+        "schema/other": 23069
+      },
+      "outputDigest": "06274515b2815b33613815a86ba223a48e396e88ae18a75395d62da3d92f953e"
+    },
+    {
+      "grammar": "duckdb",
+      "scenario": "analyzer:core:1.5.6:compatibility",
+      "minifiedBytes": 391578,
+      "gzipBytes": 62660,
+      "brotliBytes": 50204,
+      "generatedInputBytes": 268112,
+      "globalCatalogInputs": [
+        "packages/duckdb/src/catalog/common-1.5.6.ts",
+        "packages/duckdb/src/catalog/core/1.5.6.ts",
+        "packages/duckdb/src/catalog/provider.ts",
+        "packages/duckdb/src/catalog/resolution.ts",
+        "packages/duckdb/src/catalog/packs/1.5.6.ts"
+      ],
+      "attribution": {
+        "duckdb/catalog": 264972,
+        "core/other": 10552,
+        "duckdb/other": 67098,
+        "duckdb/parser": 25821,
+        "schema/other": 23069,
+        "external/entry": 37
+      },
+      "outputDigest": "84cdb7a45795ef4777f6cdec210ca15b388be7c4036b24e7ed042864da4e73e6"
+    },
+    {
+      "grammar": "duckdb",
+      "scenario": "analyzer:core:2.0.0:compatibility",
+      "minifiedBytes": 424090,
+      "gzipBytes": 66856,
+      "brotliBytes": 52976,
+      "generatedInputBytes": 300624,
+      "globalCatalogInputs": [
+        "packages/duckdb/src/catalog/common-2.0.0.ts",
+        "packages/duckdb/src/catalog/core/2.0.0.ts",
+        "packages/duckdb/src/catalog/provider.ts",
+        "packages/duckdb/src/catalog/resolution.ts",
+        "packages/duckdb/src/catalog/packs/2.0.0.ts"
+      ],
+      "attribution": {
+        "duckdb/catalog": 293787,
+        "core/other": 10552,
+        "duckdb/other": 70795,
+        "duckdb/parser": 25821,
+        "schema/other": 23069,
+        "external/entry": 37
+      },
+      "outputDigest": "4757618dc86a785d146b0abdc93d20efc9eb6405e5674ede28c3d8114f3c81c2"
+    },
+    {
+      "grammar": "mysql",
+      "scenario": "rootTag",
+      "minifiedBytes": 17535,
+      "gzipBytes": 5537,
+      "brotliBytes": 5020,
+      "generatedInputBytes": 0,
+      "globalCatalogInputs": [],
+      "attribution": {
+        "core/other": 17486,
+        "external/entry": 28
+      },
+      "outputDigest": "61c8414188fe7742f052afe3f6e16347ee044e7f6d26b2698fe08b8ad443993a"
+    },
+    {
+      "grammar": "mysql",
+      "scenario": "queryTag",
+      "minifiedBytes": 17630,
+      "gzipBytes": 5587,
+      "brotliBytes": 5058,
+      "generatedInputBytes": 0,
+      "globalCatalogInputs": [],
+      "attribution": {
+        "core/other": 17486,
+        "mysql/other": 95,
+        "external/entry": 28
+      },
+      "outputDigest": "ca2cb7257661c8574505546740ba1004b07c05c28dd0a16588ec1c2b873f2aaf"
+    },
+    {
+      "grammar": "mysql",
+      "scenario": "execution",
+      "minifiedBytes": 93359,
+      "gzipBytes": 27926,
+      "brotliBytes": 24557,
+      "generatedInputBytes": 0,
+      "globalCatalogInputs": [],
+      "attribution": {
+        "mysql/other": 26051,
+        "core/other": 36953,
+        "schema/other": 399,
+        "ast/other": 1645,
+        "mysql/parser": 28271
+      },
+      "outputDigest": "d6d10ca3d1bc394155dff664c84edc5b9602372907ea57f835ce724daba96a79"
+    },
+    {
+      "grammar": "mysql",
+      "scenario": "analyzer",
+      "minifiedBytes": 205802,
+      "gzipBytes": 50533,
+      "brotliBytes": 42681,
+      "generatedInputBytes": 52323,
+      "globalCatalogInputs": [
+        "packages/mysql/src/catalog/generated/8.4.ts",
+        "packages/mysql/src/catalog/generated/9.7.ts",
+        "packages/mysql/src/catalog/generated/26.7.ts",
+        "packages/mysql/src/catalog/provider.ts",
+        "packages/mysql/src/catalog/index.ts"
+      ],
+      "attribution": {
+        "core/other": 20016,
+        "schema/other": 23075,
+        "ast/other": 1647,
+        "mysql/other": 89671,
+        "mysql/parser": 31439,
+        "mysql/catalog": 39925
+      },
+      "outputDigest": "c0a0ca37cd7ef6a9175f6162e0b706b26d0903c2428a95c5dcbdffb5ad1e8e39"
+    },
+    {
+      "grammar": "mysql",
+      "scenario": "profile",
+      "minifiedBytes": 48435,
+      "gzipBytes": 13596,
+      "brotliBytes": 12051,
+      "generatedInputBytes": 0,
+      "globalCatalogInputs": [],
+      "attribution": {
+        "core/other": 9675,
+        "schema/other": 23038,
+        "mysql/other": 10172,
+        "mysql/parser": 5522
+      },
+      "outputDigest": "47e37875cec4cde0afe05967fb90c50a9c95d2e4b59242d7427e181245523f72"
+    },
+    {
+      "grammar": "mysql",
+      "scenario": "frozenHost",
+      "minifiedBytes": 135593,
+      "gzipBytes": 39468,
+      "brotliBytes": 34296,
+      "generatedInputBytes": 0,
+      "globalCatalogInputs": [],
+      "attribution": {
+        "analysis/other": 22967,
+        "core/other": 32888,
+        "schema/other": 24086,
+        "compiler/other": 39802,
+        "mysql/other": 10218,
+        "mysql/parser": 5531
+      },
+      "outputDigest": "5f49e71481ca6bfb8a131471c357f74296562dda3f4b2727ad7f5e629a356052"
+    },
+    {
+      "grammar": "mysql",
+      "scenario": "analyzer:26.7",
+      "minifiedBytes": 183003,
+      "gzipBytes": 50147,
+      "brotliBytes": 42742,
+      "generatedInputBytes": 29823,
+      "globalCatalogInputs": [
+        "packages/mysql/src/catalog/provider.ts",
+        "packages/mysql/src/catalog/generated/26.7.ts",
+        "packages/mysql/src/catalog/generated/availability.ts"
+      ],
+      "attribution": {
+        "core/other": 20016,
+        "mysql/other": 89015,
+        "ast/other": 1647,
+        "mysql/parser": 31439,
+        "schema/other": 23075,
+        "mysql/catalog": 17782
+      },
+      "outputDigest": "f58dc2f0396908aa386b6a205a9643e82b818e032f8f91672c0df7c54e67b8aa"
+    },
+    {
+      "grammar": "mysql",
+      "scenario": "analyzer:8.4",
+      "minifiedBytes": 181729,
+      "gzipBytes": 49889,
+      "brotliBytes": 42486,
+      "generatedInputBytes": 28550,
+      "globalCatalogInputs": [
+        "packages/mysql/src/catalog/provider.ts",
+        "packages/mysql/src/catalog/generated/8.4.ts",
+        "packages/mysql/src/catalog/generated/availability.ts"
+      ],
+      "attribution": {
+        "core/other": 20016,
+        "mysql/other": 88472,
+        "ast/other": 1647,
+        "mysql/parser": 31439,
+        "schema/other": 23075,
+        "mysql/catalog": 17051
+      },
+      "outputDigest": "faca61dc0b5bdca75373b97872d096d6a71f08c24634c041f3a19704c0ba9613"
+    },
+    {
+      "grammar": "mysql",
+      "scenario": "analyzer:9.7",
+      "minifiedBytes": 182919,
+      "gzipBytes": 50120,
+      "brotliBytes": 42727,
+      "generatedInputBytes": 29740,
+      "globalCatalogInputs": [
+        "packages/mysql/src/catalog/provider.ts",
+        "packages/mysql/src/catalog/generated/9.7.ts",
+        "packages/mysql/src/catalog/generated/availability.ts"
+      ],
+      "attribution": {
+        "core/other": 20016,
+        "mysql/other": 88932,
+        "ast/other": 1647,
+        "mysql/parser": 31439,
+        "schema/other": 23075,
+        "mysql/catalog": 17781
+      },
+      "outputDigest": "367bf2f34355cd1db0538138f7f51bf0d0a36503a360dfd73be215911ab35b38"
+    },
+    {
+      "grammar": "mysql",
+      "scenario": "analyzer:core:26.7",
+      "minifiedBytes": 183003,
+      "gzipBytes": 50147,
+      "brotliBytes": 42723,
+      "generatedInputBytes": 29823,
+      "globalCatalogInputs": [
+        "packages/mysql/src/catalog/provider.ts",
+        "packages/mysql/src/catalog/generated/26.7.ts",
+        "packages/mysql/src/catalog/generated/availability.ts"
+      ],
+      "attribution": {
+        "core/other": 20016,
+        "mysql/other": 89015,
+        "ast/other": 1647,
+        "mysql/parser": 31439,
+        "schema/other": 23075,
+        "mysql/catalog": 17782
+      },
+      "outputDigest": "c1acd91600b65ef75f6e937e164edcfcc84af4e92f1ce8f50e8343202289e432"
+    },
+    {
+      "grammar": "mysql",
+      "scenario": "analyzer:core:8.4",
+      "minifiedBytes": 181729,
+      "gzipBytes": 49889,
+      "brotliBytes": 42481,
+      "generatedInputBytes": 28550,
+      "globalCatalogInputs": [
+        "packages/mysql/src/catalog/provider.ts",
+        "packages/mysql/src/catalog/generated/8.4.ts",
+        "packages/mysql/src/catalog/generated/availability.ts"
+      ],
+      "attribution": {
+        "core/other": 20016,
+        "mysql/other": 88472,
+        "ast/other": 1647,
+        "mysql/parser": 31439,
+        "schema/other": 23075,
+        "mysql/catalog": 17051
+      },
+      "outputDigest": "e872bbd2db864a19fb691785afb1fa20738158fdab798c47e4cfcbeb5fca6a17"
+    },
+    {
+      "grammar": "mysql",
+      "scenario": "analyzer:core:9.7",
+      "minifiedBytes": 182919,
+      "gzipBytes": 50119,
+      "brotliBytes": 42731,
+      "generatedInputBytes": 29740,
+      "globalCatalogInputs": [
+        "packages/mysql/src/catalog/provider.ts",
+        "packages/mysql/src/catalog/generated/9.7.ts",
+        "packages/mysql/src/catalog/generated/availability.ts"
+      ],
+      "attribution": {
+        "core/other": 20016,
+        "mysql/other": 88932,
+        "ast/other": 1647,
+        "mysql/parser": 31439,
+        "schema/other": 23075,
+        "mysql/catalog": 17781
+      },
+      "outputDigest": "9860254359c92a4d632b573ac36556021e7e14a86801b3e60e9a1eab9a786636"
+    },
+    {
+      "grammar": "postgres",
+      "scenario": "rootTag",
+      "minifiedBytes": 17535,
+      "gzipBytes": 5537,
+      "brotliBytes": 5017,
+      "generatedInputBytes": 0,
+      "globalCatalogInputs": [],
+      "attribution": {
+        "core/other": 17486,
+        "external/entry": 28
+      },
+      "outputDigest": "21bc2fafc6985be048ba65d086d0e8bc9f4044e360d763e1f41fb88f9fb6dc1a"
+    },
+    {
+      "grammar": "postgres",
+      "scenario": "queryTag",
+      "minifiedBytes": 17535,
+      "gzipBytes": 5534,
+      "brotliBytes": 5004,
+      "generatedInputBytes": 0,
+      "globalCatalogInputs": [],
+      "attribution": {
+        "core/other": 17486,
+        "external/entry": 28
+      },
+      "outputDigest": "45caeac7ddc03c4e99796ff56fa1711a6236f1e74af44b53535245ed5183d088"
+    },
+    {
+      "grammar": "postgres",
+      "scenario": "execution",
+      "minifiedBytes": 116738,
+      "gzipBytes": 33041,
+      "brotliBytes": 28809,
+      "generatedInputBytes": 0,
+      "globalCatalogInputs": [],
+      "attribution": {
+        "postgres/other": 26147,
+        "core/other": 36953,
+        "schema/other": 399,
+        "ast/other": 1645,
+        "postgres/parser": 51554
+      },
+      "outputDigest": "ce08e948fe803da411101e6800b53646acd15306b0404eb5437efc9504115971"
+    },
+    {
+      "grammar": "postgres",
+      "scenario": "analyzer",
+      "minifiedBytes": 425824,
+      "gzipBytes": 76514,
+      "brotliBytes": 62890,
+      "generatedInputBytes": 174960,
+      "globalCatalogInputs": [
+        "packages/postgres/src/catalog/generated/14.ts",
+        "packages/postgres/src/catalog/generated/15.ts",
+        "packages/postgres/src/catalog/generated/16.ts",
+        "packages/postgres/src/catalog/generated/17.ts",
+        "packages/postgres/src/catalog/generated/18.ts",
+        "packages/postgres/src/catalog/generated/19.ts",
+        "packages/postgres/src/catalog/provider.ts",
+        "packages/postgres/src/catalog/index.ts"
+      ],
+      "attribution": {
+        "core/other": 20581,
+        "postgres/other": 178303,
+        "schema/other": 26045,
+        "ast/other": 1647,
+        "postgres/parser": 58489,
+        "postgres/catalog": 140730
+      },
+      "outputDigest": "a14e02a811ea8515d07e26dabfc6c0443815866737bb58390a8ef2f289cf0248"
+    },
+    {
+      "grammar": "postgres",
+      "scenario": "profile",
+      "minifiedBytes": 44894,
+      "gzipBytes": 12484,
+      "brotliBytes": 11005,
+      "generatedInputBytes": 0,
+      "globalCatalogInputs": [],
+      "attribution": {
+        "core/other": 9472,
+        "postgres/other": 5615,
+        "postgres/parser": 6739,
+        "schema/other": 23037
+      },
+      "outputDigest": "965c6c64a26af5e8b4a352b2638dd72d2f979b88631abe3251d3df2a722ecde0"
+    },
+    {
+      "grammar": "postgres",
+      "scenario": "frozenHost",
+      "minifiedBytes": 132048,
+      "gzipBytes": 38307,
+      "brotliBytes": 33418,
+      "generatedInputBytes": 0,
+      "globalCatalogInputs": [],
+      "attribution": {
+        "analysis/other": 22967,
+        "core/other": 32690,
+        "schema/other": 24086,
+        "compiler/other": 39802,
+        "postgres/other": 5649,
+        "postgres/parser": 6750
+      },
+      "outputDigest": "61f1802bb83cecb27d11b1d9189e4fc06c975b073ca78a3e75583869e2e47f9b"
+    },
+    {
+      "grammar": "postgres",
+      "scenario": "analyzer:14",
+      "minifiedBytes": 302755,
+      "gzipBytes": 73772,
+      "brotliBytes": 61842,
+      "generatedInputBytes": 52403,
+      "globalCatalogInputs": [
+        "packages/postgres/src/catalog/generated/14.ts",
+        "packages/postgres/src/catalog/provider.ts"
+      ],
+      "attribution": {
+        "core/other": 20581,
+        "postgres/other": 170933,
+        "schema/other": 26045,
+        "ast/other": 1647,
+        "postgres/parser": 58489,
+        "postgres/catalog": 25031
+      },
+      "outputDigest": "62f0b46c8e444cb4d766d3893e0382ddc67593cb1a8a65e540f2b2cde8cf719b"
+    },
+    {
+      "grammar": "postgres",
+      "scenario": "analyzer:15",
+      "minifiedBytes": 302825,
+      "gzipBytes": 73803,
+      "brotliBytes": 61964,
+      "generatedInputBytes": 52473,
+      "globalCatalogInputs": [
+        "packages/postgres/src/catalog/generated/15.ts",
+        "packages/postgres/src/catalog/provider.ts"
+      ],
+      "attribution": {
+        "core/other": 20581,
+        "postgres/other": 171071,
+        "schema/other": 26045,
+        "ast/other": 1647,
+        "postgres/parser": 58489,
+        "postgres/catalog": 24963
+      },
+      "outputDigest": "176233a836379b11b134f2a53d9f799abce4926c46649459dfb49e35ae0264db"
+    },
+    {
+      "grammar": "postgres",
+      "scenario": "analyzer:16",
+      "minifiedBytes": 303349,
+      "gzipBytes": 73902,
+      "brotliBytes": 61968,
+      "generatedInputBytes": 52997,
+      "globalCatalogInputs": [
+        "packages/postgres/src/catalog/generated/16.ts",
+        "packages/postgres/src/catalog/provider.ts"
+      ],
+      "attribution": {
+        "core/other": 20581,
+        "postgres/other": 171595,
+        "schema/other": 26045,
+        "ast/other": 1647,
+        "postgres/parser": 58489,
+        "postgres/catalog": 24963
+      },
+      "outputDigest": "0d5aa46a9d8e714dba7dffe20c711e8ecca8aca1d261db6f9304fa6d2b48dece"
+    },
+    {
+      "grammar": "postgres",
+      "scenario": "analyzer:17",
+      "minifiedBytes": 304295,
+      "gzipBytes": 74088,
+      "brotliBytes": 62247,
+      "generatedInputBytes": 53943,
+      "globalCatalogInputs": [
+        "packages/postgres/src/catalog/generated/17.ts",
+        "packages/postgres/src/catalog/provider.ts"
+      ],
+      "attribution": {
+        "core/other": 20581,
+        "postgres/other": 172541,
+        "schema/other": 26045,
+        "ast/other": 1647,
+        "postgres/parser": 58489,
+        "postgres/catalog": 24963
+      },
+      "outputDigest": "67bc6d6545a4d9008d18cd0428a87866590f230a4f0678699e6ce32f3f459382"
+    },
+    {
+      "grammar": "postgres",
+      "scenario": "analyzer:18",
+      "minifiedBytes": 304861,
+      "gzipBytes": 74152,
+      "brotliBytes": 62221,
+      "generatedInputBytes": 54509,
+      "globalCatalogInputs": [
+        "packages/postgres/src/catalog/generated/18.ts",
+        "packages/postgres/src/catalog/provider.ts"
+      ],
+      "attribution": {
+        "core/other": 20581,
+        "postgres/other": 172681,
+        "schema/other": 26045,
+        "ast/other": 1647,
+        "postgres/parser": 58489,
+        "postgres/catalog": 25389
+      },
+      "outputDigest": "da0e09f443acea896065c4fd5b7ab77364e934762a8d795ca19c77630908d74e"
+    },
+    {
+      "grammar": "postgres",
+      "scenario": "analyzer:19",
+      "minifiedBytes": 305647,
+      "gzipBytes": 74329,
+      "brotliBytes": 62314,
+      "generatedInputBytes": 55295,
+      "globalCatalogInputs": [
+        "packages/postgres/src/catalog/generated/19.ts",
+        "packages/postgres/src/catalog/provider.ts"
+      ],
+      "attribution": {
+        "core/other": 20581,
+        "postgres/other": 173467,
+        "schema/other": 26045,
+        "ast/other": 1647,
+        "postgres/parser": 58489,
+        "postgres/catalog": 25389
+      },
+      "outputDigest": "d687d36d815d820f9802cf874873ca4ecb430769651a049055a5b17824cb2a06"
+    },
+    {
+      "grammar": "postgres",
+      "scenario": "analyzer:core:14",
+      "minifiedBytes": 302755,
+      "gzipBytes": 73772,
+      "brotliBytes": 61801,
+      "generatedInputBytes": 52403,
+      "globalCatalogInputs": [
+        "packages/postgres/src/catalog/generated/14.ts",
+        "packages/postgres/src/catalog/provider.ts"
+      ],
+      "attribution": {
+        "core/other": 20581,
+        "postgres/other": 170933,
+        "schema/other": 26045,
+        "ast/other": 1647,
+        "postgres/parser": 58489,
+        "postgres/catalog": 25031
+      },
+      "outputDigest": "a8693ea9fee4ad0b8b087f4407ab56cd0419deea4dbc7b16fb2b4ee2b60feb40"
+    },
+    {
+      "grammar": "postgres",
+      "scenario": "analyzer:core:15",
+      "minifiedBytes": 302825,
+      "gzipBytes": 73803,
+      "brotliBytes": 61897,
+      "generatedInputBytes": 52473,
+      "globalCatalogInputs": [
+        "packages/postgres/src/catalog/generated/15.ts",
+        "packages/postgres/src/catalog/provider.ts"
+      ],
+      "attribution": {
+        "core/other": 20581,
+        "postgres/other": 171071,
+        "schema/other": 26045,
+        "ast/other": 1647,
+        "postgres/parser": 58489,
+        "postgres/catalog": 24963
+      },
+      "outputDigest": "17df90c711cd14db92070f036834bd12c33dc21eb07de764704d500601a300c5"
+    },
+    {
+      "grammar": "postgres",
+      "scenario": "analyzer:core:16",
+      "minifiedBytes": 303349,
+      "gzipBytes": 73902,
+      "brotliBytes": 62012,
+      "generatedInputBytes": 52997,
+      "globalCatalogInputs": [
+        "packages/postgres/src/catalog/generated/16.ts",
+        "packages/postgres/src/catalog/provider.ts"
+      ],
+      "attribution": {
+        "core/other": 20581,
+        "postgres/other": 171595,
+        "schema/other": 26045,
+        "ast/other": 1647,
+        "postgres/parser": 58489,
+        "postgres/catalog": 24963
+      },
+      "outputDigest": "b0e538e309e3d3eac25e2aaca7e070f654f939afb17b4f6195c782b7bfb7c07d"
+    },
+    {
+      "grammar": "postgres",
+      "scenario": "analyzer:core:17",
+      "minifiedBytes": 304295,
+      "gzipBytes": 74088,
+      "brotliBytes": 62106,
+      "generatedInputBytes": 53943,
+      "globalCatalogInputs": [
+        "packages/postgres/src/catalog/generated/17.ts",
+        "packages/postgres/src/catalog/provider.ts"
+      ],
+      "attribution": {
+        "core/other": 20581,
+        "postgres/other": 172541,
+        "schema/other": 26045,
+        "ast/other": 1647,
+        "postgres/parser": 58489,
+        "postgres/catalog": 24963
+      },
+      "outputDigest": "94b55f66184c88b5fb0918d62beb6fa21ad1871dbaac53d82bdfc14211102c50"
+    },
+    {
+      "grammar": "postgres",
+      "scenario": "analyzer:core:18",
+      "minifiedBytes": 304861,
+      "gzipBytes": 74152,
+      "brotliBytes": 62230,
+      "generatedInputBytes": 54509,
+      "globalCatalogInputs": [
+        "packages/postgres/src/catalog/generated/18.ts",
+        "packages/postgres/src/catalog/provider.ts"
+      ],
+      "attribution": {
+        "core/other": 20581,
+        "postgres/other": 172681,
+        "schema/other": 26045,
+        "ast/other": 1647,
+        "postgres/parser": 58489,
+        "postgres/catalog": 25389
+      },
+      "outputDigest": "6f4adb60c7907004a5d93b95feb0aa3e33b8e616f3325b83a82277d3f4f585aa"
+    },
+    {
+      "grammar": "postgres",
+      "scenario": "analyzer:core:19",
+      "minifiedBytes": 305647,
+      "gzipBytes": 74329,
+      "brotliBytes": 62340,
+      "generatedInputBytes": 55295,
+      "globalCatalogInputs": [
+        "packages/postgres/src/catalog/generated/19.ts",
+        "packages/postgres/src/catalog/provider.ts"
+      ],
+      "attribution": {
+        "core/other": 20581,
+        "postgres/other": 173467,
+        "schema/other": 26045,
+        "ast/other": 1647,
+        "postgres/parser": 58489,
+        "postgres/catalog": 25389
+      },
+      "outputDigest": "1c0264a4c2f337ae8594abc0e0f84681f32390455b46238afadc9e22b804d526"
+    },
+    {
+      "grammar": "sqlite",
+      "scenario": "rootTag",
+      "minifiedBytes": 17535,
+      "gzipBytes": 5538,
+      "brotliBytes": 5005,
+      "generatedInputBytes": 0,
+      "globalCatalogInputs": [],
+      "attribution": {
+        "core/other": 17486,
+        "external/entry": 28
+      },
+      "outputDigest": "3cb66a35e6b83b44ff49e0e5eef641284964ad45f5af21192eaf6a733bc56b89"
+    },
+    {
+      "grammar": "sqlite",
+      "scenario": "queryTag",
+      "minifiedBytes": 17628,
+      "gzipBytes": 5586,
+      "brotliBytes": 5057,
+      "generatedInputBytes": 0,
+      "globalCatalogInputs": [],
+      "attribution": {
+        "core/other": 17486,
+        "sqlite/other": 93,
+        "external/entry": 28
+      },
+      "outputDigest": "5e15b733e5e8cb1d87b6bc6226772f16ab41ee360c49f0c17af4c2c45daeae55"
+    },
+    {
+      "grammar": "sqlite",
+      "scenario": "execution",
+      "minifiedBytes": 38072,
+      "gzipBytes": 11760,
+      "brotliBytes": 10589,
+      "generatedInputBytes": 0,
+      "globalCatalogInputs": [],
+      "attribution": {
+        "sqlite/other": 5505,
+        "core/other": 32128,
+        "schema/other": 399
+      },
+      "outputDigest": "1f29a1eccf61f302ab580796acedc6d4df5fe27473281feb90bc1426d746ec0e"
+    },
+    {
+      "grammar": "sqlite",
+      "scenario": "analyzer",
+      "minifiedBytes": 165283,
+      "gzipBytes": 43486,
+      "brotliBytes": 37061,
+      "generatedInputBytes": 10466,
+      "globalCatalogInputs": [
+        "packages/sqlite/src/catalog/coercions.ts",
+        "packages/sqlite/src/catalog/date-time.ts",
+        "packages/sqlite/src/catalog/extensions.ts",
+        "packages/sqlite/src/catalog/json.ts",
+        "packages/sqlite/src/catalog/math.ts",
+        "packages/sqlite/src/catalog/functions.ts",
+        "packages/sqlite/src/catalog/operators.ts"
+      ],
+      "attribution": {
+        "core/other": 19202,
+        "sqlite/other": 77911,
+        "ast/other": 1647,
+        "sqlite/parser": 28647,
+        "sqlite/catalog": 14770,
+        "schema/other": 23077
+      },
+      "outputDigest": "5c49f96e5467bf7010ea471135070874eecb443c1bf02571aa0e41d1ebf5df4f"
+    },
+    {
+      "grammar": "sqlite",
+      "scenario": "profile",
+      "minifiedBytes": 51413,
+      "gzipBytes": 13872,
+      "brotliBytes": 12312,
+      "generatedInputBytes": 0,
+      "globalCatalogInputs": [],
+      "attribution": {
+        "core/other": 8868,
+        "sqlite/other": 13546,
+        "sqlite/parser": 5932,
+        "schema/other": 23038
+      },
+      "outputDigest": "87996bc63735f45409bf67d160237a4b9d667326864f46121a413eee34840d6c"
+    },
+    {
+      "grammar": "sqlite",
+      "scenario": "frozenHost",
+      "minifiedBytes": 138559,
+      "gzipBytes": 39817,
+      "brotliBytes": 34588,
+      "generatedInputBytes": 0,
+      "globalCatalogInputs": [],
+      "attribution": {
+        "analysis/other": 22967,
+        "core/other": 32067,
+        "schema/other": 24086,
+        "compiler/other": 39802,
+        "sqlite/other": 13591,
+        "sqlite/parser": 5944
+      },
+      "outputDigest": "550064e60c9dacafd21908ff9cd9c98766068082eb13a67b7b7194a5450f17fd"
+    },
+    {
+      "grammar": "sqlite",
+      "scenario": "analyzer:core",
+      "minifiedBytes": 165286,
+      "gzipBytes": 43487,
+      "brotliBytes": 37036,
+      "generatedInputBytes": 10466,
+      "globalCatalogInputs": [
+        "packages/sqlite/src/catalog/coercions.ts",
+        "packages/sqlite/src/catalog/date-time.ts",
+        "packages/sqlite/src/catalog/extensions.ts",
+        "packages/sqlite/src/catalog/json.ts",
+        "packages/sqlite/src/catalog/math.ts",
+        "packages/sqlite/src/catalog/functions.ts",
+        "packages/sqlite/src/catalog/operators.ts"
+      ],
+      "attribution": {
+        "core/other": 19202,
+        "sqlite/other": 77914,
+        "ast/other": 1647,
+        "sqlite/parser": 28647,
+        "sqlite/catalog": 14770,
+        "schema/other": 23077
+      },
+      "outputDigest": "bc8db1f0442b03a953191988d6d2142d0fc6fe156b930d6332ae4789933a4de8"
+    },
+    {
+      "grammar": "sqlserver",
+      "scenario": "rootTag",
+      "minifiedBytes": 17535,
+      "gzipBytes": 5537,
+      "brotliBytes": 5020,
+      "generatedInputBytes": 0,
+      "globalCatalogInputs": [],
+      "attribution": {
+        "core/other": 17486,
+        "external/entry": 28
+      },
+      "outputDigest": "ac42567e44e103d919e616b5575dde3b6023c943c929adf0fa08c335bb1d0ebf"
+    },
+    {
+      "grammar": "sqlserver",
+      "scenario": "queryTag",
+      "minifiedBytes": 17900,
+      "gzipBytes": 5691,
+      "brotliBytes": 5144,
+      "generatedInputBytes": 0,
+      "globalCatalogInputs": [],
+      "attribution": {
+        "core/other": 17486,
+        "sqlserver/other": 365,
+        "external/entry": 28
+      },
+      "outputDigest": "daeae7b7959e4145cf5ad147e3acdb6cb6b8c45b2349901c5a2f18d8b0c179f3"
+    },
+    {
+      "grammar": "sqlserver",
+      "scenario": "execution",
+      "minifiedBytes": 91838,
+      "gzipBytes": 28143,
+      "brotliBytes": 24909,
+      "generatedInputBytes": 0,
+      "globalCatalogInputs": [],
+      "attribution": {
+        "core/other": 36124,
+        "schema/other": 399,
+        "sqlserver/other": 32162,
+        "sqlserver/parser": 23113
+      },
+      "outputDigest": "bcb83323b7e7ca55ced18f0ad9b95c3babab90f8c6dd3bd7523d5f5fa968790c"
+    },
+    {
+      "grammar": "sqlserver",
+      "scenario": "analyzer",
+      "minifiedBytes": 129215,
+      "gzipBytes": 37221,
+      "brotliBytes": 32171,
+      "generatedInputBytes": 3047,
+      "globalCatalogInputs": ["packages/sqlserver/src/catalog/index.ts"],
+      "attribution": {
+        "core/other": 10744,
+        "sqlserver/other": 67259,
+        "sqlserver/parser": 23090,
+        "schema/other": 23077,
+        "sqlserver/catalog": 5016
+      },
+      "outputDigest": "c20a148f3e8f310ddd5125ba29efb4cb907ba0148f520cb164a50c74126b37f8"
+    },
+    {
+      "grammar": "sqlserver",
+      "scenario": "profile",
+      "minifiedBytes": 44400,
+      "gzipBytes": 12405,
+      "brotliBytes": 11121,
+      "generatedInputBytes": 0,
+      "globalCatalogInputs": [],
+      "attribution": {
+        "core/other": 8867,
+        "sqlserver/other": 8473,
+        "sqlserver/parser": 3989,
+        "schema/other": 23039
+      },
+      "outputDigest": "6cefea7dbeea1a63b4c9f5c43eaf8be1727ddac46d8150663990fef8328006f6"
+    },
+    {
+      "grammar": "sqlserver",
+      "scenario": "frozenHost",
+      "minifiedBytes": 131507,
+      "gzipBytes": 38204,
+      "brotliBytes": 33422,
+      "generatedInputBytes": 0,
+      "globalCatalogInputs": [],
+      "attribution": {
+        "analysis/other": 22967,
+        "core/other": 32081,
+        "schema/other": 24086,
+        "compiler/other": 39791,
+        "sqlserver/other": 8486,
+        "sqlserver/parser": 3991
+      },
+      "outputDigest": "4ca9c5c165f945c34f49027cdb70156012cb2b19f3d1a41f7a482ab301342f76"
+    },
+    {
+      "grammar": "sqlserver",
+      "scenario": "analyzer:core",
+      "minifiedBytes": 129218,
+      "gzipBytes": 37222,
+      "brotliBytes": 32135,
+      "generatedInputBytes": 3047,
+      "globalCatalogInputs": ["packages/sqlserver/src/catalog/index.ts"],
+      "attribution": {
+        "core/other": 10744,
+        "sqlserver/other": 67262,
+        "sqlserver/parser": 23090,
+        "schema/other": 23077,
+        "sqlserver/catalog": 5016
+      },
+      "outputDigest": "33548125f0d2a11b3426da736f718e1f020ae23b7425b9d1c709019b07f945d4"
+    }
+  ],
+  "inputDigests": {
+    "grammar/features/ledger.json": "b2bf80fcca2b76d2cfa4fcbddc2bea618473cad88423645d27b50f1cfff2e736",
+    "packages/analysis/package.json": "5a8d716e0a8149a39f6cac1c87a45bbe666aa2aff6e58721327caa3ef147e7e4",
+    "packages/analysis/src/acquisition.ts": "5bb779199d9b7444be59885e2f0ab65d02c961e27bb2959e92099f10ff3c6a4c",
+    "packages/analysis/src/analysis-errors.ts": "48fba632c3f86ee10d4e9696c2dae33270a080257b356664f82a581cf8fddf80",
+    "packages/analysis/src/artifacts.ts": "a1c07b27b97474d84f8047c0b4f708e88ce1306fedfd6275c7d30af1902731d4",
+    "packages/analysis/src/cache-files.ts": "80a6cbced91fe00eef35bed13465bb2e041b592ba631053c10b7af48d6ccecad",
+    "packages/analysis/src/cache.ts": "f19939f0b07062dd1ba6ebfee16c240701f1eec9dd7e37932be11f07751b2d48",
+    "packages/analysis/src/candidate.ts": "c4f00284a72f93227a70b3f84ff88c9b9096d25b5617c747684a92764b4ccab9",
+    "packages/analysis/src/canonical.ts": "fafa6dac77106bb23de9424439420de66c04fc3b59394c9ba93307f1048ab0e2",
+    "packages/analysis/src/configuration.ts": "8f028aa77adccd46244a5fc0517fbc6966e01e52fe6930439cb7457ee290a6d8",
+    "packages/analysis/src/context-scope.ts": "d5c5801ef542e5b638fb7170269dba60898dd930790bf8cc0a597656dd5681d6",
+    "packages/analysis/src/contracts.ts": "a3d82f64e89fd6630f3e947385158fc5b9c664c4fe4aacdc59c941f2b557add1",
+    "packages/analysis/src/dialect.ts": "f67f6777ba6abb6f28d186a60949710d4c373090dd76ecb220b3b91bd04d9c1b",
+    "packages/analysis/src/index.ts": "136fd3e38ef8bfefdac7755707ee5031d4b291fa51017084572c7e22b1e95daf",
+    "packages/analysis/src/live-catalog.ts": "6f959ae34a530b1f1c838212bd51eda6302a19c52acd819edd586edd34d15b90",
+    "packages/analysis/src/live-session.ts": "922dbee7e85531cd87f5c52eba2008b81090328eef104d93075453b112d5214a",
+    "packages/analysis/src/live-view.ts": "ee8bb82fa785f77a08e57999dc2efde349403bdcb1427f6b0f15bfe339bc9077",
+    "packages/analysis/src/live.ts": "f2de925e330710942bef2059194efeca533fecbd3cd832465c95e913b93dda9b",
+    "packages/analysis/src/native-context.ts": "01963d033627e6a7c9a2a6136dc0afbad4b89a228c9380e9c671b30ecb376d8b",
+    "packages/analysis/src/native-evidence.ts": "329ca6fa096f25b263014d834479d3f7a90eba1951754dc83a1dd9396d2310c5",
+    "packages/analysis/src/offline-view.ts": "38ff700ccb40d9ec500b10dbf94775698f23b1306f8d04765150415d7f23941f",
+    "packages/analysis/src/persistent-live.ts": "8eb513663fc5f2f262505575e8902863253bafb10f38b33d0d8f1373d1755adc",
+    "packages/analysis/src/project-catalog-acquisition.ts": "2a66a260558f5a7de46918a0738a6170826b33a30175f285de6f117fc8b61784",
+    "packages/analysis/src/project-catalog-cache.ts": "c7b7a9dea4dc626ecaeae4f544cced2eeb2e5426640219c0a4519c388b3cf8f6",
+    "packages/analysis/src/project-catalog.ts": "45ee7a28d756bedc151935b22f0f63e83cff19be6424cc85220b0a6bef146c01",
+    "packages/analysis/src/qualification-model.ts": "c09e507c93969f885ba2d6867a6488520c67c24d66f455f154d5329e41dac4af",
+    "packages/analysis/src/reconciliation.ts": "48a98ced2327194bcf9e371d1da3f11aeeb448a5ea9ebebf9312a661035d30b2",
+    "packages/analysis/src/recorded-query.ts": "b84555dda8e1b05d62d9bcb8edb450d20081fc783ed946cc2b45d83ce78e3bcb",
+    "packages/analysis/src/registration.ts": "ac276370ad9f0b9bc18b542e0779b3d27c7d9e54a2bff1348b40523e009ea158",
+    "packages/analysis/src/runtime-type.ts": "ff4ef7110d5a5c929cb6bf3eafe5d8b6e4e0872d88e85c5ec2770f6c223bb193",
+    "packages/ast/package.json": "8d0b4d42b0e23ffb4f013c378f4a21e3b1257204146b2f8085d612c4c0c82f55",
+    "packages/ast/src/toolkit/cursor.ts": "a9886e8692bbc78eeeb07ff6692ebbe793dbe26b5a4ca2c7a56514c2b17f7a00",
+    "packages/ast/src/toolkit/index.ts": "82b29b0d9b0b8501272ddd64a0944fef4d5bbb43323330c7b1caf0cbb1fdb587",
+    "packages/ast/src/toolkit/tokenizer.ts": "5662aee420d594accf2fa14958de400274f1bc4204254a99ebec15215f019828",
+    "packages/ast/src/toolkit/types.ts": "d5aa80f836cd1d3b29ab6d3cd41141696c0a6f65c74c02282486877e4ad14153",
+    "packages/compiler/package.json": "fd7bc81c75a1493b29c2ecf772fb5dc59a9dd1cdfd90d0800aded10add2e7d31",
+    "packages/compiler/src/analysis.ts": "e522f847a2e80d940b58b23e48ad0ae9b545f30a30fcd78bf38a307115dd72e6",
+    "packages/compiler/src/artifact-serialization.ts": "a224a3bb3b9da2d9869ef56e8d9eed68640dfb216ce029fbb15a1506ee8601f9",
+    "packages/compiler/src/candidates.ts": "da2a5009351e44f343a042da0fb7c63de0fd0c43243345ff54c4c0a61bfc88a3",
+    "packages/compiler/src/check.ts": "7d92e3f5558180c0bab69747bc06e4178ec93928a9a246527a2545f1e4188f68",
+    "packages/compiler/src/compatibility.ts": "95a2106114dc1498f4d716019600ab7e825e8d03bf015d94d5b8ade746c3e30c",
+    "packages/compiler/src/compiler.ts": "847ecb84680617d29f5a2194f95bcebdf0003210b212e66f785309e611408705",
+    "packages/compiler/src/index.ts": "fa0f02efbfa076d618be1e8f551bf3ebed54d7aa5b82ac1ded8719595421b286",
+    "packages/compiler/src/javascript.ts": "68a8fb1fe835d479f8487c94f544e149e850253165b2961fac2d5827ebcf05bc",
+    "packages/compiler/src/limits.ts": "7a69c2ea50c28557d72e35b4ae65da2c2d0f4f7bb3d06442b1238dffae423a97",
+    "packages/compiler/src/manifest.ts": "ed4dd1f44149cf1354f80852a30060b3fa52f3d8ca459d1b192325421122354d",
+    "packages/compiler/src/native-check.ts": "7f81d43e6484c98cf2677cbdfdd306c32593ad721dc2068b8580e1f43c7e9044",
+    "packages/compiler/src/plans.ts": "972919c7764765f252452877dba77fd7c6e049bb8d059ffbf6f8e9b56c784096",
+    "packages/compiler/src/project.ts": "7c632369cbcc737af377c9e196d6f7d50c8a7dd50e53d9390ee8f661efff9124",
+    "packages/compiler/src/query-preparation.ts": "2940e59e4ef4c83565e62b91a551c83a790386647f3aa5d627e41b224e86728b",
+    "packages/compiler/src/repeated-fragments.ts": "0a48b4c90973e6babe7562bcd18c8bda7cfd070d70d1127dd6d4bebd59ac004c",
+    "packages/compiler/src/scanner.ts": "2c449326a09e1693b29fbb5a8e055593ac1a71410d10eaee5a858b844efb5d8d",
+    "packages/compiler/src/source-mapping.ts": "6311a71c41aabe15f197a18c489f087fe20aaba77239f8af5e4f3b78cd8e1f3e",
+    "packages/compiler/src/sql-declaration.ts": "a4944b40bfc91bc3efc4344f598ab9ff02d38ca568eca8453ff750c54e7c502e",
+    "packages/compiler/src/sql-file-analysis.ts": "d9b6d811c0b541d616afd86488c0fc5322395d2f1c8e7abe2f692b087bedb6ef",
+    "packages/compiler/src/sql-file-preparation.ts": "717523299986b1f5d9ca97638e1b9c942a5e3d7823e20baaf20d7d318935cb22",
+    "packages/compiler/src/sql-file.ts": "88ff0b96694327bc65e90a37b51e864d47851b3b29518aac0e3225122523667c",
+    "packages/compiler/src/structural.ts": "18c6bc4303c92cb9b74c420db0d3e31d6d499d40aea8d9829bb1a7652766f5d5",
+    "packages/compiler/src/typescript.ts": "84052265e8018e246dff398bcaf378dcd5e22ebb79184c2ee5d069078218103b",
+    "packages/compiler/src/value-plan.ts": "ca45a25bd25ddd7cf6b41385a2e409a2c6e2f6201c571f5f21acf2bccda45515",
+    "packages/compiler/src/verification.ts": "c16d2fe3a643c09e4beb1b4e0984cf00178e11e2fa34c9232ce65a7915df0110",
+    "packages/core/package.json": "ec0d02f509107172dc2ddab9359deeac94b898a49cf54c2f9d08050f9c6f7a69",
+    "packages/core/src/adapter-capabilities.ts": "8477b8a34b90a5e1916e26d044f17bfc36407aeb9447db04069bfdeabaf6161a",
+    "packages/core/src/artifact-compatibility.ts": "647be3df2bd2eb547e8464845fae8252bd3ab0b79bd583455c1da69293d14767",
+    "packages/core/src/brand.ts": "ef044783814dd265651b4273844ad8d376293838f4217c2dd5a0f53ebf3914ee",
+    "packages/core/src/bulk.ts": "6d368c8c8e24570c6c8a28df34f722bef3d9356e2879dc0cf723699297c234f3",
+    "packages/core/src/catalog/arguments.ts": "c1fa07d706c84c2d5932e8d426c93234b18491a8c7bd1a7984deeedd3efe343c",
+    "packages/core/src/debug.ts": "f570be40897f8928e51569cb9de0431695e9de113034b3a8add41eba2ee289c7",
+    "packages/core/src/diagnostics.ts": "47345513d28e546749421f3772931d2f4eaeb225cefd3f4dd04a91b494779328",
+    "packages/core/src/dialect-capabilities.ts": "4d53de6808beeceb913bbc3995cbbcd466c2f95b09fbb0dcc6b3cc1ad052800b",
+    "packages/core/src/execution.ts": "6e59069de982425fad88b12cd9821000be96b466f4427c1a5b225a10939fedf2",
+    "packages/core/src/index.ts": "56f7be408234bc1671bd08f81d13dc5936b8a4acfa38f7829d1dec7d62678134",
+    "packages/core/src/json-input.ts": "9b7a1b7bdd7a2d8563f038271441b9a4f1f9a2ed35934823d7726ea0056cac8c",
+    "packages/core/src/json.ts": "b03472862a9cfa2d3047652f53e65588b4c805b35a0f235f9f1947250078aabf",
+    "packages/core/src/name-suggestions.ts": "d238365069307ba8005e3e46769866511c16a6c4cef0030e3c03c7be4fcc0015",
+    "packages/core/src/observation.ts": "d7945fe333318993e54a8d63a30da216e559541f35f30dc67c6a03b9ffcfec15",
+    "packages/core/src/prepared.ts": "0ace4b5bba642d457b09e7921517aeb3ce8d44fd9abb9fa9394e8a9048bd5019",
+    "packages/core/src/query-value-plan-selection.ts": "ea4e96eca77f65b064be14d4342a0d3fbc1b4017927efd24224ec1b3f362066d",
+    "packages/core/src/query-value-plan.ts": "dfb248849d1ccb125d7b0fcbbbc902473bf84e1d1573131a756857f89ce111d5",
+    "packages/core/src/query.ts": "33dd4b515504eaa45d1e5a35f18aa444b4d6400d0bf9e3886d906813e5d4eca3",
+    "packages/core/src/resolver.ts": "ece3854a5d0aa8e23446994a98d0771238ddd4ccc3445410485d516d90420c2a",
+    "packages/core/src/result-validation.ts": "9f7bf46afec435359a937b23e51506daf56b25793b53bb76e089fe99d7094a7f",
+    "packages/core/src/routing.ts": "a6a2ffa0a1ccfffd93b63d37f6e058fc14e5043b0190058b9aa02a570feb01e2",
+    "packages/core/src/semantics.ts": "03f8125bd43457d69d15409ff6d9e56f6e90ea2454a93f3da4e873d3db3c1364",
+    "packages/core/src/types.ts": "da19fcdbc55e7a97997143b60d507bcaf1eac508de438d9f4f791cd0013a4cc9",
+    "packages/core/src/utf8.ts": "2dc97045241fa81c7c3b2e6b47ac48cbe5cf676961c84561ef9c22167f779875",
+    "packages/duckdb/package.json": "f193032548929ebff321c539a86318b4572c7b58a1d462059d76b60ee8215a7f",
+    "packages/duckdb/src/analysis-factory.ts": "4cfd1d0a53ad9d920623ab5f439acbc19543f9c0adef693dd8b56a1af788d826",
+    "packages/duckdb/src/analysis.ts": "c950ef4bb7b6678c32ee7ebdd1b11736c4c1a69d475e97ebce539771339fb493",
+    "packages/duckdb/src/analysis/1.5.6.ts": "d5cd9b27fbfbbd9b652c78240a4a657a37f4c0f347138c59c482ecf488a0f57f",
+    "packages/duckdb/src/analysis/2.0.0.ts": "01b1b2228fe70e3774d130eacae85823510c4ca43a8cd302f7720729bf0551b0",
+    "packages/duckdb/src/analysis/core/1.5.6.ts": "c66c317666a3373af0f70b317d90cb22d3bb230e733f7ee71a595c4e69e0f425",
+    "packages/duckdb/src/analysis/core/2.0.0.ts": "dd36b5880f8a4ec45a22fd6e419eae6f6ec7797040042331dabcdf33d8eae296",
+    "packages/duckdb/src/analysis/packs/1.5.6/compatibility.ts": "7be95bbc7ea68dea67724575c9568a63fbc59c0bfcda5dd4eb00dad8ee5fabc4",
+    "packages/duckdb/src/analysis/packs/2.0.0/compatibility.ts": "7e6f4422a3397cbf79b6caa96466b050c7d488f3224c8054f0694b0b2071eb75",
+    "packages/duckdb/src/browser.ts": "2a78dd04f58ff62b3e575603405c4f3c42eaec808166fb978d8832d01db2941a",
+    "packages/duckdb/src/bulk.ts": "c9aab56298944b0a321efdb239dd8b4a973d97ab2922aa2f3262a12d4171f126",
+    "packages/duckdb/src/catalog/1.5.6.ts": "83df12d79a0426233f181960208949e13f497444366d6e4735ecaa75140fed5f",
+    "packages/duckdb/src/catalog/2.0.0.ts": "a34ec9f8b4c07f26017e46aec39eb092062400f1c6cf4ea91fe39016c243d3f3",
+    "packages/duckdb/src/catalog/common-1.5.6.ts": "9d35892d6306ac66848bd399409d0afe5092b6ceded7e86b0f4a590213768acf",
+    "packages/duckdb/src/catalog/common-2.0.0.ts": "2a2208ef9fc457ccb92dd8681a315fc59f7bf426014105b3a9e4227cf6a430dc",
+    "packages/duckdb/src/catalog/core/1.5.6.ts": "e3566801f4dcaa59c3eef289690955b3d99976bad698e9fa2baf1a7592e836fe",
+    "packages/duckdb/src/catalog/core/2.0.0.ts": "5d1b79d8fcff83ffbf6116e10c20e72e47bb991540c041597f7a1fa02b9b0cd9",
+    "packages/duckdb/src/catalog/ddl.ts": "43d1f5370cadd0483826b0eca3e2981b5b897e03afee6cf61ead85b29f7a59cb",
+    "packages/duckdb/src/catalog/engines/1.5.6.ts": "16afb7296f7086c00f7d143b1719c46acb63e4b4461d11132963a5312bf98514",
+    "packages/duckdb/src/catalog/engines/2.0.0.ts": "de9f8c0fb31588e93ea85a06e70f4727705403c6a87c3d8ceff33b0a0f42c5b3",
+    "packages/duckdb/src/catalog/index.ts": "bfcfaf875494dbb475f220ff67f9dd201f6698cb2990b5ac60abd551163f38bd",
+    "packages/duckdb/src/catalog/packs/1.5.6.ts": "9253e4832dbb92d5f5dcc368d69ca99ab6648ac4d7e9d981daa0bf623ead1567",
+    "packages/duckdb/src/catalog/packs/2.0.0.ts": "5ca223a004e4a921ea8151c15af872832acb198cb8927c7cac93bcababc045c5",
+    "packages/duckdb/src/catalog/provider.ts": "8424a79220b5d7f2db7d9bb422b20f1f92a7a4d802a351bfa79e0ccf264aac91",
+    "packages/duckdb/src/catalog/resolution.ts": "cc62633eb560de82a1f5313ea963d6c27dc86af3be5d29e9472e308e934c3597",
+    "packages/duckdb/src/codecs.ts": "7af6db6bb16967d12bd86af97a1bd455f330db92527d0362f75e8ce2721364b6",
+    "packages/duckdb/src/index.ts": "0229705d087b13d37de72bbda8f8ed976f89b3dde8f7e0be66bc686c43434274",
+    "packages/duckdb/src/native-types.ts": "dfe18333c591f390dcbe9e4d3b4da3ea23dc014d43f739aeed1ac2ee8a7117e0",
+    "packages/duckdb/src/offline-packs.ts": "794d3b11a3d959e50b4871f1ca40960d8258b920af36ac6d4142cc363a6897c9",
+    "packages/duckdb/src/parameter-transport.ts": "ef3a2546530fb1ab7b703c2e526c7f0ce71a12a1cf335b3a44e50acb14114098",
+    "packages/duckdb/src/parser/labels.ts": "bec610dc46141daa1680f838b1b40206c71fde334dd5b5a3a1dc1872c55892d0",
+    "packages/duckdb/src/parser/parser.ts": "dac9ef2d70ca917a2126d00cdd6a132033df3cbb7caac9ccd876cf263670b704",
+    "packages/duckdb/src/parser/tokenizer.ts": "914adad3fb912fd1d09266cb0ae460022119e95e3ddd7bac18c9dd47acee9088",
+    "packages/duckdb/src/parser/types.ts": "b95a271a69b040c0f718666effa0f5734f3546a93184ef55c7aac1534e24c93d",
+    "packages/duckdb/src/profile.ts": "858754c08a013cdf972461189b40d815fd6498ac5e56dea4b61d6fc9856a2e40",
+    "packages/duckdb/src/provider.ts": "91ddbacaa4dcfb46655e3fa9673649c4aa9a434c6569413fae08e215091174ec",
+    "packages/duckdb/src/query.ts": "994dafdd0dfe1bf248d7a925bb8fa67acf83519e7a3bda79a5adccb152170c2b",
+    "packages/duckdb/src/resolver.ts": "7fab1bf87642c775d42deb0d78e46589b66938cab749566bac1e6d10b74d3402",
+    "packages/duckdb/src/runtime.ts": "95d14904dfe3da7a9f39ab0b18dfe3f60e4350b5cb1105be6d34e52b3eb37a6d",
+    "packages/duckdb/src/services.ts": "ccfd97e69e9e1e1dad7c0f1a385ae08ea1ebd875a0d38424ce994c3edb26b9b4",
+    "packages/duckdb/src/settings.ts": "1f1c322012914eac5e68b6051751c9050ea46af78f6bcc21654214462da2f242",
+    "packages/duckdb/src/snapshot.ts": "a349988207d3975486c5dd42200b01754fc35935e40fb16c2d061ac19928adf7",
+    "packages/duckdb/src/support-policy.ts": "155e83f57f9bc39f62f4fcd30c0a7d6015445330159f6cef9a5a003cd82aa3ae",
+    "packages/duckdb/src/support.ts": "291a30278fa139b891b3f5cc895adb35d68b709be9da03f556badd65d1b40a87",
+    "packages/duckdb/src/type-policy.ts": "be97fcd1b47b3d0596e83d246f8bdad58d9b3141e7204eb82bdfe729af96d574",
+    "packages/duckdb/src/version.ts": "f9cada866215c7a1359f64dc33f469738d848468841f8285820890cb0dbadeb1",
+    "packages/duckdb/src/vocabulary/generated/1.5.6.ts": "ba361caab34d53f99c3a941534acb138eb47f29f517a8346fce74f700cdaac79",
+    "packages/duckdb/src/vocabulary/generated/2.0.0.ts": "36ef17abce66278a15c4810c195d6bbad95a7d17ff8874d06034789cdd4ecc6f",
+    "packages/duckdb/src/vocabulary/generated/common.ts": "0de21a52d9a2d683edc9679a97feaaf310f3f118535f67375416e79aeb1eb819",
+    "packages/duckdb/src/vocabulary/index.ts": "f88e33abedd300444fe33c5db4a43d71ece03b9b8e36b957b22f2c7ae5914620",
+    "packages/duckdb/src/vocabulary/vocabulary.ts": "11645ca37b70ba9489fd70fca1e93284eca52a8b50a22e63be0cf9be8e5e1e05",
+    "packages/mysql/package.json": "d2b5b8b8baaa7f2379c3577070987df69682bda3c222552c66ac76946f38763e",
+    "packages/mysql/src/analysis-factory.ts": "f440e0ae480b459eab5d2ee09a44f02b7347ff8e4d2b85e7bdd150d07edf3b38",
+    "packages/mysql/src/analysis.ts": "eb0a2bd87038f25e0f1fbe99685bed8c38743ebf9a14c16b28631aa928eb76f7",
+    "packages/mysql/src/analysis/26.7.ts": "a3eeccdc31ff3426ad8216f7a5ded83621f79b474f6de7881722cf770e868443",
+    "packages/mysql/src/analysis/8.4.ts": "463858c1da202987272d607e387ca53625f3ef21213c113e39e5ff0752760d28",
+    "packages/mysql/src/analysis/9.7.ts": "6c12d972dd0f61d4755d1c93bc7d605f38ecc6a635ed8043bfffb76121c91c5f",
+    "packages/mysql/src/analysis/core/26.7.ts": "0c9dfcfc04820470e79864788d06a94b2bfaa8743bdfecc024007d968c6d6762",
+    "packages/mysql/src/analysis/core/8.4.ts": "3194ed507ab91de126921f90dd3d516cdf955d0305fb05b7e5ded85c456c66ff",
+    "packages/mysql/src/analysis/core/9.7.ts": "e10159b94144ad60ec88ac0e818d61d7343a15c78a34e0045032b6c31ab83daa",
+    "packages/mysql/src/bulk.ts": "3fe07ea725cb25a30d5ccf21d5ad6916e5814cd3e4ec88e774b3b436de7b88f2",
+    "packages/mysql/src/capabilities.ts": "b5413dca735f9d05d54655b24b70e9241bf2ca4c67d4df8ebb0fa4a2c5dfc4e5",
+    "packages/mysql/src/catalog/generated/26.7.ts": "6166c5d933aa2d14c271834a4de5832dd98cbebad1f61e948d9e1f541e135c18",
+    "packages/mysql/src/catalog/generated/8.4.ts": "a17221899936c38408b9ddd2a32756926cd12e961db4cda0a145ed59c720b524",
+    "packages/mysql/src/catalog/generated/9.7.ts": "2019595d0bb57721cd5a3f90722c35493450b344789e4fc5fbb4c5de26d56714",
+    "packages/mysql/src/catalog/generated/availability.ts": "2ba5541e5e04ac927e80da7e5907aeb2a4b13f8ba259c82c2fc2e8b81f960ab1",
+    "packages/mysql/src/catalog/index.ts": "5037db5a5408fc451d77b9ae9546e6722f228ecad1b899f49f83339f20d6c7d2",
+    "packages/mysql/src/catalog/provider.ts": "76a05c5232740c4df5cb6d17878d40e6b1384163ba7184080507c322bdc71195",
+    "packages/mysql/src/codecs/index.ts": "59b8cdfb4d1e7cd3df29bb98943d6ab9433dde33396f42a7624de9c04522b2c1",
+    "packages/mysql/src/codecs/normalize.ts": "d1e82e51dab76164697fabbb17782930f6b58fa52fca923c0dddc753ad6d7d8c",
+    "packages/mysql/src/codecs/types-data.ts": "1403e1e5f86cbfbc79a7f5dda4b6b85a70b928ac8fb45b5f867a14772382d9b5",
+    "packages/mysql/src/compatibility-analysis.ts": "250283c11a0c13150a94afd2a260b4a7cda0ffa1c4a250b9aa2c0c337763639f",
+    "packages/mysql/src/decoding.ts": "266a3acd7feafd658a7c59fd1b5a7bfc2836e441f59e0237650ed86507445420",
+    "packages/mysql/src/index.ts": "392777638772f53d262b879d49d256ecab6fe3e8f279c1d181c1ee66d77d83b1",
+    "packages/mysql/src/keyword-case.ts": "ebb12d977f0ba2ba5be79290027dba41f5fc6f481d029e540b6bf13d1cee8741",
+    "packages/mysql/src/numeric-functions.ts": "ee60b0dda6edd90c4e4b8db97560e3b4a3cce38136d18ed698977c738e758a92",
+    "packages/mysql/src/parser/index.ts": "dcc04a6d0f9e78cd168ab549c2a13ad36e841959ba62285926771ea8350f9336",
+    "packages/mysql/src/parser/parser.ts": "73c22acb83c9aaa768ef7edba337eeefb70816c6a6c3b772217f5fc5c2735be1",
+    "packages/mysql/src/parser/tokenizer.ts": "bbc6b0553edc44a28192c71ef1c983cf1b7f78843e8765d02360eb2d30d6b5f1",
+    "packages/mysql/src/parser/types.ts": "0fdc12e011753b8e86c154f6b042f7823a3947dfce07e1f828f54c86e29decc7",
+    "packages/mysql/src/parser/walk.ts": "36c5bcdcfd92a52e1a07c57c11f190038e76180ea2a276fbd34c008d25b26d8c",
+    "packages/mysql/src/prepared.ts": "df5d2e72835ec58d33ff100377d1e91061e8e74b73ca68bbd827879b57cc84e9",
+    "packages/mysql/src/profile.ts": "d554ebdadfda41bf3a252430b38e535aaf0a8d89703c3da40d534948b0e789d5",
+    "packages/mysql/src/provider.ts": "ec3fdc70971cd58f5ceb9a2ca0217ae928af11ad4b563a32625bf89d7161558a",
+    "packages/mysql/src/query.ts": "9f7a3652b5038bd12302b322412a9af28b88069b216e5cf508b8465d2a7d4815",
+    "packages/mysql/src/repeated-inputs.ts": "6c92a254c0279aec2ee1f2158a29e8d2eaa4957d46f259b6f953a4a3ccef95ac",
+    "packages/mysql/src/resolver.ts": "25ee65f99ea8093cf084d05e00d751ffe26d8de7ca7bafb5d9a28584595c1a14",
+    "packages/mysql/src/routing.ts": "9dd010f8c3bc8829da45d61b6a802244593e5ff5e82f27e94ca92db2beea41fe",
+    "packages/mysql/src/runtime.ts": "d2bf0501cb76154b5dc9028cf6ec38e968a07ba38af5a83f51c80ba8d476a036",
+    "packages/mysql/src/semantics.ts": "8381a9fa5ebd5cc0990c3e148b605ccd421a11826e2e074495ebd4dd6fd5e817",
+    "packages/mysql/src/stream.ts": "4bf2241130b86c21f8b542766ddd19353c6b8329039994fa0401cec2b0021a36",
+    "packages/mysql/src/support.ts": "968b9ad7e2d8ec0107a4bff99b29048600afed46005c243433a9ab80032148c2",
+    "packages/mysql/src/type-policy.ts": "288f06f8e9cbfe564c752285be257c560ed14792c51c2c7ec30aec6ada8bdcc1",
+    "packages/mysql/src/version.ts": "62d98609e7b5f83764862646d35edc1e8cb365203d2682e4a10df12dfa264db4",
+    "packages/mysql/src/vocabulary/flags.ts": "4f89100a88aa2ef7ee4f041c7d66673ea7fecc9281d2751458322c13c5b6a103",
+    "packages/mysql/src/vocabulary/generated/26.7.ts": "986677e8610ae672eb13d0ceadb7ffe7dfa98482ec225e0d85aa35b1d2adb0ea",
+    "packages/mysql/src/vocabulary/generated/8.4.ts": "ef052b57970ae2713ced7092b56368734b567bab34ddb6455b2c67657d5102e8",
+    "packages/mysql/src/vocabulary/generated/9.7.ts": "03504174df82a26c9bb8d6f3c07ff5ba5bb93d3b1422e67f3e66c7e29bdecf2b",
+    "packages/mysql/src/vocabulary/generated/common.ts": "6c8e98e494028e82f7fd713d0644cab254d6b720a0bce8c61d81504c81aef7c0",
+    "packages/mysql/src/vocabulary/index.ts": "70c96dd8c6de95f5fabac703fdd2d74f9f8ff71e7c2a61261abb4a4627c3b463",
+    "packages/mysql/src/vocabulary/vocabulary.ts": "78f25c06b61022e34a793db25f3aa6297eb994e696d464c803ad09cb268e1c18",
+    "packages/postgres/package.json": "fa80f21f1e569084dc92ee9fa35813e29c65b309d04abf69e7e9e6edc3da262f",
+    "packages/postgres/src/analysis-factory.ts": "df98e174661380ae96f6625a306edfb0447ece9a4c1f9960c748165e4aa6bb49",
+    "packages/postgres/src/analysis.ts": "e8001232c7660421dcc9e719ca75590dfc45baca7d19e4f8c346ad0c149ea795",
+    "packages/postgres/src/analysis/14.ts": "37636f77ca4d5c3ebb8df9c041d0b848b7e7ac6a7d903f6991bd45180a95d803",
+    "packages/postgres/src/analysis/15.ts": "7a4baed77bc7763f4fc730905d61f33e5e340e0b65d0a310aa63547f08ec5556",
+    "packages/postgres/src/analysis/16.ts": "95b037ed7e466f2eef86d1e76fa27f6ebb39db496fd1507d6f81301abbb78a99",
+    "packages/postgres/src/analysis/17.ts": "ed0ae704c2d584d0c770e2805fa6159d4bad4310badd74d7844edf999ec4892e",
+    "packages/postgres/src/analysis/18.ts": "7f61ac5d575d89865110231e78a11f4b5f1f6d857a164d74c1327eef4697cc38",
+    "packages/postgres/src/analysis/19.ts": "14837f427b6eaca80dd3ccc805ec3aff1646e22a450d1181cea783348c4167bf",
+    "packages/postgres/src/analysis/core/14.ts": "4c2bc88bee72672d63642ddd94409e24ebaa8396ab713be52b7636297dd374eb",
+    "packages/postgres/src/analysis/core/15.ts": "0d75a0e04364b3bb3e6727345e0be546c47a46896597ce0f3d04f826bb1409f4",
+    "packages/postgres/src/analysis/core/16.ts": "ef3f7c2ecb7ecf71a14f947029375158a120cfab3ad62414c92ba1fd678f8c5b",
+    "packages/postgres/src/analysis/core/17.ts": "c691c0f1bc698a91092da7c66dc8eb5d0a8eb40ad2b36ed9d0f568db20fd9078",
+    "packages/postgres/src/analysis/core/18.ts": "ca9ab8a27d0e5831ac7131bd9a6a236415424d9948ba24ba95a7d1c8287316d1",
+    "packages/postgres/src/analysis/core/19.ts": "fe96daf7940da2deb0223a2a8878fb1cf4eb6ab4b142537df55931588667ee90",
+    "packages/postgres/src/bulk.ts": "d7f472de8145f2a8de04daf8df00dee11652080b8b7f863454bae968f258540a",
+    "packages/postgres/src/capabilities.ts": "d9fc010f50a280e12a046eb1b404570ac253187cb61dfbb392b8d05f1dd30739",
+    "packages/postgres/src/catalog/generated/14.ts": "cf816a22efc467a10eef688a3c1cbfa1b534145f5c7212663ac21f14a0e867b0",
+    "packages/postgres/src/catalog/generated/15.ts": "a047b5428eafd1bf93c1165c16778a540e195579d25e3f2fbe7050d07caf52f6",
+    "packages/postgres/src/catalog/generated/16.ts": "89bbcecc24dfb6e11dce30bea9730a6bc50468efc1bb1c070a60ea839f5a8a86",
+    "packages/postgres/src/catalog/generated/17.ts": "7cc7ba0b33c677ba2edc02dc39bbb5a49057d507209ee0aef336af31ead1a0ed",
+    "packages/postgres/src/catalog/generated/18.ts": "2b14a7079fd96163994c249ed40de394e323c4f66321b3388b11189cc35fda30",
+    "packages/postgres/src/catalog/generated/19.ts": "c0724f26bd75ad3368b0a7833240f0340d4a096c4b60ccd5404819879b6e8c8a",
+    "packages/postgres/src/catalog/index.ts": "e2d6f93c99175d2f330cbfa4f603eee48e08d491756ac3ea1e2d35cda93bc4ef",
+    "packages/postgres/src/catalog/provider.ts": "2547e49c3f1bd47204061b703333039ec59a5228246b2c508df1d1e5af3f71b9",
+    "packages/postgres/src/codecs/index.ts": "b43911a5861a5e532b89d924e6059bd51510f1f3d4b261168c9b787194286ecd",
+    "packages/postgres/src/codecs/normalize.ts": "7b06cca5931a64da7263afce5b5a91a445af0848d0e242bd748a02a578d4bee6",
+    "packages/postgres/src/codecs/types-data.ts": "ab9acd4e63aac0cee1d1225bfba355c3b761d547a1aeea77c61059404b096adf",
+    "packages/postgres/src/compatibility-resolver.ts": "de5fad97a8fb50d3e9f028bcaa6915536332ecef94d7cda518e714016aa4938e",
+    "packages/postgres/src/enum-runtime.ts": "30ba5e6922db5cbe0fa5095bcf1233065b4bd5e94d536752b9a464181aea97a5",
+    "packages/postgres/src/expression-evidence.ts": "b1f7a14a6826f5c4850dfd861618418f0c4f085cbac9408f6ab79e008daef5d3",
+    "packages/postgres/src/extension-resolution.ts": "401507ec75c509188e3261a4f5bc4591a3c20706dce2049c4b5adcbd3319711e",
+    "packages/postgres/src/extensions.ts": "30737d0b208640d498a48765b9629c3f302718261776bf0ed892913fd9261596",
+    "packages/postgres/src/identifier-case.ts": "d1c8ba34b576f6adc7e2b7fc9eba5a9c1ad69a417b1ecb04916a51afb04b539c",
+    "packages/postgres/src/index.ts": "9753467a1a90d2ade7c4b756f056f828976f301f33d297a734b75a5badc7ca21",
+    "packages/postgres/src/parser/index.ts": "c2ecc5ebca4701327c54d5ff9248d6364e5777086df974a07a5bafb01a9b8f16",
+    "packages/postgres/src/parser/parser.ts": "d7526167815acfa4a8606e03f25c0fc3ab4e6f121d040462166e37b90c27a311",
+    "packages/postgres/src/parser/tokenizer.ts": "7d0c050d2737ad87a22e1b502988d352a171ffebf4611243e5dc3d3302ced663",
+    "packages/postgres/src/parser/types.ts": "5992ccf37d9aa0bfe40fba5c602972f5ac0da1155cdf07d13df224bbcd68aa49",
+    "packages/postgres/src/parser/walk.ts": "d563beb5fca34a67971d361091c11bc94686731a0e893ffe75db3078557fa7ef",
+    "packages/postgres/src/policy.ts": "e2f6c94d1174a247cab1f2b5ac54f59e94321cf7e115230a02757e31d633c3d1",
+    "packages/postgres/src/prepared.ts": "5732100d26e8c9743f5e5f5bfe32bebd01f9ae1f010e93b63f53364f8a30a297",
+    "packages/postgres/src/profile-snapshot.ts": "c335916049351c90fa8f94e3aba9e3f625bdcd19dcdad79e8bc6c1b284c0c432",
+    "packages/postgres/src/profile.ts": "6390ff9049628b3825e196b54d388829ac498914e03e1a59dc67c65c5fc33838",
+    "packages/postgres/src/project-catalog-identity.ts": "e55c5728e10f3402596d5764e4b33cfdffd82474a23220253375aaca932e98d9",
+    "packages/postgres/src/project-catalog-policy.ts": "89eefd5af91ba1083fcfd74cbc11a22107c47fdf69f65aec8ae175c0e19071df",
+    "packages/postgres/src/provider.ts": "8c2d946915111e2dcda2ad2dad0b500fcdbf3b4a24a7973a45f1f5b1b176000d",
+    "packages/postgres/src/query.ts": "ad1792e9125711cc9e67773201818976427d39eed3003e4ac372658e23e1c0e2",
+    "packages/postgres/src/rendering.ts": "d837d87d4f8cda3d1c0615e7992e372a7d058ffb10f6e321fc25c158bf8d4b01",
+    "packages/postgres/src/repeated-inputs.ts": "6c92a254c0279aec2ee1f2158a29e8d2eaa4957d46f259b6f953a4a3ccef95ac",
+    "packages/postgres/src/resolver.ts": "21599d48b2519c959af5767d7ceb66018bb5a1a35b00065f2b3e0af828099af8",
+    "packages/postgres/src/routine-catalog.ts": "9cb18b5b2aa7fb75da6e9d1cc874f105f5225cbe7155b7a58cc4c2ab278d13d8",
+    "packages/postgres/src/routing.ts": "c76ca1b212e0c61b66a99a0760c27116559a96fb38f7566441acd906952c2be4",
+    "packages/postgres/src/runtime-compatibility.ts": "118901da7f1ffe75d078e3ae66df9ffd5bf94c89c376a78a9e61dce6e68adc47",
+    "packages/postgres/src/runtime.ts": "c3ce23bf72272474ca5bb00670ab07c019cb40ada5e0b622824c7de7e2442bdc",
+    "packages/postgres/src/semantics.ts": "33959e3b0e265f069fd0e985ee800e21bb9713f90b81f76bf80ed9492c21a149",
+    "packages/postgres/src/server-evidence.ts": "53656d8dac75529bcbac52d1ee345cd91887fd803907293019de3eff511f786a",
+    "packages/postgres/src/stream.ts": "77fdd94f5d40e73313670f51726d683ad074074888a17d2067ead591713baff4",
+    "packages/postgres/src/support.ts": "d1793b1e5261fa70d9a447d9478ea5e71c178a6bef7a44aa77d7a2644c97e4bf",
+    "packages/postgres/src/type-policy.ts": "ce28d1c41734e1f2621ec3e92a1478b66ceb24962d50bd228ce6499c7e805d2b",
+    "packages/postgres/src/type-resolution-factory.ts": "4eb070c82e07792597092c9f5f30344caa29f67c1839f682cb80b9cf138e8903",
+    "packages/postgres/src/type-resolution.ts": "04fa468ff39545e9392972c874b21719bf600e0baffe56ab36cc36f6e374c614",
+    "packages/postgres/src/version.ts": "82a1ca0f3324f488f56b85a054b037024480e2e857cad435e63b691c64eb4a6b",
+    "packages/postgres/src/vocabulary/generated/14.ts": "1e394c3450c0ac717bee5ee4bca4b44a164c16e22f8c0a6ffc7f9e63ed78948d",
+    "packages/postgres/src/vocabulary/generated/15.ts": "c5047faf9b8f7e2fc0b708fdc2b37d2110afc8f4fe8c14f4b01001d95408ec2e",
+    "packages/postgres/src/vocabulary/generated/16.ts": "5c26ab73b7d6ca52ae1b4983d541fa75ab40e1b8cb8a820193fbabd1c694049d",
+    "packages/postgres/src/vocabulary/generated/17.ts": "4ba37abe8dd7fa0d69f1426f9739692843cf934ef5b534c081f6d07a4cfd2e6e",
+    "packages/postgres/src/vocabulary/generated/18.ts": "4d23284985a2ba323176e25423fc9c514f0e760bc1342bf5902cb1e43eebd73e",
+    "packages/postgres/src/vocabulary/generated/19.ts": "55335d0e72b496348718aad6cdb6bfbdb5abd19705687ceeebb52d1fe6a0aa8f",
+    "packages/postgres/src/vocabulary/generated/common.ts": "bf1ece9fba9fedb5d880dc04ed475a77a05d791caa11a92261739a2f693a1477",
+    "packages/postgres/src/vocabulary/index.ts": "50a6edcb5f9e15fcc9df6c49a409ba63b096f72f21d12a6a2473658c2c428e0a",
+    "packages/postgres/src/vocabulary/vocabulary.ts": "5cc0961561744a1c9205b69a310964987a251236bd17d2ea65e7e40463eee2d2",
+    "packages/schema/package.json": "788d8effcb9b6326cc5eb6e593d6292a6fbcb6317bac3b47d06ae28f299f4253",
+    "packages/schema/src/artifact-files.ts": "15d295a678e3128fd82085c1798790b716b9f742f5cb54b672f97160e9be7795",
+    "packages/schema/src/brands.ts": "3d904bc505590d40d912364bd2d1c069e0dcb0374f5890de6b4148888db24cf1",
+    "packages/schema/src/generator.ts": "5ace57f554a702c2421e739828ed93a98e514f95baa097b65e906e57d8780ea1",
+    "packages/schema/src/index.ts": "46290cb7668d830e0215a38d59a1de8e164db69225a37cb619406bcf17c65d5a",
+    "packages/schema/src/json-schema.ts": "28377522609c2d3917dd2d235bc6e5d04316910f72be709494c27c59c46e1ef4",
+    "packages/schema/src/loader.ts": "0e09963955de93e2ebd66ae055394d514a2af3100fecd426182a81a346e0e056",
+    "packages/schema/src/model.ts": "c759b2b33676ffc7bfcf7d08b7ba0bb6cac22c045c7e9493cf13ca282a51b7bf",
+    "packages/schema/src/ordering.ts": "4f94647922185948f6aefe321bd4ca347bd5fc26b9aeb14e0fe6171fe6ba681a",
+    "packages/schema/src/snapshot.ts": "83efaca3407d416f5c3d0a05565fac4ed8591c9aa6f1a93e4793d5978295e9c6",
+    "packages/schema/src/v1/codec.ts": "b59292b2d432eb7ebea00bf7770e0a5d97a7e7cdbe6a16f8865bd9c998d9c32c",
+    "packages/schema/src/v1/model.ts": "ba1930926b07abbf2d4df0fe1b266d8128aafadc996e2e3b9b382b2d7be1b2f5",
+    "packages/schema/src/v1/upgrade.ts": "735c07034064519bc0a5bff8d1b1143538790c7ae20897f4067bc773c217b346",
+    "packages/schema/src/v2/codec.ts": "72a315a3bb28f25b70b0f3bdead5605b3635f272d0ffa041620a7f1b3d9c7bda",
+    "packages/schema/src/v2/model.ts": "4377b06fb950972480c44f3be19731c297028ba8295c5f37ab9f3d8ff99e388f",
+    "packages/sqlite/package.json": "7d901ff6eb517eb97050c2d043c9a1c10538dd5559b3cead96a379e8537bb629",
+    "packages/sqlite/src/analysis-factory.ts": "478302336fc7826baa04abbffb30ae2323d8caf1029497e0e201e854eeda7bff",
+    "packages/sqlite/src/analysis.ts": "35b6dc8070d32f8a23173b5c6d70252ae717983de50b13a8ec0809dbd1308788",
+    "packages/sqlite/src/analysis/core.ts": "2674a7e28e3659c5f67652c3074ff41970435bb21b32e9d2d0f917bc02f0ac38",
+    "packages/sqlite/src/capabilities.ts": "43c89bdfef5e55931187528e7c426048fbd7bee755331514bce98959bab2c4a1",
+    "packages/sqlite/src/catalog/coercions.ts": "dddd39d06993d2ec2cc18010844666593438787b0b80f0b32fb6b6b44bb2ed27",
+    "packages/sqlite/src/catalog/date-time.ts": "c15c8a43982e4355007e4acda5b4d58c8f7fcc8e3b6a01ad8cec7ad52d990168",
+    "packages/sqlite/src/catalog/extensions.ts": "9db6b9d3acf42f74207bce5dd1db5de2d3453390f2ff2ddd491c0205ccd30c20",
+    "packages/sqlite/src/catalog/functions.ts": "2bb8c6a692bb14ecfa898f4c6c63ecd5c93a928619534c59c9921681050c886a",
+    "packages/sqlite/src/catalog/index.ts": "c2aad8de65ba90d359ec6457dae32f60619902d02e3b9a0e5a79aa43af71e511",
+    "packages/sqlite/src/catalog/json.ts": "e0d20a277ba9f4958f31887d1339907c71bf3a3abb2887552236aa216c16d764",
+    "packages/sqlite/src/catalog/math.ts": "49b5538e22036ff3b996bfba3bf6313b84416f1348b2371fa1d78f0ecf2d49e7",
+    "packages/sqlite/src/catalog/operators.ts": "b41dd2fdecec5333dda357ca50d5caa3b0425544239a8062c83404439a632b76",
+    "packages/sqlite/src/identifier-case.ts": "3a7bbebfd41713efdb75badde9e8cae1e69653ea727bc6b99509c10640e1f5a2",
+    "packages/sqlite/src/index.ts": "66f9323c9d00230fbc1fbd09328dd4b39598267bc386c32f46e18bc44fa6b722",
+    "packages/sqlite/src/parser/index.ts": "64509426f5beeac226004e291b91eb677b9b822f0d5fca91274bd724aef575dd",
+    "packages/sqlite/src/parser/parser.ts": "7ad10c166f24ce59ae883de129fcaae7f326fe5268773a4e3f7e974562fb562d",
+    "packages/sqlite/src/parser/tokenizer.ts": "2824ca5c52159517d7f6d3906b299a60231f1dd3bcacfcbaa440c74c0642de9f",
+    "packages/sqlite/src/parser/types.ts": "61cb187de17492252b779a9ce023554d13374d9d32b84237fafa8b3a2eb41a49",
+    "packages/sqlite/src/parser/walk.ts": "7c62c4483f49cf78e6da00abf204342a0a1ab220f82377d277e482e769bc5661",
+    "packages/sqlite/src/prepared.ts": "c2f63ecdc2e96cef8aea300336712549aef96fc7d9f14110416253fad4cb6544",
+    "packages/sqlite/src/profile.ts": "bcdea687bca936e84e8e5ba9cffe97dec81980290428ee91dc1122a420bcdbc4",
+    "packages/sqlite/src/provider.ts": "b9f608cf6e1b5f37a3c4b041664c9a3e853eebef7bd6f27a9bc0d708075d2403",
+    "packages/sqlite/src/query.ts": "be87e16c12a130fb45e91dd2164f34e4ae675a43b122de568541f031da2a0b35",
+    "packages/sqlite/src/repeated-inputs.ts": "6c92a254c0279aec2ee1f2158a29e8d2eaa4957d46f259b6f953a4a3ccef95ac",
+    "packages/sqlite/src/resolver.ts": "8767a5251022502b2e3285c7df9a064e9b58b969d6e9fcd68f1e84c370a3f8e3",
+    "packages/sqlite/src/runtime.ts": "edd2331080d391d1786aedc313386beaaf57594ad76485d1a9f905ebecd023d7",
+    "packages/sqlite/src/schema-sql.ts": "101148015885bcf6abe7d45260f246692d85a38180f9c55ec86bb8157c9a07fa",
+    "packages/sqlite/src/semantics.ts": "ef141683d097b9b6addaaf59c20e9496e5aeed164fb97f6580f432834ae8f7ac",
+    "packages/sqlite/src/snapshot.ts": "5c1bcc55b1caba289a061086029b9f928eb6bdcd597fc1b177f7131a5088f660",
+    "packages/sqlite/src/support.ts": "c924df45c7777dd7c52f19a87e1b1d8943089f141000a3e9fa00262e6c7f7554",
+    "packages/sqlite/src/type-policy.ts": "02df1a5b390041a19e1f300215965ed9c45a7c7fb74163fbf663eccd5935dd0f",
+    "packages/sqlite/src/version.ts": "1ff948ea6de73dd56dc32a93d9a3545c74954565467ccb1a6a39336ee5501b29",
+    "packages/sqlite/src/vocabulary/generated/profiles.ts": "aaddafcd29b3a4a39e4beb0934731a0bdd7df6ba651a138454ccd01be7f97991",
+    "packages/sqlite/src/vocabulary/index.ts": "3375dd05a762b48acccf7fbac8fe1b45cb94fecedfc3f5780ccd52cdc387e68e",
+    "packages/sqlite/src/vocabulary/vocabulary.ts": "d94c77176629ca48530af8da1131080b4888ef35858b3bf5c08554e1d1aabd84",
+    "packages/sqlserver/package.json": "e06caacdde6e76a2988d086dc001226beb333eb50eaccc1671a72fa7bb4f97d2",
+    "packages/sqlserver/src/analysis-factory.ts": "29de38d3245581b973d81751a153091f32376e8d53a9f043dbe6900fb420969a",
+    "packages/sqlserver/src/analysis.ts": "522deb02aacd34fb0312fd768eba8e40df6fbd5b76db2cc70fb4999d650989c4",
+    "packages/sqlserver/src/analysis/core.ts": "56183b195c516e26307c46e942b5f47a4ff7c88ace62541b32009b44d47570a5",
+    "packages/sqlserver/src/browser.ts": "5e2ce4f67e77c970b496c45e22d1628bca46945083fda3864c2235fcc651e5ab",
+    "packages/sqlserver/src/capabilities.ts": "d569d193a443e57db59cce8f2265c250d31c3b12c83f1eef7f614ad5c9ed4c80",
+    "packages/sqlserver/src/catalog/index.ts": "632ec8062041837712943c489cf0314c9b0e1039881a4c31d8a3da5f0f3c5e6f",
+    "packages/sqlserver/src/collation.ts": "99b2cff133ffd5ef43285ea4a9c9d8642373bc9f4de307192949d26048833675",
+    "packages/sqlserver/src/decoding.ts": "7a8118a1427b7ef5013cec931c0bccba51a956090ea3352d9ffe98a5ee71d134",
+    "packages/sqlserver/src/index.ts": "c10455807ab8ec4e9e8873429f5a4d1b8f80ef27f3965f72a348c0a282b27629",
+    "packages/sqlserver/src/keyword-case.ts": "4e419ff4385b2e90166d0a463fa89b7a87ef9c77f0ddcbf9673d8999fcd39f3c",
+    "packages/sqlserver/src/live-verifier.ts": "b86fb6b4aba53d77d9c9f3719d1eda51f85d2aa7d07da69f283c1af3b6b06201",
+    "packages/sqlserver/src/native-types.ts": "b2619ddaacc457ce27d61d7b6bb56af65cf3ad8743f759519d1f21fe14642c7e",
+    "packages/sqlserver/src/parser/index.ts": "e7e12b527e0628d33b1473c45b9ddb0e1106f9078756f19fd860ead3b78fcfe5",
+    "packages/sqlserver/src/parser/parser.ts": "197c7e33d270bde0c5b9b88a2557fc9e432b0b3ad74fb4b166027a2dcfe5225c",
+    "packages/sqlserver/src/parser/tokenizer.ts": "fe3398c9164af7e45d76055f41ca2e09b35a1fdec6d2fdee095ea219f036681d",
+    "packages/sqlserver/src/parser/types.ts": "ce82a37979758b88e4fc8162ef2260a6298a591d1299c8a0a2a94d02acb3b6cb",
+    "packages/sqlserver/src/parser/walk.ts": "c9a55b05eea5e89fffc5c5b7ff18a0abcfcdc33e1c5a5678676522e388b22679",
+    "packages/sqlserver/src/plan-inspector.ts": "348b83100f797ae194c8dbb5d38c37fc89e1d09e5fd2ed775dbd00ceb7191c8d",
+    "packages/sqlserver/src/profile.ts": "e4dead94822786535da0f0171e5b07d30388d34e73149207b7ddc4967c50b0fe",
+    "packages/sqlserver/src/provider.ts": "09f59b5199ea048ddbe7826ee357861fd8288f5ef1bdd3e7dbd311f744c701e9",
+    "packages/sqlserver/src/query.ts": "8edf55dcd097b5b8778336d9be362a1c7de7c6038701e78c4765c22e6b8de910",
+    "packages/sqlserver/src/resolver.ts": "89d1fce2bbca1a9b69cf2712e6543f1be3ab6d5d3ca7b786a679d10ed0e975e8",
+    "packages/sqlserver/src/runtime-entry.ts": "2c1d003bea7aa156d6ed71f5d2ffb44061054771d1286f911d66d6c2cea11f8e",
+    "packages/sqlserver/src/runtime.ts": "d46f5fc59fdef18b1e3b99affd0378da0a8759bf73c4c466254754a0a64da160",
+    "packages/sqlserver/src/semantics.ts": "17aec050163e6a91617ee44818066ed3ada6b27da43a53544949bfa9a1bf5703",
+    "packages/sqlserver/src/server-evidence.ts": "4960385f70aed1059b836c229304a8c8cf66a0a9754cb117e2fc3be39c8b2c49",
+    "packages/sqlserver/src/service-registry.ts": "218506d43c2ccba2f828f265bf4a729dae538395a94cfb905b40ec76743d67a1",
+    "packages/sqlserver/src/snapshot.ts": "8d279aabb32ceda8f93eedddb33236121e9259e1317e1016559be59c68ba3661",
+    "packages/sqlserver/src/support.ts": "b62fb01824537b9a9e034cda555e709ba0ba12d71691f7974509ad14b819acda",
+    "packages/sqlserver/src/type-policy.ts": "44ba0b37d09dfe0693bf43d692ce33302dd2090b1abeec50dc458876e5f78be9",
+    "packages/sqlserver/src/version.ts": "2a1a108d79320e3bd1a5a94bedad57992262a6a5a63ef0453e4d0b7def36386f",
+    "packages/sqlserver/src/vocabulary/generated/common.ts": "394e58925e34d2417df08e02322fc21272eb71a9ec189b5c12df2f9d5253953b",
+    "packages/sqlserver/src/vocabulary/generated/profiles.ts": "87db27ceb161a5db5972581e41ddcdf1547336cbdfcfc27acad7bca3973f09f5",
+    "packages/sqlserver/src/vocabulary/vocabulary.ts": "9334b4dbba7d0a1a8cb37afd66f8c7063832b2417d0f3c199bfb875f933b5613",
+    "pnpm-lock.yaml": "3dd42212226234b44678b68d5c169e8fac598db1268227bc9738e65885f198f1"
+  }
+}

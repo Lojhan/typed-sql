@@ -1,3 +1,45 @@
+const aliases: Readonly<Record<string, string>> = Object.freeze({
+  BOOL: "BOOLEAN",
+  LOGICAL: "BOOLEAN",
+  INT1: "TINYINT",
+  INT2: "SMALLINT",
+  INT16: "SMALLINT",
+  SHORT: "SMALLINT",
+  INT: "INTEGER",
+  INT4: "INTEGER",
+  INT32: "INTEGER",
+  INTEGRAL: "INTEGER",
+  SIGNED: "INTEGER",
+  INT8: "BIGINT",
+  INT64: "BIGINT",
+  LONG: "BIGINT",
+  OID: "BIGINT",
+  INT128: "HUGEINT",
+  UINT8: "UTINYINT",
+  UINT16: "USMALLINT",
+  UINT32: "UINTEGER",
+  UINT64: "UBIGINT",
+  UINT128: "UHUGEINT",
+  REAL: "FLOAT",
+  FLOAT4: "FLOAT",
+  FLOAT8: "DOUBLE",
+  NUMERIC: "DECIMAL",
+  DEC: "DECIMAL",
+  STRING: "VARCHAR",
+  TEXT: "VARCHAR",
+  CHAR: "VARCHAR",
+  BPCHAR: "VARCHAR",
+  NVARCHAR: "VARCHAR",
+  BINARY: "BLOB",
+  VARBINARY: "BLOB",
+  BYTEA: "BLOB",
+  BITSTRING: "BIT",
+  DATETIME: "TIMESTAMP",
+  TIMESTAMP_US: "TIMESTAMP",
+  GUID: "UUID",
+  VARINT: "BIGNUM",
+});
+
 /** DuckDB native logical types, independent of any driver's classes. */
 export type DuckDBType =
   | { readonly kind: "scalar"; readonly name: string; readonly precision?: number; readonly scale?: number }
@@ -12,41 +54,7 @@ export interface DuckDBTypeField {
   readonly type: DuckDBType;
 }
 export const duckDBAsciiFold = (value: string): string => value.replace(/[A-Z]/gu, (char) => char.toLowerCase());
-const aliases: Readonly<Record<string, string>> = Object.freeze({
-  BOOL: "BOOLEAN",
-  LOGICAL: "BOOLEAN",
-  INT1: "TINYINT",
-  INT2: "SMALLINT",
-  INT16: "SMALLINT",
-  SHORT: "SMALLINT",
-  INT: "INTEGER",
-  INT4: "INTEGER",
-  INT32: "INTEGER",
-  SIGNED: "INTEGER",
-  INT8: "BIGINT",
-  INT64: "BIGINT",
-  LONG: "BIGINT",
-  INT128: "HUGEINT",
-  UINT8: "UTINYINT",
-  UINT16: "USMALLINT",
-  UINT32: "UINTEGER",
-  UINT64: "UBIGINT",
-  UINT128: "UHUGEINT",
-  REAL: "FLOAT",
-  FLOAT4: "FLOAT",
-  FLOAT8: "DOUBLE",
-  NUMERIC: "DECIMAL",
-  STRING: "VARCHAR",
-  TEXT: "VARCHAR",
-  CHAR: "VARCHAR",
-  BPCHAR: "VARCHAR",
-  BINARY: "BLOB",
-  VARBINARY: "BLOB",
-  BYTEA: "BLOB",
-  BITSTRING: "BIT",
-  DATETIME: "TIMESTAMP",
-  VARINT: "BIGNUM",
-});
+export const duckDBAsciiUpper = (value: string): string => value.replace(/[a-z]+/gu, (part) => part.toUpperCase());
 interface TypeToken {
   readonly value: string;
   readonly quoted: boolean;
@@ -99,7 +107,7 @@ class TypeReader {
   peek(value?: string): boolean {
     return value === undefined
       ? this.index < this.tokens.length
-      : this.tokens[this.index]?.value.toUpperCase() === value;
+      : duckDBAsciiUpper(this.tokens[this.index]?.value ?? "") === value;
   }
   take(): TypeToken {
     const token = this.tokens[this.index++];
@@ -124,10 +132,10 @@ class TypeReader {
   parse(depth = 0): DuckDBType {
     if (++this.nodes > 1024 || depth > 32) throw new TypeError("DuckDB native type expansion limit");
     const first = this.take();
-    let name = first.value.toUpperCase(),
+    let name = duckDBAsciiUpper(first.value),
       result: DuckDBType;
     if (!first.quoted && (name === "TIME" || name === "TIMESTAMP") && (this.peek("WITH") || this.peek("WITHOUT"))) {
-      const withZone = this.take().value.toUpperCase() === "WITH";
+      const withZone = duckDBAsciiUpper(this.take().value) === "WITH";
       this.expect("TIME");
       this.expect("ZONE");
       name = name === "TIME" ? (withZone ? "TIMETZ" : "TIME") : withZone ? "TIMESTAMPTZ" : "TIMESTAMP";

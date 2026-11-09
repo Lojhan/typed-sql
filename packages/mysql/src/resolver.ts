@@ -18,17 +18,10 @@ import {
   updateJsonShapePath,
 } from "@typed-sql/core";
 import type { ColumnSnapshot, FunctionSnapshot, SchemaSnapshot, TableSnapshot } from "@typed-sql/schema";
-import {
-  type MySqlCatalogCollation,
-  type MySqlRoutineResultRule,
-  mySqlCatalogCollation,
-  mySqlCatalogHasRoutineInAnotherSeries,
-  mySqlCatalogOperator,
-  mySqlCatalogRoutine,
-  mySqlCatalogType,
-  mySqlCoreCatalogForSchema,
-  normalizeMySqlType,
-} from "./catalog/index.js";
+import { type MySqlCatalogProvider, normalizeMySqlType } from "./catalog/provider.js";
+import type { MySqlCatalogCollation, MySqlRoutineResultRule } from "./catalog/types.js";
+import { mySqlKeywordUpper } from "./keyword-case.js";
+import { mySqlNumericLiteralType, resolveMySqlNumeric } from "./numeric-functions.js";
 import type {
   CallExpression,
   Expression,
@@ -43,7 +36,13 @@ import type {
   WithClause,
 } from "./parser/index.js";
 import { walkStatement } from "./parser/index.js";
-import { defaultMySqlTypePolicy, isKnownMySqlType, type MySqlTypePolicy, mapMySqlType } from "./type-policy.js";
+import {
+  defaultMySqlTypePolicy,
+  isKnownMySqlType,
+  type MySqlTypePolicy,
+  mapMySqlType,
+  mySqlTypeDeclaration,
+} from "./type-policy.js";
 
 interface ResolvedType {
   readonly tsType: string;
@@ -98,6 +97,7 @@ export interface ResolveMySqlOptions {
   readonly typePolicy?: MySqlTypePolicy;
   readonly runtimeValidation?: boolean;
   readonly strictExpressions?: boolean;
+  readonly unknownRoutineRequiresContract?: boolean;
 }
 
 const comparisonOperators = new Set([
@@ -192,7 +192,10 @@ function containsWindowFunction(expression: Expression): boolean {
 
 function containsAggregate(expression: Expression): boolean {
   if (expression.kind === "call") {
-    return aggregateFunctions.has(expression.name.name.toUpperCase()) || expression.arguments.some(containsAggregate);
+    return (
+      (expression.nativeFunctionAllowed !== false && aggregateFunctions.has(mySqlKeywordUpper(expression.name.name))) ||
+      expression.arguments.some(containsAggregate)
+    );
   }
   if (expression.kind === "array" || expression.kind === "row") return expression.elements.some(containsAggregate);
   if (expression.kind === "cast" || expression.kind === "unary") return containsAggregate(expression.expression);
@@ -231,7 +234,9 @@ function unaggregatedColumns(
   if (expression.kind === "column") return insideAggregate ? [] : [expression];
   if (expression.kind === "call") {
     const exempt =
-      aggregateFunctions.has(expression.name.name.toUpperCase()) || expression.name.name.toUpperCase() === "ANY_VALUE";
+      expression.nativeFunctionAllowed !== false &&
+      (aggregateFunctions.has(mySqlKeywordUpper(expression.name.name)) ||
+        mySqlKeywordUpper(expression.name.name) === "ANY_VALUE");
     return expression.arguments.flatMap((argument) => unaggregatedColumns(argument, insideAggregate || exempt));
   }
   if (expression.kind === "array" || expression.kind === "row") {
@@ -332,6 +337,7 @@ class Resolver {
   readonly #policy: MySqlTypePolicy;
   readonly #strict: boolean;
   readonly #runtimeValidation: boolean;
+  readonly #unknownRoutineRequiresContract: boolean;
   #requiresJsonValidation = false;
   #jsonOperations = 0;
   readonly #diagnostics: SqlDiagnostic[] = [];
@@ -341,9 +347,14 @@ class Resolver {
   #activeWindows: ReadonlyMap<string, WindowSpecification> = new Map();
   #duplicateTarget: Relation | undefined;
 
-  constructor(schema: SchemaSnapshot, options: ResolveMySqlOptions) {
+  constructor(
+    schema: SchemaSnapshot,
+    options: ResolveMySqlOptions,
+    readonly catalog: MySqlCatalogProvider,
+  ) {
     this.#schema = schema;
     this.#runtimeValidation = options.runtimeValidation === true;
+    this.#unknownRoutineRequiresContract = options.unknownRoutineRequiresContract === true;
     this.#index = ResolverSchemaIndex.for(schema);
     this.#policy = options.typePolicy ?? defaultMySqlTypePolicy;
     this.#strict = options.strictExpressions ?? true;
@@ -754,7 +765,9 @@ class Resolver {
       expression(expression) {
         if (
           expression.kind === "call" &&
-          (expression.over !== undefined || aggregateFunctions.has(expression.name.name.toUpperCase()))
+          (expression.over !== undefined ||
+            (expression.nativeFunctionAllowed !== false &&
+              aggregateFunctions.has(mySqlKeywordUpper(expression.name.name))))
         ) {
           prohibited = true;
         }
@@ -770,7 +783,15 @@ class Resolver {
   ): readonly ResolvedMySqlColumn[] {
     const merged: ResolvedMySqlColumn[] = [];
     for (const statement of statements) {
-      const probe = new Resolver(this.#schema, { typePolicy: this.#policy, strictExpressions: false });
+      const probe = new Resolver(
+        this.#schema,
+        {
+          typePolicy: this.#policy,
+          strictExpressions: false,
+          unknownRoutineRequiresContract: this.#unknownRoutineRequiresContract,
+        },
+        this.catalog,
+      );
       const columns = probe.#select(statement, outer, inherited);
       if (merged.length === 0) {
         merged.push(...columns);
@@ -1421,12 +1442,16 @@ class Resolver {
       if (typeof expression.value === "boolean")
         return { tsType: "boolean", nullable: false, databaseType: "boolean", coercibility: 5 };
       if (typeof expression.value === "number") {
-        const databaseType = Number.isInteger(expression.value) ? "int" : "decimal";
+        const databaseType = mySqlNumericLiteralType(expression.numericText ?? String(expression.value));
+        if (!databaseType) {
+          this.#diagnostic("TSQ401", "Numeric literal exceeds the supported exact representation", expression.range);
+          return { tsType: "unknown", nullable: true };
+        }
         return {
-          tsType: databaseType === "decimal" ? this.#policy.decimal : "number",
+          tsType: mapMySqlType(databaseType, this.#policy, this.#schema),
           nullable: false,
           databaseType,
-          unsigned: false,
+          unsigned: isUnsigned(databaseType),
           coercibility: 5,
         };
       }
@@ -1462,13 +1487,9 @@ class Resolver {
       };
     }
     if (expression.kind === "cast") {
-      const source = this.#expression(
-        expression.expression,
-        scope,
-        ctes,
-        this.#databaseType(expression.databaseType.name, true),
-      );
-      if (!isKnownMySqlType(expression.databaseType.name, this.#schema))
+      const databaseType = mySqlTypeDeclaration(expression.databaseType.name);
+      const source = this.#expression(expression.expression, scope, ctes, this.#databaseType(databaseType, true));
+      if (!isKnownMySqlType(databaseType, this.#schema))
         this.#diagnostic(
           "TSQ106",
           `Invalid or unknown MySQL cast type ${expression.databaseType.name}`,
@@ -1477,18 +1498,18 @@ class Resolver {
       if (normalized(expression.databaseType.name) === "json")
         return this.#jsonResult(this.#jsonDocument(source, expression.expression), source.nullable);
       return {
-        tsType: mapMySqlType(expression.databaseType.name, this.#policy, this.#schema),
+        tsType: mapMySqlType(databaseType, this.#policy, this.#schema),
         nullable: source.nullable,
-        databaseType: normalized(expression.databaseType.name),
-        unsigned: isUnsigned(expression.databaseType.name),
-        ...(mySqlCatalogType(expression.databaseType.name, this.#schema)?.category === "string"
+        databaseType,
+        unsigned: isUnsigned(databaseType),
+        ...(this.catalog.type(expression.databaseType.name, this.#schema)?.category === "string"
           ? this.#connectionCollation(2)
           : {}),
       };
     }
     if (expression.kind === "collate") {
       const source = this.#expression(expression.expression, scope, ctes);
-      const collation = mySqlCatalogCollation(name(expression.collation), this.#schema);
+      const collation = this.catalog.collation(name(expression.collation), this.#schema);
       if (collation === undefined) {
         this.#diagnostic("TSQ106", `Unknown MySQL collation ${expression.collation.name}`, expression.collation.range);
         return { tsType: "unknown", nullable: true };
@@ -1610,7 +1631,7 @@ class Resolver {
       left = this.#expression(expression.left, scope, ctes);
       right = this.#expression(expression.right, scope, ctes, expression.right.kind === "parameter" ? left : undefined);
     }
-    const operator = mySqlCatalogOperator(expression.operator, this.#schema);
+    const operator = this.catalog.operator(expression.operator, this.#schema);
     if (comparisonOperators.has(expression.operator)) {
       if (this.#collatable(left) && this.#collatable(right)) this.#resolveCollation(left, right, expression.range);
       return {
@@ -1644,8 +1665,9 @@ class Resolver {
           }
         : { tsType: "unknown", nullable: left.nullable || right.nullable };
     }
-    const leftType = left.databaseType === undefined ? undefined : mySqlCatalogType(left.databaseType, this.#schema);
-    const rightType = right.databaseType === undefined ? undefined : mySqlCatalogType(right.databaseType, this.#schema);
+    const leftType = left.databaseType === undefined ? undefined : this.catalog.type(left.databaseType, this.#schema);
+    const rightType =
+      right.databaseType === undefined ? undefined : this.catalog.type(right.databaseType, this.#schema);
     if (
       leftType !== undefined &&
       rightType !== undefined &&
@@ -1686,7 +1708,19 @@ class Resolver {
   }
 
   #call(expression: CallExpression, scope: Scope, ctes: ReadonlyMap<string, TableSnapshot>): ResolvedType {
-    const functionName = expression.name.name.toUpperCase();
+    const functionName = mySqlKeywordUpper(expression.name.name);
+    if (expression.nativeFunctionAllowed === false) {
+      const values = expression.arguments.map((argument) => this.#expression(argument, scope, ctes));
+      if (expression.over !== undefined || expression.distinct || expression.filter !== undefined) {
+        this.#diagnostic(
+          "TSQ223",
+          "An ordinary MySQL routine call cannot use native aggregate/window modifiers",
+          expression.range,
+        );
+        return { tsType: "unknown", nullable: true };
+      }
+      return this.#declaredCall(expression, scope, ctes, values);
+    }
     if (functionName === "VALUES") {
       const argument = expression.arguments[0];
       if (
@@ -1760,13 +1794,14 @@ class Resolver {
     if (values.some((value) => value.json?.requiresRuntimeValidation)) this.#requiresJsonValidation = true;
     const json = expression.schema === undefined ? this.#jsonCall(functionName, expression, values) : undefined;
     if (json !== undefined) return json;
-    const builtin = expression.schema === undefined ? mySqlCatalogRoutine(functionName, this.#schema) : undefined;
+    const builtin = expression.schema === undefined ? this.catalog.routine(functionName, this.#schema) : undefined;
     if (builtin !== undefined) {
       if (
         values.length < builtin.minimumArguments ||
         (builtin.maximumArguments !== null && values.length > builtin.maximumArguments)
       ) {
         this.#diagnostic("TSQ227", `${functionName} has an invalid argument count`, expression.range);
+        return { tsType: "unknown", nullable: true };
       }
       const edition = this.#schema.server?.settings.edition;
       if (typeof edition === "string" && edition !== "unknown" && !builtin.editions.includes(edition as never)) {
@@ -1777,11 +1812,15 @@ class Resolver {
         );
         return { tsType: "unknown", nullable: true };
       }
-      return this.#builtinResult(builtin.result, functionName, values, expression.range);
+      const result = this.#builtinResult(builtin.result, functionName, values, expression.range, expression.arguments);
+      return {
+        ...result,
+        nullable: builtin.nullability === "always" ? true : builtin.nullability === "never" ? false : result.nullable,
+      };
     }
     if (
-      mySqlCoreCatalogForSchema(this.#schema) !== undefined &&
-      mySqlCatalogHasRoutineInAnotherSeries(functionName, this.#schema)
+      this.catalog.forSchema(this.#schema) !== undefined &&
+      this.catalog.hasRoutineInAnotherSeries(functionName, this.#schema)
     ) {
       this.#diagnostic(
         "TSQ403",
@@ -1793,6 +1832,15 @@ class Resolver {
     if (functionName === "GROUPING") {
       return { tsType: this.#policy.bigint, nullable: false, databaseType: "bigint unsigned" };
     }
+    return this.#declaredCall(expression, scope, ctes, values);
+  }
+
+  #declaredCall(
+    expression: CallExpression,
+    scope: Scope,
+    ctes: ReadonlyMap<string, TableSnapshot>,
+    values: readonly ResolvedType[],
+  ): ResolvedType {
     const candidates = this.#index.functions(
       name(expression.name),
       values.length,
@@ -1807,11 +1855,15 @@ class Resolver {
       return this.#function(selected);
     }
     this.#diagnostic(
-      candidates.length > 1 ? "TSQ204" : "TSQ202",
-      candidates.length > 1 ? `Ambiguous function ${expression.name.name}` : `Unknown function ${expression.name.name}`,
+      candidates.length > 1 ? "TSQ204" : this.#unknownRoutineRequiresContract ? "TSQ408" : "TSQ202",
+      candidates.length > 1
+        ? `Ambiguous function ${expression.name.name}`
+        : this.#unknownRoutineRequiresContract
+          ? `The MySQL offline core has no qualified rule for ${expression.name.name}; generate a qualified query contract`
+          : `Unknown function ${expression.name.name}`,
       expression.range,
       undefined,
-      candidates.length > 1 ? "error" : "warning",
+      candidates.length > 1 || this.#unknownRoutineRequiresContract ? "error" : "warning",
     );
     return { tsType: "unknown", nullable: true };
   }
@@ -2061,8 +2113,14 @@ class Resolver {
     functionName: string,
     values: readonly ResolvedType[],
     range: SourceRange,
+    expressions: readonly Expression[] = [],
   ): ResolvedType {
     const argumentNullable = values.some((value) => value.nullable);
+    if (rule === "numeric-absolute" || rule === "numeric-round" || rule === "numeric-integral") {
+      const result = resolveMySqlNumeric(rule, values, expressions, this.#policy, this.#schema, this.catalog);
+      if (result.reason) this.#diagnostic("TSQ401", result.reason, range);
+      return result;
+    }
     if (rule === "count")
       return { tsType: this.#policy.bigint, nullable: false, databaseType: "bigint", unsigned: false };
     if (rule === "bigint")
@@ -2145,7 +2203,7 @@ class Resolver {
   #jsonValue(value: ResolvedType, expression?: Expression): JsonShape {
     if (expression?.kind === "literal" && expression.value === null) return nullJsonShape;
     let shape = value.databaseType === "json" ? (value.json?.shape ?? unknownJsonShape) : undefined;
-    const type = value.databaseType === undefined ? undefined : mySqlCatalogType(value.databaseType, this.#schema);
+    const type = value.databaseType === undefined ? undefined : this.catalog.type(value.databaseType, this.#schema);
     if (shape === undefined && type !== undefined) {
       if (type.category.startsWith("numeric") || type.name === "year") shape = { kind: "number" };
       else if (type.category === "boolean") shape = { kind: "boolean" };
@@ -2554,7 +2612,7 @@ class Resolver {
   #collatable(value: ResolvedType): boolean {
     if (value.characterSet !== undefined) return true;
     const category =
-      value.databaseType === undefined ? undefined : mySqlCatalogType(value.databaseType, this.#schema)?.category;
+      value.databaseType === undefined ? undefined : this.catalog.type(value.databaseType, this.#schema)?.category;
     return category === "string" || category === "collection";
   }
 
@@ -2564,9 +2622,9 @@ class Resolver {
     range: SourceRange,
   ): Pick<ResolvedType, "characterSet" | "collation" | "coercibility"> | undefined {
     const leftCollation =
-      left.collation === undefined ? undefined : mySqlCatalogCollation(left.collation, this.#schema);
+      left.collation === undefined ? undefined : this.catalog.collation(left.collation, this.#schema);
     const rightCollation =
-      right.collation === undefined ? undefined : mySqlCatalogCollation(right.collation, this.#schema);
+      right.collation === undefined ? undefined : this.catalog.collation(right.collation, this.#schema);
     if (leftCollation === undefined)
       return rightCollation === undefined ? undefined : this.#collationResult(rightCollation, right);
     if (rightCollation === undefined) return this.#collationResult(leftCollation, left);
@@ -2628,14 +2686,13 @@ class Resolver {
       nullable,
       databaseType: normalized(databaseType),
       unsigned: isUnsigned(databaseType),
-      ...(mySqlCatalogType(databaseType, this.#schema)?.category === "string" ? this.#connectionCollation(2) : {}),
+      ...(this.catalog.type(databaseType, this.#schema)?.category === "string" ? this.#connectionCollation(2) : {}),
     };
   }
 
   #recordParameter(index: number, expected: ResolvedType | undefined): ResolvedType {
-    const json =
-      expected?.json ??
-      (expected?.databaseType === "json" ? this.#jsonResult(unknownJsonShape, expected.nullable).json : undefined);
+    const jsonType = expected?.databaseType !== undefined && normalized(expected.databaseType) === "json";
+    const json = expected?.json ?? (jsonType ? this.#jsonResult(unknownJsonShape, expected.nullable).json : undefined);
     const parameterExpected =
       expected === undefined
         ? undefined
@@ -2645,9 +2702,7 @@ class Resolver {
             ...(expected.databaseType === undefined ? {} : { databaseType: expected.databaseType }),
             ...(json === undefined ? {} : { json }),
             ...(expected.scalarJsonShape === undefined ? {} : { scalarJsonShape: expected.scalarJsonShape }),
-            ...(expected.acceptsJsonInput === true || expected.databaseType === "json"
-              ? { acceptsJsonInput: true as const }
-              : {}),
+            ...(expected.acceptsJsonInput === true || jsonType ? { acceptsJsonInput: true as const } : {}),
           };
     const parameter = this.#parameters.record(index, parameterExpected);
     return {
@@ -2677,7 +2732,8 @@ class Resolver {
 export function resolveMySqlStatement(
   statement: Statement,
   schema: SchemaSnapshot,
-  options: ResolveMySqlOptions = {},
+  options: ResolveMySqlOptions,
+  catalog: MySqlCatalogProvider,
 ): ResolvedMySqlQuery {
-  return new Resolver(schema, options).resolve(statement);
+  return new Resolver(schema, options, catalog).resolve(statement);
 }

@@ -1,0 +1,70 @@
+{
+  "formatVersion": 1,
+  "grammar": "sqlserver",
+  "repository": "microsoft/SqlScriptDOM",
+  "revision": "3ea69b6fc1ed76b63eca6df868f3d1347b92e9fb",
+  "shared": [
+    "LICENSE",
+    "SqlScriptDom/Parser/TSql/TSqlTokenTypes.g",
+    "SqlScriptDom/Parser/TSql/CodeGenerationSupporter.cs"
+  ],
+  "files": {
+    "LICENSE": {
+      "url": "https://raw.githubusercontent.com/microsoft/SqlScriptDOM/3ea69b6fc1ed76b63eca6df868f3d1347b92e9fb/LICENSE",
+      "digest": "sha256:c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383",
+      "bytes": 1141
+    },
+    "SqlScriptDom/Parser/TSql/TSqlTokenTypes.g": {
+      "url": "https://raw.githubusercontent.com/microsoft/SqlScriptDOM/3ea69b6fc1ed76b63eca6df868f3d1347b92e9fb/SqlScriptDom/Parser/TSql/TSqlTokenTypes.g",
+      "digest": "sha256:563bfb8c637c2865d49e9a0edbf23388a8b5b8b8d0a0660a360c731880ddcee1",
+      "bytes": 6374
+    },
+    "SqlScriptDom/Parser/TSql/CodeGenerationSupporter.cs": {
+      "url": "https://raw.githubusercontent.com/microsoft/SqlScriptDOM/3ea69b6fc1ed76b63eca6df868f3d1347b92e9fb/SqlScriptDom/Parser/TSql/CodeGenerationSupporter.cs",
+      "digest": "sha256:62c0d902688f1005ae988d39c888f1a9fc2f1cef9a3951cd7bd77c4c4f4a50af",
+      "bytes": 112241
+    },
+    "SqlScriptDom/Parser/TSql/TSql140.g": {
+      "url": "https://raw.githubusercontent.com/microsoft/SqlScriptDOM/3ea69b6fc1ed76b63eca6df868f3d1347b92e9fb/SqlScriptDom/Parser/TSql/TSql140.g",
+      "digest": "sha256:329d8ec44c214dd2ba8efeeab65f173b7a2899c8c20eaf553e8f52bfab98fa10",
+      "bytes": 1087989
+    },
+    "SqlScriptDom/Parser/TSql/TSql150.g": {
+      "url": "https://raw.githubusercontent.com/microsoft/SqlScriptDOM/3ea69b6fc1ed76b63eca6df868f3d1347b92e9fb/SqlScriptDom/Parser/TSql/TSql150.g",
+      "digest": "sha256:6b3f9753f1b89e7740b9b8c644c035cab9d162c4e87c699fd0320ccb52ed7ea3",
+      "bytes": 1134346
+    },
+    "SqlScriptDom/Parser/TSql/TSql160.g": {
+      "url": "https://raw.githubusercontent.com/microsoft/SqlScriptDOM/3ea69b6fc1ed76b63eca6df868f3d1347b92e9fb/SqlScriptDom/Parser/TSql/TSql160.g",
+      "digest": "sha256:ef984277ad292293a2cf93efd903b63399c4a44041c7506b6c2e2050cdaa6874",
+      "bytes": 1168619
+    },
+    "SqlScriptDom/Parser/TSql/TSql170.g": {
+      "url": "https://raw.githubusercontent.com/microsoft/SqlScriptDOM/3ea69b6fc1ed76b63eca6df868f3d1347b92e9fb/SqlScriptDom/Parser/TSql/TSql170.g",
+      "digest": "sha256:8cf64865e155550639cafd026fc3d0823e97c87ffe447106f3f08a4cdc4532f1",
+      "bytes": 1211862
+    }
+  },
+  "profiles": [
+    {
+      "major": 14,
+      "compatibilityLevels": [140],
+      "parser": "SqlScriptDom/Parser/TSql/TSql140.g"
+    },
+    {
+      "major": 15,
+      "compatibilityLevels": [140, 150],
+      "parser": "SqlScriptDom/Parser/TSql/TSql150.g"
+    },
+    {
+      "major": 16,
+      "compatibilityLevels": [140, 150, 160],
+      "parser": "SqlScriptDom/Parser/TSql/TSql160.g"
+    },
+    {
+      "major": 17,
+      "compatibilityLevels": [140, 150, 160, 170],
+      "parser": "SqlScriptDom/Parser/TSql/TSql170.g"
+    }
+  ]
+}

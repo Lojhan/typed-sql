@@ -1,3 +1,5 @@
+import { sqliteAsciiFold, sqliteAsciiUpper } from "../identifier-case.js";
+
 const SQLITE_NUMERIC_DATABASE_TYPES = Object.freeze(
   new Set([
     "tinyint",
@@ -19,7 +21,7 @@ const SQLITE_NUMERIC_DATABASE_TYPES = Object.freeze(
 export type SqliteAffinity = "integer" | "text" | "blob" | "real" | "numeric";
 
 export function sqliteAffinity(databaseType: string): SqliteAffinity {
-  const type = databaseType.trim().toUpperCase();
+  const type = sqliteAsciiUpper(databaseType.trim());
   if (type.includes("INT")) return "integer";
   if (type.includes("CHAR") || type.includes("CLOB") || type.includes("TEXT")) return "text";
   if (type.length === 0 || type.includes("BLOB")) return "blob";
@@ -28,9 +30,7 @@ export function sqliteAffinity(databaseType: string): SqliteAffinity {
 }
 
 export function normalizeSqliteDatabaseType(databaseType: string): string {
-  return databaseType
-    .trim()
-    .toLowerCase()
+  return sqliteAsciiFold(databaseType.trim())
     .replace(/\s+unsigned$/u, "")
     .replace(/\(.*/u, "");
 }

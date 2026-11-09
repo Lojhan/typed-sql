@@ -1,5 +1,6 @@
 import { describe, it, strict } from "poku";
-import { isNodeSqliteRuntimeSupported, sql } from "../src/index.js";
+import { isNodeSqliteRuntimeSupported } from "../src/analysis.js";
+import { sql } from "../src/index.js";
 import {
   adaptNodeSqliteDatabase,
   loadNodeSqlite,

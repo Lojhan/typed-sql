@@ -1,5 +1,6 @@
 import type { Database } from "@typed-sql/core";
-import { createMySqlRoutedDatabase, mysql, typePolicy } from "@typed-sql/mysql";
+import { typePolicy } from "@typed-sql/mysql";
+import { createMySqlRoutedDatabase, mysql } from "@typed-sql/mysql/analysis";
 
 export function createAccountRouter(primary: Database, replicas: readonly Database[], snapshot: unknown) {
   return createMySqlRoutedDatabase({

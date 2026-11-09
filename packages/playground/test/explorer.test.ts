@@ -2,7 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { SchemaSnapshot } from "@typed-sql/core";
 import type { CatalogEvidence, MigrationHistory } from "@typed-sql/migrations";
-import { postgres } from "@typed-sql/postgres";
+import { postgres } from "@typed-sql/postgres/analysis";
 import { describe, it, strict } from "poku";
 import { buildExplorer, ExplorerService } from "../src/explorer.js";
 import { explorerMigrationInventory } from "../src/migration-inventory.js";

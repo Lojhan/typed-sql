@@ -61,7 +61,7 @@ export interface QueryTransportProfile {
   readonly jsonWire: "text" | "parsed";
   /** SQL JSON parameters use serialized documents, independently of result parsing. */
   readonly jsonInputWire?: "text";
-  readonly normalizeValue?: (value: unknown, type: RuntimeValueType) => unknown;
+  readonly normalizeValue?: (value: unknown, type: RuntimeValueType, descriptor?: QueryValueDescriptor) => unknown;
 }
 
 export class QueryValueError extends TypeError {
@@ -584,7 +584,8 @@ function decode(
     if (!valid) throw new QueryValueError(location, "JSON does not match its declared shape");
     return json.representation === "text" ? (profile.jsonWire === "text" ? value : JSON.stringify(parsed)) : parsed;
   }
-  const normalized = profile.normalizeValue === undefined ? value : profile.normalizeValue(value, descriptor.type);
+  const normalized =
+    profile.normalizeValue === undefined ? value : profile.normalizeValue(value, descriptor.type, descriptor);
   const result = scalar(normalized, descriptor.type, location, profile);
   if (descriptor.scalarJsonShape !== undefined && !matchesNativeJsonScalar(result, descriptor.scalarJsonShape))
     throw new QueryValueError(location, "native JSON scalar does not match its declared shape");

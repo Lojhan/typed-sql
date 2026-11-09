@@ -1,0 +1,132 @@
+{
+  "formatVersion": 1,
+  "scope": "Native identifier context observations; no function/result semantics are inferred",
+  "sourceRevision": "24cbc659ab875d3e46c177183b8ed33f964f1619",
+  "run": "https://github.com/Lojhan/typed-sql/actions/runs/42588817146",
+  "producerDigest": "sha256:8ce50d141efeb6a9651c5c3c2b28de4f63b9e3c97c336b708867650e894160e8",
+  "artifacts": [
+    {
+      "major": 14,
+      "file": "catalog-14.json",
+      "digest": "sha256:f9a84649850f803d19f2e6d2fe33476cdcc28eb618582e8b464e1d3f571e29bc"
+    },
+    {
+      "major": 15,
+      "file": "catalog-15.json",
+      "digest": "sha256:6322fa72b5e0011817040d03e4980e1822b539f586397ade3a781ddf4e62bd8c"
+    },
+    {
+      "major": 16,
+      "file": "catalog-16.json",
+      "digest": "sha256:f92053cedd39c4f3de2e06a50e2280e551bfc3d954046a9f80ae0f2de425d922"
+    },
+    {
+      "major": 17,
+      "file": "catalog-17.json",
+      "digest": "sha256:31a011a45ca62b590fa9fb5dd4e778fdd94408dd19e90c2d064139b307ebdcc2"
+    }
+  ],
+  "contexts": [
+    "explicit-column",
+    "bare-column",
+    "cte",
+    "explicit-relation",
+    "bare-relation",
+    "qualified-column",
+    "quoted-cte",
+    "assignment-alias"
+  ],
+  "common": [["change_tracking_context", 251], ["stoplist", 255], ["xmlnamespaces", 251]],
+  "profiles": [
+    {
+      "major": 14,
+      "compatibilityLevel": 140,
+      "serverVersion": "14.0.3560.2",
+      "sourceDigest": "sha256:bfd8fa421796adea4039c2b3d8bc084f07792468eb1235bc4a1b46c905a17ade",
+      "wordsDigest": "sha256:1335b696a7fbeff49228be092b7c0bad3da541c262c438c45449f3708fcf0bbf",
+      "permissionsDigest": "sha256:b70bdc0e14716089f55af185622e72a601e345214fbb21ff6922a242df39ccea",
+      "overrides": []
+    },
+    {
+      "major": 15,
+      "compatibilityLevel": 140,
+      "serverVersion": "15.0.4500.2",
+      "sourceDigest": "sha256:97ca2720c155f51bff15e50fe28f6d2a43f0471c033d861322db6ab9a0fef294",
+      "wordsDigest": "sha256:1335b696a7fbeff49228be092b7c0bad3da541c262c438c45449f3708fcf0bbf",
+      "permissionsDigest": "sha256:b70bdc0e14716089f55af185622e72a601e345214fbb21ff6922a242df39ccea",
+      "overrides": []
+    },
+    {
+      "major": 15,
+      "compatibilityLevel": 150,
+      "serverVersion": "15.0.4500.2",
+      "sourceDigest": "sha256:97ca2720c155f51bff15e50fe28f6d2a43f0471c033d861322db6ab9a0fef294",
+      "wordsDigest": "sha256:1335b696a7fbeff49228be092b7c0bad3da541c262c438c45449f3708fcf0bbf",
+      "permissionsDigest": "sha256:b70bdc0e14716089f55af185622e72a601e345214fbb21ff6922a242df39ccea",
+      "overrides": []
+    },
+    {
+      "major": 16,
+      "compatibilityLevel": 140,
+      "serverVersion": "16.0.4305.5",
+      "sourceDigest": "sha256:2349c67730f88b497009d62d8a03642b8b49a4adbb93d177cfff63de9ba03ada",
+      "wordsDigest": "sha256:1335b696a7fbeff49228be092b7c0bad3da541c262c438c45449f3708fcf0bbf",
+      "permissionsDigest": "sha256:b70bdc0e14716089f55af185622e72a601e345214fbb21ff6922a242df39ccea",
+      "overrides": []
+    },
+    {
+      "major": 16,
+      "compatibilityLevel": 150,
+      "serverVersion": "16.0.4305.5",
+      "sourceDigest": "sha256:2349c67730f88b497009d62d8a03642b8b49a4adbb93d177cfff63de9ba03ada",
+      "wordsDigest": "sha256:1335b696a7fbeff49228be092b7c0bad3da541c262c438c45449f3708fcf0bbf",
+      "permissionsDigest": "sha256:b70bdc0e14716089f55af185622e72a601e345214fbb21ff6922a242df39ccea",
+      "overrides": []
+    },
+    {
+      "major": 16,
+      "compatibilityLevel": 160,
+      "serverVersion": "16.0.4305.5",
+      "sourceDigest": "sha256:2349c67730f88b497009d62d8a03642b8b49a4adbb93d177cfff63de9ba03ada",
+      "wordsDigest": "sha256:1335b696a7fbeff49228be092b7c0bad3da541c262c438c45449f3708fcf0bbf",
+      "permissionsDigest": "sha256:b70bdc0e14716089f55af185622e72a601e345214fbb21ff6922a242df39ccea",
+      "overrides": []
+    },
+    {
+      "major": 17,
+      "compatibilityLevel": 140,
+      "serverVersion": "17.0.5035.5",
+      "sourceDigest": "sha256:c6ca0237f3801726e5c3bf1d0ce2d7b81414af67c41c6e6a76e09d967b0d81d3",
+      "wordsDigest": "sha256:1335b696a7fbeff49228be092b7c0bad3da541c262c438c45449f3708fcf0bbf",
+      "permissionsDigest": "sha256:b70bdc0e14716089f55af185622e72a601e345214fbb21ff6922a242df39ccea",
+      "overrides": []
+    },
+    {
+      "major": 17,
+      "compatibilityLevel": 150,
+      "serverVersion": "17.0.5035.5",
+      "sourceDigest": "sha256:c6ca0237f3801726e5c3bf1d0ce2d7b81414af67c41c6e6a76e09d967b0d81d3",
+      "wordsDigest": "sha256:1335b696a7fbeff49228be092b7c0bad3da541c262c438c45449f3708fcf0bbf",
+      "permissionsDigest": "sha256:b70bdc0e14716089f55af185622e72a601e345214fbb21ff6922a242df39ccea",
+      "overrides": []
+    },
+    {
+      "major": 17,
+      "compatibilityLevel": 160,
+      "serverVersion": "17.0.5035.5",
+      "sourceDigest": "sha256:c6ca0237f3801726e5c3bf1d0ce2d7b81414af67c41c6e6a76e09d967b0d81d3",
+      "wordsDigest": "sha256:1335b696a7fbeff49228be092b7c0bad3da541c262c438c45449f3708fcf0bbf",
+      "permissionsDigest": "sha256:b70bdc0e14716089f55af185622e72a601e345214fbb21ff6922a242df39ccea",
+      "overrides": []
+    },
+    {
+      "major": 17,
+      "compatibilityLevel": 170,
+      "serverVersion": "17.0.5035.5",
+      "sourceDigest": "sha256:c6ca0237f3801726e5c3bf1d0ce2d7b81414af67c41c6e6a76e09d967b0d81d3",
+      "wordsDigest": "sha256:1335b696a7fbeff49228be092b7c0bad3da541c262c438c45449f3708fcf0bbf",
+      "permissionsDigest": "sha256:d749b4cc1d71e81c120998abbe91a2e44ec7118c8d72b689a597efdce5aa6978",
+      "overrides": [["regexp_like", 64]]
+    }
+  ]
+}

@@ -7,7 +7,8 @@
     "qualify:transport": "node transport-probe.mjs",
     "qualify:adapter": "node --import tsx adapter-probe.mjs",
     "qualify:packed": "node --import tsx packed-probe.mjs",
-    "qualify:catalog": "node catalog-probe.mjs"
+    "qualify:catalog": "node catalog-probe.mjs",
+    "qualify:contracts": "node native-contract-probe.mjs"
   },
   "devDependencies": {
     "@typed-sql/compiler": "workspace:*",

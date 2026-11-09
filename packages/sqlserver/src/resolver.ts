@@ -159,6 +159,7 @@ function numericConstant(expression: Expression): number | undefined {
   return undefined;
 }
 export interface ResolveSqlServerOptions {
+  readonly unknownRoutineRequiresContract?: boolean;
   readonly typePolicy?: SqlServerTypePolicy;
   readonly runtimeValidation?: boolean;
 }
@@ -981,7 +982,14 @@ class Resolver {
           (!expression.name.parts.at(-2) || this.same(fn.schema ?? "dbo", expression.name.parts.at(-2)!)),
       );
       if (candidates.length !== 1) {
-        this.diagnostic("TSQ105", `Unknown or ambiguous function ${expression.name.parts.join(".")}`, expression.range);
+        const unmapped = this.options.unknownRoutineRequiresContract === true && candidates.length === 0;
+        this.diagnostic(
+          unmapped ? "TSQ408" : "TSQ105",
+          unmapped
+            ? `No offline rule for function ${expression.name.parts.join(".")}; generate a qualified query contract.`
+            : `Unknown or ambiguous function ${expression.name.parts.join(".")}`,
+          expression.range,
+        );
         for (const argument of expression.arguments) this.expression(argument, scope, ctes);
         return unknown;
       }
@@ -1002,12 +1010,16 @@ class Resolver {
     if (
       expression.arguments.length < builtin.minimumArguments ||
       expression.arguments.length > builtin.maximumArguments
-    )
+    ) {
       this.diagnostic(
         "TSQ202",
         `${name} expects ${builtin.minimumArguments}–${builtin.maximumArguments} arguments`,
         expression.range,
       );
+      if (builtin.since) this.requireVersion(builtin.since, expression.range, name, builtin.compatibility);
+      for (const argument of expression.arguments) this.expression(argument, scope, ctes);
+      return unknown;
+    }
     if (builtin.since) this.requireVersion(builtin.since, expression.range, name, builtin.compatibility);
     if (builtin.kind === "window" && !expression.over)
       this.diagnostic("TSQ203", `${name} requires OVER`, expression.range);
@@ -1117,7 +1129,7 @@ class Resolver {
       if (argument && argument.kind !== "star") args[index] = this.expected(argument, target, scope, ctes);
     };
     const first = args[0] ?? unknown,
-      nullable = builtin.nullable && args.some((value) => value.nullable);
+      nullable = builtin.intrinsicNullable === true || (builtin.nullable && args.some((value) => value.nullable));
     if (["PERCENTILE_DISC", "PERCENTILE_CONT"].includes(name)) {
       const percentile = expression.arguments[0];
       const value =
@@ -1154,7 +1166,7 @@ class Resolver {
       case "integer": {
         const argument = native(args[["CHARINDEX", "PATINDEX"].includes(name) ? 1 : 0] ?? unknown);
         const wide = ["LEN", "DATALENGTH", "CHARINDEX", "PATINDEX"].includes(name) && argument?.length === "max";
-        return type(wide ? "bigint" : "int", nullable, this.policy);
+        return type(wide ? "bigint" : (builtin.resultType ?? "int"), nullable, this.policy);
       }
       case "abs": {
         const argument = native(first);
@@ -1501,7 +1513,12 @@ class Resolver {
         return {
           tsType: this.policy.json === "parsed" ? this.jsonType(shape) : "string",
           nullable: builtin.rule === "jsonQuery" || first.nullable,
-          databaseType: "nvarchar(max)",
+          databaseType:
+            builtin.rule === "jsonQuery" &&
+            expression.arguments[0]?.kind === "literal" &&
+            expression.arguments[0].literal === "null"
+              ? "nvarchar(4000)"
+              : "nvarchar(max)",
           json: { shape, representation: this.policy.json === "parsed" ? "parsed" : "text" },
           ...(builtin.rule === "jsonQuery" ? { jsonFragment: true } : {}),
         };

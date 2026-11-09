@@ -20,7 +20,7 @@ These are the supported SQL-mode profiles; custom profiles containing an unmodel
 
 ```ts
 import { requireAdapterCapability } from "@typed-sql/core";
-import { mysqlBulk, sql, typePolicy } from "@typed-sql/mysql";
+import { sql, typePolicy } from "@typed-sql/mysql"; import { mysqlBulk } from "@typed-sql/mysql/analysis";
 import { createMySql2Database } from "@typed-sql/mysql/mysql2";
 
 const query = sql`

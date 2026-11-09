@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it, strict } from "poku";
-import { postgres } from "../../postgres/src/index.js";
+import { postgres } from "../../postgres/src/analysis.js";
 import { loadSchemaSnapshot } from "../../schema/src/index.js";
 import { analyzeSource, checkFile, compileSource, SOURCE_ANALYSIS_FORMAT_VERSION } from "../src/index.js";
 import { javascriptProjection } from "../src/javascript.js";

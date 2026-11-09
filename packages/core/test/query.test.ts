@@ -991,6 +991,10 @@ await describe("core contracts", async () => {
     strict.strictEqual(index.functions("lookup", 2).length, 0);
 
     const parameters = new ParameterCollector();
+    const partial = new ParameterCollector();
+    partial.record(1, { tsType: "string", nullable: false, databaseType: "decimal" });
+    partial.record(1, { tsType: "string", nullable: true, databaseType: "decimal", databaseTypeIsPartial: true });
+    strict.equal(partial.values()[0]?.databaseTypeIsPartial, true);
     parameters.record(1);
     parameters.record(1, { tsType: "number", nullable: false, databaseType: "integer" });
     parameters.record(1, { tsType: "number", nullable: true, databaseType: "integer" });

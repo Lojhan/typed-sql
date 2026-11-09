@@ -2,7 +2,7 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
-import { dirname, join, parse, relative, resolve } from "node:path";
+import { dirname, join, parse, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   analyzeSchemaCompatibility,
@@ -27,7 +27,7 @@ import {
   typeScriptCompilerVersionSupport,
   verifyQueryManifest,
 } from "@typed-sql/compiler";
-import { fromConfig, type LoadedConfig, loadConfig } from "@typed-sql/config";
+import { fromConfig, type LoadedConfig, loadConfigSource, resolveConfigDialect } from "@typed-sql/config";
 import {
   createDebugEvent,
   createSupportBundle,
@@ -44,6 +44,10 @@ import {
   parseSchemaSnapshot,
   writeArtifactFiles,
 } from "@typed-sql/schema";
+import { runCacheCli } from "./cache.js";
+import { reportCheckedFiles } from "./check-report.js";
+import { watchChecks } from "./check-watch.js";
+import { runContractCommand } from "./contract-check.js";
 import { runInit } from "./init.js";
 import { runMigrationCli } from "./migrate.js";
 import { runPlayground } from "./playground.js";
@@ -65,6 +69,7 @@ const commands = new Set([
   "drift",
   "manifest",
   "verify",
+  "cache",
 ]);
 
 async function packageVersion(): Promise<string> {
@@ -104,6 +109,7 @@ Commands:
   drift      Compare the generated contract with the live database catalog
   manifest   Emit a deterministic manifest for every project query
   verify     Verify a manifest from cached proof or native live metadata
+  cache      Inspect or prune disposable analysis evidence
 
 Global options:
   -h, --help       Show this help
@@ -111,6 +117,14 @@ Global options:
 
 Examples:
   typed-sql capabilities --config typed-sql.config.ts
+  typed-sql check --frozen --project tsconfig.json
+  typed-sql check --offline --project tsconfig.json
+  typed-sql check --live --project tsconfig.json
+  typed-sql check --watch --live --project tsconfig.json
+  typed-sql generate --queries --live
+  typed-sql generate --queries --offline --check
+  typed-sql cache status --json
+  typed-sql cache prune --retention-days 30
   typed-sql check --project tsconfig.json
   typed-sql check --file src/query.ts --project tsconfig.json --show-types
   typed-sql compat --before schema.before.json --after schema.after.json --before-manifest old.json --after-manifest new.json
@@ -135,7 +149,12 @@ function parseArguments(args: readonly string[]): ParsedArguments {
     if (
       argument === "--no-open" ||
       argument === "--show-types" ||
+      argument === "--watch" ||
+      argument === "--queries" ||
+      argument === "--check" ||
       argument === "--live" ||
+      argument === "--frozen" ||
+      argument === "--offline" ||
       argument === "--json" ||
       argument === "--dry-run" ||
       argument === "--apply" ||
@@ -377,11 +396,17 @@ async function main(): Promise<void> {
     process.stdout.write(`${version}\n`);
     return;
   }
+  if (args[0] === "cache") {
+    await runCacheCli(args.slice(1));
+    return;
+  }
 
   const parsed = parseArguments(args);
   if (parsed.command === undefined || !commands.has(parsed.command)) {
     throw new Error(`Unknown command ${parsed.command ?? "<none>"}. Run typed-sql --help for usage.`);
   }
+  if (parsed.options.watch !== undefined && (parsed.command !== "check" || parsed.options.watch !== "true"))
+    throw new Error("--watch is supported as a boolean check option");
   if (parsed.command === "playground") {
     await runPlayground(parsed.options);
     return;
@@ -393,7 +418,61 @@ async function main(): Promise<void> {
   if (parsed.options["dry-run"] !== undefined) throw new Error("--dry-run is only supported by init");
   for (const flag of ["apply", "install", "verify", "recover", "allow-scripts"])
     if (parsed.options[flag] !== undefined) throw new Error(`--${flag} is only supported by init`);
-  const loaded = await loadConfig({ ...(parsed.options.config === undefined ? {} : { file: parsed.options.config }) });
+  const queryGeneration = parsed.command === "generate" && parsed.options.queries === "true";
+  if (parsed.options.queries !== undefined && (!queryGeneration || parsed.options.queries !== "true"))
+    throw new Error("--queries is supported as a boolean generate option");
+  if (parsed.options.check !== undefined && (!queryGeneration || parsed.options.check !== "true"))
+    throw new Error("--check is supported as a boolean generate --queries option");
+  for (const flag of ["frozen", "offline"])
+    if (
+      parsed.options[flag] !== undefined &&
+      (parsed.options[flag] !== "true" || !(parsed.command === "check" || (flag === "offline" && queryGeneration)))
+    )
+      throw new Error(
+        `--${flag} is supported as a boolean check option${flag === "offline" ? " or generate --queries option" : ""}`,
+      );
+  if (
+    (parsed.command === "check" || queryGeneration) &&
+    parsed.options.live !== undefined &&
+    parsed.options.live !== "true"
+  )
+    throw new Error("--live is supported as a boolean check option or generate --queries option");
+  if (
+    parsed.options.qualification !== undefined &&
+    (!(parsed.command === "check" || queryGeneration) ||
+      !["hybrid", "native-required"].includes(parsed.options.qualification))
+  )
+    throw new Error("--qualification must be hybrid or native-required for query checking/generation");
+  if (["frozen", "offline", "live"].filter((flag) => parsed.options[flag] !== undefined).length > 1)
+    throw new Error("--frozen, --offline and --live cannot be combined");
+  const loaded = await loadConfigSource({
+    ...(parsed.options.config === undefined ? {} : { file: parsed.options.config }),
+  });
+  if (
+    (queryGeneration ||
+      (parsed.command === "check" &&
+        (parsed.options.live !== undefined || parsed.options.qualification !== undefined))) &&
+    loaded.config.analysis === undefined
+  )
+    throw new Error(
+      "Query qualification/generation requires an explicit analysis configuration and native adapter registration for live operation",
+    );
+  if (parsed.options.watch === "true") {
+    await watchChecks({
+      loaded,
+      options: parsed.options,
+      args: args.filter((arg) => arg !== "--watch" && arg !== "--watch=true"),
+      entrypoint: fileURLToPath(import.meta.url),
+    });
+    return;
+  }
+  if (
+    queryGeneration ||
+    (parsed.command === "check" && (parsed.options.frozen !== undefined || loaded.config.analysis !== undefined))
+  ) {
+    await runContractCommand(loaded, parsed.options);
+    return;
+  }
   const config = loaded.config;
   const dialect = config.dialect;
   const policy = config.typePolicy ?? dialect.defaultTypePolicy;
@@ -612,6 +691,7 @@ async function main(): Promise<void> {
   }
 
   if (parsed.command === "check") {
+    const dialect = (await resolveConfigDialect(loaded)).config.dialect;
     const common = {
       schema: schemaFile,
       dialect,
@@ -627,25 +707,14 @@ async function main(): Promise<void> {
       }[],
       output: string,
       ok: boolean,
-    ) => {
-      let sqlErrors = false;
-      for (const { file, analysis } of files) {
-        for (const diagnostic of analysis.diagnostics) {
-          sqlErrors ||= diagnostic.severity === "error";
-          const suggestion = diagnostic.suggestion === undefined ? "" : ` ${diagnostic.suggestion}`;
-          process.stderr.write(
-            `${file}:${diagnostic.range.line}:${diagnostic.range.column} - ${diagnostic.severity} ${diagnostic.code}: ${diagnostic.message}${suggestion}\n`,
-          );
-        }
-        if (parsed.options["show-types"] === "true")
-          for (const query of analysis.queries)
-            process.stdout.write(
-              `${relative(loaded.directory, file)}: ${query.binding?.name ?? `query ${query.index + 1}`} — ${query.queryType}\n`,
-            );
-      }
-      if (!sqlErrors && output) process.stderr.write(output);
-      if (!ok) process.exitCode = 1;
-    };
+    ) =>
+      reportCheckedFiles({
+        files,
+        output,
+        ok,
+        directory: loaded.directory,
+        showTypes: parsed.options["show-types"] === "true",
+      });
     if (parsed.options.file !== undefined) {
       const file = resolve(parsed.options.file);
       const result = await checkFile({
@@ -688,6 +757,7 @@ async function main(): Promise<void> {
   }
 
   if (parsed.command === "manifest") {
+    const dialect = (await resolveConfigDialect(loaded)).config.dialect;
     const schema = await readSnapshot(schemaFile, (value) => dialect.validateSnapshot(value));
     const { projects, sources } = await projectSources(loaded.directory, config.projects, parsed.options.project);
     const outFile = fromConfig(
@@ -733,7 +803,12 @@ async function main(): Promise<void> {
       const verifier = config.verification?.live;
       if (verifier === undefined)
         throw new Error("typed-sql verify --live requires verification.live in typed-sql.config.ts");
-      const candidates = await loadVerificationCandidates(loaded, schemaFile, manifest, parsed.options.project);
+      const candidates = await loadVerificationCandidates(
+        await resolveConfigDialect(loaded),
+        schemaFile,
+        manifest,
+        parsed.options.project,
+      );
       try {
         const result = await verifyQueryManifest({
           manifest,
@@ -794,7 +869,12 @@ async function main(): Promise<void> {
             JSON.parse(await readFile(fromConfig(loaded.directory, compareOption), "utf8")) as unknown,
           );
     const manifest = parseQueryManifest(JSON.parse(await readFile(manifestFile, "utf8")) as unknown);
-    const candidates = await loadVerificationCandidates(loaded, schemaFile, manifest, parsed.options.project);
+    const candidates = await loadVerificationCandidates(
+      await resolveConfigDialect(loaded),
+      schemaFile,
+      manifest,
+      parsed.options.project,
+    );
     try {
       const result = await captureQueryPlans({
         manifest,

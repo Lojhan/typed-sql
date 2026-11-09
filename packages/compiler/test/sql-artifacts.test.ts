@@ -3,10 +3,10 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it, strict } from "poku";
 import { type DialectPlugin, renderQuery } from "../../core/src/index.js";
-import { mysql } from "../../mysql/src/index.js";
-import { postgres } from "../../postgres/src/index.js";
+import { mysql } from "../../mysql/src/analysis.js";
+import { postgres } from "../../postgres/src/analysis.js";
 import { withSchemaBrands } from "../../schema/src/index.js";
-import { SqliteSchemaProvider, sqlite } from "../../sqlite/src/index.js";
+import { SqliteSchemaProvider, sqlite } from "../../sqlite/src/analysis.js";
 import { sqliteRenderer } from "../../sqlite/src/runtime.js";
 import {
   analyzeSchemaCompatibility,

@@ -1,8 +1,19 @@
 import { describe, it, strict } from "poku";
-import { type JsonShape, jsonShapeType, parameterTypeLiteral, validateJsonValue } from "../../core/src/index.js";
-import type { SchemaSnapshot } from "../../schema/src/index.js";
+import { buildQueryValuePlan } from "../../compiler/src/index.js";
+import {
+  encodeQueryValues,
+  type JsonShape,
+  jsonShapeType,
+  jsonValue,
+  parameterTypeLiteral,
+  sql,
+  validateJsonValue,
+  withQueryValuePlan,
+} from "../../core/src/index.js";
+import { type SchemaSnapshot, upgradeSchemaSnapshotV1 } from "../../schema/src/index.js";
+import { mysql } from "../src/analysis.js";
+import { resolveMySqlStatement } from "../src/compatibility-resolver.js";
 import { parseSelect, parseStatement } from "../src/parser/index.js";
-import { resolveMySqlStatement } from "../src/resolver.js";
 import { defaultMySqlTypePolicy } from "../src/type-policy.js";
 
 const schema = {
@@ -24,6 +35,61 @@ const schema = {
 const analyze = (source: string) => resolveMySqlStatement(parseSelect(source), schema);
 
 await describe("MySQL structured JSON", async () => {
+  await it("retains JSON input codecs for case-insensitive physical type names in both snapshot formats", () => {
+    for (const databaseType of ["json", "JSON", "  JsOn  "]) {
+      for (const json of ["unknown", "JsonValue", "string"] as const) {
+        const typePolicy = { ...defaultMySqlTypePolicy, json };
+        const dialect = mysql({ typePolicy });
+        const legacy = {
+          ...schema,
+          tables: {
+            accounts: {
+              ...schema.tables.accounts,
+              columns: {
+                ...schema.tables.accounts.columns,
+                document: {
+                  name: "document",
+                  databaseType,
+                  tsType: json === "string" ? "string" : "unknown",
+                  nullable: false,
+                },
+              },
+            },
+          },
+        } as const;
+        for (const snapshot of [legacy, upgradeSchemaSnapshotV1(legacy)]) {
+          for (const source of [
+            "INSERT INTO accounts(document) VALUES (?)",
+            "UPDATE accounts SET document=? WHERE id=?",
+          ]) {
+            const result = resolveMySqlStatement(parseStatement(source), snapshot, { typePolicy });
+            strict.deepEqual(result.diagnostics, []);
+            strict.deepEqual(result.parameters[0]?.json, {
+              shape: { kind: "unknown" },
+              representation: json === "string" ? "text" : "parsed",
+            });
+            strict.equal(result.parameters[0]?.acceptsJsonInput, true);
+            const plan = buildQueryValuePlan(dialect, result);
+            const query = withQueryValuePlan(sql`SELECT ${sql.json({ id: 1 })}`, plan);
+            const profile = {
+              id: "mysql-json-input",
+              dialect: "mysql",
+              typePolicyHash: plan.typePolicyHash,
+              integer: "lossless" as const,
+              jsonWire: "parsed" as const,
+              jsonInputWire: "text" as const,
+            };
+            const values = source.startsWith("UPDATE") ? [jsonValue({ id: 1 }), 1n] : [jsonValue({ id: 1 })];
+            strict.deepEqual(
+              encodeQueryValues(query, values, profile),
+              source.startsWith("UPDATE") ? ['{"id":1}', 1n] : ['{"id":1}'],
+            );
+          }
+        }
+      }
+    }
+  });
+
   await it("retains a wire descriptor for opaque JSON projections", () => {
     const result = analyze("SELECT document FROM accounts");
     strict.equal(result.columns[0]?.tsType, "unknown");

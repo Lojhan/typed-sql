@@ -7,7 +7,7 @@ import {
   postgres,
   postgresServerEvidence,
   resolvePostgresExtensionManifests,
-} from "../src/index.js";
+} from "../src/analysis.js";
 
 const base = {
   ...upgradeSchemaSnapshotV1({

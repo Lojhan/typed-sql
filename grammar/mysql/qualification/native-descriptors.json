@@ -1,0 +1,151 @@
+{
+  "formatVersion": 1,
+  "scope": "Reviewed exact-engine and SQL-mode constructor observations; canary transport remains unqualified. Acquired observations do not establish universal type/function semantics.",
+  "profiles": {
+    "26.7.0:6bb3ac89e8ca143a56c781c5ace4ea7ac48f56c8a096da05a91439dd2aa89fce": {
+      "engine": "26.7.0",
+      "sqlMode": "IGNORE_SPACE,ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION",
+      "observationDigest": "b89bede44180a604e152aa650beda44f8c4c52bcd8ee7b2e83455fa0e7ba74a0",
+      "constructors": 137,
+      "counts": {
+        "described/unavailable": 274
+      },
+      "adapterQualified": false,
+      "capture": {
+        "sourceRevision": "0141c90e1bc8e544d36f1c0e14210619a2278523",
+        "toolDigest": "22c397405ad7d4184d33dd6be948762d745d6d6a99e775a39457f4a47f5d9ff7",
+        "environment": {
+          "node": "v22.11.0",
+          "platform": "linux",
+          "architecture": "x64"
+        }
+      }
+    },
+    "8.4.11:255dd91c02f790a8173ba592c06d46a71db927a8a74fb1376327bfbdf32392dd": {
+      "engine": "8.4.11",
+      "sqlMode": "PIPES_AS_CONCAT,ANSI_QUOTES,IGNORE_SPACE,ONLY_FULL_GROUP_BY,NO_BACKSLASH_ESCAPES,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION",
+      "observationDigest": "e69802e1485b66385dbf5b303decf01ac1277ba6b0610d8bfa2331ff7d41926d",
+      "constructors": 136,
+      "counts": {
+        "described/acquired": 260,
+        "described/unavailable": 2,
+        "described/declined": 10
+      },
+      "adapterQualified": true,
+      "capture": {
+        "sourceRevision": "0141c90e1bc8e544d36f1c0e14210619a2278523",
+        "toolDigest": "22c397405ad7d4184d33dd6be948762d745d6d6a99e775a39457f4a47f5d9ff7",
+        "environment": {
+          "node": "v22.11.0",
+          "platform": "linux",
+          "architecture": "x64"
+        }
+      }
+    },
+    "8.4.11:6bb3ac89e8ca143a56c781c5ace4ea7ac48f56c8a096da05a91439dd2aa89fce": {
+      "engine": "8.4.11",
+      "sqlMode": "IGNORE_SPACE,ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION",
+      "observationDigest": "20973d354d20ba5dd9f3fec3e4e5fddfcd10d9e88967d10676eaf5008aaa22f5",
+      "constructors": 136,
+      "counts": {
+        "described/acquired": 260,
+        "described/unavailable": 2,
+        "described/declined": 10
+      },
+      "adapterQualified": true,
+      "capture": {
+        "sourceRevision": "0141c90e1bc8e544d36f1c0e14210619a2278523",
+        "toolDigest": "22c397405ad7d4184d33dd6be948762d745d6d6a99e775a39457f4a47f5d9ff7",
+        "environment": {
+          "node": "v22.11.0",
+          "platform": "linux",
+          "architecture": "x64"
+        }
+      }
+    },
+    "8.4.11:a855ba1829e9323004152eb5dfcc257c6773c6a4f6d8967e83b972a899fbddc6": {
+      "engine": "8.4.11",
+      "sqlMode": "IGNORE_SPACE,ONLY_FULL_GROUP_BY,NO_UNSIGNED_SUBTRACTION,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION",
+      "observationDigest": "eaaed94928a91ca204e794086504b1ce32a3ff489c5b91b1f3d23b9aec82ec59",
+      "constructors": 136,
+      "counts": {
+        "described/acquired": 260,
+        "described/unavailable": 2,
+        "described/declined": 10
+      },
+      "adapterQualified": true,
+      "capture": {
+        "sourceRevision": "0141c90e1bc8e544d36f1c0e14210619a2278523",
+        "toolDigest": "22c397405ad7d4184d33dd6be948762d745d6d6a99e775a39457f4a47f5d9ff7",
+        "environment": {
+          "node": "v22.11.0",
+          "platform": "linux",
+          "architecture": "x64"
+        }
+      }
+    },
+    "9.7.2:255dd91c02f790a8173ba592c06d46a71db927a8a74fb1376327bfbdf32392dd": {
+      "engine": "9.7.2",
+      "sqlMode": "PIPES_AS_CONCAT,ANSI_QUOTES,IGNORE_SPACE,ONLY_FULL_GROUP_BY,NO_BACKSLASH_ESCAPES,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION",
+      "observationDigest": "14558e62a4cc4bc5dbd83c3e256536f401cc68ad7594b70db996e0225b49623f",
+      "constructors": 137,
+      "counts": {
+        "described/acquired": 262,
+        "described/unavailable": 2,
+        "described/declined": 10
+      },
+      "adapterQualified": true,
+      "capture": {
+        "sourceRevision": "0141c90e1bc8e544d36f1c0e14210619a2278523",
+        "toolDigest": "22c397405ad7d4184d33dd6be948762d745d6d6a99e775a39457f4a47f5d9ff7",
+        "environment": {
+          "node": "v22.11.0",
+          "platform": "linux",
+          "architecture": "x64"
+        }
+      }
+    },
+    "9.7.2:6bb3ac89e8ca143a56c781c5ace4ea7ac48f56c8a096da05a91439dd2aa89fce": {
+      "engine": "9.7.2",
+      "sqlMode": "IGNORE_SPACE,ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION",
+      "observationDigest": "acc805ccc1d17fe554d009bdad2824d7fe5b6f0fc081baa7548f3a4262e2d712",
+      "constructors": 137,
+      "counts": {
+        "described/acquired": 262,
+        "described/unavailable": 2,
+        "described/declined": 10
+      },
+      "adapterQualified": true,
+      "capture": {
+        "sourceRevision": "0141c90e1bc8e544d36f1c0e14210619a2278523",
+        "toolDigest": "22c397405ad7d4184d33dd6be948762d745d6d6a99e775a39457f4a47f5d9ff7",
+        "environment": {
+          "node": "v22.11.0",
+          "platform": "linux",
+          "architecture": "x64"
+        }
+      }
+    },
+    "9.7.2:a855ba1829e9323004152eb5dfcc257c6773c6a4f6d8967e83b972a899fbddc6": {
+      "engine": "9.7.2",
+      "sqlMode": "IGNORE_SPACE,ONLY_FULL_GROUP_BY,NO_UNSIGNED_SUBTRACTION,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION",
+      "observationDigest": "5c4ba6c4ff810c93a57e090ca718b9ef183e1926da581681520c6a7592c86fd4",
+      "constructors": 137,
+      "counts": {
+        "described/acquired": 262,
+        "described/unavailable": 2,
+        "described/declined": 10
+      },
+      "adapterQualified": true,
+      "capture": {
+        "sourceRevision": "0141c90e1bc8e544d36f1c0e14210619a2278523",
+        "toolDigest": "22c397405ad7d4184d33dd6be948762d745d6d6a99e775a39457f4a47f5d9ff7",
+        "environment": {
+          "node": "v22.11.0",
+          "platform": "linux",
+          "architecture": "x64"
+        }
+      }
+    }
+  }
+}

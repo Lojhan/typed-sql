@@ -1,5 +1,7 @@
 import type { SourceRange } from "@typed-sql/core";
+import { sqlServerKeywordUpper } from "../keyword-case.js";
 import { requireSqlServerNativeType } from "../native-types.js";
+import type { SqlServerNameContext, SqlServerVocabulary } from "../vocabulary/types.js";
 import { type TokenizeOptions, tokenize } from "./tokenizer.js";
 import {
   type Assignment,
@@ -87,7 +89,10 @@ function span(first: SourceRange, last: SourceRange): SourceRange {
 class Parser {
   #index = 0;
   #depth = 0;
-  constructor(readonly tokens: readonly Token[]) {}
+  constructor(
+    readonly tokens: readonly Token[],
+    private readonly vocabulary?: SqlServerVocabulary,
+  ) {}
   get token(): Token {
     return this.tokens[this.#index]!;
   }
@@ -95,10 +100,10 @@ class Parser {
     return this.tokens[Math.max(0, this.#index - 1)]!;
   }
   get upper(): string {
-    return this.token.value.toUpperCase();
+    return sqlServerKeywordUpper(this.token.value);
   }
   is(value: string): boolean {
-    return this.upper === value;
+    return !["identifier", "string", "parameter", "system"].includes(this.token.kind) && this.upper === value;
   }
   next(): Token {
     const value = this.token;
@@ -117,20 +122,38 @@ class Parser {
   fail(message: string, range = this.token.range): never {
     throw new SqlServerParseError(message, range);
   }
-  identifier(): Token {
-    if (this.token.kind !== "word" && this.token.kind !== "identifier") this.fail("Expected SQL identifier");
-    return this.next();
+  allowed(token: Token, context: SqlServerNameContext): boolean {
+    return (
+      token.kind === "identifier" || (token.kind === "word" && (this.vocabulary?.allows(token.value, context) ?? true))
+    );
   }
-  name(): Name {
-    const first = this.identifier();
+  assertIdentifier(token: Token, context: SqlServerNameContext): void {
+    if (!this.allowed(token, context))
+      this.fail(`Keyword ${token.text} requires quoting in this identifier context`, token.range);
+  }
+  identifier(context: SqlServerNameContext | "unchecked" = "explicit-column"): Token {
+    if (this.token.kind !== "word" && this.token.kind !== "identifier") this.fail("Expected SQL identifier");
+    const token = this.next();
+    if (context !== "unchecked") this.assertIdentifier(token, context);
+    return token;
+  }
+  name(allowCall = false): Name {
+    const first = this.identifier("unchecked"),
+      tokens = [first];
     const parts = [first.value];
     while (this.take(".")) {
       if (this.is("*")) {
         this.#index--;
         break;
       }
-      parts.push(this.identifier().value);
+      const token = this.identifier("unchecked");
+      tokens.push(token);
+      parts.push(token.value);
       if (parts.length > 4) this.fail("SQL Server names have at most four parts", first.range);
+    }
+    for (let index = 0; index < tokens.length; index++) {
+      if (allowCall && this.is("(") && index === tokens.length - 1) continue;
+      this.assertIdentifier(tokens[index]!, index === 0 ? "explicit-relation" : "qualified-column");
     }
     return { parts, range: span(first.range, this.previous.range) };
   }
@@ -177,7 +200,7 @@ class Parser {
   ctes(): Cte[] {
     if (!this.take("WITH")) return [];
     return this.list(() => {
-      const first = this.identifier();
+      const first = this.identifier("cte");
       const columns = this.is("(") ? this.names() : [];
       this.need("AS");
       this.need("(");
@@ -343,6 +366,7 @@ class Parser {
         (this.token.kind === "word" || this.token.kind === "identifier" || this.token.kind === "string") &&
         this.tokens[this.#index + 1]?.value === "="
       ) {
+        if (this.token.kind === "word") this.assertIdentifier(this.token, "assignment-alias");
         alias = this.next().value;
         this.need("=");
         expression = this.expression();
@@ -350,19 +374,23 @@ class Parser {
         expression = this.expression();
         if (this.take("AS")) {
           if (this.token.kind === "string") alias = this.next().value;
-          else alias = this.identifier().value;
-        } else if ((this.token.kind === "identifier" || this.token.kind === "word") && !endProjection.has(this.upper))
+          else alias = this.identifier("explicit-column").value;
+        } else if (
+          this.allowed(this.token, "bare-column") &&
+          (this.vocabulary !== undefined || this.token.kind === "identifier" || !endProjection.has(this.upper))
+        )
           alias = this.next().value;
       }
       return { expression, ...(alias === undefined ? {} : { alias }), range: span(start, this.previous.range) };
     });
   }
   alias(): string | undefined {
-    if (this.take("AS")) return this.identifier().value;
+    if (this.take("AS")) return this.identifier("explicit-relation").value;
     if (
-      (this.token.kind === "identifier" || this.token.kind === "word") &&
-      !endProjection.has(this.upper) &&
-      !["PIVOT", "UNPIVOT", "TABLESAMPLE"].includes(this.upper)
+      this.allowed(this.token, "bare-relation") &&
+      (this.vocabulary !== undefined ||
+        this.token.kind === "identifier" ||
+        (!endProjection.has(this.upper) && !["PIVOT", "UNPIVOT", "TABLESAMPLE"].includes(this.upper)))
     )
       return this.next().value;
     return undefined;
@@ -377,7 +405,7 @@ class Parser {
       const columns = this.is("(") ? this.names() : [];
       return { kind: "derived", query, alias, columns, range: span(start, this.previous.range) };
     }
-    const name = this.name();
+    const name = this.name(true);
     if (this.is("(")) {
       const call = this.call(name);
       let shape: Extract<Source, { kind: "function" }>["shape"];
@@ -641,7 +669,8 @@ class Parser {
           left = { kind: "between", argument: left, lower, upper, not, range: span(start, this.previous.range) };
           continue;
         }
-        const level = precedence[this.upper];
+        const level =
+          this.token.kind === "identifier" || this.token.kind === "string" ? undefined : precedence[this.upper];
         if (level === undefined || level < minimum) {
           if (not) this.fail("Expected IN, LIKE or BETWEEN after NOT");
           break;
@@ -662,7 +691,7 @@ class Parser {
   primary(): Expression {
     const token = this.next(),
       start = token.range,
-      upper = token.value.toUpperCase();
+      upper = token.kind === "identifier" ? "" : sqlServerKeywordUpper(token.value);
     if (token.kind === "string")
       return {
         kind: "literal",
@@ -745,24 +774,36 @@ class Parser {
     }
     if (token.value === "*") return { kind: "star", range: start };
     if (token.kind !== "word" && token.kind !== "identifier") this.fail("Expected scalar SQL expression", start);
-    const parts = [token.value];
+    const parts = [token.value],
+      tokens = [token];
     while (this.take(".")) {
-      if (this.take("*"))
+      if (this.take("*")) {
+        for (let index = 0; index < tokens.length; index++)
+          this.assertIdentifier(tokens[index]!, index === 0 ? "explicit-relation" : "qualified-column");
         return {
           kind: "star",
           qualifier: { parts, range: span(start, this.previous.range) },
           range: span(start, this.previous.range),
         };
-      parts.push(this.identifier().value);
+      }
+      const part = this.identifier("unchecked");
+      tokens.push(part);
+      parts.push(part.value);
       if (parts.length > 4) this.fail("SQL names have at most four parts", start);
     }
     const name = { parts, range: span(start, this.previous.range) };
-    if (this.is("(")) return this.call(name);
+    if (this.is("(")) {
+      for (let index = 0; index < tokens.length - 1; index++)
+        this.assertIdentifier(tokens[index]!, index === 0 ? "explicit-relation" : "qualified-column");
+      return this.call(name);
+    }
     if (
       ["CURRENT_TIMESTAMP", "CURRENT_USER", "SESSION_USER", "SYSTEM_USER", "USER"].includes(upper) &&
       parts.length === 1
     )
       return { kind: "call", name, arguments: [], distinct: false, range: name.range };
+    for (let index = 0; index < tokens.length; index++)
+      this.assertIdentifier(tokens[index]!, index === 0 ? "explicit-column" : "qualified-column");
     return { kind: "column", name, range: name.range };
   }
   call(name: Name): Expression & { kind: "call" } {
@@ -867,7 +908,7 @@ class Parser {
   }
   nativeType(): string {
     const start = this.token.range;
-    const name = this.identifier().value;
+    const name = this.identifier("unchecked").value;
     let source = name;
     if (this.take("(")) {
       const first = this.next();
@@ -889,6 +930,9 @@ class Parser {
     }
   }
 }
-export function parseStatement(source: string, options: TokenizeOptions = {}): Statement {
-  return new Parser(tokenize(source, options)).parse();
+export interface ParseOptions extends TokenizeOptions {
+  readonly vocabulary?: SqlServerVocabulary;
+}
+export function parseStatement(source: string, options: ParseOptions = {}): Statement {
+  return new Parser(tokenize(source, options), options.vocabulary).parse();
 }

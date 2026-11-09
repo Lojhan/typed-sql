@@ -17,10 +17,10 @@ import {
   type PostgresExtensionCodec,
   type PostgresExtensionManifest,
   PostgresExtensionResolutionError,
-  resolvePostgresExtensionManifests,
-} from "./extensions.js";
+} from "./extension-contracts.js";
 import type { PostgresSchemaSnapshot } from "./index.js";
-import { type PostgresQueryable, PostgresSchemaProvider, postgresCatalogQueries } from "./provider.js";
+import { describePgStatement } from "./pg-description.js";
+import type { PostgresQueryable } from "./provider-contracts.js";
 import {
   createPostgresDatabase,
   type PostgresClientLike,
@@ -34,6 +34,7 @@ import {
   type PostgresRuntimeCodec,
 } from "./runtime.js";
 import { parsePostgresRuntimeSnapshot, validatePostgresRuntimeCompatibility } from "./runtime-compatibility.js";
+import { postgresVersionQuery } from "./server-evidence.js";
 import {
   defaultPostgresTypePolicy,
   isKnownPostgresType,
@@ -202,28 +203,6 @@ export interface PgLiveVerifierClient {
   release(error?: Error | boolean): void;
 }
 
-interface PgProtocolField {
-  readonly name: string;
-  readonly dataTypeID: number;
-}
-
-interface PgProtocolDescription {
-  readonly parameters: readonly number[];
-  readonly columns: readonly PgProtocolField[];
-}
-
-interface PgProtocolConnection {
-  parse(request: { readonly text: string; readonly name: string; readonly types: readonly number[] }): void;
-  describe(request: { readonly type: "S"; readonly name: string }): void;
-  sync(): void;
-  on(event: "parameterDescription", listener: (message: { readonly dataTypeIDs: readonly number[] }) => void): void;
-  off(event: "parameterDescription", listener: (message: { readonly dataTypeIDs: readonly number[] }) => void): void;
-}
-
-interface PgProtocolClient extends PgLiveVerifierClient {
-  readonly connection?: PgProtocolConnection;
-}
-
 export interface PgLiveVerifierPool {
   query<Row extends Record<string, unknown>>(
     sql: string,
@@ -305,7 +284,7 @@ interface PgRuntimeVersionRow extends Record<string, unknown> {
 export async function readPgRuntimeServerEvidence(
   queryable: PgRuntimeEvidenceQueryable,
 ): Promise<DialectServerEvidence> {
-  const result = await queryable.query<PgRuntimeVersionRow>(postgresCatalogQueries.version);
+  const result = await queryable.query<PgRuntimeVersionRow>(postgresVersionQuery);
   const row = result.rows[0];
   if (row === undefined || typeof row.server_version !== "string") {
     throw new TypeError("PostgreSQL runtime compatibility did not return server-version evidence");
@@ -365,58 +344,6 @@ export async function resolvePgRuntimeCodecs(
 }
 
 const POSTGRES_LIVE_VERIFIER_VERSION = "postgres-describe-v3";
-
-function describePgStatement(
-  client: PgLiveVerifierClient,
-  name: string,
-  sql: string,
-): Promise<PgProtocolDescription> | undefined {
-  const protocolClient = client as PgProtocolClient;
-  if (protocolClient.connection === undefined) return undefined;
-  return new Promise((resolve, reject) => {
-    let parameters: readonly number[] = [];
-    let columns: readonly PgProtocolField[] = [];
-    let connection: PgProtocolConnection | undefined;
-    let settled = false;
-    const parameterDescription = (message: { readonly dataTypeIDs: readonly number[] }): void => {
-      parameters = [...message.dataTypeIDs];
-    };
-    const finish = (error?: unknown): void => {
-      if (settled) return;
-      settled = true;
-      connection?.off("parameterDescription", parameterDescription);
-      if (error === undefined) resolve({ parameters, columns });
-      else reject(error);
-    };
-    const query = {
-      name,
-      text: sql,
-      callback: undefined as ((error?: unknown) => void) | undefined,
-      submit(value: PgProtocolConnection) {
-        connection = value;
-        value.on("parameterDescription", parameterDescription);
-        value.parse({ text: sql, name, types: [] });
-        value.describe({ type: "S", name });
-        value.sync();
-      },
-      handleRowDescription(message: { readonly fields: readonly PgProtocolField[] }) {
-        columns = message.fields.map(({ name: fieldName, dataTypeID }) => ({ name: fieldName, dataTypeID }));
-      },
-      handleError(error: unknown) {
-        finish(error);
-      },
-      handleReadyForQuery() {
-        finish();
-      },
-    };
-    type CustomQueryClient = {
-      query(value: typeof query, callback: (error?: unknown) => void): void;
-    };
-    (client as unknown as CustomQueryClient).query(query, (error) => {
-      if (error !== undefined) finish(error);
-    });
-  });
-}
 
 /** Creates a lazy, non-executing adapter over PostgreSQL Parse and Describe metadata. */
 export function createPgLiveVerifier(options: PgLiveVerifierOptions): LiveQueryVerifier {
@@ -1051,6 +978,7 @@ export async function createPgDatabase(options: PgOptions): Promise<PostgresData
       const evidence = await readPgRuntimeServerEvidence(pool as unknown as PgRuntimeEvidenceQueryable);
       validatePostgresRuntimeCompatibility(snapshot, evidence, options.typePolicy);
       if ((options.extensionManifests?.length ?? 0) > 0) {
+        const { resolvePostgresExtensionManifests } = await import("./extensions.js");
         const extensions = resolvePostgresExtensionManifests(snapshot, options.extensionManifests ?? []);
         if (extensions.issues.length > 0) throw new PostgresExtensionResolutionError(extensions.issues);
         codecs = await resolvePgRuntimeCodecs(pool as unknown as PgRuntimeEvidenceQueryable, extensions.codecs);
@@ -1079,6 +1007,7 @@ export async function createPgDatabase(options: PgOptions): Promise<PostgresData
 export function pg(options: PgSchemaProviderOptions): { introspect(): Promise<PostgresSchemaSnapshot> } {
   return {
     async introspect(): Promise<PostgresSchemaSnapshot> {
+      const { PostgresSchemaProvider } = await import("./provider.js");
       if (options.connectionString === undefined && options.client === undefined) {
         throw new TypeError("pg schema provider requires connectionString or client");
       }

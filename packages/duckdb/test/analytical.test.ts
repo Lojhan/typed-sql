@@ -1,5 +1,5 @@
 import { it, strict } from "poku";
-import { DuckDBSchemaProvider, duckdb } from "../src/index.js";
+import { DuckDBSchemaProvider, duckdb } from "../src/analysis.js";
 import { formatDuckDBType } from "../src/native-types.js";
 import { adaptDuckDBConnection, duckDBTypeFromSDK } from "../src/node-api.js";
 import { createDuckDBDatabase } from "../src/runtime.js";

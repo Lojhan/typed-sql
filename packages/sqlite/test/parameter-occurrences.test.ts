@@ -1,5 +1,5 @@
 import { it, strict } from "poku";
-import { sqlite } from "../src/index.js";
+import { sqlite } from "../src/analysis.js";
 
 await it("reports ordered SQLite placeholders and ignores quoted or commented markers", () => {
   const dialect = sqlite();

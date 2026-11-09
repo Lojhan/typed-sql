@@ -32,7 +32,7 @@ export async function prepareWorkspace(workspace, root, spec, dependencyRoot) {
   await writeFile(join(workspace, "schema.json"), JSON.stringify(spec.schema));
   await writeFile(
     join(workspace, "typed-sql.config.ts"),
-    `import { ${spec.factory} } from ${JSON.stringify(spec.packageName)};\nexport default { dialect: ${spec.factory}(), schema: { file: "schema.json" }, outDir: "generated", projects: ["tsconfig.json"] };\n`,
+    `import { ${spec.factory} } from ${JSON.stringify(spec.analysisModule ?? spec.packageName)};\nexport default { dialect: ${spec.factory}(), schema: { file: "schema.json" }, outDir: "generated", projects: ["tsconfig.json"] };\n`,
   );
   await writeFile(join(workspace, "query.ts"), sourceFor(spec));
   return {

@@ -24,7 +24,7 @@ Configure a real target and a separately provisioned empty replay database. Neit
 ```ts
 import { defineConfig } from '@typed-sql/core';
 import { defineMigrations } from '@typed-sql/migrations';
-import { postgres, typePolicy } from '@typed-sql/postgres';
+import { typePolicy } from '@typed-sql/postgres'; import { postgres } from '@typed-sql/postgres/analysis';
 import { createPgMigrationTarget } from '@typed-sql/postgres/migrations';
 import { pg } from '@typed-sql/postgres/pg';
 
@@ -109,6 +109,35 @@ pnpm exec typed-sql check
 A database without native history must also have an empty managed catalog. Existing objects trigger a drift block, not automatic adoption. Replay the same full history on a second empty database to verify reproducibility.
 
 Transactional replay rolls its scratch changes back, leaving the replay database reusable. A history containing nontransactional operations consumes its explicitly disposable empty replay target; provision another empty target for the next replay. The CLI does not silently reset it.
+
+## Qualify queries from migration history
+
+A dedicated qualification database can supply the native evidence for a disconnected application
+build. Provision it and an independent replay database, configure their expected identities, and
+apply the reviewed migration plan. Point the schema provider and native contract factory at that
+same qualification database; choosing a migration target does not redirect either factory.
+
+With a configured `qualification` migration target and [native query-contract generation](./query-manifests.md#consume-durable-query-contracts-in-a-compiler-host):
+
+```sh
+pnpm exec typed-sql migrate plan --target qualification --out .typed-sql/migrations/qualification.json
+pnpm exec typed-sql migrate apply --target qualification --plan .typed-sql/migrations/qualification.json
+pnpm exec typed-sql generate
+pnpm exec typed-sql generate --queries --live
+```
+
+Use the required engine profile, extensions, permissions, session settings and type policy during
+qualification. Matching table names alone do not establish the database context. Missing routines,
+unexpected catalog drift or an unavailable native capability must be resolved before exporting
+usable evidence. An extension's metadata can be introspectable while its native acquisition
+behavior remains outside the grammar's qualified scope.
+
+Transfer the schema snapshot, complete durable contract directory, source files and frozen
+configuration to the build environment. Selected catalog closures referenced by the manifest are
+part of these inputs. The private `.typed-sql` cache and database credentials are unnecessary.
+Run `typed-sql check --frozen` and the application's ordinary configured build hooks with network
+access disabled. Those operations consume the recorded compiler inputs; they do not revalidate a
+live deployment database. A changed query or missing required artifact needs new qualification.
 
 ## Use plain SQL files
 

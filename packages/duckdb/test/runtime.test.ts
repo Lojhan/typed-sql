@@ -8,7 +8,8 @@ const sdk =
 import { type Query, QueryCancelledError, sql, withQueryValuePlan } from "@typed-sql/core";
 import { calculateTypePolicyHash } from "@typed-sql/schema";
 import { describe, it, strict } from "poku";
-import { duckdb, typePolicy } from "../src/index.js";
+import { duckdb } from "../src/analysis.js";
+import { typePolicy } from "../src/index.js";
 import { adaptDuckDBConnection, createNodeDuckDBDatabase } from "../src/node-api.js";
 import { createDuckDBDatabase, type DuckDBDatabase } from "../src/runtime.js";
 import type { DuckDBSchemaSnapshot } from "../src/snapshot.js";

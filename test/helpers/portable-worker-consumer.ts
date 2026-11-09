@@ -16,7 +16,7 @@ export async function assertPortableWorkerConsumer(options: {
   await writeFile(join(directory, "package.json"), '{"type":"module"}');
   await writeFile(
     join(directory, "typed-sql.config.mjs"),
-    `import { sqlite, typePolicy } from "@typed-sql/sqlite";
+    `import { typePolicy } from "@typed-sql/sqlite"; import { sqlite } from "@typed-sql/sqlite/analysis";
 export default { dialect: sqlite({ typePolicy: { ...typePolicy, integer: "number" } }), schema: { file: "schema.json" }, outDir: ".typed-sql" };`,
   );
   const table = {

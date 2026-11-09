@@ -10,9 +10,18 @@ description: PostgreSQL grammar coverage, catalog introspection, application-own
 
 ## Public entrypoints
 
+- `@typed-sql/postgres/profile` — lightweight grammar profile for exact query-contract consumption, without the SQL analyzer or global routine catalogs.
+- `@typed-sql/postgres/contract-profile` — pure interpreter identities and reconciliation-owner revisions for independently checking recorded contract compatibility.
+- `@typed-sql/postgres/tag` — `sql`, renderer and runtime plan primitives without analyzer imports.
+- `@typed-sql/postgres/project-catalog` — selected routine metadata and its offline grammar interpreter.
+- `@typed-sql/postgres/reconciliation` — pure grammar-owned comparisons between native evidence and independent static claims.
+- `@typed-sql/postgres/pg-contracts` — explicit native query-contract acquisition over a dedicated application-owned pool.
 - `@typed-sql/postgres/query` — portable `sql`, renderer, and runtime value descriptors for buffered adapters.
 
-- `@typed-sql/postgres` — `sql`, dialect factory, default type policy, analysis, type mapping, semantic routing, and transaction retry classification.
+- `@typed-sql/postgres` — `sql`, runtime plan primitives, renderer and type policy.
+- `@typed-sql/postgres/analysis/<major>` — analyzer with one major's catalog and all maintained offline rules.
+- `@typed-sql/postgres/analysis/core/<major>` — the same maintained rules, with unmapped functions requesting qualified query contracts through `TSQ408`.
+- `@typed-sql/postgres/analysis` — explicit eager analyzer and compatibility exports, including schema introspection and semantic routing.
 - `@typed-sql/postgres/runtime` — driver-neutral rendering and codec utilities.
 - `@typed-sql/postgres/pg` — schema provider, executable database adapter, lazy live verifier, and structured-plan inspector for application-owned `pg`.
 - `@typed-sql/postgres/migrations` — lazy migration targets, pinned PostgreSQL catalog/history operations, script validation and qualified catalog keys; requires the application-owned `pg` driver and optional `@typed-sql/migrations` package.
@@ -38,6 +47,46 @@ incompatible lexical setting produces `TSQ402`–`TSQ407` or conservative `unkno
 the newest grammar behavior. Unqualified names follow the captured search path and current-role
 visibility. Prefer schema-qualified names when compilation and execution can use different roles or
 search paths.
+
+## Keyword and identifier rules
+
+Each selected major consumes a compact keyword inventory generated from that release's pinned
+PostgreSQL declarations. Reservation classes and bare-label permissions distinguish ordinary
+identifiers, qualified names and column aliases. Quoted identifiers retain their literal identity;
+unquoted identifiers fold ASCII letters without folding Unicode lookalikes into built-ins.
+Keyword recognition does not imply support for every syntax production: unsupported forms still
+produce a diagnostic. Runtime tags and frozen contract consumption do not load the keyword inventory.
+
+## Selecting an offline analyzer
+
+Development tooling can load one major explicitly, for example:
+
+```ts
+import { postgres } from "@typed-sql/postgres/analysis/core/18";
+
+const analyzer = postgres();
+```
+
+| Major | Full analyzer | Core analyzer |
+| --- | --- | --- |
+| 14 | `@typed-sql/postgres/analysis/14` | `@typed-sql/postgres/analysis/core/14` |
+| 15 | `@typed-sql/postgres/analysis/15` | `@typed-sql/postgres/analysis/core/15` |
+| 16 | `@typed-sql/postgres/analysis/16` | `@typed-sql/postgres/analysis/core/16` |
+| 17 | `@typed-sql/postgres/analysis/17` | `@typed-sql/postgres/analysis/core/17` |
+| 18 | `@typed-sql/postgres/analysis/18` | `@typed-sql/postgres/analysis/core/18` |
+| 19 | `@typed-sql/postgres/analysis/19` | `@typed-sql/postgres/analysis/core/19` |
+
+The selected analyzer requires matching major evidence in its snapshot. Entry points exist for
+majors 14–19; the canary still requires `versionPolicy: "canary"`. Common expressions, maintained
+function rules, JSON shapes, operators and coercions stay offline. An unmapped function preserves
+its argument evidence and produces `TSQ408`; configured live analysis or explicit generation can
+supply a qualified exact-query contract. Ordinary offline checks do not initiate connections.
+Other static errors remain blocking, and native acquisition keeps its own narrower version and
+statement boundaries. A selected-major import does not expand native support.
+
+All maintained PostgreSQL rules remain in the core; there is no additional compatibility pack.
+The generic `/analysis` entrypoint retains all majors and its existing diagnostics. Application
+queries continue importing `sql` from `@typed-sql/postgres`.
 
 ## Supported SQL
 
@@ -221,3 +270,96 @@ tagged queries and `jsonValue(value)` in positional query factories. SQL-standar
 `FORMAT JSON` document positions accept explicit JSON bindings too. Ordinary
 constructor values retain their SQL scalar behavior; cast an encoded document to
 `json` or `jsonb` when it must be embedded as JSON.
+
+
+## Native query contracts
+
+`createPgNativeContractAdapter` from `@typed-sql/postgres/pg-contracts` supplies the session interface
+used by `acquireNativeQueryContract` in `@typed-sql/analysis`. Construct it with a dedicated
+application-owned `pg` pool and the compiler's schema input. `inspectContext()` captures the expected
+context. Acquisition describes SQL using Parse/Describe and catalog reads; it sends no Bind or
+Execute message for the application statement. Close the pool when generation finishes.
+See [durable query contracts](../guides/query-manifests.md#consume-durable-query-contracts-in-a-compiler-host)
+for storage and compiler-host consumption.
+
+The adapter supports PostgreSQL 18 `SELECT` statements with ordinary calls, parameters,
+numeric/boolean literals and supported built-in casts. It also describes projections, stars,
+comparison/boolean filters and joins over qualified ordinary tables. String and null literals
+need an explicit supported built-in cast. Subqueries, compounds, table functions, sampling,
+custom type-input casts and unsupported expressions fail the preliminary syntax check.
+
+Before candidate Parse, the adapter checks every referenced relation against the server catalog,
+locks it in access-share mode and rechecks its identity. Admitted tables are permanent heap tables
+with built-in scalar columns. Views, foreign tables, row-security tables, generated columns,
+custom/array column types, partitioning and inheritance remain unavailable through this adapter.
+Admission uses live metadata rather than assuming the supplied schema describes the remote objects.
+The native
+round-trip and disconnected-consumption test runs against PostgreSQL 18.3; other PostgreSQL
+major versions are unavailable through this acquisition adapter. This scope is separate from
+the full grammar's supported version range.
+
+The session requires a primary server, UTF-8 client encoding, standard-conforming strings,
+`pg_catalog` first in effective name resolution, no temporary schema and no extensions except
+`plpgsql`. It pins relevant session settings and uses a read-only transaction with bounded
+statement/lock timeouts. SHA-256 catalog/context fingerprints and a WAL insertion-position guard
+cover metadata capture and description. Any WAL advance rejects the acquisition, including
+unrelated writes. Use a quiet development or migrations-derived qualification database.
+Context inspection retries a bounded number of unstable captures; description never relaxes
+its consistency guard.
+
+RowDescription does not attest expression nullability: results remain nullable unless separate
+qualified evidence establishes more. Native array dimensions and opaque/custom representations
+remain unknown; unresolved parameter representations prevent acquisition. Exact native type
+modifiers are retained when reported. PostgreSQL errors and consistency failures do not publish
+a replacement contract.
+
+`postgresProfile()` from `@typed-sql/postgres/profile` supplies rendering, lexical parameter
+occurrences, snapshot validation and policy information to `createContractDialect`. It has no
+`analyze` function. Its runtime metadata uses `@typed-sql/postgres/tag`. The explicit `/analysis`
+compatibility exports and the `query` entrypoint remain available. These programmatic APIs do not enable
+background refresh or database access during ordinary builds.
+
+## Loading the analyzer
+
+Use `postgresProfile()` from `@typed-sql/postgres/profile` for lightweight contract consumption.
+Configure `loadAnalyzer: async () => (await import("@typed-sql/postgres/analysis")).postgres()`
+when offline inference or live reconciliation needs the full analyzer. Its versioned offline
+catalog is selected using snapshot server evidence. Canary versions require the explicit
+`versionPolicy: "canary"` option.
+
+## Reusable project declarations
+
+`createPostgresProjectCatalog` from `@typed-sql/postgres/project-catalog` selects complete
+routine overload families from an introspected format-2 snapshot using the project's SQL calls.
+The catalog contains metadata and evidence digests, including parameter names, modes and defaults;
+it contains no generated executable wrappers. The constructor does not connect to a database
+or establish freshness: its source snapshot and context must come from the same qualified
+metadata capture. Serialize it as JSON and load it with
+`parseProjectCatalog` from `@typed-sql/analysis`.
+
+Apply recorded catalogs with `applyProjectCatalogs` and
+`createPostgresProjectCatalogContribution()`. Supply the base schema, recorded context and the
+same type policy used for acquisition and decoding. The result contains an enriched schema and
+its context. Keep them together: selected catalog digests change the profile identity, and the
+new schema has its own hash. A changed base schema, server evidence, policy, context or installed
+interpreter requires matching metadata. Independent query qualification still compares claims
+against native query descriptions when configured.
+
+Reusable inference currently requires an explicitly qualified routine name and a fixed scalar
+result with known built-in type mappings. The interpreter derives TypeScript types from the
+configured policy rather than copying types asserted by the metadata. Results remain nullable,
+including strict routines. Polymorphic, decimal-dependent, defaulted, variadic and table-result
+families retain their declarations but require query-specific evidence. Overloaded families need
+exact native argument-type matches; coercion-dependent selection requires a qualified rule or
+query contract. Missing or ambiguous
+overloads and unsupported call syntax remain conservative diagnostics. Selecting a declaration
+cannot silently bypass these restrictions by sharing a name with a built-in.
+
+`acquireNativeProjectCatalog` from `@typed-sql/analysis` provides the explicit database-backed
+capture path. Pass a `createPgNativeContractAdapter` instance and the project's rendered SQL
+statements. With a format-2 base snapshot and matching PostgreSQL 18 server evidence, acquisition
+observes the context, reads matching user routine families on the same guarded lease and checks
+the context again before returning a catalog. It does not prepare the application statements.
+Missing capabilities report unavailable; changed contexts, truncated families and unsupported
+selections cannot publish metadata. Non-ASCII routine identifiers require explicit quoting.
+Normal imports and offline interpretation do not invoke this acquisition path.

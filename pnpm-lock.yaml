@@ -400,6 +400,18 @@ importers:
         specifier: 8.21.0
         version: 8.21.0
 
+  packages/analysis:
+    dependencies:
+      '@typed-sql/core':
+        specifier: workspace:*
+        version: link:../core
+      '@typed-sql/schema':
+        specifier: workspace:*
+        version: link:../schema
+      proper-lockfile:
+        specifier: 4.1.2
+        version: 4.1.2
+
   packages/ast: {}
 
   packages/build:
@@ -413,6 +425,9 @@ importers:
       '@rspack/core':
         specifier: '>=2 <3'
         version: 2.3.0(@swc/helpers@0.5.23)
+      '@typed-sql/analysis':
+        specifier: workspace:*
+        version: link:../analysis
       '@typed-sql/compiler':
         specifier: workspace:*
         version: link:../compiler
@@ -462,6 +477,9 @@ importers:
 
   packages/cli:
     dependencies:
+      '@typed-sql/analysis':
+        specifier: workspace:*
+        version: link:../analysis
       '@typed-sql/compiler':
         specifier: workspace:*
         version: link:../compiler
@@ -492,6 +510,10 @@ importers:
       '@typed-sql/schema':
         specifier: workspace:*
         version: link:../schema
+    devDependencies:
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
 
   packages/config:
     dependencies:
@@ -515,6 +537,9 @@ importers:
 
   packages/duckdb:
     dependencies:
+      '@typed-sql/analysis':
+        specifier: workspace:*
+        version: link:../analysis
       '@typed-sql/ast':
         specifier: workspace:*
         version: link:../ast
@@ -537,6 +562,9 @@ importers:
 
   packages/language-server:
     dependencies:
+      '@typed-sql/analysis':
+        specifier: workspace:*
+        version: link:../analysis
       '@typed-sql/compiler':
         specifier: workspace:*
         version: link:../compiler
@@ -573,6 +601,9 @@ importers:
 
   packages/mysql:
     dependencies:
+      '@typed-sql/analysis':
+        specifier: workspace:*
+        version: link:../analysis
       '@typed-sql/ast':
         specifier: workspace:*
         version: link:../ast
@@ -713,6 +744,9 @@ importers:
 
   packages/postgres:
     dependencies:
+      '@typed-sql/analysis':
+        specifier: workspace:*
+        version: link:../analysis
       '@typed-sql/ast':
         specifier: workspace:*
         version: link:../ast
@@ -741,6 +775,9 @@ importers:
 
   packages/sqlite:
     dependencies:
+      '@typed-sql/analysis':
+        specifier: workspace:*
+        version: link:../analysis
       '@typed-sql/ast':
         specifier: workspace:*
         version: link:../ast
@@ -757,6 +794,9 @@ importers:
 
   packages/sqlserver:
     dependencies:
+      '@typed-sql/analysis':
+        specifier: workspace:*
+        version: link:../analysis
       '@typed-sql/ast':
         specifier: workspace:*
         version: link:../ast

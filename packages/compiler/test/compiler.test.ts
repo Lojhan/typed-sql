@@ -9,7 +9,8 @@ import {
   type SchemaSnapshot,
   unknownQuerySemantics,
 } from "../../core/src/index.js";
-import { type PostgresSchemaSnapshot, postgres } from "../../postgres/src/index.js";
+import { postgres } from "../../postgres/src/analysis.js";
+import type { PostgresSchemaSnapshot } from "../../postgres/src/index.js";
 import { loadSchemaSnapshot } from "../../schema/src/index.js";
 import { checkFile, compileSource, extractStaticQueries, mapSqlRange } from "../src/index.js";
 import { expandRepeatedFragments } from "../src/repeated-fragments.js";

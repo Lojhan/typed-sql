@@ -1,3 +1,4 @@
+import { sqliteAsciiUpper } from "../identifier-case.js";
 import { compareSqliteVersions, parseSqliteVersion, sqliteVersionSupport } from "../support.js";
 import { SQLITE_DATE_TIME_FUNCTIONS } from "./date-time.js";
 import { SQLITE_EXTENSION_FUNCTIONS } from "./extensions.js";
@@ -193,7 +194,7 @@ export function resolveSqliteBuiltin(
   features?: readonly string[],
 ): SqliteBuiltinResolution {
   const named = SQLITE_BUILTIN_FUNCTIONS.filter(
-    (definition) => definition.name === functionName.toUpperCase() && definition.resolvable !== false,
+    (definition) => definition.name === sqliteAsciiUpper(functionName) && definition.resolvable !== false,
   );
   if (named.length === 0) return { status: "unknown" };
   const matching = named.filter((definition) => matchesArity(definition, arity));
@@ -228,18 +229,18 @@ export function resolveSqliteBuiltin(
 
 export function isSqliteAggregateFunction(functionName: string): boolean {
   return SQLITE_BUILTIN_FUNCTIONS.some(
-    (definition) => definition.name === functionName.toUpperCase() && definition.kind === "aggregate",
+    (definition) => definition.name === sqliteAsciiUpper(functionName) && definition.kind === "aggregate",
   );
 }
 
 export function isSqliteWindowFunction(functionName: string): boolean {
   return SQLITE_BUILTIN_FUNCTIONS.some(
-    (definition) => definition.name === functionName.toUpperCase() && definition.kind === "window",
+    (definition) => definition.name === sqliteAsciiUpper(functionName) && definition.kind === "window",
   );
 }
 
 export function sqliteBuiltinVolatility(functionName: string): SqliteBuiltinDefinition["volatility"] | undefined {
-  const normalized = functionName.toUpperCase();
+  const normalized = sqliteAsciiUpper(functionName);
   const definition = SQLITE_BUILTIN_FUNCTIONS.find(({ name }) => name === normalized);
   if (definition === undefined) return undefined;
   if (["CHANGES", "LAST_INSERT_ROWID", "LOAD_EXTENSION", "RANDOM", "RANDOMBLOB", "TOTAL_CHANGES"].includes(normalized))

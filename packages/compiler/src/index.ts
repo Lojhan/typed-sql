@@ -12,6 +12,8 @@ export type {
   SourceAnalysisService,
 } from "./analysis.js";
 export { analyzeSource, createSourceAnalysisService, SOURCE_ANALYSIS_FORMAT_VERSION } from "./analysis.js";
+export type { CollectQueryCandidatesOptions, QueryAnalysisCandidate, QueryCandidateCollection } from "./candidates.js";
+export { collectSourceQueryCandidates, collectSqlFileQueryCandidates } from "./candidates.js";
 export type {
   CheckFileOptions,
   CheckFileResult,
@@ -87,6 +89,7 @@ export {
   QUERY_MANIFEST_JSON_SCHEMA,
   serializeQueryManifest,
 } from "./manifest.js";
+export { findConfig as findTypeScriptConfig } from "./native-check.js";
 export type {
   CapturedQueryPlanEntry,
   CaptureQueryPlansOptions,
@@ -117,6 +120,7 @@ export type { ListProjectSourceFilesOptions } from "./project.js";
 export { listProjectSourceFiles } from "./project.js";
 export type { ExtractedDynamicQuery, ExtractedInterpolation, ExtractedQuery } from "./scanner.js";
 export { extractDynamicQueries, extractStaticQueries, mapSqlRange } from "./scanner.js";
+export { SQL_FILE_DECLARATION_HEADER } from "./sql-declaration.js";
 export { type CompileSqlFileOptions, type CompileSqlFileResult, compileSqlFile } from "./sql-file.js";
 export type { TypeScriptCompilerVersionSupport } from "./typescript.js";
 export {

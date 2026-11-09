@@ -54,7 +54,7 @@ class VerificationPool implements MySql2LiveVerifierPool {
           statement: {
             columns: [
               { name: "id", columnType: 8, flags: 1 },
-              { name: "email", columnType: 253, flags: 0 },
+              { name: "email", columnType: 253, flags: 0, characterSet: 224 },
               {
                 name: "status",
                 orgName: "status",
@@ -64,7 +64,7 @@ class VerificationPool implements MySql2LiveVerifierPool {
                 flags: 1,
               },
             ],
-            parameters: [{ columnType: 8 }],
+            parameters: [{ columnType: 8, flags: 0 }],
           },
           close: async () => {
             this.closed += 1;
@@ -83,6 +83,87 @@ class VerificationPool implements MySql2LiveVerifierPool {
 }
 
 await describe("MySQL live verification", async () => {
+  await it("retains decimal dimensions, unsigned identity and textual versus binary wire types", async () => {
+    const pool = new VerificationPool();
+    pool.getConnection = async () => ({
+      prepare: async () => ({
+        statement: {
+          columns: [
+            { name: "amount", columnType: 246, columnLength: 14, decimals: 3, flags: 128 },
+            { name: "unsigned_amount", columnType: 246, columnLength: 13, decimals: 3, flags: 160 },
+            { name: "whole_amount", columnType: 246, columnLength: 13, decimals: 0, flags: 128 },
+            { name: "id", columnType: 8, flags: 161 },
+            { name: "text", columnType: 250, flags: 0, characterSet: 224 },
+            { name: "bytes", columnType: 250, flags: 0, characterSet: 63 },
+            { name: "binary_string", columnType: 253, flags: 0, characterSet: 63 },
+          ],
+          parameters: [{ columnType: 246, columnLength: 67, decimals: 30, flags: 128 }],
+        },
+        close: async () => {
+          pool.closed++;
+        },
+      }),
+      release: () => {
+        pool.released++;
+      },
+    });
+    const verifier = createMySql2LiveVerifier({ pool });
+    strict.equal(verifier.adapterVersion, "mysql-com-stmt-prepare-v3");
+    const result = await verifier.verify({
+      fingerprint: `sha256:${"a".repeat(64)}`,
+      sql: "SELECT ?",
+      operation: "read",
+    });
+    strict.deepEqual(
+      result.columns.map(({ databaseType, tsType }) => [databaseType, tsType]),
+      [
+        ["decimal(12,3)", "string"],
+        ["decimal(12,3) unsigned", "string"],
+        ["decimal(12,0)", "string"],
+        ["bigint unsigned", "bigint"],
+        ["mediumtext", "string"],
+        ["mediumblob", "Uint8Array"],
+        ["varbinary", "Uint8Array"],
+      ],
+    );
+    strict.deepEqual(result.parameters, [{ index: 1, databaseType: "decimal(65,30)", tsType: "string" }]);
+    strict.equal(pool.closed, 1);
+    strict.equal(pool.released, 1);
+  });
+
+  await it("does not invent identities from missing or malformed native metadata", async () => {
+    const pool = new VerificationPool();
+    pool.getConnection = async () => ({
+      prepare: async () => ({
+        statement: {
+          columns: [
+            { name: "missing_type" },
+            { name: "missing_scale", columnType: 246, columnLength: 14, flags: 128 },
+            { name: "bad_precision", columnType: 246, columnLength: 100, decimals: 3, flags: 128 },
+            { name: "bad_scale", columnType: 246, columnLength: 14, decimals: 31, flags: 128 },
+            { name: "missing_signedness", columnType: 8 },
+            { name: "invalid_signedness", columnType: 8, flags: Number.NaN },
+            { name: "missing_charset", columnType: 250 },
+            { name: "invalid_charset", columnType: 250, characterSet: -1 },
+            { name: "unknown_type", columnType: 999 },
+          ],
+          parameters: [],
+        },
+        close: async () => {},
+      }),
+      release: () => {},
+    });
+    const result = await createMySql2LiveVerifier({ pool }).verify({
+      fingerprint: `sha256:${"a".repeat(64)}`,
+      sql: "SELECT 1",
+      operation: "read",
+    });
+    for (const field of result.columns) {
+      strict.equal(field.databaseType, undefined, field.name);
+      strict.equal(field.tsType, undefined, field.name);
+    }
+  });
+
   await it("uses COM_STMT_PREPARE metadata without executing values", async () => {
     const pool = new VerificationPool();
     const verifier = createMySql2LiveVerifier({ pool });

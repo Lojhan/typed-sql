@@ -8,7 +8,7 @@ import {
   mySqlVersionSupport,
   sql,
   typePolicy,
-} from "../packages/mysql/dist/packages/mysql/src/index.js";
+} from "../packages/mysql/dist/packages/mysql/src/analysis.js";
 import { createMySql2Database } from "../packages/mysql/dist/packages/mysql/src/mysql2.js";
 import { collectLive } from "./language-audit/inventory.mjs";
 import { reviewLiveBaseline } from "./language-audit/live-baseline.mjs";

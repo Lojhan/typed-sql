@@ -134,7 +134,7 @@ export async function createTransformer(options: JestOptions = {}): Promise<Jest
         source,
         file,
         caller,
-        session(caller, true).sync!.request("identity").key,
+        session(caller, true).sync!.request("identity", source, file).key,
         file.endsWith(".sql") ? "" : (delegate?.getCacheKey?.(source, file, callerOptions(caller)) ?? ""),
       );
     },
@@ -144,7 +144,7 @@ export async function createTransformer(options: JestOptions = {}): Promise<Jest
         : ((await (delegate?.getCacheKeyAsync !== undefined
             ? delegate.getCacheKeyAsync(source, file, callerOptions(caller))
             : delegate?.getCacheKey?.(source, file, callerOptions(caller)))) ?? "");
-      return key(source, file, caller, (await session(caller).async.identity()).key, delegateKey);
+      return key(source, file, caller, (await session(caller).async.identity(source, file)).key, delegateKey);
     },
     process(source, file, caller) {
       const current = session(caller, true).sync!;

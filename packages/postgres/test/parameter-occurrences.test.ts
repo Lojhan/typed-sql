@@ -1,5 +1,5 @@
 import { it, strict } from "poku";
-import { postgres } from "../src/index.js";
+import { postgres } from "../src/analysis.js";
 
 await it("reports PostgreSQL placeholder occurrences without treating quoted or commented markers as parameters", () => {
   const dialect = postgres();

@@ -1,5 +1,5 @@
 import { defineConfig, type LiveQueryVerifier, type QueryPlanInspector } from "@typed-sql/core";
-import { sqlserver } from "@typed-sql/sqlserver";
+import { sqlserver } from "@typed-sql/sqlserver/analysis";
 import { createSqlServerOdbcDatabase } from "@typed-sql/sqlserver/odbc";
 import {
   createSqlServerLiveVerifier,

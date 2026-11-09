@@ -25,8 +25,8 @@ await describe("standalone SQL intelligence", async () => {
       strict.deepEqual(await service.diagnostics(current), []);
     });
     await it("offers schema columns and navigates to the configured snapshot", async () => {
-      const current = document("SELECT user.name FROM users AS user", 2);
-      const items = await service.completions(current, current.positionAt("SELECT user.".length));
+      const current = document("SELECT usr_.name FROM users AS usr_", 2);
+      const items = await service.completions(current, current.positionAt("SELECT usr_.".length));
       strict.deepEqual(items.map((item) => item.label).sort(), ["age", "id", "name"]);
       const definition = await service.definition(current, current.positionAt(current.getText().indexOf("users") + 1));
       strict.equal((definition as { uri: string }).uri, pathToFileURL(join(fixture, "schema.json")).href);

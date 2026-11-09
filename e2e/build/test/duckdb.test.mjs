@@ -1,2 +1,4 @@
 // Both genuine SDK versions execute against independently installed public tarballs.
-await import("../../duckdb/test.mjs");
+import { tsImport } from "tsx/esm/api";
+
+await tsImport("../../duckdb/test.mjs", import.meta.url);

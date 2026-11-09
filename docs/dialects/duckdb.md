@@ -10,9 +10,24 @@ description: DuckDB SQL analysis, qualified engine and Node SDK versions, exact 
 this grammar. The native Node SDK is an application dependency accessed through the explicit
 `@typed-sql/duckdb/node-api` entrypoint.
 
+`@typed-sql/duckdb/profile` exports `duckdbProfile()` for [query contract consumption](../guides/query-manifests.md#consume-durable-query-contracts-in-a-compiler-host). It provides grammar mechanics without loading semantic catalogs or introspection providers and contains no analyzer loader. Contextual parameter extraction retains the syntax parser.
+
+`@typed-sql/duckdb` exports the lightweight `sql` tag, runtime plan primitives, renderer and policies. The eager analyzer and previous full grammar exports are available through `@typed-sql/duckdb/analysis`.
+
 ## Engine and driver compatibility
 
 Support consists of these exact qualified targets. It does not include intermediate or newer releases.
+
+Keyword and name permissions follow the selected engine's declarations. Column, function and type
+name classes can overlap; a permitted column name does not automatically permit an ordinary
+function call. Explicit `AS` labels and qualified column names accept keyword spellings. Quote a
+CTE or relation name when its unquoted spelling is unavailable in that context.
+
+Bare column aliases differ by engine: 1.5.6 requires a non-keyword identifier or quoting; 2.0 also
+permits its declared keyword subset. For example, `SELECT 1 AS between` works on both engines,
+while `SELECT 1 between` requires 2.0. Recognizing a keyword or function head does not establish
+support for every syntax production or result rule. These checks work offline; runtime and frozen
+contract consumers do not load the vocabulary tables.
 
 | DuckDB engine | Official Node SDK | Grammar and native execution |
 | --- | --- | --- |
@@ -30,15 +45,122 @@ the native adapter does not claim their compatibility.
 
 | Import | Purpose |
 | --- | --- |
-| `@typed-sql/duckdb` | `sql`, grammar factory, policies, native type helpers, catalog and snapshot provider contracts |
+| `@typed-sql/duckdb` | Lightweight `sql`, rendering, runtime plans and policies |
+| `@typed-sql/duckdb/analysis` | Full compatibility analyzer, policies, native types, catalog and snapshot provider |
+| `@typed-sql/duckdb/analysis/1.5.6` | Offline analyzer with only the qualified 1.5.6 catalog data |
+| `@typed-sql/duckdb/analysis/2.0.0` | Offline analyzer with only the qualified 2.0.0 catalog data |
+| `@typed-sql/duckdb/analysis/core/1.5.6` | Bounded offline core for 1.5.6 |
+| `@typed-sql/duckdb/analysis/core/2.0.0` | Bounded offline core for 2.0.0 |
+| `@typed-sql/duckdb/analysis/packs/1.5.6/compatibility` | Explicit pack restoring 1.5.6 full offline support |
+| `@typed-sql/duckdb/analysis/packs/2.0.0/compatibility` | Explicit pack restoring 2.0.0 full offline support |
 | `@typed-sql/duckdb/browser` | Portable grammar factory, policies, parsing, catalog and snapshot validation; no Node services |
 | `@typed-sql/duckdb/query` | Lightweight query construction and native `$N` rendering |
 | `@typed-sql/duckdb/runtime` | Driver-neutral native connection and execution contracts |
 | `@typed-sql/duckdb/node-api` | Lazy official SDK loading, catalog provider and executable adapter |
+| `@typed-sql/duckdb/node-api-contracts` | Explicit non-executing native query-contract acquisition |
+| `@typed-sql/duckdb/contract-profile` | Contract compatibility identity without loading the SDK |
+| `@typed-sql/duckdb/reconciliation` | Independent comparison of offline claims and native evidence |
 
-The browser and query entrypoints do not import Node services or the driver. The root entrypoint also
-exports the catalog provider, whose fingerprinting services use Node APIs. Installing the grammar
-does not install the SDK. The SDK is loaded when the explicit native adapter is constructed.
+The browser and query entrypoints do not import Node services or the driver.
+The full analysis entrypoint exports the catalog provider, whose fingerprinting services use Node
+APIs. Installing the grammar does not install the SDK. The SDK is loaded when the explicit native
+adapter is constructed.
+
+When the project targets one qualified engine, select its offline analyzer explicitly:
+
+```ts
+import { duckdb } from "@typed-sql/duckdb/analysis/2.0.0";
+
+const analyzer = duckdb();
+```
+
+This entrypoint exports the analyzer factory and retains that engine's existing offline rules.
+It rejects snapshots for other engines and excludes their catalog metadata from the analyzer
+import graph. `@typed-sql/duckdb/analysis` retains compatibility with both qualified engines.
+Application queries continue to import `sql` from `@typed-sql/duckdb`; native adapter selection
+and durable contract context checks remain explicit.
+
+## Compact offline analysis
+
+Use the core entrypoint when common offline rules and generated query contracts cover the project:
+
+```ts
+import { duckdb } from "@typed-sql/duckdb/analysis/core/2.0.0";
+
+export const dialect = duckdb();
+```
+
+The core retains complete selected overload families for strings, numeric expressions, dates,
+aggregates, JSON, collections and windows, together with operators, native type combinations
+and codec policies. It recognizes the grammar's supported SQL syntax. The selected families
+are an explicit maintained scope, not a measured popularity ranking or a promise of universal
+function semantics. Keywords and generic calls do not require every function's signature data.
+
+An omitted function produces `TSQ408` with guidance to add a matching pack or
+[generate a qualified query contract](../guides/query-manifests.md). Explicit argument casts and
+parameter positions remain available to native reconciliation. Database generation remains
+explicitly configured; importing the core opens no connection.
+
+Add the compatibility pack to restore all existing offline function rules for that engine:
+
+```ts
+import { duckdb } from "@typed-sql/duckdb/analysis/core/2.0.0";
+import { duckdbCompatibilityPack } from "@typed-sql/duckdb/analysis/packs/2.0.0/compatibility";
+
+export const dialect = duckdb({ packs: [duckdbCompatibilityPack] });
+```
+
+The optional pack supplies the complementary native overload partition. It shares the core's
+casts, type combinations and resolver mechanics. Core imports do not load that partition, the
+other engine's data or a native SDK. Packs must be installed grammar exports for the same engine;
+cloned metadata, repeated packs and different-engine packs are rejected. Existing `/analysis`
+and per-engine full analyzer imports retain their supported offline behavior. Application SQL
+still imports `sql` from `@typed-sql/duckdb`.
+
+## Native query contracts
+
+`createNodeDuckDBNativeContractAdapter` from `@typed-sql/duckdb/node-api-contracts` prepares
+guarded SELECT queries on DuckDB 1.5.6 and 2.0.0. Its `path` selects an existing database
+file or `:memory:`; its `schema` is the project's saved snapshot. Construction performs no I/O.
+The file must be available to a separate read-only instance; an active writer can prevent acquisition.
+`inspectContext()` explicitly opens the database to capture the context used for acquisition.
+Use `duckDBContractIdentity()` and `duckDBContractReconciliationOwner` from
+`@typed-sql/duckdb/contract-profile`, and `createDuckDBContractReconciler()` from
+`@typed-sql/duckdb/reconciliation`, with the [query contract configuration](../guides/query-manifests.md).
+
+Each acquisition owns a fresh instance and connection, opens existing files read-only, and
+describes within a read-only transaction. External access, automatic extension installation,
+automatic extension loading and optimizer evaluation are disabled. Function families and type
+metadata and table/column definitions are captured inside the transaction; context identities also
+include engine, name-resolution and settings evidence. Candidate SQL is never bound or executed, and sample values are never used for inference.
+
+The qualified scope contains consistent scalar builtin expressions and numbered `$N` parameters,
+plus projections, stars, filters and joins over ordinary stored tables with known native logical
+types. References stay in the owned database with its default empty search path. Native dictionary
+metadata and canonical table DDL establish admission before candidate preparation. Generated-column
+tables, views, table functions, lateral relations, star modifiers, CTEs, subqueries, grouping,
+ordering/limits, lambdas, named function arguments, macros, aggregates, windows, side-effecting routines,
+session-dependent binding results, external extension packs and remote transports require separate qualification. A conflicting
+schema-owned routine family blocks builtin fallback, including case-insensitive name collisions.
+
+Native logical types preserve decimal precision/scale and nested result structure. Preparation
+does not establish nullability, so published fields include `null`. Unconstrained parameters such
+as `$1 + $2` can have unavailable metadata and do not produce a usable contract. Explicit casts can
+provide enough native parameter information without binding values. Column comparisons can also
+supply native input types. The snapshot admits at most 20,000 relations and 65,536 columns;
+overflow fails closed. Table DDL changes context identity, while ordinary row writes preserve it.
+
+`TSQ408` identifies a missing offline routine-result rule. Qualified native preparation can supply
+that result, including shapes such as `json_transform` with a constant structure declaration.
+Other static errors remain blocking, and independently successful static claims are compared
+before publication. Recorded contracts support offline reuse; changed SQL requires fresh evidence.
+User macros overlapping operator, constructor or extraction function families are also outside the
+qualified profile, including bindings that have no explicit function-call node in the query.
+
+The language server uses this registration for SQL documents and TypeScript query templates.
+Configured live checking can regenerate evidence for unsaved edits. Offline checking can reuse
+matching cached evidence without initializing an analyzer or native adapter. Build adapters consume
+exported durable contracts as described in [bundler integration](../integrations/bundlers.md#recorded-query-contracts).
 
 ## Native values
 
@@ -85,6 +207,14 @@ retain their native structure. DuckDB 2.0 uses `lambda x: expression`; legacy si
 accepted only for compatible 1.5.6 settings. Native JSON arrows remain JSON extraction operators. Escape strings preserve native hex/octal byte
 and UTF-8 behavior. The 1.5.6 parser rejects escaped non-ASCII bytes and `\u`/`\U` forms;
 queries using these forms receive version diagnostics.
+
+Named function arguments follow the selected engine's binding rules. DuckDB 2.0.0 binds formal
+names and rejects unknown names, duplicates and positional arguments after named arguments.
+On 1.5.6, ordinary scalar names act as labels; macros and special invocation forms have their own
+rules. Generated catalog names drive binding, while quoting preserves the distinction between
+keyword syntax and a quoted macro call. Calls whose slot assignment cannot be established receive
+a diagnostic. Named table-function options and unavailable default metadata remain subject to the
+grammar's qualified function support.
 
 The provider records catalog/schema identities, search paths, relations, constraints, types,
 routines/macros, loaded extensions, engine version and semantic settings. Quoted identifiers follow
@@ -153,7 +283,7 @@ keeps it offline. Closing an active service drains admitted work and releases ow
 
 ```ts
 import { defineConfig } from '@typed-sql/core';
-import { duckdb } from '@typed-sql/duckdb';
+import { duckdb } from '@typed-sql/duckdb/analysis';
 import {
   createNodeDuckDBLiveVerifier,
   createNodeDuckDBPlanInspector,

@@ -76,6 +76,7 @@ export interface QueryManifestColumn {
   readonly tsType: string;
   readonly nullable: boolean;
   readonly databaseType?: string;
+  readonly databaseTypeIsPartial?: true;
 }
 
 export interface QueryManifestParameter {
@@ -83,6 +84,7 @@ export interface QueryManifestParameter {
   readonly tsType: string;
   readonly nullable: boolean;
   readonly databaseType?: string;
+  readonly databaseTypeIsPartial?: true;
 }
 
 export interface QueryManifestRepeatedFragment {
@@ -216,6 +218,7 @@ function columnDescription(column: ResolvedColumn): QueryManifestColumn {
     tsType: column.tsType,
     nullable: column.nullable,
     ...(column.databaseType === undefined ? {} : { databaseType: column.databaseType }),
+    ...(column.databaseTypeIsPartial ? { databaseTypeIsPartial: true as const } : {}),
   };
 }
 
@@ -225,6 +228,7 @@ function parameterDescription(parameter: ResolvedParameter): QueryManifestParame
     tsType: parameter.tsType,
     nullable: parameter.nullable,
     ...(parameter.databaseType === undefined ? {} : { databaseType: parameter.databaseType }),
+    ...(parameter.databaseTypeIsPartial ? { databaseTypeIsPartial: true as const } : {}),
   };
 }
 
@@ -681,6 +685,8 @@ function assertVariant(value: unknown, description: string): asserts value is Qu
     assertString(column.name, `${description} column name`);
     assertString(column.tsType, `${description} column tsType`);
     if (column.databaseType !== undefined) assertString(column.databaseType, `${description} column databaseType`);
+    if (column.databaseTypeIsPartial !== undefined && column.databaseTypeIsPartial !== true)
+      throw new TypeError(`${description} column databaseTypeIsPartial must be true`);
   }
   for (const parameter of value.parameters) {
     if (
@@ -692,6 +698,8 @@ function assertVariant(value: unknown, description: string): asserts value is Qu
       throw new TypeError(`${description} parameters are invalid`);
     }
     assertString(parameter.tsType, `${description} parameter tsType`);
+    if (parameter.databaseTypeIsPartial !== undefined && parameter.databaseTypeIsPartial !== true)
+      throw new TypeError(`${description} parameter databaseTypeIsPartial must be true`);
     if (parameter.databaseType !== undefined) {
       assertString(parameter.databaseType, `${description} parameter databaseType`);
     }
@@ -969,6 +977,7 @@ export const QUERY_MANIFEST_JSON_SCHEMA = Object.freeze({
         tsType: { type: "string" },
         nullable: { type: "boolean" },
         databaseType: { type: "string" },
+        databaseTypeIsPartial: { const: true },
       },
     },
     parameter: {
@@ -979,6 +988,7 @@ export const QUERY_MANIFEST_JSON_SCHEMA = Object.freeze({
         tsType: { type: "string" },
         nullable: { type: "boolean" },
         databaseType: { type: "string" },
+        databaseTypeIsPartial: { const: true },
       },
     },
     repeatedFragment: {

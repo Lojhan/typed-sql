@@ -1,9 +1,11 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it, strict } from "poku";
-import { type MySqlSchemaSnapshot, mysql, typePolicy as mysqlTypePolicy } from "../../mysql/src/index.js";
-import { type PostgresSchemaSnapshot, postgres, typePolicy as postgresTypePolicy } from "../../postgres/src/index.js";
+import { mysql } from "../../mysql/src/analysis.js";
+import { type MySqlSchemaSnapshot, typePolicy as mysqlTypePolicy } from "../../mysql/src/index.js";
+import { postgres } from "../../postgres/src/analysis.js";
+import { type PostgresSchemaSnapshot, typePolicy as postgresTypePolicy } from "../../postgres/src/index.js";
 import type { SchemaSnapshot } from "../../schema/src/index.js";
 import {
   buildQueryManifest,
@@ -47,6 +49,46 @@ const source = [
 ].join("\n");
 
 await describe("deterministic query manifests", async () => {
+  await it("retains partial SQL type descriptions across manifest serialization", () => {
+    const rootDir = "/partial-types";
+    const base = mysql();
+    const manifest = buildQueryManifest({
+      rootDir,
+      sources: [
+        {
+          file: `${rootDir}/query.ts`,
+          source: 'import {sql} from "@typed-sql/mysql"; export const query=sql`SELECT users.id FROM users`;',
+        },
+      ],
+      dialect: {
+        ...base,
+        analyze(...args: Parameters<typeof base.analyze>) {
+          const resolved = base.analyze(...args);
+          return {
+            ...resolved,
+            columns: resolved.columns.map((column) => ({
+              ...column,
+              databaseType: "decimal",
+              databaseTypeIsPartial: true as const,
+            })),
+          };
+        },
+      },
+      schema: snapshot("mysql") as MySqlSchemaSnapshot,
+      compilerVersion: "test",
+    }).manifest;
+    const query = manifest.queries[0]!;
+    strict.equal(query.status, "resolved");
+    if (query.status !== "resolved") throw new Error("Expected a resolved numeric family");
+    strict.equal(query.variants[0]!.columns[0]!.databaseType, "decimal");
+    strict.equal(query.variants[0]!.columns[0]!.databaseTypeIsPartial, true);
+    strict.deepEqual(parseQueryManifest(JSON.parse(serializeQueryManifest(manifest))), manifest);
+    const invalid = structuredClone(manifest);
+    const invalidQuery = invalid.queries[0]!;
+    if (invalidQuery.status !== "resolved") throw new Error("Expected a resolved numeric family");
+    Object.assign(invalidQuery.variants[0]!.columns[0]!, { databaseTypeIsPartial: false });
+    strict.throws(() => parseQueryManifest(invalid), /databaseTypeIsPartial/u);
+  });
   await it("emits resolved structural variants and explicit unresolved entries without source values", () => {
     const root = "/checkout/typed-sql-app";
     const policy = {
@@ -422,6 +464,47 @@ await describe("deterministic query manifests", async () => {
     }
   });
 
+  await it("cancels and terminates an active TypeScript discovery process", async () => {
+    const directory = await mkdtemp(join(workspace, ".typed-sql-project-cancel-")),
+      controller = new AbortController();
+    let discovery: Promise<readonly string[]> | undefined;
+    try {
+      const compiler = join(directory, "node_modules/typescript");
+      await mkdir(compiler, { recursive: true });
+      await writeFile(join(compiler, "package.json"), JSON.stringify({ name: "typescript", bin: { tsc: "slow.mjs" } }));
+      await writeFile(
+        join(compiler, "slow.mjs"),
+        'import {writeFile,rename} from "node:fs/promises";await writeFile("started.pid.tmp",String(process.pid));await rename("started.pid.tmp","started.pid");setInterval(()=>{},1000);',
+      );
+      discovery = listProjectSourceFiles({ project: "tsconfig.json", cwd: directory, signal: controller.signal });
+      const deadline = Date.now() + 5_000;
+      let pid: number | undefined;
+      while (pid === undefined) {
+        try {
+          const candidate = Number(await readFile(join(directory, "started.pid"), "utf8"));
+          if (Number.isSafeInteger(candidate) && candidate > 0) pid = candidate;
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+        }
+        if (Date.now() > deadline) throw Error("Discovery process did not start");
+        if (pid === undefined) await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      controller.abort();
+      await strict.rejects(discovery, (error: unknown) => (error as Error).name === "AbortError");
+      strict.throws(
+        () => process.kill(pid!, 0),
+        (error: unknown) => (error as NodeJS.ErrnoException).code === "ESRCH",
+      );
+      await strict.rejects(
+        listProjectSourceFiles({ project: "tsconfig.json", cwd: directory, signal: controller.signal }),
+        (error: unknown) => (error as Error).name === "AbortError",
+      );
+    } finally {
+      controller.abort();
+      await discovery?.catch(() => {});
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
   await it("enumerates application sources through the workspace TypeScript project", async () => {
     const directory = await mkdtemp(join(workspace, ".typed-sql-project-files-"));
     try {

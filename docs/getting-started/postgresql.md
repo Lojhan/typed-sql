@@ -91,13 +91,17 @@ Create `typed-sql.config.ts`:
 
 ```ts
 import { defineConfig } from "@typed-sql/core";
-import { postgres, typePolicy } from "@typed-sql/postgres";
+import { typePolicy } from "@typed-sql/postgres";
+import { postgresProfile } from "@typed-sql/postgres/profile";
 import { pg } from "@typed-sql/postgres/pg";
 
 const connectionString = () => process.env.DATABASE_URL!;
 
 export default defineConfig({
-  dialect: postgres({ typePolicy }),
+  dialect: {
+    ...postgresProfile({ typePolicy }),
+    loadAnalyzer: async () => (await import("@typed-sql/postgres/analysis")).postgres({ typePolicy }),
+  },
   schema: {
     file: "generated/db/schema.json",
     provider: pg({ connectionString, schemas: ["public"], typePolicy }),

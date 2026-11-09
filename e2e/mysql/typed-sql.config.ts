@@ -1,5 +1,6 @@
 import { defineConfig } from "@typed-sql/core";
-import { mysql, typePolicy } from "@typed-sql/mysql";
+import { typePolicy } from "@typed-sql/mysql";
+import { mysql } from "@typed-sql/mysql/analysis";
 import { createMySql2LiveVerifier, createMySql2PlanInspector, mysql2 } from "@typed-sql/mysql/mysql2";
 
 const versionPolicy = process.env.TYPED_SQL_MYSQL_CHANNEL === "canary" ? "canary" : "stable";

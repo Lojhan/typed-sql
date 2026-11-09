@@ -1,0 +1,1500 @@
+{
+  "formatVersion": 1,
+  "sourceRevision": "4126b025cb1d3bc972d88c886de64745ca7e6f44",
+  "toolDigest": "d1882c1065567a10c8e5a60cd12be27287808b97fae75714b721d2aa9eed4f4e",
+  "librarySourcesDirty": false,
+  "scope": "Syntactic admission of the unmodified maintained commerce corpus. Acceptance is not native preparation, binding safety, descriptor availability or project qualification. No database is contacted.",
+  "transportFactoryCalls": 0,
+  "networkDenial": { "installed": true, "attempts": 0, "ipcAttempts": 2 },
+  "profiles": [
+    {
+      "grammar": "duckdb",
+      "exampleServer": {
+        "product": "duckdb",
+        "version": "2.0.0",
+        "versionKey": "2.0.0",
+        "features": [],
+        "settings": {
+          "Calendar": "gregorian",
+          "TimeZone": "UTC",
+          "currentCatalog": "memory",
+          "currentSchema": "main",
+          "default_null_order": "NULLS_LAST",
+          "default_order": "ASCENDING",
+          "integer_division": "false",
+          "preserve_identifier_case": "preserve_case",
+          "schema": "main",
+          "search_path": ""
+        }
+      },
+      "coreEntry": "./analysis/core/2.0.0",
+      "nativeEntry": "./node-api-contracts",
+      "nativeFactory": "createNodeDuckDBNativeContractAdapter",
+      "adapter": { "id": "@typed-sql/duckdb/node-api-contracts", "version": "duckdb-native-prepare-v3" },
+      "availability": { "status": "available" },
+      "schemaOrigin": "Maintained example DDL parser; not a live catalog",
+      "schemaDigest": "3fcaeb3e5fbff00b757e439d488aea288c5f6010d62f46f7b182edfb9c03d0b0",
+      "corpusInputs": {
+        "schema/tables.sql": "3c7c372329af7a03b199ff67179d110bf5c80487e9e6eeaf5b56989cab994873",
+        "schema/settings.ts": "a4baea815d7c341a834440196cc8b6314fd74a9fdfe3a65b503ccd147ff3eab7",
+        "queries/account.ts": "d1921d5d9446c1e095e1dde93cb22b5fc2e5534203ded75cd6eb30fca048d14c",
+        "queries/revenue.sql": "662af5d0b6cb3cf10f4e3fe1abcea18186c64f6fdd4ee3fba2ec0a310737988a",
+        "queries/order-json.ts": "5ae79a14a1c7b3371c745e197204c8f16c657388e0c3fcd05957434357e60672",
+        "queries/insert-products.ts": "1c6c0d9f549fdf71e22277d7fa088e6f6eb1b6e39cebbfdc48a18e9915198dc5",
+        "queries/insert-pair.ts": "fde165a84dea255743ff672de5d09d976b86127d00f13792024604e38cf8370c",
+        "queries/audit.ts": "50b115136484de803fc25bf79ee2ce8a8193f55fa96c21574a5748cc09aa4a85",
+        "queries/catalog.ts": "4ebc00e2d8350284c4d05e50f2fecdd7fe2d74b2abe06bc371a72fe2d54a16b5",
+        "queries/native.sql": "eb0565fbe09ce4f90e229ae632740398ad18cf75ff75e0c32d0d32fcae9cb721",
+        "workflows/batch.ts": "fea56ea593193752aa67320c6a718563a984380ffcc7aa92e78fe6c3b3a31108",
+        "workflows/checkout.ts": "4469405fc7416cb4f5d4a6973ff8387477b6f32b5587178dd57e59cae261d191",
+        "app.ts": "59f038bec6ebe63c7d3303c2e67a1070225b2262a62ecaef089ad8024ed37f53"
+      },
+      "summary": {
+        "finiteCandidates": 8,
+        "admitted": 1,
+        "declined": 7,
+        "unavailable": 0,
+        "staticErrorCandidates": 0,
+        "incompleteFiles": 1
+      },
+      "queries": [
+        {
+          "file": "queries/account.ts",
+          "sourceDigest": "d1921d5d9446c1e095e1dde93cb22b5fc2e5534203ded75cd6eb30fca048d14c",
+          "complete": true,
+          "collectionDiagnostics": [],
+          "candidates": [
+            {
+              "sql": "\n  SELECT u.id, u.email, u.display_name, u.status, u.created_at,\n         t.name AS team_name, m.role\n  FROM users AS u\n  LEFT JOIN memberships AS m ON m.user_id = u.id\n  LEFT JOIN teams AS t ON t.id = m.team_id\n  WHERE u.id = $1\n",
+              "sqlDigest": "ed21d8923fb54061176c9c8ccb21e793166ebdbb4eded957a1be218f2194fc90",
+              "parameterOccurrences": [{ "index": 1, "start": 227, "end": 229 }],
+              "logicalBindings": [0],
+              "logicalParameterCount": 1,
+              "staticColumnCount": 7,
+              "staticParameters": [
+                { "index": 1, "tsType": "bigint", "nullable": false, "databaseType": "BIGINT", "runtimeType": "bigint" }
+              ],
+              "staticDiagnostics": [],
+              "admission": { "accepted": true },
+              "nativeQualification": "not-attempted"
+            }
+          ]
+        },
+        {
+          "file": "queries/audit.ts",
+          "sourceDigest": "50b115136484de803fc25bf79ee2ce8a8193f55fa96c21574a5748cc09aa4a85",
+          "complete": true,
+          "collectionDiagnostics": [],
+          "candidates": [
+            {
+              "sql": "\n  INSERT INTO audit_events (id, user_id, event_name, payload, created_at)\n  \n  VALUES ($1, $2, 'catalog.imported', $3, CAST($4 AS TIMESTAMPTZ))\n  RETURNING id, event_name\n",
+              "sqlDigest": "de93d63c2d1649ad371f492d5c0f2fb749f230997a6a1f67fd2b3d274f79ab5c",
+              "parameterOccurrences": [
+                { "index": 1, "start": 88, "end": 90 },
+                { "index": 2, "start": 92, "end": 94 },
+                { "index": 3, "start": 116, "end": 118 },
+                { "index": 4, "start": 125, "end": 127 }
+              ],
+              "logicalBindings": [0, 1, 2, 3],
+              "logicalParameterCount": 4,
+              "staticColumnCount": 2,
+              "staticParameters": [
+                {
+                  "index": 1,
+                  "tsType": "bigint",
+                  "nullable": false,
+                  "databaseType": "BIGINT",
+                  "runtimeType": "bigint"
+                },
+                { "index": 2, "tsType": "bigint", "nullable": true, "databaseType": "BIGINT", "runtimeType": "bigint" },
+                { "index": 3, "tsType": "string", "nullable": false, "databaseType": "JSON", "runtimeType": "string" },
+                {
+                  "index": 4,
+                  "tsType": "string",
+                  "nullable": true,
+                  "databaseType": "TIMESTAMPTZ",
+                  "runtimeType": "string"
+                }
+              ],
+              "staticDiagnostics": [],
+              "admission": { "accepted": false, "reason": "duckdb-guarded-select-scope" },
+              "nativeQualification": "not-attempted"
+            }
+          ]
+        },
+        {
+          "file": "queries/catalog.ts",
+          "sourceDigest": "4ebc00e2d8350284c4d05e50f2fecdd7fe2d74b2abe06bc371a72fe2d54a16b5",
+          "complete": true,
+          "collectionDiagnostics": [],
+          "candidates": [
+            {
+              "sql": "\n  SELECT id, sku, title, price_cents FROM products\n  WHERE active = $1 AND price_cents >= $2\n  ORDER BY price_cents DESC\n",
+              "sqlDigest": "49f3833e6eb018f238f8fe6c6339bcc8d9eaa78194047657185450855472c0b7",
+              "parameterOccurrences": [{ "index": 1, "start": 69, "end": 71 }, { "index": 2, "start": 91, "end": 93 }],
+              "logicalBindings": [0, 1],
+              "logicalParameterCount": 2,
+              "staticColumnCount": 4,
+              "staticParameters": [
+                {
+                  "index": 1,
+                  "tsType": "boolean",
+                  "nullable": false,
+                  "databaseType": "BOOLEAN",
+                  "runtimeType": "boolean"
+                },
+                {
+                  "index": 2,
+                  "tsType": "number",
+                  "nullable": false,
+                  "databaseType": "INTEGER",
+                  "runtimeType": "number"
+                }
+              ],
+              "staticDiagnostics": [],
+              "admission": { "accepted": false, "reason": "duckdb-guarded-select-scope" },
+              "nativeQualification": "not-attempted"
+            },
+            {
+              "sql": "\n  UPDATE orders SET status = 'shipped', shipped_at = CAST($1 AS TIMESTAMPTZ)\n  \n  WHERE id = $2 AND status = 'paid'\n  RETURNING id, status, shipped_at\n",
+              "sqlDigest": "f1562089e9b5e932eb1d4420fec957b1f24727b1e69e79e6e5bca4c2de46a6ca",
+              "parameterOccurrences": [{ "index": 1, "start": 59, "end": 61 }, { "index": 2, "start": 94, "end": 96 }],
+              "logicalBindings": [0, 1],
+              "logicalParameterCount": 2,
+              "staticColumnCount": 3,
+              "staticParameters": [
+                {
+                  "index": 1,
+                  "tsType": "string",
+                  "nullable": true,
+                  "databaseType": "TIMESTAMPTZ",
+                  "runtimeType": "string"
+                },
+                { "index": 2, "tsType": "bigint", "nullable": false, "databaseType": "BIGINT", "runtimeType": "bigint" }
+              ],
+              "staticDiagnostics": [],
+              "admission": { "accepted": false, "reason": "duckdb-guarded-select-scope" },
+              "nativeQualification": "not-attempted"
+            }
+          ]
+        },
+        {
+          "file": "queries/insert-pair.ts",
+          "sourceDigest": "fde165a84dea255743ff672de5d09d976b86127d00f13792024604e38cf8370c",
+          "complete": true,
+          "collectionDiagnostics": [],
+          "candidates": [
+            {
+              "sql": "\n  INSERT INTO products (id, sku, title, price_cents, active)\n  \n  VALUES ($1, $2, $3, $4, $5),\n         ($6, $7, $8, $9, $10)\n  RETURNING id, sku, price_cents\n",
+              "sqlDigest": "ed53ded62f868bd6e22024b7f3ad610e285f38d78f221b11cb36ff585f6a6ac3",
+              "parameterOccurrences": [
+                { "index": 1, "start": 75, "end": 77 },
+                { "index": 2, "start": 79, "end": 81 },
+                { "index": 3, "start": 83, "end": 85 },
+                { "index": 4, "start": 87, "end": 89 },
+                { "index": 5, "start": 91, "end": 93 },
+                { "index": 6, "start": 106, "end": 108 },
+                { "index": 7, "start": 110, "end": 112 },
+                { "index": 8, "start": 114, "end": 116 },
+                { "index": 9, "start": 118, "end": 120 },
+                { "index": 10, "start": 122, "end": 125 }
+              ],
+              "logicalBindings": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+              "logicalParameterCount": 10,
+              "staticColumnCount": 3,
+              "staticParameters": [
+                {
+                  "index": 1,
+                  "tsType": "bigint",
+                  "nullable": false,
+                  "databaseType": "BIGINT",
+                  "runtimeType": "bigint"
+                },
+                {
+                  "index": 2,
+                  "tsType": "string",
+                  "nullable": false,
+                  "databaseType": "VARCHAR",
+                  "runtimeType": "string"
+                },
+                {
+                  "index": 3,
+                  "tsType": "string",
+                  "nullable": false,
+                  "databaseType": "VARCHAR",
+                  "runtimeType": "string"
+                },
+                {
+                  "index": 4,
+                  "tsType": "number",
+                  "nullable": false,
+                  "databaseType": "INTEGER",
+                  "runtimeType": "number"
+                },
+                {
+                  "index": 5,
+                  "tsType": "boolean",
+                  "nullable": false,
+                  "databaseType": "BOOLEAN",
+                  "runtimeType": "boolean"
+                },
+                {
+                  "index": 6,
+                  "tsType": "bigint",
+                  "nullable": false,
+                  "databaseType": "BIGINT",
+                  "runtimeType": "bigint"
+                },
+                {
+                  "index": 7,
+                  "tsType": "string",
+                  "nullable": false,
+                  "databaseType": "VARCHAR",
+                  "runtimeType": "string"
+                },
+                {
+                  "index": 8,
+                  "tsType": "string",
+                  "nullable": false,
+                  "databaseType": "VARCHAR",
+                  "runtimeType": "string"
+                },
+                {
+                  "index": 9,
+                  "tsType": "number",
+                  "nullable": false,
+                  "databaseType": "INTEGER",
+                  "runtimeType": "number"
+                },
+                {
+                  "index": 10,
+                  "tsType": "boolean",
+                  "nullable": false,
+                  "databaseType": "BOOLEAN",
+                  "runtimeType": "boolean"
+                }
+              ],
+              "staticDiagnostics": [],
+              "admission": { "accepted": false, "reason": "duckdb-guarded-select-scope" },
+              "nativeQualification": "not-attempted"
+            }
+          ]
+        },
+        {
+          "file": "queries/insert-products.ts",
+          "sourceDigest": "1c6c0d9f549fdf71e22277d7fa088e6f6eb1b6e39cebbfdc48a18e9915198dc5",
+          "complete": false,
+          "collectionDiagnostics": [
+            {
+              "code": "TSQ013",
+              "message": "Native acquisition does not establish invariance for a runtime-sized fragment list.",
+              "range": { "start": 321, "end": 549, "line": 6, "column": 10 },
+              "severity": "error"
+            }
+          ],
+          "candidates": []
+        },
+        {
+          "file": "queries/native.sql",
+          "sourceDigest": "eb0565fbe09ce4f90e229ae632740398ad18cf75ff75e0c32d0d32fcae9cb721",
+          "complete": true,
+          "collectionDiagnostics": [],
+          "candidates": [
+            {
+              "sql": "-- name: productAnalytics\nSELECT id, details, prices, dimensions, fulfillment,\n       row_number() OVER (PARTITION BY active ORDER BY price_cents DESC) AS rank\nFROM products QUALIFY rank <= $1;\n",
+              "sqlDigest": "51ec793b6bec3eaf288ba8c4fa3d3d6fdb5e480901b9c0c387606a59d8183f6d",
+              "parameterOccurrences": [{ "index": 1, "start": 190, "end": 192 }],
+              "logicalBindings": [0],
+              "logicalParameterCount": 1,
+              "staticColumnCount": 6,
+              "staticParameters": [
+                { "index": 1, "tsType": "bigint", "nullable": false, "databaseType": "BIGINT", "runtimeType": "bigint" }
+              ],
+              "staticDiagnostics": [],
+              "admission": { "accepted": false, "reason": "duckdb-guarded-select-scope" },
+              "nativeQualification": "not-attempted"
+            }
+          ]
+        },
+        {
+          "file": "queries/order-json.ts",
+          "sourceDigest": "5ae79a14a1c7b3371c745e197204c8f16c657388e0c3fcd05957434357e60672",
+          "complete": true,
+          "collectionDiagnostics": [],
+          "candidates": [
+            {
+              "sql": "\n  SELECT o.id, struct_pack(id := o.id, status := o.status, totalCents := o.total_cents, customer := struct_pack(email := u.email)) AS document\n  FROM orders AS o JOIN users AS u ON u.id = o.user_id\n  WHERE o.id = $1\n",
+              "sqlDigest": "748fb57b38e5aff55f5931ea8de729ec0acdcba444e2a690fb0bf3b46009bbbf",
+              "parameterOccurrences": [{ "index": 1, "start": 214, "end": 216 }],
+              "logicalBindings": [0],
+              "logicalParameterCount": 1,
+              "staticColumnCount": 2,
+              "staticParameters": [
+                { "index": 1, "tsType": "bigint", "nullable": false, "databaseType": "BIGINT", "runtimeType": "bigint" }
+              ],
+              "staticDiagnostics": [],
+              "admission": { "accepted": false, "reason": "duckdb-guarded-select-scope" },
+              "nativeQualification": "not-attempted"
+            }
+          ]
+        },
+        {
+          "file": "queries/revenue.sql",
+          "sourceDigest": "662af5d0b6cb3cf10f4e3fe1abcea18186c64f6fdd4ee3fba2ec0a310737988a",
+          "complete": true,
+          "collectionDiagnostics": [],
+          "candidates": [
+            {
+              "sql": "-- name: revenueByCustomer\nWITH paid_orders AS (\n  SELECT user_id, COUNT(*) AS order_count, SUM(total_cents) AS revenue_cents\n  FROM orders WHERE status = 'paid' GROUP BY user_id\n)\nSELECT u.id, LOWER(u.email) AS email, p.order_count, p.revenue_cents\nFROM users AS u JOIN paid_orders AS p ON p.user_id = u.id\nWHERE p.revenue_cents >= $1\nORDER BY p.revenue_cents DESC;\n",
+              "sqlDigest": "662af5d0b6cb3cf10f4e3fe1abcea18186c64f6fdd4ee3fba2ec0a310737988a",
+              "parameterOccurrences": [{ "index": 1, "start": 333, "end": 335 }],
+              "logicalBindings": [0],
+              "logicalParameterCount": 1,
+              "staticColumnCount": 4,
+              "staticParameters": [
+                { "index": 1, "tsType": "bigint", "nullable": true, "databaseType": "HUGEINT", "runtimeType": "bigint" }
+              ],
+              "staticDiagnostics": [],
+              "admission": { "accepted": false, "reason": "duckdb-guarded-select-scope" },
+              "nativeQualification": "not-attempted"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "grammar": "mysql",
+      "exampleServer": {
+        "product": "mysql",
+        "version": "9.7.0",
+        "versionKey": "9.7.0",
+        "features": [],
+        "settings": {}
+      },
+      "coreEntry": "./analysis/core/9.7",
+      "nativeEntry": "./mysql2-contracts",
+      "nativeFactory": "createMySql2NativeContractAdapter",
+      "adapter": null,
+      "availability": {
+        "status": "unavailable",
+        "reason": "MySQL native acquisition requires a versioned schema with SQL-mode evidence"
+      },
+      "schemaOrigin": "Maintained example DDL parser; not a live catalog",
+      "schemaDigest": "781dee287cbb92a65f5371932f1222f91cc5f882c2c9d7a7f58c10e60d0830ba",
+      "corpusInputs": {
+        "schema/tables.sql": "3d96cb9f0527b7003fa2553813d26575ce7e0d5cb0242da5498730c31525386d",
+        "schema/functions.sql": "ea118661ad49db4898f661a014a4a7bcc4602136b7b5a425d98efdd1e7e49e1a",
+        "queries/account.ts": "6ef35de9ca93c80f1f84b8395e265f4977d2110ecf7a9ed022ee19f76e4ad4ac",
+        "queries/revenue.sql": "2b63c708369ee165048f3a56575b463db6d141b4a7808891da8183615c3aded0",
+        "queries/order-json.ts": "e86e776c1d6e277d812126608fb2b8493be9ca3f123a5e27a17bd34f6a9af204",
+        "queries/insert-products.ts": "0af37fd76936752e6969cd960d6788da9d3252a03a987543c721dbc76c32c1c0",
+        "queries/insert-pair.ts": "cd152cfb08880cb00580c9e56ffb21ec6b953eb12ede0d7ddc4b7b79ca570182",
+        "queries/audit.ts": "2f35e44fd18b2de23d178525f3189363805118109c6efaf43dfff4caf55a6dbe",
+        "queries/catalog.ts": "ed42d933132848b445c881a50b4f04ac645a585985ae6988e337de2459d3df04",
+        "workflows/batch.ts": "2f983e6be5b1cb7cc77c8a7601031d39f7cc372914fa443b88f66dbb8ffa17a7",
+        "workflows/checkout.ts": "9a699260389965ee02346c3fa8b60c34c0dc8465ea038e308470cb67cc252d4e",
+        "app.ts": "e589b2bd2c5376e36e6b7796b85077f832dfe68268b0d44a139b3ed199af10ce"
+      },
+      "summary": {
+        "finiteCandidates": 7,
+        "admitted": 0,
+        "declined": 0,
+        "unavailable": 7,
+        "staticErrorCandidates": 0,
+        "incompleteFiles": 1
+      },
+      "queries": [
+        {
+          "file": "queries/account.ts",
+          "sourceDigest": "6ef35de9ca93c80f1f84b8395e265f4977d2110ecf7a9ed022ee19f76e4ad4ac",
+          "complete": true,
+          "collectionDiagnostics": [],
+          "candidates": [
+            {
+              "sql": "\n  SELECT u.id, u.email, u.display_name, u.status, u.created_at,\n         t.name AS team_name, m.role\n  FROM users AS u\n  LEFT JOIN memberships AS m ON m.user_id = u.id\n  LEFT JOIN teams AS t ON t.id = m.team_id\n  WHERE u.id = ?\n",
+              "sqlDigest": "6134b8f32c6563e4b860c849d0e968af88bec642d16c372e2d86609b0504f50d",
+              "parameterOccurrences": [{ "index": 1, "start": 227, "end": 228 }],
+              "logicalBindings": [0],
+              "logicalParameterCount": 1,
+              "staticColumnCount": 7,
+              "staticParameters": [
+                { "index": 1, "tsType": "bigint", "nullable": false, "databaseType": "BIGINT UNSIGNED" }
+              ],
+              "staticDiagnostics": [],
+              "admission": { "accepted": null, "reason": "native-environment-evidence-unavailable" },
+              "nativeQualification": "not-attempted"
+            }
+          ]
+        },
+        {
+          "file": "queries/audit.ts",
+          "sourceDigest": "2f35e44fd18b2de23d178525f3189363805118109c6efaf43dfff4caf55a6dbe",
+          "complete": true,
+          "collectionDiagnostics": [],
+          "candidates": [
+            {
+              "sql": "\n  INSERT INTO audit_events (id, user_id, event_name, payload, created_at)\n  VALUES (?, ?, 'catalog.imported', ?, ?)\n",
+              "sqlDigest": "fb4e02e1d878417de0c8aae131b1d39f402e146dbb3ade0e1b2e910e898f57a7",
+              "parameterOccurrences": [
+                { "index": 1, "start": 85, "end": 86 },
+                { "index": 2, "start": 88, "end": 89 },
+                { "index": 3, "start": 111, "end": 112 },
+                { "index": 4, "start": 114, "end": 115 }
+              ],
+              "logicalBindings": [0, 1, 2, 3],
+              "logicalParameterCount": 4,
+              "staticColumnCount": 0,
+              "staticParameters": [
+                { "index": 1, "tsType": "bigint", "nullable": false, "databaseType": "BIGINT UNSIGNED" },
+                { "index": 2, "tsType": "bigint", "nullable": true, "databaseType": "BIGINT UNSIGNED" },
+                {
+                  "index": 3,
+                  "tsType": "unknown",
+                  "nullable": false,
+                  "databaseType": "JSON",
+                  "json": { "shape": { "kind": "unknown" }, "representation": "parsed" },
+                  "acceptsJsonInput": true
+                },
+                { "index": 4, "tsType": "Date", "nullable": false, "databaseType": "DATETIME" }
+              ],
+              "staticDiagnostics": [],
+              "admission": { "accepted": null, "reason": "native-environment-evidence-unavailable" },
+              "nativeQualification": "not-attempted"
+            }
+          ]
+        },
+        {
+          "file": "queries/catalog.ts",
+          "sourceDigest": "ed42d933132848b445c881a50b4f04ac645a585985ae6988e337de2459d3df04",
+          "complete": true,
+          "collectionDiagnostics": [],
+          "candidates": [
+            {
+              "sql": "\n  SELECT id, sku, title, price_cents\n  FROM products\n  WHERE active = ? AND price_cents >= ?\n  ORDER BY price_cents DESC\n",
+              "sqlDigest": "302cec30542eeb7c9884b3185448ea04bc718d4c40b51612c9be8870937835fd",
+              "parameterOccurrences": [{ "index": 1, "start": 71, "end": 72 }, { "index": 2, "start": 92, "end": 93 }],
+              "logicalBindings": [0, 1],
+              "logicalParameterCount": 2,
+              "staticColumnCount": 4,
+              "staticParameters": [
+                { "index": 1, "tsType": "boolean", "nullable": false, "databaseType": "boolean" },
+                { "index": 2, "tsType": "number", "nullable": false, "databaseType": "integer" }
+              ],
+              "staticDiagnostics": [],
+              "admission": { "accepted": null, "reason": "native-environment-evidence-unavailable" },
+              "nativeQualification": "not-attempted"
+            },
+            {
+              "sql": "\n  UPDATE orders SET status = 'shipped', shipped_at = ?\n  WHERE id = ? AND status = 'paid'\n",
+              "sqlDigest": "0a889c7c3b4debfdd14bd0be523ff23db02b244440e1b89f920f8ed338604aa9",
+              "parameterOccurrences": [{ "index": 1, "start": 54, "end": 55 }, { "index": 2, "start": 69, "end": 70 }],
+              "logicalBindings": [0, 1],
+              "logicalParameterCount": 2,
+              "staticColumnCount": 0,
+              "staticParameters": [
+                { "index": 1, "tsType": "Date", "nullable": true, "databaseType": "DATETIME" },
+                { "index": 2, "tsType": "bigint", "nullable": false, "databaseType": "BIGINT UNSIGNED" }
+              ],
+              "staticDiagnostics": [],
+              "admission": { "accepted": null, "reason": "native-environment-evidence-unavailable" },
+              "nativeQualification": "not-attempted"
+            }
+          ]
+        },
+        {
+          "file": "queries/insert-pair.ts",
+          "sourceDigest": "cd152cfb08880cb00580c9e56ffb21ec6b953eb12ede0d7ddc4b7b79ca570182",
+          "complete": true,
+          "collectionDiagnostics": [],
+          "candidates": [
+            {
+              "sql": "\n  INSERT INTO products (id, sku, title, price_cents, active)\n  VALUES (?, ?, ?, ?, ?),\n         (?, ?, ?, ?, ?)\n",
+              "sqlDigest": "bf9867440d02c22bc5c7dbc632f0128106f5e194533f4743276cb43ff352f2e5",
+              "parameterOccurrences": [
+                { "index": 1, "start": 72, "end": 73 },
+                { "index": 2, "start": 75, "end": 76 },
+                { "index": 3, "start": 78, "end": 79 },
+                { "index": 4, "start": 81, "end": 82 },
+                { "index": 5, "start": 84, "end": 85 },
+                { "index": 6, "start": 98, "end": 99 },
+                { "index": 7, "start": 101, "end": 102 },
+                { "index": 8, "start": 104, "end": 105 },
+                { "index": 9, "start": 107, "end": 108 },
+                { "index": 10, "start": 110, "end": 111 }
+              ],
+              "logicalBindings": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+              "logicalParameterCount": 10,
+              "staticColumnCount": 0,
+              "staticParameters": [
+                { "index": 1, "tsType": "bigint", "nullable": false, "databaseType": "BIGINT UNSIGNED" },
+                { "index": 2, "tsType": "string", "nullable": false, "databaseType": "VARCHAR(255)" },
+                { "index": 3, "tsType": "string", "nullable": false, "databaseType": "TEXT" },
+                { "index": 4, "tsType": "number", "nullable": false, "databaseType": "integer" },
+                { "index": 5, "tsType": "boolean", "nullable": false, "databaseType": "boolean" },
+                { "index": 6, "tsType": "bigint", "nullable": false, "databaseType": "BIGINT UNSIGNED" },
+                { "index": 7, "tsType": "string", "nullable": false, "databaseType": "VARCHAR(255)" },
+                { "index": 8, "tsType": "string", "nullable": false, "databaseType": "TEXT" },
+                { "index": 9, "tsType": "number", "nullable": false, "databaseType": "integer" },
+                { "index": 10, "tsType": "boolean", "nullable": false, "databaseType": "boolean" }
+              ],
+              "staticDiagnostics": [],
+              "admission": { "accepted": null, "reason": "native-environment-evidence-unavailable" },
+              "nativeQualification": "not-attempted"
+            }
+          ]
+        },
+        {
+          "file": "queries/insert-products.ts",
+          "sourceDigest": "0af37fd76936752e6969cd960d6788da9d3252a03a987543c721dbc76c32c1c0",
+          "complete": false,
+          "collectionDiagnostics": [
+            {
+              "code": "TSQ013",
+              "message": "Native acquisition does not establish invariance for a runtime-sized fragment list.",
+              "range": { "start": 405, "end": 607, "line": 13, "column": 10 },
+              "severity": "error"
+            }
+          ],
+          "candidates": []
+        },
+        {
+          "file": "queries/order-json.ts",
+          "sourceDigest": "e86e776c1d6e277d812126608fb2b8493be9ca3f123a5e27a17bd34f6a9af204",
+          "complete": true,
+          "collectionDiagnostics": [],
+          "candidates": [
+            {
+              "sql": "\n  SELECT o.id, JSON_OBJECT(\n    'id', o.id,\n    'status', o.status,\n    'totalCents', o.total_cents,\n    'customer', JSON_OBJECT('email', u.email),\n    'items', COALESCE(JSON_ARRAYAGG(JSON_OBJECT(\n      'sku', p.sku, 'quantity', i.quantity,\n      'unitPriceCents', i.unit_price_cents\n    )), JSON_ARRAY())\n  ) AS document\n  FROM orders AS o\n  JOIN users AS u ON u.id = o.user_id\n  JOIN order_items AS i ON i.order_id = o.id\n  JOIN products AS p ON p.id = i.product_id\n  WHERE o.id = ?\n  GROUP BY o.id, o.status, o.total_cents, u.email\n",
+              "sqlDigest": "1f62680e943a1f976cf95612692f42e63611a32c5feaf968db0d1c144df2495b",
+              "parameterOccurrences": [{ "index": 1, "start": 484, "end": 485 }],
+              "logicalBindings": [0],
+              "logicalParameterCount": 1,
+              "staticColumnCount": 2,
+              "staticParameters": [
+                { "index": 1, "tsType": "bigint", "nullable": false, "databaseType": "BIGINT UNSIGNED" }
+              ],
+              "staticDiagnostics": [],
+              "admission": { "accepted": null, "reason": "native-environment-evidence-unavailable" },
+              "nativeQualification": "not-attempted"
+            }
+          ]
+        },
+        {
+          "file": "queries/revenue.sql",
+          "sourceDigest": "2b63c708369ee165048f3a56575b463db6d141b4a7808891da8183615c3aded0",
+          "complete": true,
+          "collectionDiagnostics": [],
+          "candidates": [
+            {
+              "sql": "-- name: revenueByCustomer\nWITH paid_orders AS (\n  SELECT user_id, COUNT(*) AS order_count,\n         SUM(total_cents) AS revenue_cents\n  FROM orders\n  WHERE status = 'paid'\n  GROUP BY user_id\n)\nSELECT u.id, display_email(u.email) AS email,\n       p.order_count, p.revenue_cents\nFROM users AS u\nJOIN paid_orders AS p ON p.user_id = u.id\nWHERE p.revenue_cents >= ?\nORDER BY p.revenue_cents DESC;\n",
+              "sqlDigest": "2b63c708369ee165048f3a56575b463db6d141b4a7808891da8183615c3aded0",
+              "parameterOccurrences": [{ "index": 1, "start": 361, "end": 362 }],
+              "logicalBindings": [0],
+              "logicalParameterCount": 1,
+              "staticColumnCount": 4,
+              "staticParameters": [{ "index": 1, "tsType": "string", "nullable": true, "databaseType": "decimal" }],
+              "staticDiagnostics": [],
+              "admission": { "accepted": null, "reason": "native-environment-evidence-unavailable" },
+              "nativeQualification": "not-attempted"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "grammar": "postgres",
+      "exampleServer": {
+        "product": "postgres",
+        "version": "18.4",
+        "versionKey": "18",
+        "features": [],
+        "settings": { "standardConformingStrings": "on", "visibilityScope": "current-role" }
+      },
+      "coreEntry": "./analysis/core/18",
+      "nativeEntry": "./pg-contracts",
+      "nativeFactory": "createPgNativeContractAdapter",
+      "adapter": { "id": "@typed-sql/postgres/pg-contracts", "version": "postgres-contract-describe-v3" },
+      "availability": { "status": "available" },
+      "schemaOrigin": "Maintained example DDL parser; not a live catalog",
+      "schemaDigest": "25faf7249418a8ce8a106e85a2bb7a296aafa7e4686cc7708a99d8fb386cc4b0",
+      "corpusInputs": {
+        "schema/tables.sql": "8bb3df304426ecdb2ed3c545c0a713ff75d5cf8201e39fe02060a5c0a3ed4dde",
+        "schema/functions.sql": "03e45afebe5d928c23263fcb3f2e1001e9e5e745a752df9a0aa7386c5340ed70",
+        "queries/account.ts": "f991555e5cbf09a79d4b68d53a7211ee51b30a4da9942110e6fa0947e71f560d",
+        "queries/revenue.sql": "4d27fedf94f9bbd1893b7eddb57fb5ca180db2a2c7c67fd14d150056e721c7e8",
+        "queries/order-json.ts": "b1f1a436d4cccf872726b4fc7e241fa2266d087a0683145320c7cf73eb5909f9",
+        "queries/insert-products.ts": "2028d90240cab990fef4c750e1dcb954a8eb7a66c95635ca8b06aa03ed42ad6a",
+        "queries/insert-pair.ts": "0e19fd98ebc18bc0fbe72f94446c5abad4c8a7cd1aa3d4deb99efc84f9c00d5c",
+        "queries/audit.ts": "4af15d15227a3810dafc6e2f6da10355e9849d321ed7427a76feea5b4c40e139",
+        "queries/catalog.ts": "c1fb0ae8f9b8d365e83142281813cf53de8cac253225a6eff2416f1398ba9645",
+        "workflows/batch.ts": "58efe3b967a0c1ba963256422b4f0adb3dca2e621cd48c96fb183b13e4bb40ca",
+        "workflows/checkout.ts": "2fad02229e46dfd6f79921a594b53d48634cab771cb4f5516bcd4e9219393727",
+        "app.ts": "babc66f07bd9b049e33d7a90e73369c10a35f3952331ea68af657eb2212863f4"
+      },
+      "summary": {
+        "finiteCandidates": 7,
+        "admitted": 1,
+        "declined": 6,
+        "unavailable": 0,
+        "staticErrorCandidates": 0,
+        "incompleteFiles": 1
+      },
+      "queries": [
+        {
+          "file": "queries/account.ts",
+          "sourceDigest": "f991555e5cbf09a79d4b68d53a7211ee51b30a4da9942110e6fa0947e71f560d",
+          "complete": true,
+          "collectionDiagnostics": [],
+          "candidates": [
+            {
+              "sql": "\n  SELECT u.id, u.email, u.display_name, u.status, u.created_at,\n         t.name AS team_name, m.role\n  FROM users AS u\n  LEFT JOIN memberships AS m ON m.user_id = u.id\n  LEFT JOIN teams AS t ON t.id = m.team_id\n  WHERE u.id = $1\n",
+              "sqlDigest": "ed21d8923fb54061176c9c8ccb21e793166ebdbb4eded957a1be218f2194fc90",
+              "parameterOccurrences": [{ "index": 1, "start": 227, "end": 229 }],
+              "logicalBindings": [0],
+              "logicalParameterCount": 1,
+              "staticColumnCount": 7,
+              "staticParameters": [{ "index": 1, "tsType": "bigint", "nullable": false, "databaseType": "bigint" }],
+              "staticDiagnostics": [],
+              "admission": { "accepted": true },
+              "nativeQualification": "not-attempted"
+            }
+          ]
+        },
+        {
+          "file": "queries/audit.ts",
+          "sourceDigest": "4af15d15227a3810dafc6e2f6da10355e9849d321ed7427a76feea5b4c40e139",
+          "complete": true,
+          "collectionDiagnostics": [],
+          "candidates": [
+            {
+              "sql": "\n  INSERT INTO audit_events (id, user_id, event_name, payload, created_at)\n  VALUES ($1, $2, 'catalog.imported', $3, $4)\n  RETURNING id, event_name\n",
+              "sqlDigest": "1b01d7f68b04ace4e20130a6b15ff228ba8ec98845af89c840e86b55b7f13932",
+              "parameterOccurrences": [
+                { "index": 1, "start": 85, "end": 87 },
+                { "index": 2, "start": 89, "end": 91 },
+                { "index": 3, "start": 113, "end": 115 },
+                { "index": 4, "start": 117, "end": 119 }
+              ],
+              "logicalBindings": [0, 1, 2, 3],
+              "logicalParameterCount": 4,
+              "staticColumnCount": 2,
+              "staticParameters": [
+                { "index": 1, "tsType": "bigint", "nullable": false, "databaseType": "bigint" },
+                { "index": 2, "tsType": "bigint", "nullable": true, "databaseType": "bigint" },
+                {
+                  "index": 3,
+                  "tsType": "unknown",
+                  "nullable": false,
+                  "databaseType": "jsonb",
+                  "json": { "shape": { "kind": "unknown" }, "representation": "parsed" },
+                  "acceptsJsonInput": true
+                },
+                { "index": 4, "tsType": "Date", "nullable": false, "databaseType": "timestamptz" }
+              ],
+              "staticDiagnostics": [],
+              "admission": { "accepted": false, "reason": "postgres-guarded-select-scope" },
+              "nativeQualification": "not-attempted"
+            }
+          ]
+        },
+        {
+          "file": "queries/catalog.ts",
+          "sourceDigest": "c1fb0ae8f9b8d365e83142281813cf53de8cac253225a6eff2416f1398ba9645",
+          "complete": true,
+          "collectionDiagnostics": [],
+          "candidates": [
+            {
+              "sql": "\n  SELECT id, sku, title, price_cents\n  FROM products\n  WHERE active = $1 AND price_cents >= $2\n  ORDER BY price_cents DESC\n",
+              "sqlDigest": "18afec7b91a04192e2d207fa6dbe54d1fb701405f5665cf4a2db7195fae64f48",
+              "parameterOccurrences": [{ "index": 1, "start": 71, "end": 73 }, { "index": 2, "start": 93, "end": 95 }],
+              "logicalBindings": [0, 1],
+              "logicalParameterCount": 2,
+              "staticColumnCount": 4,
+              "staticParameters": [
+                { "index": 1, "tsType": "boolean", "nullable": false, "databaseType": "boolean" },
+                { "index": 2, "tsType": "number", "nullable": false, "databaseType": "integer" }
+              ],
+              "staticDiagnostics": [],
+              "admission": { "accepted": false, "reason": "postgres-guarded-select-scope" },
+              "nativeQualification": "not-attempted"
+            },
+            {
+              "sql": "\n  UPDATE orders SET status = 'shipped'::order_status, shipped_at = $1\n  WHERE id = $2 AND status = 'paid'\n  RETURNING id, status, shipped_at\n",
+              "sqlDigest": "5fdb0b27095544b34ea92a78e6e2ff23ebd99beb34f38ca88eabcbc471bf2edf",
+              "parameterOccurrences": [{ "index": 1, "start": 68, "end": 70 }, { "index": 2, "start": 84, "end": 86 }],
+              "logicalBindings": [0, 1],
+              "logicalParameterCount": 2,
+              "staticColumnCount": 3,
+              "staticParameters": [
+                { "index": 1, "tsType": "Date", "nullable": true, "databaseType": "timestamptz" },
+                { "index": 2, "tsType": "bigint", "nullable": false, "databaseType": "bigint" }
+              ],
+              "staticDiagnostics": [],
+              "admission": { "accepted": false, "reason": "postgres-guarded-select-scope" },
+              "nativeQualification": "not-attempted"
+            }
+          ]
+        },
+        {
+          "file": "queries/insert-pair.ts",
+          "sourceDigest": "0e19fd98ebc18bc0fbe72f94446c5abad4c8a7cd1aa3d4deb99efc84f9c00d5c",
+          "complete": true,
+          "collectionDiagnostics": [],
+          "candidates": [
+            {
+              "sql": "\n  INSERT INTO products (id, sku, title, price_cents, active)\n  VALUES ($1, $2, $3, $4, $5),\n         ($6, $7, $8, $9, $10)\n  RETURNING id, sku, price_cents\n",
+              "sqlDigest": "1c92601e7095b6a8d0647fd0f2193b17e78bc5799ff54ec2e50f519ae94f05db",
+              "parameterOccurrences": [
+                { "index": 1, "start": 72, "end": 74 },
+                { "index": 2, "start": 76, "end": 78 },
+                { "index": 3, "start": 80, "end": 82 },
+                { "index": 4, "start": 84, "end": 86 },
+                { "index": 5, "start": 88, "end": 90 },
+                { "index": 6, "start": 103, "end": 105 },
+                { "index": 7, "start": 107, "end": 109 },
+                { "index": 8, "start": 111, "end": 113 },
+                { "index": 9, "start": 115, "end": 117 },
+                { "index": 10, "start": 119, "end": 122 }
+              ],
+              "logicalBindings": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+              "logicalParameterCount": 10,
+              "staticColumnCount": 3,
+              "staticParameters": [
+                { "index": 1, "tsType": "bigint", "nullable": false, "databaseType": "bigint" },
+                { "index": 2, "tsType": "string", "nullable": false, "databaseType": "text" },
+                { "index": 3, "tsType": "string", "nullable": false, "databaseType": "text" },
+                { "index": 4, "tsType": "number", "nullable": false, "databaseType": "integer" },
+                { "index": 5, "tsType": "boolean", "nullable": false, "databaseType": "boolean" },
+                { "index": 6, "tsType": "bigint", "nullable": false, "databaseType": "bigint" },
+                { "index": 7, "tsType": "string", "nullable": false, "databaseType": "text" },
+                { "index": 8, "tsType": "string", "nullable": false, "databaseType": "text" },
+                { "index": 9, "tsType": "number", "nullable": false, "databaseType": "integer" },
+                { "index": 10, "tsType": "boolean", "nullable": false, "databaseType": "boolean" }
+              ],
+              "staticDiagnostics": [],
+              "admission": { "accepted": false, "reason": "postgres-guarded-select-scope" },
+              "nativeQualification": "not-attempted"
+            }
+          ]
+        },
+        {
+          "file": "queries/insert-products.ts",
+          "sourceDigest": "2028d90240cab990fef4c750e1dcb954a8eb7a66c95635ca8b06aa03ed42ad6a",
+          "complete": false,
+          "collectionDiagnostics": [
+            {
+              "code": "TSQ013",
+              "message": "Native acquisition does not establish invariance for a runtime-sized fragment list.",
+              "range": { "start": 408, "end": 645, "line": 13, "column": 10 },
+              "severity": "error"
+            }
+          ],
+          "candidates": []
+        },
+        {
+          "file": "queries/order-json.ts",
+          "sourceDigest": "b1f1a436d4cccf872726b4fc7e241fa2266d087a0683145320c7cf73eb5909f9",
+          "complete": true,
+          "collectionDiagnostics": [],
+          "candidates": [
+            {
+              "sql": "\n  SELECT o.id, jsonb_build_object(\n    'id', o.id,\n    'status', o.status::text,\n    'totalCents', o.total_cents,\n    'customer', jsonb_build_object('email', u.email),\n    'items', COALESCE(jsonb_agg(jsonb_build_object(\n      'sku', p.sku, 'quantity', i.quantity,\n      'unitPriceCents', i.unit_price_cents\n    )), '[]'::jsonb)\n  ) AS document\n  FROM orders AS o\n  JOIN users AS u ON u.id = o.user_id\n  JOIN order_items AS i ON i.order_id = o.id\n  JOIN products AS p ON p.id = i.product_id\n  WHERE o.id = $1\n  GROUP BY o.id, o.status, o.total_cents, u.email\n",
+              "sqlDigest": "0ddff0cd316bad4bf4393eb1dcfa16b18d09df6ade69bbd35cc0151f426cd9ea",
+              "parameterOccurrences": [{ "index": 1, "start": 506, "end": 508 }],
+              "logicalBindings": [0],
+              "logicalParameterCount": 1,
+              "staticColumnCount": 2,
+              "staticParameters": [{ "index": 1, "tsType": "bigint", "nullable": false, "databaseType": "bigint" }],
+              "staticDiagnostics": [],
+              "admission": { "accepted": false, "reason": "postgres-guarded-select-scope" },
+              "nativeQualification": "not-attempted"
+            }
+          ]
+        },
+        {
+          "file": "queries/revenue.sql",
+          "sourceDigest": "4d27fedf94f9bbd1893b7eddb57fb5ca180db2a2c7c67fd14d150056e721c7e8",
+          "complete": true,
+          "collectionDiagnostics": [],
+          "candidates": [
+            {
+              "sql": "-- name: revenueByCustomer\nWITH paid_orders AS (\n  SELECT user_id, COUNT(*) AS order_count,\n         SUM(total_cents) AS revenue_cents\n  FROM orders\n  WHERE status = 'paid'\n  GROUP BY user_id\n)\nSELECT u.id, display_email(u.email) AS email,\n       p.order_count, p.revenue_cents\nFROM users AS u\nJOIN paid_orders AS p ON p.user_id = u.id\nWHERE p.revenue_cents >= $1\nORDER BY p.revenue_cents DESC;\n",
+              "sqlDigest": "4d27fedf94f9bbd1893b7eddb57fb5ca180db2a2c7c67fd14d150056e721c7e8",
+              "parameterOccurrences": [{ "index": 1, "start": 361, "end": 363 }],
+              "logicalBindings": [0],
+              "logicalParameterCount": 1,
+              "staticColumnCount": 4,
+              "staticParameters": [{ "index": 1, "tsType": "number", "nullable": true, "databaseType": "integer" }],
+              "staticDiagnostics": [],
+              "admission": { "accepted": false, "reason": "postgres-guarded-select-scope" },
+              "nativeQualification": "not-attempted"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "grammar": "sqlite",
+      "exampleServer": {
+        "product": "sqlite",
+        "version": "3.54.1",
+        "versionKey": "3.54.1",
+        "features": [],
+        "settings": {}
+      },
+      "coreEntry": "./analysis/core",
+      "nativeEntry": "./node-sqlite-contracts",
+      "nativeFactory": "createNodeSqliteNativeContractAdapter",
+      "adapter": { "id": "@typed-sql/sqlite/node-sqlite-contracts", "version": "node-sqlite-readonly-prepare-v1" },
+      "availability": { "status": "available" },
+      "schemaOrigin": "Maintained example DDL parser; not a live catalog",
+      "schemaDigest": "981098c7897f72a1cd4264b66070ff54e833549de74bf5e0533d8998a4322669",
+      "corpusInputs": {
+        "schema/tables.sql": "16270d686a64076a446f49ed4d3985340f54d51dbb0036001473555b9a235c76",
+        "queries/account.ts": "22102dd102849b83414426fe09e3d486e368a2e905ef78c67e3c9619fabec394",
+        "queries/revenue.sql": "c1385569fe7cc746820edd5e1fc7ef176ab4d2e92aeed72bda83f92229872c8a",
+        "queries/order-json.ts": "a66ed9257f984ac318a14e03478ef1253dcea5f7d4d78a20b34be5345ed8e3ea",
+        "queries/insert-products.ts": "4331c744aedf71179717418d39849bf7ae56f101dc8ecdbf4d39b96580081522",
+        "queries/insert-pair.ts": "58631971d18895a3d0b679cdb49ec102f2af9bd992b8491755eff5d4418aead4",
+        "queries/audit.ts": "249450e2a3dfa4eb53e95dc3cf740d5ef69e6db56289559c2c5257ee0a8a1149",
+        "queries/catalog.ts": "81c0906ed7ff231549ba7511d27a204c074c2ddb5c011775e8a58bad7ec32025",
+        "workflows/batch.ts": "dd13d5ea14f60d1027b564fb026ac652ad19d80618aec8a4f320bb90e98ef3a9",
+        "workflows/checkout.ts": "d1853e6fbca249041ff08c7ecd9a290c6ae34a87dd8637777fc5d8e55aac8ec8",
+        "app.ts": "be70f9a4467feebdbccdcb6bfa8430fb75e88f587a5963f07436f8c5ac8e5365"
+      },
+      "summary": {
+        "finiteCandidates": 7,
+        "admitted": 4,
+        "declined": 3,
+        "unavailable": 0,
+        "staticErrorCandidates": 0,
+        "incompleteFiles": 1
+      },
+      "queries": [
+        {
+          "file": "queries/account.ts",
+          "sourceDigest": "22102dd102849b83414426fe09e3d486e368a2e905ef78c67e3c9619fabec394",
+          "complete": true,
+          "collectionDiagnostics": [],
+          "candidates": [
+            {
+              "sql": "\n  SELECT u.id, u.email, u.display_name, u.status, u.created_at,\n         t.name AS team_name, m.role\n  FROM users AS u\n  LEFT JOIN memberships AS m ON m.user_id = u.id\n  LEFT JOIN teams AS t ON t.id = m.team_id\n  WHERE u.id = ?\n",
+              "sqlDigest": "6134b8f32c6563e4b860c849d0e968af88bec642d16c372e2d86609b0504f50d",
+              "parameterOccurrences": [{ "index": 1, "start": 227, "end": 228 }],
+              "logicalBindings": [0],
+              "logicalParameterCount": 1,
+              "staticColumnCount": 7,
+              "staticParameters": [{ "index": 1, "tsType": "bigint", "nullable": false, "databaseType": "INTEGER" }],
+              "staticDiagnostics": [],
+              "admission": { "accepted": true },
+              "nativeQualification": "not-attempted"
+            }
+          ]
+        },
+        {
+          "file": "queries/audit.ts",
+          "sourceDigest": "249450e2a3dfa4eb53e95dc3cf740d5ef69e6db56289559c2c5257ee0a8a1149",
+          "complete": true,
+          "collectionDiagnostics": [],
+          "candidates": [
+            {
+              "sql": "\n  INSERT INTO audit_events (id, user_id, event_name, payload, created_at)\n  VALUES (?, ?, 'catalog.imported', ?, ?)\n  RETURNING id, event_name\n",
+              "sqlDigest": "be1b2ef417d5c2bc74ff36039ce19bcdbdcd63360a2c603f1df5de0cbe432d86",
+              "parameterOccurrences": [
+                { "index": 1, "start": 85, "end": 86 },
+                { "index": 2, "start": 88, "end": 89 },
+                { "index": 3, "start": 111, "end": 112 },
+                { "index": 4, "start": 114, "end": 115 }
+              ],
+              "logicalBindings": [0, 1, 2, 3],
+              "logicalParameterCount": 4,
+              "staticColumnCount": 2,
+              "staticParameters": [
+                { "index": 1, "tsType": "bigint", "nullable": false, "databaseType": "INTEGER" },
+                { "index": 2, "tsType": "bigint", "nullable": true, "databaseType": "INTEGER" },
+                { "index": 3, "tsType": "string", "nullable": false, "databaseType": "TEXT" },
+                { "index": 4, "tsType": "string", "nullable": false, "databaseType": "TEXT" }
+              ],
+              "staticDiagnostics": [],
+              "admission": { "accepted": false, "reason": "unsupported-statement" },
+              "nativeQualification": "not-attempted"
+            }
+          ]
+        },
+        {
+          "file": "queries/catalog.ts",
+          "sourceDigest": "81c0906ed7ff231549ba7511d27a204c074c2ddb5c011775e8a58bad7ec32025",
+          "complete": true,
+          "collectionDiagnostics": [],
+          "candidates": [
+            {
+              "sql": "\n  SELECT id, sku, title, price_cents\n  FROM products\n  WHERE active = ? AND price_cents >= ?\n  ORDER BY price_cents DESC\n",
+              "sqlDigest": "302cec30542eeb7c9884b3185448ea04bc718d4c40b51612c9be8870937835fd",
+              "parameterOccurrences": [{ "index": 1, "start": 71, "end": 72 }, { "index": 2, "start": 92, "end": 93 }],
+              "logicalBindings": [0, 1],
+              "logicalParameterCount": 2,
+              "staticColumnCount": 4,
+              "staticParameters": [
+                { "index": 1, "tsType": "bigint", "nullable": false, "databaseType": "INTEGER" },
+                { "index": 2, "tsType": "bigint", "nullable": false, "databaseType": "INTEGER" }
+              ],
+              "staticDiagnostics": [],
+              "admission": { "accepted": true },
+              "nativeQualification": "not-attempted"
+            },
+            {
+              "sql": "\n  UPDATE orders SET status = 'shipped', shipped_at = ?\n  WHERE id = ? AND status = 'paid'\n  RETURNING id, status, shipped_at\n",
+              "sqlDigest": "47f5c8550617384f0a2ec0d4af8f9a01d5f6c0e8abfcbf247bd3fa570a1690ea",
+              "parameterOccurrences": [{ "index": 1, "start": 54, "end": 55 }, { "index": 2, "start": 69, "end": 70 }],
+              "logicalBindings": [0, 1],
+              "logicalParameterCount": 2,
+              "staticColumnCount": 3,
+              "staticParameters": [
+                { "index": 1, "tsType": "string", "nullable": true, "databaseType": "TEXT" },
+                { "index": 2, "tsType": "bigint", "nullable": false, "databaseType": "INTEGER" }
+              ],
+              "staticDiagnostics": [],
+              "admission": { "accepted": false, "reason": "unsupported-statement" },
+              "nativeQualification": "not-attempted"
+            }
+          ]
+        },
+        {
+          "file": "queries/insert-pair.ts",
+          "sourceDigest": "58631971d18895a3d0b679cdb49ec102f2af9bd992b8491755eff5d4418aead4",
+          "complete": true,
+          "collectionDiagnostics": [],
+          "candidates": [
+            {
+              "sql": "\n  INSERT INTO products (id, sku, title, price_cents, active)\n  VALUES (?, ?, ?, ?, ?),\n         (?, ?, ?, ?, ?)\n  RETURNING id, sku, price_cents\n",
+              "sqlDigest": "15b69fa0f4b97a02aae95e3db45758d80c6528b6da62f467985ac5c6baac6a45",
+              "parameterOccurrences": [
+                { "index": 1, "start": 72, "end": 73 },
+                { "index": 2, "start": 75, "end": 76 },
+                { "index": 3, "start": 78, "end": 79 },
+                { "index": 4, "start": 81, "end": 82 },
+                { "index": 5, "start": 84, "end": 85 },
+                { "index": 6, "start": 98, "end": 99 },
+                { "index": 7, "start": 101, "end": 102 },
+                { "index": 8, "start": 104, "end": 105 },
+                { "index": 9, "start": 107, "end": 108 },
+                { "index": 10, "start": 110, "end": 111 }
+              ],
+              "logicalBindings": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+              "logicalParameterCount": 10,
+              "staticColumnCount": 3,
+              "staticParameters": [
+                { "index": 1, "tsType": "bigint", "nullable": false, "databaseType": "INTEGER" },
+                { "index": 2, "tsType": "string", "nullable": false, "databaseType": "TEXT" },
+                { "index": 3, "tsType": "string", "nullable": false, "databaseType": "TEXT" },
+                { "index": 4, "tsType": "bigint", "nullable": false, "databaseType": "INTEGER" },
+                { "index": 5, "tsType": "bigint", "nullable": false, "databaseType": "INTEGER" },
+                { "index": 6, "tsType": "bigint", "nullable": false, "databaseType": "INTEGER" },
+                { "index": 7, "tsType": "string", "nullable": false, "databaseType": "TEXT" },
+                { "index": 8, "tsType": "string", "nullable": false, "databaseType": "TEXT" },
+                { "index": 9, "tsType": "bigint", "nullable": false, "databaseType": "INTEGER" },
+                { "index": 10, "tsType": "bigint", "nullable": false, "databaseType": "INTEGER" }
+              ],
+              "staticDiagnostics": [],
+              "admission": { "accepted": false, "reason": "unsupported-statement" },
+              "nativeQualification": "not-attempted"
+            }
+          ]
+        },
+        {
+          "file": "queries/insert-products.ts",
+          "sourceDigest": "4331c744aedf71179717418d39849bf7ae56f101dc8ecdbf4d39b96580081522",
+          "complete": false,
+          "collectionDiagnostics": [
+            {
+              "code": "TSQ013",
+              "message": "Native acquisition does not establish invariance for a runtime-sized fragment list.",
+              "range": { "start": 406, "end": 641, "line": 13, "column": 10 },
+              "severity": "error"
+            }
+          ],
+          "candidates": []
+        },
+        {
+          "file": "queries/order-json.ts",
+          "sourceDigest": "a66ed9257f984ac318a14e03478ef1253dcea5f7d4d78a20b34be5345ed8e3ea",
+          "complete": true,
+          "collectionDiagnostics": [],
+          "candidates": [
+            {
+              "sql": "\n  SELECT o.id, json_object(\n    'id', o.id,\n    'status', o.status,\n    'totalCents', o.total_cents,\n    'customer', json_object('email', u.email),\n    'items', COALESCE(json_group_array(json_object(\n      'sku', p.sku, 'quantity', i.quantity,\n      'unitPriceCents', i.unit_price_cents\n    )), json_array())\n  ) AS document\n  FROM orders AS o\n  JOIN users AS u ON u.id = o.user_id\n  JOIN order_items AS i ON i.order_id = o.id\n  JOIN products AS p ON p.id = i.product_id\n  WHERE o.id = ?\n  GROUP BY o.id, o.status, o.total_cents, u.email\n",
+              "sqlDigest": "79675504bd9951a2798a06c4f86331d20fbabf5328c9690750010144b09b9875",
+              "parameterOccurrences": [{ "index": 1, "start": 487, "end": 488 }],
+              "logicalBindings": [0],
+              "logicalParameterCount": 1,
+              "staticColumnCount": 2,
+              "staticParameters": [{ "index": 1, "tsType": "bigint", "nullable": false, "databaseType": "INTEGER" }],
+              "staticDiagnostics": [],
+              "admission": { "accepted": true },
+              "nativeQualification": "not-attempted"
+            }
+          ]
+        },
+        {
+          "file": "queries/revenue.sql",
+          "sourceDigest": "c1385569fe7cc746820edd5e1fc7ef176ab4d2e92aeed72bda83f92229872c8a",
+          "complete": true,
+          "collectionDiagnostics": [],
+          "candidates": [
+            {
+              "sql": "-- name: revenueByCustomer\nWITH paid_orders AS (\n  SELECT user_id, COUNT(*) AS order_count,\n         SUM(total_cents) AS revenue_cents\n  FROM orders\n  WHERE status = 'paid'\n  GROUP BY user_id\n)\nSELECT u.id, lower(u.email) AS email,\n       p.order_count, p.revenue_cents\nFROM users AS u\nJOIN paid_orders AS p ON p.user_id = u.id\nWHERE p.revenue_cents >= ?\nORDER BY p.revenue_cents DESC;\n",
+              "sqlDigest": "c1385569fe7cc746820edd5e1fc7ef176ab4d2e92aeed72bda83f92229872c8a",
+              "parameterOccurrences": [{ "index": 1, "start": 353, "end": 354 }],
+              "logicalBindings": [0],
+              "logicalParameterCount": 1,
+              "staticColumnCount": 4,
+              "staticParameters": [
+                {
+                  "index": 1,
+                  "tsType": "bigint | number",
+                  "nullable": true,
+                  "databaseType": "numeric",
+                  "runtimeType": { "union": ["bigint", "number"] }
+                }
+              ],
+              "staticDiagnostics": [],
+              "admission": { "accepted": true },
+              "nativeQualification": "not-attempted"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "grammar": "sqlserver",
+      "exampleServer": {
+        "product": "sqlserver",
+        "version": "17.0.5035.5",
+        "versionKey": "17",
+        "features": [],
+        "settings": {
+          "ansiWarnings": true,
+          "arithAbort": true,
+          "collation": "Latin1_General_100_CI_AS",
+          "compatibilityLevel": 170,
+          "concatNullOn": true,
+          "dateFirst": 7,
+          "dateFormat": "mdy",
+          "defaultSchema": "dbo",
+          "language": "us_english",
+          "quotedIdentifier": true
+        }
+      },
+      "coreEntry": "./analysis/core",
+      "nativeEntry": "./native-contracts",
+      "nativeFactory": "createSqlServerNativeContractAdapter",
+      "adapter": { "id": "@typed-sql/sqlserver/native-contracts", "version": "sqlserver-log-guarded-describe-v3" },
+      "availability": { "status": "available" },
+      "schemaOrigin": "Maintained example DDL parser; not a live catalog",
+      "schemaDigest": "32788c4f299094bb0f1e6aac69cdd3b2cd5348bbd29f21f091c5b5adb43b0f25",
+      "corpusInputs": {
+        "schema/tables.sql": "7632ea19d1956f632e4c46365394fb0d323c8b6be7b35c847ffd3212d3aa8c7e",
+        "schema/settings.ts": "b942aef9fc5a77f01dbf32d550fbe6efb738cbfa6bb5585f42e25e6f6b90a633",
+        "queries/account.ts": "34d8df603c33ae2d1a8eae03ba2a2c9a8c7a9d81ed991a722f129df3d7032df7",
+        "queries/revenue.sql": "04b281c2975f1065b8bd64bbd932cbb320714c617916eb8380024b43dafb74ad",
+        "queries/order-json.ts": "3370bbfbd456292a4c706636431af5f13b0999dc2810cc1dff5a908117e235ff",
+        "queries/insert-products.ts": "e4d1b75736abdfef0b439488301d19f3a787242a8840003caf383b111b1051bc",
+        "queries/insert-pair.ts": "6641bd6460a80b26951007d04772f3a75cbaaa1f21f7d29481e9bd6b5f43414c",
+        "queries/audit.ts": "57850508011d263b4fc87f6faaf9b1e0c9768dd0e1cd04b0f57cbcb46aab22fc",
+        "queries/catalog.ts": "c6a0b6786ccb72dcf3887be1a9005f028b4a09a135adb50004c495f6e03c6257",
+        "queries/native.sql": "e6142d80f38879e8c0ba63c6e4742aa343e5dfc4b6d2fa4492afcccc83700b60",
+        "workflows/batch.ts": "021be0f745d8eb27c7075542e45c6bb770dc33d657b6493b49db575ce2f79f76",
+        "workflows/checkout.ts": "56006c5737b32350a978afd53d911f34cfa0c5b1e120aa676fa5a83acc690d32",
+        "app.ts": "95c49454c2eafd314308b289f272c078719d06f59543f938be135e17cd523dde"
+      },
+      "summary": {
+        "finiteCandidates": 8,
+        "admitted": 0,
+        "declined": 8,
+        "unavailable": 0,
+        "staticErrorCandidates": 0,
+        "incompleteFiles": 1
+      },
+      "queries": [
+        {
+          "file": "queries/account.ts",
+          "sourceDigest": "34d8df603c33ae2d1a8eae03ba2a2c9a8c7a9d81ed991a722f129df3d7032df7",
+          "complete": true,
+          "collectionDiagnostics": [],
+          "candidates": [
+            {
+              "sql": "\n  SELECT u.id, u.email, u.display_name, u.status, u.created_at,\n         t.name AS team_name, m.role\n  FROM users AS u\n  LEFT JOIN memberships AS m ON m.user_id = u.id\n  LEFT JOIN teams AS t ON t.id = m.team_id\n  WHERE u.id = @__typed_sql_1\n",
+              "sqlDigest": "9bbd2e5b93a38e889e6e416efc5ee6115cbbb75e01939836eaed37b6468818b3",
+              "parameterOccurrences": [{ "index": 1, "start": 227, "end": 241 }],
+              "logicalBindings": [0],
+              "logicalParameterCount": 1,
+              "staticColumnCount": 7,
+              "staticParameters": [
+                {
+                  "index": 1,
+                  "tsType": "bigint",
+                  "nullable": false,
+                  "databaseType": "bigint",
+                  "name": "id",
+                  "runtimeType": "bigint"
+                }
+              ],
+              "staticDiagnostics": [],
+              "admission": { "accepted": false, "reason": "sqlserver-guarded-select-scope" },
+              "nativeQualification": "not-attempted"
+            }
+          ]
+        },
+        {
+          "file": "queries/audit.ts",
+          "sourceDigest": "57850508011d263b4fc87f6faaf9b1e0c9768dd0e1cd04b0f57cbcb46aab22fc",
+          "complete": true,
+          "collectionDiagnostics": [],
+          "candidates": [
+            {
+              "sql": "\n  INSERT INTO audit_events (id, user_id, event_name, payload, created_at)\n  OUTPUT inserted.id, inserted.event_name\n  VALUES (@__typed_sql_1, @__typed_sql_2, 'catalog.imported', @__typed_sql_3, CAST(@__typed_sql_4 AS datetime2(7)))\n  \n",
+              "sqlDigest": "7ac28ffd17ef7dbc7365961d0d583919ac605083368056d12cd9c9aa1fff0855",
+              "parameterOccurrences": [
+                { "index": 1, "start": 127, "end": 141 },
+                { "index": 2, "start": 143, "end": 157 },
+                { "index": 3, "start": 179, "end": 193 },
+                { "index": 4, "start": 200, "end": 214 }
+              ],
+              "logicalBindings": [0, 1, 2, 3],
+              "logicalParameterCount": 4,
+              "staticColumnCount": 2,
+              "staticParameters": [
+                {
+                  "index": 1,
+                  "tsType": "bigint",
+                  "nullable": false,
+                  "databaseType": "bigint",
+                  "name": "id",
+                  "runtimeType": "bigint"
+                },
+                {
+                  "index": 2,
+                  "tsType": "bigint",
+                  "nullable": true,
+                  "databaseType": "bigint",
+                  "name": "user_id",
+                  "runtimeType": "bigint"
+                },
+                {
+                  "index": 3,
+                  "tsType": "string",
+                  "nullable": false,
+                  "databaseType": "nvarchar(max) COLLATE Latin1_General_100_CI_AS",
+                  "name": "payload",
+                  "runtimeType": "string"
+                },
+                {
+                  "index": 4,
+                  "tsType": "string",
+                  "nullable": true,
+                  "databaseType": "datetime2(7)",
+                  "runtimeType": "string"
+                }
+              ],
+              "staticDiagnostics": [],
+              "admission": { "accepted": false, "reason": "sqlserver-guarded-select-scope" },
+              "nativeQualification": "not-attempted"
+            }
+          ]
+        },
+        {
+          "file": "queries/catalog.ts",
+          "sourceDigest": "c6a0b6786ccb72dcf3887be1a9005f028b4a09a135adb50004c495f6e03c6257",
+          "complete": true,
+          "collectionDiagnostics": [],
+          "candidates": [
+            {
+              "sql": "\n  SELECT id, sku, title, price_cents FROM products\n  WHERE active = @__typed_sql_1 AND price_cents >= @__typed_sql_2\n  ORDER BY price_cents DESC\n",
+              "sqlDigest": "285f0598f473e285ad0b6bdb207ede3c388579c859595637dd59fd658d506c76",
+              "parameterOccurrences": [
+                { "index": 1, "start": 69, "end": 83 },
+                { "index": 2, "start": 103, "end": 117 }
+              ],
+              "logicalBindings": [0, 1],
+              "logicalParameterCount": 2,
+              "staticColumnCount": 4,
+              "staticParameters": [
+                {
+                  "index": 1,
+                  "tsType": "boolean",
+                  "nullable": false,
+                  "databaseType": "bit",
+                  "name": "active",
+                  "runtimeType": "boolean"
+                },
+                {
+                  "index": 2,
+                  "tsType": "number",
+                  "nullable": false,
+                  "databaseType": "int",
+                  "name": "price_cents",
+                  "runtimeType": "number"
+                }
+              ],
+              "staticDiagnostics": [],
+              "admission": { "accepted": false, "reason": "sqlserver-guarded-select-scope" },
+              "nativeQualification": "not-attempted"
+            },
+            {
+              "sql": "\n  UPDATE orders SET status = 'shipped', shipped_at = CAST(@__typed_sql_1 AS datetime2(7))\n  OUTPUT inserted.id, inserted.status, inserted.shipped_at\n  WHERE id = @__typed_sql_2 AND status = 'paid'\n  \n",
+              "sqlDigest": "13a1794dde12430633981aba975cec4dc8daa11e4bdec3f61d7a8150e18c330d",
+              "parameterOccurrences": [
+                { "index": 1, "start": 59, "end": 73 },
+                { "index": 2, "start": 163, "end": 177 }
+              ],
+              "logicalBindings": [0, 1],
+              "logicalParameterCount": 2,
+              "staticColumnCount": 3,
+              "staticParameters": [
+                {
+                  "index": 1,
+                  "tsType": "string",
+                  "nullable": true,
+                  "databaseType": "datetime2(7)",
+                  "runtimeType": "string"
+                },
+                {
+                  "index": 2,
+                  "tsType": "bigint",
+                  "nullable": false,
+                  "databaseType": "bigint",
+                  "name": "id",
+                  "runtimeType": "bigint"
+                }
+              ],
+              "staticDiagnostics": [],
+              "admission": { "accepted": false, "reason": "sqlserver-guarded-select-scope" },
+              "nativeQualification": "not-attempted"
+            }
+          ]
+        },
+        {
+          "file": "queries/insert-pair.ts",
+          "sourceDigest": "6641bd6460a80b26951007d04772f3a75cbaaa1f21f7d29481e9bd6b5f43414c",
+          "complete": true,
+          "collectionDiagnostics": [],
+          "candidates": [
+            {
+              "sql": "\n  INSERT INTO products (id, sku, title, price_cents, active)\n  OUTPUT inserted.id, inserted.sku, inserted.price_cents\n  VALUES (@__typed_sql_1, @__typed_sql_2, @__typed_sql_3, @__typed_sql_4, @__typed_sql_5),\n         (@__typed_sql_6, @__typed_sql_7, @__typed_sql_8, @__typed_sql_9, @__typed_sql_10)\n  \n",
+              "sqlDigest": "0fee8ccd783f9e0ac4a9402682d4d2b3d275c876ee8f6892f9576686b44d99d0",
+              "parameterOccurrences": [
+                { "index": 1, "start": 129, "end": 143 },
+                { "index": 2, "start": 145, "end": 159 },
+                { "index": 3, "start": 161, "end": 175 },
+                { "index": 4, "start": 177, "end": 191 },
+                { "index": 5, "start": 193, "end": 207 },
+                { "index": 6, "start": 220, "end": 234 },
+                { "index": 7, "start": 236, "end": 250 },
+                { "index": 8, "start": 252, "end": 266 },
+                { "index": 9, "start": 268, "end": 282 },
+                { "index": 10, "start": 284, "end": 299 }
+              ],
+              "logicalBindings": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+              "logicalParameterCount": 10,
+              "staticColumnCount": 3,
+              "staticParameters": [
+                {
+                  "index": 1,
+                  "tsType": "bigint",
+                  "nullable": false,
+                  "databaseType": "bigint",
+                  "name": "id",
+                  "runtimeType": "bigint"
+                },
+                {
+                  "index": 2,
+                  "tsType": "string",
+                  "nullable": false,
+                  "databaseType": "nvarchar(255) COLLATE Latin1_General_100_CI_AS",
+                  "name": "sku",
+                  "runtimeType": "string"
+                },
+                {
+                  "index": 3,
+                  "tsType": "string",
+                  "nullable": false,
+                  "databaseType": "nvarchar(255) COLLATE Latin1_General_100_CI_AS",
+                  "name": "title",
+                  "runtimeType": "string"
+                },
+                {
+                  "index": 4,
+                  "tsType": "number",
+                  "nullable": false,
+                  "databaseType": "int",
+                  "name": "price_cents",
+                  "runtimeType": "number"
+                },
+                {
+                  "index": 5,
+                  "tsType": "boolean",
+                  "nullable": false,
+                  "databaseType": "bit",
+                  "name": "active",
+                  "runtimeType": "boolean"
+                },
+                {
+                  "index": 6,
+                  "tsType": "bigint",
+                  "nullable": false,
+                  "databaseType": "bigint",
+                  "name": "id",
+                  "runtimeType": "bigint"
+                },
+                {
+                  "index": 7,
+                  "tsType": "string",
+                  "nullable": false,
+                  "databaseType": "nvarchar(255) COLLATE Latin1_General_100_CI_AS",
+                  "name": "sku",
+                  "runtimeType": "string"
+                },
+                {
+                  "index": 8,
+                  "tsType": "string",
+                  "nullable": false,
+                  "databaseType": "nvarchar(255) COLLATE Latin1_General_100_CI_AS",
+                  "name": "title",
+                  "runtimeType": "string"
+                },
+                {
+                  "index": 9,
+                  "tsType": "number",
+                  "nullable": false,
+                  "databaseType": "int",
+                  "name": "price_cents",
+                  "runtimeType": "number"
+                },
+                {
+                  "index": 10,
+                  "tsType": "boolean",
+                  "nullable": false,
+                  "databaseType": "bit",
+                  "name": "active",
+                  "runtimeType": "boolean"
+                }
+              ],
+              "staticDiagnostics": [],
+              "admission": { "accepted": false, "reason": "sqlserver-guarded-select-scope" },
+              "nativeQualification": "not-attempted"
+            }
+          ]
+        },
+        {
+          "file": "queries/insert-products.ts",
+          "sourceDigest": "e4d1b75736abdfef0b439488301d19f3a787242a8840003caf383b111b1051bc",
+          "complete": false,
+          "collectionDiagnostics": [
+            {
+              "code": "TSQ013",
+              "message": "Native acquisition does not establish invariance for a runtime-sized fragment list.",
+              "range": { "start": 324, "end": 576, "line": 6, "column": 10 },
+              "severity": "error"
+            }
+          ],
+          "candidates": []
+        },
+        {
+          "file": "queries/native.sql",
+          "sourceDigest": "e6142d80f38879e8c0ba63c6e4742aa343e5dfc4b6d2fa4492afcccc83700b60",
+          "complete": true,
+          "collectionDiagnostics": [],
+          "candidates": [
+            {
+              "sql": "-- name: topProducts\nSELECT TOP (@__typed_sql_1) id, sku, weight FROM products\nWHERE weight >= @__typed_sql_2 ORDER BY price_cents DESC;\n",
+              "sqlDigest": "fdd05e00f623c316e9f81588c8838b2fa5a43b037f800b344a49cc3404ef298f",
+              "parameterOccurrences": [{ "index": 1, "start": 33, "end": 47 }, { "index": 2, "start": 95, "end": 109 }],
+              "logicalBindings": [0, 1],
+              "logicalParameterCount": 2,
+              "staticColumnCount": 3,
+              "staticParameters": [
+                {
+                  "index": 1,
+                  "tsType": "bigint",
+                  "nullable": false,
+                  "databaseType": "bigint",
+                  "runtimeType": "bigint"
+                },
+                {
+                  "index": 2,
+                  "tsType": "string",
+                  "nullable": true,
+                  "databaseType": "decimal(18,6)",
+                  "name": "weight",
+                  "runtimeType": "string"
+                }
+              ],
+              "staticDiagnostics": [],
+              "admission": { "accepted": false, "reason": "sqlserver-guarded-select-scope" },
+              "nativeQualification": "not-attempted"
+            }
+          ]
+        },
+        {
+          "file": "queries/order-json.ts",
+          "sourceDigest": "3370bbfbd456292a4c706636431af5f13b0999dc2810cc1dff5a908117e235ff",
+          "complete": true,
+          "collectionDiagnostics": [],
+          "candidates": [
+            {
+              "sql": "\n  SELECT o.id, JSON_QUERY(u.profile) AS document\n  FROM orders AS o JOIN users AS u ON u.id = o.user_id\n  WHERE o.id = @__typed_sql_1\n",
+              "sqlDigest": "05079575044070dbfe29c90369cd2259a0a6443e5b50890349fdb915572cab9f",
+              "parameterOccurrences": [{ "index": 1, "start": 120, "end": 134 }],
+              "logicalBindings": [0],
+              "logicalParameterCount": 1,
+              "staticColumnCount": 2,
+              "staticParameters": [
+                {
+                  "index": 1,
+                  "tsType": "bigint",
+                  "nullable": false,
+                  "databaseType": "bigint",
+                  "name": "id",
+                  "runtimeType": "bigint"
+                }
+              ],
+              "staticDiagnostics": [],
+              "admission": { "accepted": false, "reason": "sqlserver-guarded-select-scope" },
+              "nativeQualification": "not-attempted"
+            }
+          ]
+        },
+        {
+          "file": "queries/revenue.sql",
+          "sourceDigest": "04b281c2975f1065b8bd64bbd932cbb320714c617916eb8380024b43dafb74ad",
+          "complete": true,
+          "collectionDiagnostics": [],
+          "candidates": [
+            {
+              "sql": "-- name: revenueByCustomer\nWITH paid_orders AS (\n  SELECT user_id, COUNT(*) AS order_count, SUM(total_cents) AS revenue_cents\n  FROM orders WHERE status = 'paid' GROUP BY user_id\n)\nSELECT u.id, LOWER(u.email) AS email, p.order_count, p.revenue_cents\nFROM users AS u JOIN paid_orders AS p ON p.user_id = u.id\nWHERE p.revenue_cents >= @__typed_sql_1\nORDER BY p.revenue_cents DESC;\n",
+              "sqlDigest": "300a37f40e5c085d6b3f63c26881814e7cf1700ad0e1c5cb28d481a66453856a",
+              "parameterOccurrences": [{ "index": 1, "start": 333, "end": 347 }],
+              "logicalBindings": [0],
+              "logicalParameterCount": 1,
+              "staticColumnCount": 4,
+              "staticParameters": [
+                {
+                  "index": 1,
+                  "tsType": "number",
+                  "nullable": true,
+                  "databaseType": "int",
+                  "name": "revenue_cents",
+                  "range": { "start": 92, "end": 125, "line": 3, "column": 44 },
+                  "runtimeType": "number"
+                }
+              ],
+              "staticDiagnostics": [],
+              "admission": { "accepted": false, "reason": "sqlserver-guarded-select-scope" },
+              "nativeQualification": "not-attempted"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

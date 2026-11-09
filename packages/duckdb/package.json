@@ -24,32 +24,59 @@
     "dist/**/*.map",
     "README.md",
     "LICENSE",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "DUCKDB_VOCABULARY_NOTICE"
   ],
   "publishConfig": {
     "access": "public"
   },
   "typedSql": {
-    "releaseTrack": "stable"
+    "releaseTrack": "stable",
+    "developmentEntrypoints": [
+      "./analysis",
+      "./browser",
+      "./node-api-contracts",
+      "./reconciliation",
+      "./analysis/1.5.6",
+      "./analysis/2.0.0",
+      "./analysis/core/1.5.6",
+      "./analysis/packs/1.5.6/compatibility",
+      "./analysis/core/2.0.0",
+      "./analysis/packs/2.0.0/compatibility"
+    ]
   },
   "exports": {
     ".": "./dist/packages/duckdb/src/index.js",
     "./query": "./dist/packages/duckdb/src/query.js",
     "./runtime": "./dist/packages/duckdb/src/runtime.js",
     "./node-api": "./dist/packages/duckdb/src/node-api.js",
-    "./browser": "./dist/packages/duckdb/src/browser.js"
+    "./browser": "./dist/packages/duckdb/src/browser.js",
+    "./profile": "./dist/packages/duckdb/src/profile.js",
+    "./analysis": "./dist/packages/duckdb/src/analysis.js",
+    "./node-api-contracts": "./dist/packages/duckdb/src/node-api-contracts.js",
+    "./contract-profile": "./dist/packages/duckdb/src/contract-profile.js",
+    "./reconciliation": "./dist/packages/duckdb/src/reconciliation.js",
+    "./analysis/1.5.6": "./dist/packages/duckdb/src/analysis/1.5.6.js",
+    "./analysis/2.0.0": "./dist/packages/duckdb/src/analysis/2.0.0.js",
+    "./analysis/core/1.5.6": "./dist/packages/duckdb/src/analysis/core/1.5.6.js",
+    "./analysis/packs/1.5.6/compatibility": "./dist/packages/duckdb/src/analysis/packs/1.5.6/compatibility.js",
+    "./analysis/core/2.0.0": "./dist/packages/duckdb/src/analysis/core/2.0.0.js",
+    "./analysis/packs/2.0.0/compatibility": "./dist/packages/duckdb/src/analysis/packs/2.0.0/compatibility.js"
   },
   "scripts": {
-    "test": "poku test --sequential --coverage=@pokujs/c8 --coverageConfig=.c8rc.json --reporter=compact --enforce",
+    "test": "poku test --sequential --coverage=@pokujs/c8 --coverageConfig=.c8rc.json --reporter=compact --enforce && pnpm test:native --skip-current",
     "test:soundness": "poku test/soundness.test.ts --reporter=compact --enforce",
-    "catalog:check": "node scripts/generate-catalog.mjs --check && node scripts/generate-common-types.mjs --check",
+    "catalog:check": "node scripts/generate-catalog.mjs --check && node scripts/generate-common-types.mjs --check && node --import tsx scripts/generate-offline-core.mjs --check",
     "typecheck:test": "tsc -p tsconfig.test.json",
-    "coverage": "pnpm test"
+    "coverage": "pnpm test",
+    "test:native": "node --import tsx scripts/test-native-profiles.mjs",
+    "core:generate": "node --import tsx scripts/generate-offline-core.mjs"
   },
   "dependencies": {
     "@typed-sql/ast": "workspace:*",
     "@typed-sql/core": "workspace:*",
-    "@typed-sql/schema": "workspace:*"
+    "@typed-sql/schema": "workspace:*",
+    "@typed-sql/analysis": "workspace:*"
   },
   "devDependencies": {
     "@typed-sql/conformance": "workspace:*",

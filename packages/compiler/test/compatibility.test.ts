@@ -1,7 +1,7 @@
 import { describe, it, strict } from "poku";
 import type { DialectPlugin, SchemaSnapshot } from "../../core/src/index.js";
-import { mysql } from "../../mysql/src/index.js";
-import { postgres } from "../../postgres/src/index.js";
+import { mysql } from "../../mysql/src/analysis.js";
+import { postgres } from "../../postgres/src/analysis.js";
 import { defineSchemaSnapshotV2, upgradeSchemaSnapshotV1 } from "../../schema/src/index.js";
 import {
   analyzeSchemaCompatibility,

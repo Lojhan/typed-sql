@@ -26,6 +26,7 @@ This file records maintainer and automation knowledge. Public documentation belo
 - `packages/schema`: snapshot envelope, validation, codecs, and canonical serialization.
 - `packages/config`: config discovery and validation.
 - `packages/compiler`: TypeScript project integration and generated declarations.
+- `packages/analysis`: grammar-neutral query contracts and analysis orchestration.
 - `packages/conformance`: public, grammar-neutral compatibility assertions and performance evidence.
 - `packages/postgres`, `packages/mysql`: grammar semantics and optional driver adapters.
 - `packages/cli`: introspection and generation commands.
@@ -56,6 +57,7 @@ pnpm docs:check
 pnpm docs:start
 pnpm docs:build
 pnpm e2e:sqlite-wasm
+pnpm --filter @typed-sql/duckdb test:native
 pnpm performance
 ```
 
@@ -75,12 +77,16 @@ TYPED_SQL_CONTAINER_ENGINE=podman pnpm e2e:packed
 - Assert inferred row types, ordered parameter tuples, diagnostics, and source spans together.
 - Compiler-critical packages enforce their coverage thresholds through the Poku c8 integration.
 - Package-boundary changes must keep packed-consumer, forbidden-driver, and public-API contracts
-  green.
+  green. Grammar manifests classify explicit development-only exports under
+  `typedSql.developmentEntrypoints`; other public exports participate in the packed runtime audit
+  with semantic catalogs and introspection implementations absent.
 - Performance-sensitive scanner, resolver, compiler, and query-rendering changes must satisfy
   `performance-budgets.json`. Budget overrides describe known CI classes; they do not excuse a
   regression.
 - Editor changes must verify the packaged language server and extension artifacts, not only source
   imports.
+- DuckDB package tests discover qualified SDK targets from the owner policy and package manifest.
+  Keep native versions in separate child processes; loading them together can interpose symbols.
 
 ## Documentation rules
 

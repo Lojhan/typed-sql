@@ -1,7 +1,7 @@
 import { describe, it, strict } from "poku";
 import { type SchemaSnapshot, upgradeSchemaSnapshotV1 } from "../../schema/src/index.js";
+import { resolveMySqlStatement } from "../src/compatibility-resolver.js";
 import { parseStatement } from "../src/parser/index.js";
-import { resolveMySqlStatement } from "../src/resolver.js";
 import { analyzeMySqlSemantics } from "../src/semantics.js";
 
 const schema = {

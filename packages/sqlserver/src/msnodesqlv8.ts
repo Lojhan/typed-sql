@@ -6,11 +6,7 @@ import { type ExecutionOptions, type QueryValuePlan, runControlledExecution } fr
 import type { SchemaProvider, SchemaSnapshotV2 } from "@typed-sql/schema";
 import { assertSqlServerRuntimeEvidence } from "./capabilities.js";
 import { parseSqlServerNativeType, requireSqlServerNativeType } from "./native-types.js";
-import {
-  readSqlServerServerEvidence,
-  SqlServerSchemaProvider,
-  type SqlServerSchemaProviderOptions,
-} from "./provider.js";
+import type { SqlServerSchemaProviderOptions } from "./provider-contracts.js";
 import {
   createSqlServerDatabase,
   type SqlServerConnectionLike,
@@ -22,6 +18,7 @@ import {
   type SqlServerProtocolStream,
   withSqlServerInitializationLease,
 } from "./runtime.js";
+import { readSqlServerServerEvidence } from "./server-evidence.js";
 import { sqlServerVersionSupport } from "./support.js";
 export interface SqlServerOdbcMetadata {
   readonly name: string;
@@ -559,6 +556,7 @@ export interface SqlServerOdbcSchemaProviderOptions extends SqlServerOdbcOptions
 export function sqlServerOdbc(options: SqlServerOdbcSchemaProviderOptions = {}): SchemaProvider<SchemaSnapshotV2> {
   return {
     async introspect(input) {
+      const { SqlServerSchemaProvider } = await import("./provider.js");
       const database = await createSqlServerOdbcDatabase({
         ...options,
         ...(!options.connectionString && input.url ? { connectionString: input.url } : {}),

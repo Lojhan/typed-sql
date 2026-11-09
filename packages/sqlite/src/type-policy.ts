@@ -1,5 +1,6 @@
 import type { SchemaSnapshot } from "@typed-sql/schema";
 import { type SqliteAffinity, sqliteAffinity } from "./catalog/coercions.js";
+import { sqliteAsciiFold, sqliteAsciiUpper } from "./identifier-case.js";
 
 export type { SqliteAffinity };
 export { sqliteAffinity };
@@ -19,7 +20,7 @@ export const defaultSqliteTypePolicy: SqliteTypePolicy = Object.freeze({
 });
 
 export function isKnownStrictSqliteType(databaseType: string): boolean {
-  return ["ANY", "BLOB", "INT", "INTEGER", "REAL", "TEXT"].includes(databaseType.trim().toUpperCase());
+  return ["ANY", "BLOB", "INT", "INTEGER", "REAL", "TEXT"].includes(sqliteAsciiUpper(databaseType.trim()));
 }
 
 export function isKnownSqliteType(databaseType: string): boolean {
@@ -40,7 +41,7 @@ export function mapSqliteType(
   if (!options.strict) {
     return sqliteFlexibleType(policy);
   }
-  switch (databaseType.trim().toUpperCase()) {
+  switch (sqliteAsciiUpper(databaseType.trim())) {
     case "INT":
     case "INTEGER":
       return policy.integer;
@@ -53,7 +54,7 @@ export function mapSqliteType(
     case "ANY":
       return sqliteFlexibleType(policy);
     default:
-      return options.schema?.domains?.[databaseType.toLowerCase()]?.tsType ?? policy.unknown;
+      return options.schema?.domains?.[sqliteAsciiFold(databaseType)]?.tsType ?? policy.unknown;
   }
 }
 

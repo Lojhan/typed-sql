@@ -6,7 +6,7 @@ import { resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { compileSqlFile } from "@typed-sql/compiler";
-import { SqlServerSchemaProvider, sqlserver } from "@typed-sql/sqlserver";
+import { SqlServerSchemaProvider, sqlserver } from "@typed-sql/sqlserver/analysis";
 import { createSqlServerMsnodesqlv8Database } from "@typed-sql/sqlserver/msnodesqlv8";
 import { connectSqlServerOdbc, createSqlServerOdbcDatabase } from "@typed-sql/sqlserver/odbc";
 import { sql } from "@typed-sql/sqlserver/query";

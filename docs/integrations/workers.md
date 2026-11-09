@@ -26,7 +26,7 @@ and do not call a schema provider during compilation. Select the saved snapshot 
 ```ts
 // typed-sql.config.ts
 import { defineConfig } from "@typed-sql/core";
-import { sqlite, typePolicy as defaults } from "@typed-sql/sqlite";
+import { typePolicy as defaults } from "@typed-sql/sqlite"; import { sqlite } from "@typed-sql/sqlite/analysis";
 
 const typePolicy = { ...defaults, integer: "number" as const };
 

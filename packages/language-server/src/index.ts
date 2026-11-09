@@ -4,9 +4,15 @@ import { access, readdir, readFile, stat } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { setTimeout as wait } from "node:timers/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import {
+  createLiveContractSession,
+  type LiveContractSession,
+  type LiveContractSessionStatus,
+  queryContractDigest,
+} from "@typed-sql/analysis";
 import { compileSqlFile } from "@typed-sql/compiler";
-import { fromConfig, loadConfig } from "@typed-sql/config";
-import type { SchemaSnapshot, TableSnapshot } from "@typed-sql/core";
+import { fromConfig, loadConfigSource } from "@typed-sql/config";
+import type { DialectPlugin, SchemaSnapshot, TableSnapshot } from "@typed-sql/core";
 import { loadSchemaSnapshot } from "@typed-sql/schema";
 import {
   analyzeSource,
@@ -30,6 +36,15 @@ import {
   type Position,
 } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
+import type { NativeAnalysisProgress } from "./native-progress.js";
+import {
+  type LiveEditorSessionInput,
+  prepareRecordedDocument,
+  type RecordedDocumentView,
+  recordedContractPaths,
+} from "./recorded-contracts.js";
+
+export type { NativeAnalysisProgress } from "./native-progress.js";
 
 export type {
   TypedSqlProtocolCapability,
@@ -57,6 +72,7 @@ export interface TypedSqlLanguageServerSettings {
 
 export interface TypedSqlLanguageServiceOptions {
   readonly nativeBridge?: () => TypeScriptBridge;
+  readonly onNativeAnalysisProgress?: (event: NativeAnalysisProgress) => void;
 }
 
 export const TYPED_SQL_STATUS_REQUEST = "typedSql/status";
@@ -87,8 +103,26 @@ interface DocumentAnalysis {
   readonly schemaPath: string;
   readonly schemaModified: number;
   readonly snapshot: SchemaSnapshot;
+  readonly dialect: DialectPlugin<SchemaSnapshot, unknown>;
+  readonly typePolicy: unknown;
   readonly projectFile?: string;
   readonly analysis: BridgeAnalysis;
+  readonly assertCurrent: () => Promise<void>;
+  readonly evidence?: RecordedDocumentView["evidence"];
+}
+
+function contractEvidenceText(
+  evidence: DocumentAnalysis["evidence"],
+  range?: { readonly start: number; readonly end: number },
+): string {
+  const matching = evidence?.filter((item) => !range || (item.start < range.end && item.end > range.start)) ?? [];
+  return [
+    ...new Set(
+      matching.map(
+        (item) => `Evidence: ${item.origin}. Recorded context: \`${item.contextDigest}\`; remote freshness unverified.`,
+      ),
+    ),
+  ].join("\n\n");
 }
 
 export interface TypedSqlCacheMetrics {
@@ -106,6 +140,7 @@ export interface TypedSqlLanguageServiceMetrics {
     readonly inspections: TypedSqlCacheMetrics;
   };
   readonly bridgeRestarts: number;
+  readonly analysis?: LiveContractSessionStatus;
 }
 
 interface CacheCounters {
@@ -137,6 +172,7 @@ function canonical(value: unknown): unknown {
 
 export interface CancellationLike {
   readonly isCancellationRequested: boolean;
+  onCancellationRequested?(listener: () => void): { dispose(): void };
 }
 
 function cancelled(token?: CancellationLike): void {
@@ -241,11 +277,17 @@ export class TypedSqlLanguageService {
   readonly #schemaCache = new Map<string, CachedSchema>();
   readonly #analysisCache = new Map<string, DocumentAnalysis>();
   readonly #inspectionCache = new Map<string, Promise<readonly NativeTypeInspection[] | undefined>>();
+  #contractFiles: readonly string[] = [];
   #nativeBridgePromise: Promise<TypeScriptBridge> | undefined;
   readonly #nativeBridgeFactory: () => TypeScriptBridge;
-  #configPromise: ReturnType<typeof loadConfig> | undefined;
+  #configPromise: ReturnType<typeof loadConfigSource> | undefined;
   #generation = 0;
+  #liveSession: LiveContractSession<SchemaSnapshot, unknown> | undefined;
+  #liveKey: string | undefined;
+  #closingLive = Promise.resolve();
   #bridgeRestarts = 0;
+  #nativeProgressSequence = 0;
+  readonly #onNativeAnalysisProgress: TypedSqlLanguageServiceOptions["onNativeAnalysisProgress"];
   readonly #cacheCounters = {
     schemas: { hits: 0, misses: 0, evictions: 0 },
     analyses: { hits: 0, misses: 0, evictions: 0 },
@@ -259,6 +301,7 @@ export class TypedSqlLanguageService {
   ) {
     this.#rootDirectory = resolve(rootDirectory);
     this.#settings = this.#validatedSettings(settings);
+    this.#onNativeAnalysisProgress = options.onNativeAnalysisProgress;
     this.#nativeBridgeFactory =
       options.nativeBridge ?? (() => NativePreviewTypeScriptBridge.spawn({ cwd: this.#rootDirectory }));
   }
@@ -268,9 +311,11 @@ export class TypedSqlLanguageService {
     this.#settings = this.#validatedSettings(settings);
     this.#generation += 1;
     this.#schemaCache.clear();
+    this.#contractFiles = [];
     this.#analysisCache.clear();
     this.#inspectionCache.clear();
     this.#configPromise = undefined;
+    this.#closeLive();
     this.#resetNativeBridge();
   }
 
@@ -280,19 +325,28 @@ export class TypedSqlLanguageService {
     this.#analysisCache.clear();
     this.#inspectionCache.clear();
     this.#configPromise = undefined;
+    this.#closeLive();
   }
 
   forget(uri: string): void {
+    this.#liveSession?.closeDocument(uri);
     this.#analysisCache.delete(uri);
     for (const key of this.#inspectionCache.keys()) {
       if (key.startsWith(`${uri}@`)) this.#inspectionCache.delete(key);
     }
   }
 
-  async diagnostics(document: TextDocument, token?: CancellationLike): Promise<readonly Diagnostic[]> {
-    const result = await this.#documentAnalysis(document, token);
+  async diagnostics(
+    document: TextDocument,
+    token?: CancellationLike,
+    prepared?: BridgeAnalysis,
+  ): Promise<readonly Diagnostic[]> {
+    const result = prepared
+      ? await this.#preparedDocument(document, prepared, token)
+      : await this.#documentAnalysis(document, token);
     if (result === undefined) return [];
     const raw = document.uri.endsWith(".sql") ? await this.#sql(document, result) : undefined;
+    if (prepared) await this.assertAnalysisCurrent(document, prepared);
     return (raw?.sourceDiagnostics ?? result.analysis.diagnostics).map(
       (item): Diagnostic => ({
         range: {
@@ -314,12 +368,11 @@ export class TypedSqlLanguageService {
   }
 
   async #sql(document: TextDocument, result: DocumentAnalysis) {
-    const loaded = await this.#config();
     return compileSqlFile({
       source: document.getText(),
-      dialect: loaded.config.dialect,
-      schema: loaded.config.dialect.validateSnapshot(result.snapshot),
-      typePolicy: loaded.config.typePolicy ?? loaded.config.dialect.defaultTypePolicy,
+      dialect: result.dialect,
+      schema: result.dialect.validateSnapshot(result.snapshot),
+      typePolicy: result.typePolicy,
     });
   }
 
@@ -330,8 +383,9 @@ export class TypedSqlLanguageService {
   async hover(
     document: TextDocument,
     position: { readonly line: number; readonly character: number },
+    prepared?: BridgeAnalysis,
   ): Promise<Hover | undefined> {
-    const result = await this.#documentAnalysis(document);
+    const result = prepared ? await this.#preparedDocument(document, prepared) : await this.#documentAnalysis(document);
     if (result === undefined) return undefined;
     const offset = document.offsetAt(position);
     if (document.uri.endsWith(".sql")) {
@@ -340,7 +394,12 @@ export class TypedSqlLanguageService {
       return {
         contents: {
           kind: MarkupKind.Markdown,
-          value: `**typed-sql query (project snapshot)**\n\n\`\`\`typescript\nRows: ${raw.query.rowType}\nParameters: ${raw.query.parameterType}\n\`\`\``,
+          value: [
+            `**typed-sql query (project snapshot)**\n\n\`\`\`typescript\nRows: ${raw.query.rowType}\nParameters: ${raw.query.parameterType}\n\`\`\``,
+            contractEvidenceText(result.evidence),
+          ]
+            .filter(Boolean)
+            .join("\n\n"),
         },
       };
     }
@@ -366,6 +425,7 @@ export class TypedSqlLanguageService {
           nativeType === undefined
             ? "Resolver result; native TypeScript 7 preview verification was unavailable."
             : "Verified through a temporary TypeScript 7.1 preview snapshot.",
+          contractEvidenceText(result.evidence, query.sourceRange),
         ].join("\n"),
       },
       range: {
@@ -541,16 +601,45 @@ export class TypedSqlLanguageService {
         inspections: metric(this.#inspectionCache, this.#cacheCounters.inspections),
       }),
       bridgeRestarts: this.#bridgeRestarts,
+      ...(this.#liveSession ? { analysis: this.#liveSession.status() } : {}),
     });
   }
 
   isAnalysisCurrent(document: TextDocument, analysis: BridgeAnalysis): boolean {
     return (
+      this.#analysisCache.get(document.uri)?.analysis.revision === analysis.revision &&
       analysis.identity.project?.generation === this.#generation &&
       analysis.identity.source.id === document.uri &&
       analysis.identity.source.version === document.version &&
       analysis.identity.source.hash === sha256(document.getText())
     );
+  }
+
+  async assertAnalysisCurrent(document: TextDocument, analysis: BridgeAnalysis): Promise<void> {
+    await this.#preparedDocument(document, analysis);
+  }
+
+  async #preparedDocument(
+    document: TextDocument,
+    analysis: BridgeAnalysis,
+    token?: CancellationLike,
+  ): Promise<DocumentAnalysis> {
+    cancelled(token);
+    const result = this.#analysisCache.get(document.uri);
+    const stale = (cause?: unknown): never => {
+      const error = new Error("Prepared editor inputs changed; retry analysis", { cause });
+      error.name = "AbortError";
+      throw error;
+    };
+    if (!result || !this.isAnalysisCurrent(document, analysis)) return stale();
+    try {
+      await result.assertCurrent();
+    } catch (error) {
+      return stale(error);
+    }
+    cancelled(token);
+    if (!this.isAnalysisCurrent(document, analysis)) return stale();
+    return result;
   }
 
   async debounce(token?: CancellationLike): Promise<void> {
@@ -594,7 +683,15 @@ export class TypedSqlLanguageService {
       this.#settings.schemaPath === undefined
         ? fromConfig(loaded.directory, loaded.config.schema.file)
         : this.#configuredPath(this.#settings.schemaPath);
-    return [...new Set([resolve(loaded.file), resolve(schemaPath), ...(loaded.dependencies ?? [])])];
+    return [
+      ...new Set([
+        resolve(loaded.file),
+        resolve(schemaPath),
+        ...(loaded.dependencies ?? []),
+        ...(recordedContractPaths(loaded)?.watched ?? []),
+        ...this.#contractFiles,
+      ]),
+    ];
   }
 
   async handlesWatchedFile(uri: string): Promise<boolean> {
@@ -607,7 +704,80 @@ export class TypedSqlLanguageService {
   async close(): Promise<void> {
     const bridge = await this.#nativeBridgePromise;
     this.#nativeBridgePromise = undefined;
-    await bridge?.close();
+    this.#closeLive();
+    const closed = await Promise.allSettled([bridge?.close(), this.#closingLive]);
+    const failures = closed.flatMap((value) => (value.status === "rejected" ? [value.reason] : []));
+    if (failures.length) throw new AggregateError(failures, "Editor analysis cleanup failed");
+  }
+
+  #closeLive(): void {
+    const previous = this.#liveSession;
+    this.#liveSession = undefined;
+    this.#liveKey = undefined;
+    if (previous) this.#closingLive = this.#closingLive.then(() => previous.close());
+    void this.#closingLive.catch(() => undefined);
+  }
+
+  async #prepareLive(
+    options: LiveEditorSessionInput,
+    document: TextDocument,
+    candidates: Parameters<LiveContractSession<SchemaSnapshot, unknown>["prepare"]>[0]["candidates"],
+    ranges: readonly { readonly start: number; readonly end: number }[],
+    token?: CancellationLike,
+  ) {
+    const key = queryContractDigest({
+      schema: options.schema,
+      configuration: options.configuration,
+      typePolicy: options.typePolicy ?? options.profile.defaultTypePolicy,
+    });
+    if (this.#liveKey !== key) this.#closeLive();
+    await this.#closingLive;
+    cancelled(token);
+    if (!this.#liveSession) {
+      this.#liveKey = key;
+      this.#liveSession = createLiveContractSession({
+        ...options,
+        onContextChange: () => {
+          if (this.#liveKey !== key) return;
+          this.#generation++;
+          this.#analysisCache.clear();
+          this.#inspectionCache.clear();
+        },
+      });
+    }
+    const controller = new AbortController();
+    const cancelledRequest = token?.onCancellationRequested?.(() =>
+      controller.abort(new Error("Editor request cancelled")),
+    );
+    const progress = {
+      uri: document.uri,
+      version: document.version,
+      sourceHash: sha256(document.getText()),
+      request: ++this.#nativeProgressSequence,
+      ranges: ranges.map((range) => ({ start: document.positionAt(range.start), end: document.positionAt(range.end) })),
+    };
+    const notify = (pending: boolean, completed = false) => {
+      try {
+        this.#onNativeAnalysisProgress?.({ ...progress, pending, completed });
+      } catch {
+        /* Observers cannot affect qualification. */
+      }
+    };
+    notify(true);
+    let completed = false;
+    try {
+      const result = await this.#liveSession.prepare({
+        document: document.uri,
+        version: document.version,
+        candidates,
+        signal: controller.signal,
+      });
+      completed = true;
+      return result;
+    } finally {
+      cancelledRequest?.dispose();
+      notify(false, completed);
+    }
   }
 
   async #documentAnalysis(document: TextDocument, token?: CancellationLike): Promise<DocumentAnalysis | undefined> {
@@ -615,13 +785,23 @@ export class TypedSqlLanguageService {
       cancelled(token);
       if (document.uri.startsWith("file:") === false) return undefined;
       const generation = this.#generation;
-      const loaded = await this.#config();
+      const inputFailure = (error: unknown): never => {
+        cancelled(token);
+        if (generation !== this.#generation) {
+          const stale = new Error("Editor analysis snapshot changed; retry the request");
+          stale.name = "AbortError";
+          throw stale;
+        }
+        this.forget(document.uri);
+        throw error;
+      };
+      const loaded = await this.#config().catch(inputFailure);
       if (generation !== this.#generation) continue;
       const schemaPath =
         this.#settings.schemaPath === undefined
           ? fromConfig(loaded.directory, loaded.config.schema.file)
           : this.#configuredPath(this.#settings.schemaPath);
-      const schema = await this.#schemaAt(schemaPath);
+      const schema = await this.#schemaAt(schemaPath).catch(inputFailure);
       if (generation !== this.#generation) {
         this.#schemaCache.clear();
         continue;
@@ -641,6 +821,15 @@ export class TypedSqlLanguageService {
         projectFile === undefined ? undefined : readFile(projectFile, "utf8").catch(() => undefined),
       ]);
       if (generation !== this.#generation) continue;
+      const view = await prepareRecordedDocument({
+        loaded,
+        schema: loaded.config.dialect.validateSnapshot(schema.snapshot),
+        source: document.getText(),
+        sqlFile: document.uri.endsWith(".sql"),
+        live: (options, candidates, ranges) => this.#prepareLive(options, document, candidates, ranges, token),
+      }).catch(inputFailure);
+      cancelled(token);
+      if (generation !== this.#generation) continue;
       const configHash = sha256(
         JSON.stringify(
           canonical({
@@ -650,6 +839,7 @@ export class TypedSqlLanguageService {
             projectSource,
             settings: this.#settings,
             compiler: loaded.config.compiler,
+            contracts: view.revision,
           }),
         ),
       );
@@ -664,14 +854,19 @@ export class TypedSqlLanguageService {
         cached.schemaModified === schema.modified &&
         cached.analysis.identity.source.hash === sourceHash
       ) {
-        cacheSet(this.#analysisCache, document.uri, cached, this.#maxCacheEntries(), this.#cacheCounters.analyses);
-        return cached;
+        await view.assertCurrent().catch(inputFailure);
+        cancelled(token);
+        if (generation !== this.#generation) continue;
+        this.#contractFiles = view.files ?? [];
+        const refreshed = { ...cached, assertCurrent: view.assertCurrent };
+        cacheSet(this.#analysisCache, document.uri, refreshed, this.#maxCacheEntries(), this.#cacheCounters.analyses);
+        return refreshed;
       }
       const analysis = analyzeSource(
         document.getText(),
-        loaded.config.dialect.validateSnapshot(schema.snapshot),
-        loaded.config.dialect,
-        loaded.config.typePolicy ?? loaded.config.dialect.defaultTypePolicy,
+        view.schema,
+        view.dialect,
+        loaded.config.typePolicy ?? view.dialect.defaultTypePolicy,
         {
           ...loaded.config.compiler,
           sourceId: document.uri,
@@ -691,11 +886,19 @@ export class TypedSqlLanguageService {
         configHash,
         schemaPath,
         schemaModified: schema.modified,
-        snapshot: schema.snapshot,
+        snapshot: view.schema,
+        dialect: view.dialect,
+        typePolicy: loaded.config.typePolicy ?? view.dialect.defaultTypePolicy,
         ...(projectFile === undefined ? {} : { projectFile }),
         analysis,
+        assertCurrent: view.assertCurrent,
+        ...(view.evidence ? { evidence: view.evidence } : {}),
       };
       cancelled(token);
+      await view.assertCurrent().catch(inputFailure);
+      cancelled(token);
+      if (generation !== this.#generation) continue;
+      this.#contractFiles = view.files ?? [];
       cacheSet(this.#analysisCache, document.uri, result, this.#maxCacheEntries(), this.#cacheCounters.analyses);
       return result;
     }
@@ -722,8 +925,8 @@ export class TypedSqlLanguageService {
     return this.#nativeBridgePromise;
   }
 
-  #config(): ReturnType<typeof loadConfig> {
-    this.#configPromise ??= loadConfig({
+  #config(): ReturnType<typeof loadConfigSource> {
+    this.#configPromise ??= loadConfigSource({
       cwd: this.#rootDirectory,
       ...(this.#settings.configPath === undefined ? {} : { file: this.#configuredPath(this.#settings.configPath) }),
     });

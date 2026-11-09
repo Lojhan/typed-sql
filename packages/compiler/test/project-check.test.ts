@@ -2,13 +2,92 @@ import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it, strict } from "poku";
-import { postgres } from "../../postgres/src/index.js";
-import { checkFile, checkProject } from "../src/index.js";
+import { postgres } from "../../postgres/src/analysis.js";
+import { checkFile, checkProject, compileSqlFile, SQL_FILE_DECLARATION_HEADER } from "../src/index.js";
 
 const fixture = resolve(dirname(fileURLToPath(import.meta.url)), "../../../test/fixtures/success");
 const schema = join(fixture, "schema.json");
 
 await describe("project-wide native checking", async () => {
+  await it("checks SQL asset factories in memory and rejects conflicting declarations", async () => {
+    const root = await mkdtemp(join(fixture, ".project-assets-"));
+    try {
+      const project = join(root, "tsconfig.json");
+      const asset = join(root, "lookup.sql");
+      const consumer = join(root, "consumer.ts");
+      await writeFile(
+        project,
+        JSON.stringify({
+          extends: "../tsconfig.json",
+          compilerOptions: { declarationMap: false, allowArbitraryExtensions: true },
+          files: ["consumer.ts"],
+          include: [],
+        }),
+      );
+      await writeFile(asset, "SELECT id, name FROM users WHERE id = :id");
+      const source = 'import lookup from "./lookup.sql";\nexport const query = lookup({id: 1});\n';
+      await writeFile(consumer, source);
+      const before = await readdir(root);
+      const valid = await checkProject({ project, schema, dialect: postgres() });
+      strict.equal(valid.ok, true, valid.typeScript.output);
+      strict.equal(valid.files.find(({ file }) => file === asset)?.analysis.queries.length, 1);
+      strict.deepEqual(await readdir(root), before);
+      await writeFile(consumer, source.replace("id: 1", 'id: "wrong"'));
+      const invalid = await checkProject({ project, schema, dialect: postgres() });
+      strict.equal(invalid.ok, false);
+      strict.match(invalid.typeScript.output, /consumer\.ts.*not assignable/u);
+      await writeFile(consumer, source);
+      const declaration = compileSqlFile({
+        source: await readFile(asset, "utf8"),
+        schema: postgres().validateSnapshot(JSON.parse(await readFile(schema, "utf8"))),
+        dialect: postgres(),
+      }).text;
+      await writeFile(
+        join(root, "lookup.d.sql.ts"),
+        `${SQL_FILE_DECLARATION_HEADER}${declaration}`.replaceAll("\n", "\r\n"),
+      );
+      const withGeneratedDeclaration = await checkProject({ project, schema, dialect: postgres() });
+      strict.equal(withGeneratedDeclaration.ok, true, withGeneratedDeclaration.typeScript.output);
+      // The ownership marker grants no authority to an incorrect declaration.
+      await writeFile(
+        join(root, "lookup.d.sql.ts"),
+        `${SQL_FILE_DECLARATION_HEADER}declare const stale: string; export default stale;`,
+      );
+      await strict.rejects(checkProject({ project, schema, dialect: postgres() }), /declaration conflicts/u);
+      const stale = await readFile(join(root, "lookup.d.sql.ts"), "utf8");
+      const prospective = await checkProject({
+        project,
+        schema,
+        dialect: postgres(),
+        refreshGeneratedSqlDeclarations: true,
+      });
+      strict.equal(prospective.ok, true, prospective.typeScript.output);
+      strict.equal(
+        await readFile(join(root, "lookup.d.sql.ts"), "utf8"),
+        stale,
+        "Prospective generation does not modify declarations",
+      );
+      await writeFile(consumer, source.replace("id: 1", 'id: "wrong"'));
+      const wrongProspective = await checkProject({
+        project,
+        schema,
+        dialect: postgres(),
+        refreshGeneratedSqlDeclarations: true,
+      });
+      strict.equal(wrongProspective.ok, false);
+      strict.match(wrongProspective.typeScript.output, /consumer\.ts.*not assignable/u);
+      await writeFile(consumer, source);
+      await writeFile(join(root, "lookup.d.sql.ts"), "declare const stale: string; export default stale;");
+      await strict.rejects(checkProject({ project, schema, dialect: postgres() }), /declaration conflicts/u);
+      await strict.rejects(
+        checkProject({ project, schema, dialect: postgres(), refreshGeneratedSqlDeclarations: true }),
+        /declaration conflicts/u,
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   await it("shares inferred contracts through aliases, re-exports and cross-file consumers without writing sources", async () => {
     const root = await mkdtemp(join(fixture, ".project-check-"));
     try {

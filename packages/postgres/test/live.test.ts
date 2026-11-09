@@ -1,6 +1,6 @@
 import { sql } from "@typed-sql/core";
 import { describe, it, skip, strict } from "poku";
-import { introspectPostgres } from "../src/index.js";
+import { introspectPostgres } from "../src/analysis.js";
 import { createPgDatabase } from "../src/pg.js";
 
 const connectionString = process.env.TYPED_SQL_TEST_DATABASE_URL;

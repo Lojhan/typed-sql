@@ -1,6 +1,7 @@
 import { appendFileSync } from "node:fs";
 import { defineConfig } from "@typed-sql/core";
-import { sqlserver, typePolicy } from "@typed-sql/sqlserver";
+import { typePolicy } from "@typed-sql/sqlserver";
+import { sqlserver } from "@typed-sql/sqlserver/analysis";
 import { createSqlServerOdbcDatabase } from "@typed-sql/sqlserver/odbc";
 import { createSqlServerLiveVerifier, createSqlServerPlanInspector } from "@typed-sql/sqlserver/runtime";
 import { connectionString } from "./connection.mjs";

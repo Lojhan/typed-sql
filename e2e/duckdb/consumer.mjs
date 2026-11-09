@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import * as sdk from "@duckdb/node-api";
 import { compileSqlFile } from "@typed-sql/compiler";
-import { DuckDBSchemaProvider, duckdb } from "@typed-sql/duckdb";
+import { DuckDBSchemaProvider, duckdb } from "@typed-sql/duckdb/analysis";
 import { createNodeDuckDBDatabase } from "@typed-sql/duckdb/node-api";
 import { sql } from "@typed-sql/duckdb/query";
 import { advanced } from "./advanced.mjs";

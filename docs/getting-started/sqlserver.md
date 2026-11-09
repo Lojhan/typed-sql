@@ -82,7 +82,7 @@ Create `typed-sql.config.ts`:
 
 ```ts
 import { defineConfig } from "@typed-sql/core";
-import { sqlserver, typePolicy } from "@typed-sql/sqlserver";
+import { typePolicy } from "@typed-sql/sqlserver"; import { sqlserver } from "@typed-sql/sqlserver/analysis";
 import { sqlServerOdbc } from "@typed-sql/sqlserver/odbc";
 
 export default defineConfig({
