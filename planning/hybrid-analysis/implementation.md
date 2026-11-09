@@ -1133,3 +1133,20 @@ the correct analyzer generates fresh reconciled contracts, including any newly o
 a conflict still cannot overwrite the previous durable export. Workspace types, all 21 analysis
 test files (98.57% statements, 93.10% branches, 99.46% functions), all 49 repository contract files (including packed consumers and editor
 artifacts), documentation checks and quality pass. Production package source and generated catalogs are unchanged.
+
+
+### Selected-core commerce measurements
+
+The project tool now discovers public core exports and selects exactly one using each maintained
+example snapshot's version evidence. All compiler output and offline-rule artifacts are generated
+through that core. The unmodified finite candidates are separately analyzed with the compatibility
+analyzer, with full analysis equality and both diagnostic lists recorded per digest. At source
+`1a3785d5`, all 37 candidates match: PostgreSQL 18 (7), MySQL 9.7.0 (7), SQLite 3.54.1 (7),
+SQL Server 17 (8) and DuckDB 2.0.0 (8). These are recorded example profiles, not actual server
+observations or a usage ranking. All TS modules compile; unbounded runtime-sized inserts remain
+excluded from exact contracts. No finite example candidate requires first-use native generation.
+
+The tool exports/reopens all closures and repeats the 1/10/50 identity-growth and 50/500 schema
+growth experiments. Every workload, schema and runtime bundle measurement is identical to the
+preceding generic-analyzer report. Native-qualified artifact overhead and acquisition/context/cache
+latencies remain separate unfinished measurements.

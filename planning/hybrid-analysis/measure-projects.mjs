@@ -5,6 +5,7 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { isDeepStrictEqual } from "node:util";
 import { brotliCompressSync, constants, gzipSync } from "node:zlib";
 import {
   createQueryContract,
@@ -150,13 +151,25 @@ try {
   for (const grammar of grammars) {
     const load = (entry) => import(pathToFileURL(join(root, `packages/${grammar}/src/${entry}.ts`)).href);
     const profile = one(await load("profile"), "Profile")();
-    const dialect = (await load("analysis"))[grammar]();
+    const compatibilityDialect = (await load("analysis"))[grammar]();
     const identity = one(await load("contract-profile"), "ContractIdentity")();
     const files = commerceFiles(grammar);
     const parsed = analyzeSqlFiles(grammar, files);
     if (!parsed.snapshot || parsed.problems.some((x) => x.severity === "error"))
       throw Error(`Invalid maintained commerce schema for ${grammar}`);
     const schema = profile.validateSnapshot(parsed.snapshot);
+    const manifest = JSON.parse(await readFile(join(root, "packages", grammar, "package.json"), "utf8"));
+    const evidence = schema.server?.versionKey ?? schema.version ?? "";
+    const coreEntries = Object.keys(manifest.exports)
+      .filter((entry) => /^\.\/analysis\/core(?:\/[^/]+)?$/u.test(entry))
+      .filter((entry) => {
+        const version = entry.slice("./analysis/core".length).replace(/^\//u, "");
+        return version === "" || evidence === version || evidence.startsWith(`${version}.`);
+      });
+    if (coreEntries.length !== 1) throw Error(`Expected one matching core for ${grammar}/${evidence}`);
+    const coreEntry = coreEntries[0];
+    const dialect = (await load(coreEntry.slice(2)))[grammar]();
+    dialect.validateSnapshot(schema);
     const context = {
       grammar: { id: profile.id, version: profile.grammarVersion },
       ...identity,
@@ -218,6 +231,15 @@ try {
               runtimeTemplateEligible: runtimeEligible,
               runtimeQueryCount: compiledSource?.queries.length ?? 0,
               diagnostics: [...new Set(diagnostics.map((x) => x.code))],
+              compatibilityComparison: analyzed.map(({ candidate, analysis }) => {
+                const compatibility = compatibilityDialect.analyze(candidate.sql, schema);
+                return {
+                  sqlDigest: hash(candidate.sql),
+                  identicalAnalysis: isDeepStrictEqual(analysis, compatibility),
+                  coreDiagnostics: analysis.diagnostics.map(({ code, severity }) => ({ code, severity })),
+                  compatibilityDiagnostics: compatibility.diagnostics.map(({ code, severity }) => ({ code, severity })),
+                };
+              }),
               queryFacts: analyzed.map(({ candidate, analysis }) => {
                 const plan = buildQueryValuePlan(
                   dialect,
@@ -310,10 +332,22 @@ try {
         snapshot: sizes(serializeSchemaSnapshot(expanded)),
       };
     });
-    rows.push({ grammar, schema: sizes(serializeSchemaSnapshot(schema)), coverage, workloads, schemaGrowth });
+    rows.push({
+      grammar,
+      coreEntry: `@typed-sql/${grammar}${coreEntry.slice(1)}`,
+      serverEvidence: evidence,
+      schema: sizes(serializeSchemaSnapshot(schema)),
+      coverage,
+      workloads,
+      schemaGrowth,
+    });
     console.log(
       JSON.stringify({
         grammar,
+        coreEntry,
+        identicalCompatibilityCandidates: coverage
+          .flatMap((row) => row.compatibilityComparison)
+          .filter((row) => row.identicalAnalysis).length,
         files: coverage.length,
         eligible: coverage.filter((x) => x.eligible).length,
         workloads: workloads.map(({ copies, uniqueContracts, withValuePlansBundle }) => ({
@@ -335,7 +369,9 @@ try {
       corpus:
         "Maintained commerceFiles query modules and DDL for every ledger grammar; schema comes from the same example parser used by the playground, not live introspection.",
       contracts:
-        "Actual exported/reopened offline-rule contracts. No native evidence or qualification is manufactured; this does not measure native acquisition success or latency.",
+        "Actual exported/reopened selected-core offline-rule contracts. Discover the matching public core export using each maintained snapshot's version evidence. No native evidence or qualification is manufactured; this does not measure native acquisition success or latency.",
+      comparison:
+        "The unmodified base candidates are also analyzed independently through the compatibility analyzer. Record complete analysis equality and both diagnostic lists per exact candidate; this comparison does not qualify native correctness.",
       scaling:
         "Copy 1 is the unmodified commerce workload. Copies 10/50 add SQL comments to create exact-text variants; these are synthetic identity-growth stress tests, not additional application features or production popularity.",
       runtime:

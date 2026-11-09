@@ -1,13 +1,14 @@
 {
   "formatVersion": 1,
-  "sourceRevision": "6cfc77d87db8066d80151a82253f84b0dc51173f",
+  "sourceRevision": "1a3785d5513125452f83e3e7b233687348e6fbd7",
   "nodeVersion": "v24.22.2",
   "esbuildVersion": "0.28.2",
-  "toolDigest": "f7eb9f6274ff346fa516081ff0880523d946253d9b0b9f74b14058b7e22b6f5b",
+  "toolDigest": "ab3abb097c057b711415e2f32269d6a95908f09e1c200935e548377dc4b17ec6",
   "lockfileDigest": "3dd42212226234b44678b68d5c169e8fac598db1268227bc9738e65885f198f1",
   "method": {
     "corpus": "Maintained commerceFiles query modules and DDL for every ledger grammar; schema comes from the same example parser used by the playground, not live introspection.",
-    "contracts": "Actual exported/reopened offline-rule contracts. No native evidence or qualification is manufactured; this does not measure native acquisition success or latency.",
+    "contracts": "Actual exported/reopened selected-core offline-rule contracts. Discover the matching public core export using each maintained snapshot's version evidence. No native evidence or qualification is manufactured; this does not measure native acquisition success or latency.",
+    "comparison": "The unmodified base candidates are also analyzed independently through the compatibility analyzer. Record complete analysis equality and both diagnostic lists per exact candidate; this comparison does not qualify native correctness.",
     "scaling": "Copy 1 is the unmodified commerce workload. Copies 10/50 add SQL comments to create exact-text variants; these are synthetic identity-growth stress tests, not additional application features or production popularity.",
     "runtime": "All eligible TS query exports retained; SQL assets contribute artifacts but are excluded from both runtime bundle columns. rendererOnlyBundle has original tags; withValuePlansBundle has compiler-injected plans. Neither bundle contains schema snapshots or durable contract envelopes.",
     "schemaGrowth": "Add 50/500 unused product-shaped relations, validated by each owner. This isolates compiler-input growth from query-plan/runtime growth.",
@@ -38,6 +39,8 @@
   "rows": [
     {
       "grammar": "duckdb",
+      "coreEntry": "@typed-sql/duckdb/analysis/core/2.0.0",
+      "serverEvidence": "2.0.0",
       "schema": {
         "bytes": 12583,
         "gzipBytes": 1497,
@@ -54,6 +57,14 @@
           "runtimeTemplateEligible": true,
           "runtimeQueryCount": 1,
           "diagnostics": [],
+          "compatibilityComparison": [
+            {
+              "sqlDigest": "ed21d8923fb54061176c9c8ccb21e793166ebdbb4eded957a1be218f2194fc90",
+              "identicalAnalysis": true,
+              "coreDiagnostics": [],
+              "compatibilityDiagnostics": []
+            }
+          ],
           "queryFacts": [
             {
               "sqlDigest": "ed21d8923fb54061176c9c8ccb21e793166ebdbb4eded957a1be218f2194fc90",
@@ -70,6 +81,14 @@
           "runtimeTemplateEligible": true,
           "runtimeQueryCount": 1,
           "diagnostics": [],
+          "compatibilityComparison": [
+            {
+              "sqlDigest": "de93d63c2d1649ad371f492d5c0f2fb749f230997a6a1f67fd2b3d274f79ab5c",
+              "identicalAnalysis": true,
+              "coreDiagnostics": [],
+              "compatibilityDiagnostics": []
+            }
+          ],
           "queryFacts": [
             {
               "sqlDigest": "de93d63c2d1649ad371f492d5c0f2fb749f230997a6a1f67fd2b3d274f79ab5c",
@@ -86,6 +105,20 @@
           "runtimeTemplateEligible": true,
           "runtimeQueryCount": 2,
           "diagnostics": [],
+          "compatibilityComparison": [
+            {
+              "sqlDigest": "49f3833e6eb018f238f8fe6c6339bcc8d9eaa78194047657185450855472c0b7",
+              "identicalAnalysis": true,
+              "coreDiagnostics": [],
+              "compatibilityDiagnostics": []
+            },
+            {
+              "sqlDigest": "f1562089e9b5e932eb1d4420fec957b1f24727b1e69e79e6e5bca4c2de46a6ca",
+              "identicalAnalysis": true,
+              "coreDiagnostics": [],
+              "compatibilityDiagnostics": []
+            }
+          ],
           "queryFacts": [
             {
               "sqlDigest": "49f3833e6eb018f238f8fe6c6339bcc8d9eaa78194047657185450855472c0b7",
@@ -106,6 +139,14 @@
           "runtimeTemplateEligible": true,
           "runtimeQueryCount": 1,
           "diagnostics": [],
+          "compatibilityComparison": [
+            {
+              "sqlDigest": "ed53ded62f868bd6e22024b7f3ad610e285f38d78f221b11cb36ff585f6a6ac3",
+              "identicalAnalysis": true,
+              "coreDiagnostics": [],
+              "compatibilityDiagnostics": []
+            }
+          ],
           "queryFacts": [
             {
               "sqlDigest": "ed53ded62f868bd6e22024b7f3ad610e285f38d78f221b11cb36ff585f6a6ac3",
@@ -122,6 +163,7 @@
           "runtimeTemplateEligible": true,
           "runtimeQueryCount": 1,
           "diagnostics": ["TSQ013"],
+          "compatibilityComparison": [],
           "queryFacts": []
         },
         {
@@ -133,6 +175,14 @@
           "runtimeTemplateEligible": false,
           "runtimeQueryCount": 0,
           "diagnostics": [],
+          "compatibilityComparison": [
+            {
+              "sqlDigest": "51ec793b6bec3eaf288ba8c4fa3d3d6fdb5e480901b9c0c387606a59d8183f6d",
+              "identicalAnalysis": true,
+              "coreDiagnostics": [],
+              "compatibilityDiagnostics": []
+            }
+          ],
           "queryFacts": [
             {
               "sqlDigest": "51ec793b6bec3eaf288ba8c4fa3d3d6fdb5e480901b9c0c387606a59d8183f6d",
@@ -149,6 +199,14 @@
           "runtimeTemplateEligible": true,
           "runtimeQueryCount": 1,
           "diagnostics": [],
+          "compatibilityComparison": [
+            {
+              "sqlDigest": "748fb57b38e5aff55f5931ea8de729ec0acdcba444e2a690fb0bf3b46009bbbf",
+              "identicalAnalysis": true,
+              "coreDiagnostics": [],
+              "compatibilityDiagnostics": []
+            }
+          ],
           "queryFacts": [
             {
               "sqlDigest": "748fb57b38e5aff55f5931ea8de729ec0acdcba444e2a690fb0bf3b46009bbbf",
@@ -165,6 +223,14 @@
           "runtimeTemplateEligible": false,
           "runtimeQueryCount": 0,
           "diagnostics": [],
+          "compatibilityComparison": [
+            {
+              "sqlDigest": "662af5d0b6cb3cf10f4e3fe1abcea18186c64f6fdd4ee3fba2ec0a310737988a",
+              "identicalAnalysis": true,
+              "coreDiagnostics": [],
+              "compatibilityDiagnostics": []
+            }
+          ],
           "queryFacts": [
             {
               "sqlDigest": "662af5d0b6cb3cf10f4e3fe1abcea18186c64f6fdd4ee3fba2ec0a310737988a",
@@ -357,6 +423,8 @@
     },
     {
       "grammar": "mysql",
+      "coreEntry": "@typed-sql/mysql/analysis/core/9.7",
+      "serverEvidence": "9.7.0",
       "schema": {
         "bytes": 11164,
         "gzipBytes": 1222,
@@ -373,6 +441,14 @@
           "runtimeTemplateEligible": true,
           "runtimeQueryCount": 1,
           "diagnostics": [],
+          "compatibilityComparison": [
+            {
+              "sqlDigest": "6134b8f32c6563e4b860c849d0e968af88bec642d16c372e2d86609b0504f50d",
+              "identicalAnalysis": true,
+              "coreDiagnostics": [],
+              "compatibilityDiagnostics": []
+            }
+          ],
           "queryFacts": [
             {
               "sqlDigest": "6134b8f32c6563e4b860c849d0e968af88bec642d16c372e2d86609b0504f50d",
@@ -389,6 +465,14 @@
           "runtimeTemplateEligible": true,
           "runtimeQueryCount": 1,
           "diagnostics": [],
+          "compatibilityComparison": [
+            {
+              "sqlDigest": "fb4e02e1d878417de0c8aae131b1d39f402e146dbb3ade0e1b2e910e898f57a7",
+              "identicalAnalysis": true,
+              "coreDiagnostics": [],
+              "compatibilityDiagnostics": []
+            }
+          ],
           "queryFacts": [
             {
               "sqlDigest": "fb4e02e1d878417de0c8aae131b1d39f402e146dbb3ade0e1b2e910e898f57a7",
@@ -405,6 +489,20 @@
           "runtimeTemplateEligible": true,
           "runtimeQueryCount": 2,
           "diagnostics": [],
+          "compatibilityComparison": [
+            {
+              "sqlDigest": "302cec30542eeb7c9884b3185448ea04bc718d4c40b51612c9be8870937835fd",
+              "identicalAnalysis": true,
+              "coreDiagnostics": [],
+              "compatibilityDiagnostics": []
+            },
+            {
+              "sqlDigest": "0a889c7c3b4debfdd14bd0be523ff23db02b244440e1b89f920f8ed338604aa9",
+              "identicalAnalysis": true,
+              "coreDiagnostics": [],
+              "compatibilityDiagnostics": []
+            }
+          ],
           "queryFacts": [
             {
               "sqlDigest": "302cec30542eeb7c9884b3185448ea04bc718d4c40b51612c9be8870937835fd",
@@ -425,6 +523,14 @@
           "runtimeTemplateEligible": true,
           "runtimeQueryCount": 1,
           "diagnostics": [],
+          "compatibilityComparison": [
+            {
+              "sqlDigest": "bf9867440d02c22bc5c7dbc632f0128106f5e194533f4743276cb43ff352f2e5",
+              "identicalAnalysis": true,
+              "coreDiagnostics": [],
+              "compatibilityDiagnostics": []
+            }
+          ],
           "queryFacts": [
             {
               "sqlDigest": "bf9867440d02c22bc5c7dbc632f0128106f5e194533f4743276cb43ff352f2e5",
@@ -441,6 +547,7 @@
           "runtimeTemplateEligible": true,
           "runtimeQueryCount": 1,
           "diagnostics": ["TSQ013"],
+          "compatibilityComparison": [],
           "queryFacts": []
         },
         {
@@ -452,6 +559,14 @@
           "runtimeTemplateEligible": true,
           "runtimeQueryCount": 1,
           "diagnostics": [],
+          "compatibilityComparison": [
+            {
+              "sqlDigest": "1f62680e943a1f976cf95612692f42e63611a32c5feaf968db0d1c144df2495b",
+              "identicalAnalysis": true,
+              "coreDiagnostics": [],
+              "compatibilityDiagnostics": []
+            }
+          ],
           "queryFacts": [
             {
               "sqlDigest": "1f62680e943a1f976cf95612692f42e63611a32c5feaf968db0d1c144df2495b",
@@ -468,6 +583,14 @@
           "runtimeTemplateEligible": false,
           "runtimeQueryCount": 0,
           "diagnostics": [],
+          "compatibilityComparison": [
+            {
+              "sqlDigest": "2b63c708369ee165048f3a56575b463db6d141b4a7808891da8183615c3aded0",
+              "identicalAnalysis": true,
+              "coreDiagnostics": [],
+              "compatibilityDiagnostics": []
+            }
+          ],
           "queryFacts": [
             {
               "sqlDigest": "2b63c708369ee165048f3a56575b463db6d141b4a7808891da8183615c3aded0",
@@ -660,6 +783,8 @@
     },
     {
       "grammar": "postgres",
+      "coreEntry": "@typed-sql/postgres/analysis/core/18",
+      "serverEvidence": "18",
       "schema": {
         "bytes": 11522,
         "gzipBytes": 1264,
@@ -676,6 +801,14 @@
           "runtimeTemplateEligible": true,
           "runtimeQueryCount": 1,
           "diagnostics": [],
+          "compatibilityComparison": [
+            {
+              "sqlDigest": "ed21d8923fb54061176c9c8ccb21e793166ebdbb4eded957a1be218f2194fc90",
+              "identicalAnalysis": true,
+              "coreDiagnostics": [],
+              "compatibilityDiagnostics": []
+            }
+          ],
           "queryFacts": [
             {
               "sqlDigest": "ed21d8923fb54061176c9c8ccb21e793166ebdbb4eded957a1be218f2194fc90",
@@ -692,6 +825,14 @@
           "runtimeTemplateEligible": true,
           "runtimeQueryCount": 1,
           "diagnostics": [],
+          "compatibilityComparison": [
+            {
+              "sqlDigest": "1b01d7f68b04ace4e20130a6b15ff228ba8ec98845af89c840e86b55b7f13932",
+              "identicalAnalysis": true,
+              "coreDiagnostics": [],
+              "compatibilityDiagnostics": []
+            }
+          ],
           "queryFacts": [
             {
               "sqlDigest": "1b01d7f68b04ace4e20130a6b15ff228ba8ec98845af89c840e86b55b7f13932",
@@ -708,6 +849,20 @@
           "runtimeTemplateEligible": true,
           "runtimeQueryCount": 2,
           "diagnostics": [],
+          "compatibilityComparison": [
+            {
+              "sqlDigest": "18afec7b91a04192e2d207fa6dbe54d1fb701405f5665cf4a2db7195fae64f48",
+              "identicalAnalysis": true,
+              "coreDiagnostics": [],
+              "compatibilityDiagnostics": []
+            },
+            {
+              "sqlDigest": "5fdb0b27095544b34ea92a78e6e2ff23ebd99beb34f38ca88eabcbc471bf2edf",
+              "identicalAnalysis": true,
+              "coreDiagnostics": [],
+              "compatibilityDiagnostics": []
+            }
+          ],
           "queryFacts": [
             {
               "sqlDigest": "18afec7b91a04192e2d207fa6dbe54d1fb701405f5665cf4a2db7195fae64f48",
@@ -728,6 +883,14 @@
           "runtimeTemplateEligible": true,
           "runtimeQueryCount": 1,
           "diagnostics": [],
+          "compatibilityComparison": [
+            {
+              "sqlDigest": "1c92601e7095b6a8d0647fd0f2193b17e78bc5799ff54ec2e50f519ae94f05db",
+              "identicalAnalysis": true,
+              "coreDiagnostics": [],
+              "compatibilityDiagnostics": []
+            }
+          ],
           "queryFacts": [
             {
               "sqlDigest": "1c92601e7095b6a8d0647fd0f2193b17e78bc5799ff54ec2e50f519ae94f05db",
@@ -744,6 +907,7 @@
           "runtimeTemplateEligible": true,
           "runtimeQueryCount": 1,
           "diagnostics": ["TSQ013"],
+          "compatibilityComparison": [],
           "queryFacts": []
         },
         {
@@ -755,6 +919,14 @@
           "runtimeTemplateEligible": true,
           "runtimeQueryCount": 1,
           "diagnostics": [],
+          "compatibilityComparison": [
+            {
+              "sqlDigest": "0ddff0cd316bad4bf4393eb1dcfa16b18d09df6ade69bbd35cc0151f426cd9ea",
+              "identicalAnalysis": true,
+              "coreDiagnostics": [],
+              "compatibilityDiagnostics": []
+            }
+          ],
           "queryFacts": [
             {
               "sqlDigest": "0ddff0cd316bad4bf4393eb1dcfa16b18d09df6ade69bbd35cc0151f426cd9ea",
@@ -771,6 +943,14 @@
           "runtimeTemplateEligible": false,
           "runtimeQueryCount": 0,
           "diagnostics": [],
+          "compatibilityComparison": [
+            {
+              "sqlDigest": "4d27fedf94f9bbd1893b7eddb57fb5ca180db2a2c7c67fd14d150056e721c7e8",
+              "identicalAnalysis": true,
+              "coreDiagnostics": [],
+              "compatibilityDiagnostics": []
+            }
+          ],
           "queryFacts": [
             {
               "sqlDigest": "4d27fedf94f9bbd1893b7eddb57fb5ca180db2a2c7c67fd14d150056e721c7e8",
@@ -963,6 +1143,8 @@
     },
     {
       "grammar": "sqlite",
+      "coreEntry": "@typed-sql/sqlite/analysis/core",
+      "serverEvidence": "3.54.1",
       "schema": {
         "bytes": 10469,
         "gzipBytes": 879,
@@ -979,6 +1161,14 @@
           "runtimeTemplateEligible": true,
           "runtimeQueryCount": 1,
           "diagnostics": [],
+          "compatibilityComparison": [
+            {
+              "sqlDigest": "6134b8f32c6563e4b860c849d0e968af88bec642d16c372e2d86609b0504f50d",
+              "identicalAnalysis": true,
+              "coreDiagnostics": [],
+              "compatibilityDiagnostics": []
+            }
+          ],
           "queryFacts": [
             {
               "sqlDigest": "6134b8f32c6563e4b860c849d0e968af88bec642d16c372e2d86609b0504f50d",
@@ -995,6 +1185,14 @@
           "runtimeTemplateEligible": true,
           "runtimeQueryCount": 1,
           "diagnostics": [],
+          "compatibilityComparison": [
+            {
+              "sqlDigest": "be1b2ef417d5c2bc74ff36039ce19bcdbdcd63360a2c603f1df5de0cbe432d86",
+              "identicalAnalysis": true,
+              "coreDiagnostics": [],
+              "compatibilityDiagnostics": []
+            }
+          ],
           "queryFacts": [
             {
               "sqlDigest": "be1b2ef417d5c2bc74ff36039ce19bcdbdcd63360a2c603f1df5de0cbe432d86",
@@ -1011,6 +1209,20 @@
           "runtimeTemplateEligible": true,
           "runtimeQueryCount": 2,
           "diagnostics": [],
+          "compatibilityComparison": [
+            {
+              "sqlDigest": "302cec30542eeb7c9884b3185448ea04bc718d4c40b51612c9be8870937835fd",
+              "identicalAnalysis": true,
+              "coreDiagnostics": [],
+              "compatibilityDiagnostics": []
+            },
+            {
+              "sqlDigest": "47f5c8550617384f0a2ec0d4af8f9a01d5f6c0e8abfcbf247bd3fa570a1690ea",
+              "identicalAnalysis": true,
+              "coreDiagnostics": [],
+              "compatibilityDiagnostics": []
+            }
+          ],
           "queryFacts": [
             {
               "sqlDigest": "302cec30542eeb7c9884b3185448ea04bc718d4c40b51612c9be8870937835fd",
@@ -1031,6 +1243,14 @@
           "runtimeTemplateEligible": true,
           "runtimeQueryCount": 1,
           "diagnostics": [],
+          "compatibilityComparison": [
+            {
+              "sqlDigest": "15b69fa0f4b97a02aae95e3db45758d80c6528b6da62f467985ac5c6baac6a45",
+              "identicalAnalysis": true,
+              "coreDiagnostics": [],
+              "compatibilityDiagnostics": []
+            }
+          ],
           "queryFacts": [
             {
               "sqlDigest": "15b69fa0f4b97a02aae95e3db45758d80c6528b6da62f467985ac5c6baac6a45",
@@ -1047,6 +1267,7 @@
           "runtimeTemplateEligible": true,
           "runtimeQueryCount": 1,
           "diagnostics": ["TSQ013"],
+          "compatibilityComparison": [],
           "queryFacts": []
         },
         {
@@ -1058,6 +1279,14 @@
           "runtimeTemplateEligible": true,
           "runtimeQueryCount": 1,
           "diagnostics": [],
+          "compatibilityComparison": [
+            {
+              "sqlDigest": "79675504bd9951a2798a06c4f86331d20fbabf5328c9690750010144b09b9875",
+              "identicalAnalysis": true,
+              "coreDiagnostics": [],
+              "compatibilityDiagnostics": []
+            }
+          ],
           "queryFacts": [
             {
               "sqlDigest": "79675504bd9951a2798a06c4f86331d20fbabf5328c9690750010144b09b9875",
@@ -1074,6 +1303,14 @@
           "runtimeTemplateEligible": false,
           "runtimeQueryCount": 0,
           "diagnostics": [],
+          "compatibilityComparison": [
+            {
+              "sqlDigest": "c1385569fe7cc746820edd5e1fc7ef176ab4d2e92aeed72bda83f92229872c8a",
+              "identicalAnalysis": true,
+              "coreDiagnostics": [],
+              "compatibilityDiagnostics": []
+            }
+          ],
           "queryFacts": [
             {
               "sqlDigest": "c1385569fe7cc746820edd5e1fc7ef176ab4d2e92aeed72bda83f92229872c8a",
@@ -1266,6 +1503,8 @@
     },
     {
       "grammar": "sqlserver",
+      "coreEntry": "@typed-sql/sqlserver/analysis/core",
+      "serverEvidence": "17",
       "schema": {
         "bytes": 10946,
         "gzipBytes": 1083,
@@ -1282,6 +1521,14 @@
           "runtimeTemplateEligible": true,
           "runtimeQueryCount": 1,
           "diagnostics": [],
+          "compatibilityComparison": [
+            {
+              "sqlDigest": "9bbd2e5b93a38e889e6e416efc5ee6115cbbb75e01939836eaed37b6468818b3",
+              "identicalAnalysis": true,
+              "coreDiagnostics": [],
+              "compatibilityDiagnostics": []
+            }
+          ],
           "queryFacts": [
             {
               "sqlDigest": "9bbd2e5b93a38e889e6e416efc5ee6115cbbb75e01939836eaed37b6468818b3",
@@ -1298,6 +1545,14 @@
           "runtimeTemplateEligible": true,
           "runtimeQueryCount": 1,
           "diagnostics": [],
+          "compatibilityComparison": [
+            {
+              "sqlDigest": "7ac28ffd17ef7dbc7365961d0d583919ac605083368056d12cd9c9aa1fff0855",
+              "identicalAnalysis": true,
+              "coreDiagnostics": [],
+              "compatibilityDiagnostics": []
+            }
+          ],
           "queryFacts": [
             {
               "sqlDigest": "7ac28ffd17ef7dbc7365961d0d583919ac605083368056d12cd9c9aa1fff0855",
@@ -1314,6 +1569,20 @@
           "runtimeTemplateEligible": true,
           "runtimeQueryCount": 2,
           "diagnostics": [],
+          "compatibilityComparison": [
+            {
+              "sqlDigest": "285f0598f473e285ad0b6bdb207ede3c388579c859595637dd59fd658d506c76",
+              "identicalAnalysis": true,
+              "coreDiagnostics": [],
+              "compatibilityDiagnostics": []
+            },
+            {
+              "sqlDigest": "13a1794dde12430633981aba975cec4dc8daa11e4bdec3f61d7a8150e18c330d",
+              "identicalAnalysis": true,
+              "coreDiagnostics": [],
+              "compatibilityDiagnostics": []
+            }
+          ],
           "queryFacts": [
             {
               "sqlDigest": "285f0598f473e285ad0b6bdb207ede3c388579c859595637dd59fd658d506c76",
@@ -1334,6 +1603,14 @@
           "runtimeTemplateEligible": true,
           "runtimeQueryCount": 1,
           "diagnostics": [],
+          "compatibilityComparison": [
+            {
+              "sqlDigest": "0fee8ccd783f9e0ac4a9402682d4d2b3d275c876ee8f6892f9576686b44d99d0",
+              "identicalAnalysis": true,
+              "coreDiagnostics": [],
+              "compatibilityDiagnostics": []
+            }
+          ],
           "queryFacts": [
             {
               "sqlDigest": "0fee8ccd783f9e0ac4a9402682d4d2b3d275c876ee8f6892f9576686b44d99d0",
@@ -1350,6 +1627,7 @@
           "runtimeTemplateEligible": true,
           "runtimeQueryCount": 1,
           "diagnostics": ["TSQ013"],
+          "compatibilityComparison": [],
           "queryFacts": []
         },
         {
@@ -1361,6 +1639,14 @@
           "runtimeTemplateEligible": false,
           "runtimeQueryCount": 0,
           "diagnostics": [],
+          "compatibilityComparison": [
+            {
+              "sqlDigest": "fdd05e00f623c316e9f81588c8838b2fa5a43b037f800b344a49cc3404ef298f",
+              "identicalAnalysis": true,
+              "coreDiagnostics": [],
+              "compatibilityDiagnostics": []
+            }
+          ],
           "queryFacts": [
             {
               "sqlDigest": "fdd05e00f623c316e9f81588c8838b2fa5a43b037f800b344a49cc3404ef298f",
@@ -1377,6 +1663,14 @@
           "runtimeTemplateEligible": true,
           "runtimeQueryCount": 1,
           "diagnostics": [],
+          "compatibilityComparison": [
+            {
+              "sqlDigest": "05079575044070dbfe29c90369cd2259a0a6443e5b50890349fdb915572cab9f",
+              "identicalAnalysis": true,
+              "coreDiagnostics": [],
+              "compatibilityDiagnostics": []
+            }
+          ],
           "queryFacts": [
             {
               "sqlDigest": "05079575044070dbfe29c90369cd2259a0a6443e5b50890349fdb915572cab9f",
@@ -1393,6 +1687,14 @@
           "runtimeTemplateEligible": false,
           "runtimeQueryCount": 0,
           "diagnostics": [],
+          "compatibilityComparison": [
+            {
+              "sqlDigest": "300a37f40e5c085d6b3f63c26881814e7cf1700ad0e1c5cb28d481a66453856a",
+              "identicalAnalysis": true,
+              "coreDiagnostics": [],
+              "compatibilityDiagnostics": []
+            }
+          ],
           "queryFacts": [
             {
               "sqlDigest": "300a37f40e5c085d6b3f63c26881814e7cf1700ad0e1c5cb28d481a66453856a",

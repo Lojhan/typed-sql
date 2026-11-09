@@ -1,15 +1,40 @@
 # Commerce project size and growth
 
 The [machine-readable report](./project-measurements.json) measures source revision
-`6cfc77d87db8066d80151a82253f84b0dc51173f` with Node 24.22.2 and esbuild 0.28.2. It discovers
+`1a3785d5513125452f83e3e7b233687348e6fbd7` with Node 24.22.2 and esbuild 0.28.2. It discovers
 all five grammars from the feature ledger and uses their maintained commerce example query files
-and DDL. There is no copied vendor catalog or manually maintained benchmark function list.
+and DDL. It selects the matching public core export from package metadata using each example
+snapshot's version evidence. There is no copied vendor catalog or manually maintained benchmark
+function list. All artifact and compiler results below now come from those selected cores.
 
 The base workload covers account joins, product lookup, JSON documents, revenue aggregation,
 audit writes, fixed inserts and runtime-sized inserts. SQL differs through each existing grammar's
 example. The example DDL parser supplies conservative compiler inputs; these are not complete
 live catalogs with every index/constraint or native-qualified contracts. This is a curated
 application workload, not production telemetry or a popularity ranking.
+
+## Selected-core workload coverage
+
+The original, unmodified finite candidates are independently analyzed with both the selected
+core and the compatibility analyzer. All 37 complete analysis results are identical, including
+columns, parameters, diagnostics and available semantic facts. The tool records both diagnostic
+lists and equality for each query digest. These are recorded example profiles, not fresh engine
+observations or proof for other versions.
+
+| Grammar | Selected core | Example version evidence | Identical finite analyses |
+| --- | --- | --- | ---: |
+| PostgreSQL | `analysis/core/18` | 18 | 7 / 7 |
+| MySQL | `analysis/core/9.7` | 9.7.0 | 7 / 7 |
+| SQLite | `analysis/core` | 3.54.1 | 7 / 7 |
+| SQL Server | `analysis/core` | 17 | 8 / 8 |
+| DuckDB | `analysis/core/2.0.0` | 2.0.0 | 8 / 8 |
+
+Every TypeScript query module still compiles, including the runtime-sized insert. Its rendering
+is unbounded and it remains excluded from exact-query contracts. No finite candidate in this
+workload needs first-use native generation. This is a selection regression for maintained
+application patterns; it is not evidence that arbitrary application queries work without generation.
+All measured workload payloads, schema growth and runtime bundle measurements are identical to
+the preceding compatibility-analyzer report.
 
 ## Base application bundles
 
@@ -109,10 +134,10 @@ lockfile/corpus/input hashes, minified/gzip/Brotli sizes and attribution, then r
 artifacts. It measures bytes, not acquisition latency or cache-hit performance.
 
 The [public-entry comparison](./bundle-size.md) repeats the earlier analyzer/tag/profile/frozen
-scenarios at the same revision. The published installation report remains pinned to its older
-named revision; source bundles, installed payloads, compiler inputs and runtime plans are distinct
-costs. Native-qualified project growth, production workload selection and full architecture
-acceptance remain open.
+scenarios at its independently named revision. The published installation report also identifies
+its own revision; source bundles, installed payloads, compiler inputs and runtime plans are distinct
+costs. Native-qualified project growth/latency, production workload selection and full architecture
+acceptance remain open. The maintained-workload comparison does not claim production telemetry.
 
 ## Verification
 

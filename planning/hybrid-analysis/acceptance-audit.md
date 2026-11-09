@@ -42,7 +42,7 @@ own pushed revision still requires hosted checks.
 | 19 | Partial | [Main CI at `85d25465`](https://github.com/Lojhan/typed-sql/actions/runs/42559412931) is green, including reviewed catalog fingerprints, native execution and source quality/performance. Subsequent cold-core test changes pass local packed consumers and workspace types; the final implementation revision still requires the full hosted gates. MySQL local recognition/context differences remain disclosed without local baseline acceptance. No timeout or budget increase substitutes for a fix. |
 | 20 | Scoped proof | [Reconciliation tests](../../packages/analysis/test/reconciliation.test.ts) explicitly block an apparently successful wrong mapping. [Live view tests](../../packages/analysis/test/live-view.test.ts) qualify every unique successful static candidate, persist conflicts and re-describe during explicit live checking rather than substituting a prior cached contract. |
 | 21 | Scoped proof | [Migration qualification](../../test/helpers/migration-contracts.ts) applies/replays file-backed PostgreSQL migrations, rejects missing routines/extensions and changed settings despite matching tables, exports durable reconciled inputs, drops qualification databases and invokes the separate packed network-trapped frozen consumer. This qualifies PostgreSQL 18's declared environment, not every migration/extension/engine combination. |
-| 22 | Partial | [Bundle](./bundle-size.md), [repository](./repository-size.md), [installation](./installation-measurements.json) and [commerce project](./project-size.md) reports measure distinct costs. Installation is refreshed at this audit's source. The commerce tool still measures the generic analyzer's offline-rule artifacts; selected-core workload success and native-qualified artifact payload/acquisition latency remain unmeasured. |
+| 22 | Partial | [Bundle](./bundle-size.md), [repository](./repository-size.md), [installation](./installation-measurements.json) and [commerce project](./project-size.md) reports measure distinct costs. Installation is refreshed at this audit's source. The commerce tool now discovers matching public core exports and independently compares all 37 finite base candidates with the compatibility analyzers: complete analyses and measured payloads are identical. These are selected example profiles, not production popularity or all versions. Native-qualified artifact payload/acquisition latency remain unmeasured. |
 
 ## Cross-cutting requirements still requiring proof
 
@@ -53,9 +53,11 @@ own pushed revision still requires hosted checks.
   Verify inventory-to-parser classification and quoted/unquoted contextual behavior before
   claiming specification section 3 is complete. Do not equate a discovered word with syntax support.
 - **Core selection:** current distribution retains compatibility and has measured size evidence.
-  Run the maintained application corpus against selected cores, report whole-query outcomes and
-  required first-use generation, and document selection/license/sampling limits. The corpus does
-  not establish production function popularity.
+  The maintained application corpus now runs against discovered selected-core exports: all 37
+  finite candidates have identical complete compatibility analyses and need no native generation;
+  unbounded rendering remains excluded from exact contracts. The report records example version
+  evidence and sampling limits. This does not establish production function popularity or all-version
+  workload behavior.
 - **Reusable metadata:** the project layer is optional, but its exact supported permission/type
   scope must be published per owner. PostgreSQL fixed scalars do not imply portable polymorphic,
   custom-type, table-output or argument-dependent rules.
@@ -63,7 +65,8 @@ own pushed revision still requires hosted checks.
   latency and cold/warm cache behavior on declared actual engine profiles. Refresh installation
   independently of minified application bundles; external driver/engine payload remains separate.
 
-The remaining implementation sequence is concrete: close the partial-facet composition test; establish generated vocabulary scope; measure selected-core and native
-project costs; reconcile descriptor/invalidation/profile evidence; then run the full required gates.
+The remaining implementation sequence is concrete: close the partial-facet composition test;
+establish generated vocabulary scope; measure native project costs; reconcile
+descriptor/invalidation/profile evidence; then run the full required gates.
 This ledger deliberately leaves those requirements open instead of deriving completion from test
 counts, native preparation alone, or a narrow successful sample.
