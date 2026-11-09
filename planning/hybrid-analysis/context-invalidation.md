@@ -8,7 +8,7 @@ authorization, schema or session settings to manufacture a compatible context.
 | Native profile | Authorization | Resolution environment | Semantic settings | Decoder policy | Engine boundary |
 | --- | --- | --- | --- | --- | --- |
 | PostgreSQL 18.3 | Actual principal change and permission grant reject the old context | Actual search-path change rejects the old context | Actual time-zone change rejects the old context | Actual BIGINT policy change changes type-policy/codec identities and rejects reuse | Native acquisition supports 18; other qualified grammar majors reject acquisition in the native helper. An actual engine replacement is not tested here. |
-| MySQL 8.4.11 / 9.7.2 | Actual principal, direct grant, active role and effective role grant changes reject prior context | Actual selected-database change rejects prior context | Actual time-zone change rejects prior context; changed SQL mode declines qualification | Actual BIGINT policy change changes identities and rejects reuse on both engines | Both exact engines run independently; replacement using an old context remains unverified |
+| MySQL 8.4.11 / 9.7.2 | Actual principal, direct grant, active role and effective role grant changes reject prior context | Actual selected-database change rejects prior context | Actual time-zone change rejects prior context; changed SQL mode declines qualification | Actual BIGINT policy change changes identities and rejects reuse on both engines | Actual bidirectional endpoint changes reject the old schema/environment and context on both declared stable engines; hosted execution pending |
 | DuckDB 1.5.6 / 2.0.0 | The supported owned embedded connection has no database-user authorization API; host file authorization is outside native metadata | Actual nondefault search-path mutation declines context inspection and old-context acquisition | Actual integer-division setting mutation changes the native result type and rejects prior context with unchanged compiler schema and codec policy | Actual BIGINT policy change changes identities and rejects reuse on both engines | Each engine acquires its own context and rejects the other engine's recorded context, in separate processes with the same compiler schema/policy |
 | SQLite 3.53.4, Node 24.22.2 | The supported embedded connection has no database-user authorization API; host file authorization is outside native metadata | Worker authorizer admits the main database only; arbitrary attachments/search paths are outside the profile | Owned worker forces its declared read-only settings; setting mutation is outside the worker protocol | Actual integer policy change changes identities and rejects reuse | Actual version/source/compile-option evidence is fingerprinted; engine replacement remains unverified |
 | SQL Server 14–17, ten compatibility pairs | Actual grant/revoke and distinct-login impersonation reject prior context on all ten pairs; login names and SIDs are fingerprinted | Two-part ordinary local tables only; same-principal default-schema mutation fixture is implemented, with hosted proof pending | Actual DATEFIRST mutation declines inspection and old-context acquisition on all ten pairs | Actual BIGINT policy mutation rejects prior context on all ten pairs | Each exact engine/compatibility pair runs independently; replacement using an old context remains unverified |
@@ -25,6 +25,17 @@ selected database and time zone, and checks a mismatched SQL mode. Both 8.4.11 a
 these local native assertions. Each context-change case holds compiler schema identity fixed
 and rejects the original context. The helper restores grants and drops its own role/account;
 the role name includes a backtick to exercise native metadata quoting.
+
+The [MySQL engine-boundary audit](../../test/helpers/mysql-engine-boundary.ts) creates an empty
+owned database on every stable engine declared by the owner policy, requires exact set equality
+(no missing or duplicate engine), and acquires each engine's own context. Every directed pair
+then moves the original compiler schema/context to the other actual endpoint: native attestation
+rejects the old environment. A correctly configured target adapter independently rejects the
+old context, while still acquiring its own. Both directions pass locally on 8.4.11 and 9.7.2,
+with successful removal of both owned databases. CI runs the same helper with both engine services
+and uploads a report without endpoint credentials. This tests distinct endpoints, whose instance
+and database identities also change; it does not isolate the version field or certify in-place
+upgrade behavior. The first hosted execution remains pending.
 
 MySQL native context now includes bounded direct grants, enabled roles and effective role
 grants. Role identities come from structured native metadata and are quoted separately; a

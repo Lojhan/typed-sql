@@ -469,6 +469,18 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 30
+      engine-mysql-next:
+        image: mysql:9.7.2
+        env:
+          MYSQL_ROOT_PASSWORD: typed_sql_fixture
+          MYSQL_DATABASE: typed_sql_benchmark
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd "mysqladmin ping --silent -h 127.0.0.1 -uroot --password=typed_sql_fixture"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
@@ -486,6 +498,17 @@ jobs:
       - run: pnpm e2e:packed
         env:
           TYPED_SQL_CONTAINER_ENGINE: docker
+      - name: Reject stale MySQL contexts across every stable engine
+        run: node --import tsx test/helpers/mysql-engine-boundary.ts
+        env:
+          TYPED_SQL_MYSQL_ENGINE_URIS: '["mysql://root:typed_sql_fixture@127.0.0.1:3306/typed_sql_benchmark","mysql://root:typed_sql_fixture@127.0.0.1:3307/typed_sql_benchmark"]'
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: typed-sql-mysql-engine-boundary-${{ github.run_attempt }}
+          path: artifacts/mysql/engine-boundary.json
+          if-no-files-found: warn
+          retention-days: 14
       - run: pnpm --filter @typed-sql/adapters test:postgres
         env:
           TYPED_SQL_ADAPTER_POSTGRES_URL: postgresql://postgres:typed_sql_fixture@127.0.0.1:5432/postgres
