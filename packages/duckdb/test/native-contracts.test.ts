@@ -19,6 +19,7 @@ import { createNodeDuckDBNativeContractAdapter } from "../src/node-api-contracts
 import { duckDBParameterOccurrences } from "../src/parser/parser.js";
 import { createDuckDBContractReconciler } from "../src/reconciliation.js";
 import type { DuckDBSchemaSnapshot } from "../src/snapshot.js";
+import { defaultDuckDBTypePolicy } from "../src/type-policy.js";
 import { fixtureEvidence } from "./helpers/evidence.js";
 
 const sdk: typeof import("@duckdb/node-api") = await import(
@@ -249,6 +250,23 @@ await describe("DuckDB non-executing native query contracts", async () => {
   await it("binds contracts to policy/context and rejects cancellation before native loading", async () => {
     const adapter = createNodeDuckDBNativeContractAdapter(options);
     const context = await adapter.inspectContext();
+    const otherPolicy = createNodeDuckDBNativeContractAdapter({
+      ...options,
+      typePolicy: { ...defaultDuckDBTypePolicy, bigint: "string" },
+    });
+    const changedPolicy = await otherPolicy.inspectContext();
+    strict.equal(changedPolicy.databaseContextHash, context.databaseContextHash);
+    strict.notEqual(changedPolicy.typePolicyHash, context.typePolicyHash);
+    strict.notEqual(changedPolicy.codecHash, context.codecHash);
+    strict.deepEqual(
+      await acquireNativeQueryContract({
+        adapter: otherPolicy,
+        context,
+        candidate: candidate("SELECT $1::BIGINT AS value"),
+      }),
+      { status: "unavailable", reason: "context-mismatch" },
+      "A changed decoding policy cannot reuse the old native context",
+    );
     strict.deepEqual(
       await acquireNativeQueryContract({
         adapter,

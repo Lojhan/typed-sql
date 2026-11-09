@@ -78,6 +78,12 @@ export const sqlServerContractContextQueries = Object.freeze({
   modules:
     "SELECT object_id,definition,uses_ansi_nulls,uses_quoted_identifier,is_schema_bound,execute_as_principal_id FROM sys.sql_modules ORDER BY object_id",
   principal: "SELECT name,type,usage FROM sys.user_token ORDER BY name,type,usage",
+  permissions:
+    "SELECT TOP (20001) class,major_id,minor_id,grantee_principal_id,grantor_principal_id,type,state FROM sys.database_permissions ORDER BY class,major_id,minor_id,grantee_principal_id,grantor_principal_id,type,state",
+  effectiveDatabasePermissions:
+    "SELECT entity_name,subentity_name,permission_name FROM sys.fn_my_permissions(NULL,'DATABASE') ORDER BY entity_name,subentity_name,permission_name",
+  effectiveServerPermissions:
+    "SELECT entity_name,subentity_name,permission_name FROM sys.fn_my_permissions(NULL,'SERVER') ORDER BY entity_name,subentity_name,permission_name",
 });
 /** Resolve names using the server's collation, without interpolating identifiers into SQL. */
 export const sqlServerContractRelationQuery = "SELECT OBJECT_ID(QUOTENAME(?) + N'.' + QUOTENAME(?)) AS object_id";
@@ -408,7 +414,18 @@ export function createSqlServerNativeContractAdapter(
       };
       const evidence = await attest(initialSignal);
       const catalog: Record<string, readonly Row[]> = {};
-      for (const key of ["objects", "columns", "types", "modules", "principal", "tables", "predicates"] as const) {
+      for (const key of [
+        "objects",
+        "columns",
+        "types",
+        "modules",
+        "principal",
+        "permissions",
+        "effectiveDatabasePermissions",
+        "effectiveServerPermissions",
+        "tables",
+        "predicates",
+      ] as const) {
         const rows = await all(sqlServerContractContextQueries[key], undefined, initialSignal);
         if (rows.length > (key === "columns" ? 65536 : 20000))
           throw new SqlServerContractAcquisitionError("unsupported-context");

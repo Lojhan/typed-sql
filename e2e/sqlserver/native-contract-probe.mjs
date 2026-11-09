@@ -53,6 +53,7 @@ try {
   try {
     for (const sql of [
       "CREATE TABLE dbo.records (id bigint NOT NULL, quantity int NOT NULL, amount decimal(12,2) NULL)",
+      "CREATE ROLE contract_context_audit",
       "INSERT dbo.records VALUES (1,2,3.25)",
       "CREATE VIEW dbo.record_view AS SELECT id FROM dbo.records",
       "CREATE TABLE dbo.computed_records (id bigint NOT NULL, computed AS id+1)",
@@ -89,6 +90,49 @@ try {
     assert.equal(schema.server.version, build);
     assert.equal(schema.server.settings.compatibilityLevel, compatibility);
     const adapter = createSqlServerNativeContractAdapter({ pool, schema });
+    const baselineContext = await adapter.inspectContext();
+    const changedPolicyAdapter = createSqlServerNativeContractAdapter({
+      pool,
+      schema,
+      typePolicy: { ...profile.defaultTypePolicy, bigint: "string" },
+    });
+    const changedPolicyContext = await changedPolicyAdapter.inspectContext();
+    assert.equal(changedPolicyContext.databaseContextHash, baselineContext.databaseContextHash);
+    assert.notEqual(changedPolicyContext.typePolicyHash, baselineContext.typePolicyHash);
+    assert.notEqual(changedPolicyContext.codecHash, baselineContext.codecHash);
+    assert.deepEqual(
+      await acquireNativeQueryContract({
+        adapter: changedPolicyAdapter,
+        context: baselineContext,
+        candidate: candidate("SELECT CAST(@__typed_sql_1 AS bigint) AS value", schema),
+      }),
+      { status: "unavailable", reason: "context-mismatch" },
+      "A changed BIGINT decoding policy cannot reuse the old native context",
+    );
+    evidence.cases.push({ compatibility, id: "codec-policy-context-mismatch", status: "pass" });
+    const permissionSetup = await createSqlServerOdbcDatabase({ connectionString: dsn(name) });
+    try {
+      await permissionSetup.queryable.all("GRANT SELECT ON dbo.records TO contract_context_audit");
+      const granted = await adapter.inspectContext();
+      assert.notEqual(granted.databaseContextHash, baselineContext.databaseContextHash);
+      assert.equal(granted.schemaHash, baselineContext.schemaHash);
+      assert.deepEqual(
+        await acquireNativeQueryContract({
+          adapter,
+          context: baselineContext,
+          candidate: candidate("SELECT CAST(@__typed_sql_1 AS bigint) AS value", schema),
+        }),
+        { status: "unavailable", reason: "context-mismatch" },
+        "A permission grant must retire context even when the current principal and schema are unchanged",
+      );
+      evidence.cases.push({ compatibility, id: "permission-grant-context-mismatch", status: "pass" });
+    } finally {
+      try {
+        await permissionSetup.queryable.all("REVOKE SELECT ON dbo.records FROM contract_context_audit");
+      } finally {
+        await permissionSetup.close();
+      }
+    }
     const policy = {
       mode: "native-required",
       owner: sqlServerContractReconciliationOwner,

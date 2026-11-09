@@ -23,6 +23,7 @@ import { createMySql2NativeContractAdapter } from "../../packages/mysql/src/mysq
 import { tokenize } from "../../packages/mysql/src/parser/index.js";
 import { mysqlProfile } from "../../packages/mysql/src/profile.js";
 import { createMySqlContractReconciler } from "../../packages/mysql/src/reconciliation.js";
+import { defaultMySqlTypePolicy } from "../../packages/mysql/src/type-policy.js";
 import { recordNativeCosts } from "../../planning/hybrid-analysis/measure-native.mjs";
 import { assertMySqlTableContracts } from "./mysql-table-contracts.js";
 import { assertMySqlVocabulary } from "./mysql-vocabulary.js";
@@ -57,6 +58,24 @@ export async function assertMySqlNativeContracts(connectionUri: string): Promise
     if (schema.formatVersion !== 2) throw new Error("The native fixture requires a versioned schema");
     const adapter = createMySql2NativeContractAdapter({ connectionUri, schema });
     const context = await adapter.inspectContext();
+    const changedPolicyAdapter = createMySql2NativeContractAdapter({
+      connectionUri,
+      schema,
+      typePolicy: { ...defaultMySqlTypePolicy, bigint: "string" },
+    });
+    const changedPolicy = await changedPolicyAdapter.inspectContext();
+    strict.equal(changedPolicy.databaseContextHash, context.databaseContextHash);
+    strict.notEqual(changedPolicy.typePolicyHash, context.typePolicyHash);
+    strict.notEqual(changedPolicy.codecHash, context.codecHash);
+    strict.deepEqual(
+      await acquireNativeQueryContract({
+        adapter: changedPolicyAdapter,
+        context,
+        candidate: candidate("SELECT CAST(? AS SIGNED) AS value"),
+      }),
+      { status: "unavailable", reason: "context-mismatch" },
+      "A changed BIGINT decoding policy cannot reuse the old native context",
+    );
     strict.deepEqual(
       await adapter.inspectContext(),
       context,

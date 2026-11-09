@@ -186,6 +186,27 @@ function tableFixture() {
 }
 
 await describe("guarded SQL Server contract acquisition", async () => {
+  await it("retires contexts when explicit or effective permissions change", async () => {
+    for (const key of ["permissions", "effectiveDatabasePermissions", "effectiveServerPermissions"] as const) {
+      const f = fixture();
+      const adapter = createSqlServerNativeContractAdapter({ pool: f.pool, schema });
+      const before = await adapter.inspectContext();
+      f.catalog[sqlServerContractContextQueries[key]] = [{ permission_name: "SELECT", state: "G" }];
+      const after = await adapter.inspectContext();
+      strict.notEqual(after.databaseContextHash, before.databaseContextHash, key);
+      strict.equal(after.schemaHash, before.schemaHash);
+      strict.deepEqual(await acquireNativeQueryContract({ adapter, context: before, candidate: candidate() }), {
+        status: "unavailable",
+        reason: "context-mismatch",
+      });
+    }
+    const f = fixture();
+    f.catalog[sqlServerContractContextQueries.permissions] = Array.from({ length: 20001 }, () => ({}));
+    await strict.rejects(
+      createSqlServerNativeContractAdapter({ pool: f.pool, schema }).inspectContext(),
+      /unsupported-context/u,
+    );
+  });
   await it("keeps the owned ODBC adapter lazy and sanitizes a failed native connection", async () => {
     let imports = 0;
     const adapter = createSqlServerOdbcNativeContractAdapter({

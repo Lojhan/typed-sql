@@ -46,6 +46,7 @@ import { type RoutineSnapshot, upgradeSchemaSnapshotV1 } from "../../packages/sc
 import { recordNativeCosts } from "../../planning/hybrid-analysis/measure-native.mjs";
 import { assertIsolatedPostgresContractConsumer } from "./frozen-contract-consumer.js";
 import { assertInheritedPostgresContracts } from "./inherited-postgres-contracts.js";
+import { assertPostgresContextMutations } from "./postgres-context-mutations.js";
 import { assertPostgresTableContracts } from "./postgres-table-contracts.js";
 import { assertPostgresVocabulary } from "./postgres-vocabulary.js";
 import { ProtocolClient } from "./protocol-client.js";
@@ -81,6 +82,7 @@ export async function assertPostgresNativeContracts(connectionString: string, di
     await pool.query(
       `CREATE TABLE ${namespace}.calls (count integer NOT NULL); INSERT INTO ${namespace}.calls VALUES (0)`,
     );
+    await assertPostgresContextMutations(pool, schema, namespace);
     await pool.query(
       `CREATE FUNCTION ${namespace}.increment(value bigint) RETURNS bigint LANGUAGE plpgsql AS $$BEGIN UPDATE ${namespace}.calls SET count = count + 1; RETURN value + 1; END$$`,
     );

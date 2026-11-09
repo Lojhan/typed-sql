@@ -1621,3 +1621,38 @@ The refreshed report preserves all 16 cost profiles and distinguishes their revi
 types, the focused aggregation regression, all 51 repository contracts and source quality pass.
 This closes an evidence-retention gap, not the remaining authorization/search-path/codec/engine
 mutation matrix or application-workload scaling requirement.
+
+## Context mutation proof and SQL Server permission identity
+
+The [per-profile invalidation matrix](./context-invalidation.md) now separates actual native
+mutations, guarded/rejected environments and gaps that remain unverified. PostgreSQL's real
+18.3 helper changes the current principal, an explicit permission grant, search path and time
+zone while keeping the compiler schema fixed. Each changes native context and rejects acquisition
+under the prior identity. Its codec-policy case keeps native database identity fixed and checks
+the type-policy/codec hashes plus rejected reuse.
+
+Actual policy-isolation regressions also pass on MySQL 8.4.11/9.7.2, SQLite 3.53.4 and DuckDB
+1.5.6/2.0.0. The complete PostgreSQL and both MySQL native helpers pass. SQL Server now has
+equivalent hosted BIGINT-policy cases for all ten compatibility pairs, awaiting execution.
+
+Source review found that SQL Server's fingerprint included principal tokens but did not
+explicitly include permission grants. It now captures a bounded explicit database permission
+inventory plus effective database/server permissions. Unit controls mutate each evidence set,
+reject reuse and reject overlarge inventories. A new hosted regression grants SELECT to an
+otherwise unrelated database role, holds the current principal/schema fixed, rejects the prior
+context and then revokes the grant. The native adapter identity advances to v3 and old SQL
+Server native contracts require regeneration. Native grant/revoke qualification remains pending.
+
+Local validation passes root types, clean full build, 26 SQL Server package test files with
+enforced coverage, all 51 repository contract files, all nine soundness files, source quality
+and isolated unchanged performance budgets. SQL Server coverage is 96.94% statements / 91.80%
+branches / 95.65% functions. No performance budget or timeout is increased.
+
+The preceding parser-integration [run at `3f25039d`](https://github.com/Lojhan/typed-sql/actions/runs/42594179077)
+passes all four SQL Server engine jobs and completes the source tests. Its source job fails
+the final editor edit-storm performance assertion at 15.26 ms against the unchanged hosted
+15 ms limit; this is not a green aggregate or a claimed performance fix. Its manual upstream
+reference refresh separately fails on HTTP 403 from the MySQL documentation endpoint, and the
+optional MySQL canary remains unqualified. Fresh qualification must evaluate the current code
+and capture version 2 SQL Server facet records. Scenario 8's remaining applicable mutation
+classes, workload scaling and final measurements are still open.

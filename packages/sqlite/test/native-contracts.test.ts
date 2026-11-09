@@ -81,9 +81,21 @@ await describe("SQLite owned read-only native query contracts", async () => {
   }
   await it("executes the recorded storage domains through the same integer and binding policy", async () => {
     await temporary(async (path) => {
+      const baseline = await createNodeSqliteNativeContractAdapter({ path, schema }).inspectContext();
       for (const integer of ["bigint", "number"] as const) {
         const policy = { ...defaultSqliteTypePolicy, integer };
         const adapter = createNodeSqliteNativeContractAdapter({ path, schema, typePolicy: policy });
+        const selected = await adapter.inspectContext();
+        strict.equal(selected.databaseContextHash, baseline.databaseContextHash);
+        if (integer !== defaultSqliteTypePolicy.integer) {
+          strict.notEqual(selected.typePolicyHash, baseline.typePolicyHash);
+          strict.notEqual(selected.codecHash, baseline.codecHash, "Integer decoding changes codec identity");
+          strict.deepEqual(
+            await acquireNativeQueryContract({ adapter, context: baseline, candidate: candidate("SELECT ? AS value") }),
+            { status: "unavailable", reason: "context-mismatch" },
+            "A changed integer policy cannot reuse the old native context",
+          );
+        }
         const text =
           "SELECT ? AS integer_value, ? AS text_value, ? AS bytes_value, ? AS boolean_value, ? AS null_value, ? AS real_value";
         const result = await acquireNativeQueryContract({
