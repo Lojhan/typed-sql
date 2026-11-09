@@ -2030,3 +2030,33 @@ restored exactly. Root types, all 53 repository contracts, source-generation reg
 quality pass. SQL Server's inventory review and remaining family/policy/invalidation boundaries
 keep the full acceptance audit open. Production package code is unchanged by this stage;
 existing bundle/installation/project reports retain their declared measurement pins.
+
+
+## Reviewed MySQL mode boundaries and SQL Server collector
+
+The [full aggregate at `847fe773`](https://github.com/Lojhan/typed-sql/actions/runs/42628562585)
+passes every required gate, including the separate PostgreSQL native/developer files, MySQL
+constructor audit, reviewed SQLite descriptors, packed/editor/source gates and unchanged
+performance budgets. The optional MySQL canary remains transport-unqualified. All six supported
+MySQL engine/mode captures identify merge producer `0141c90e1bc8e544d36f1c0e14210619a2278523`;
+the collector hashes match Git. Their constructor, schema dimension, native field and outcome
+facts agree within each engine; mode strings still identify separate fingerprints. Default-mode
+fingerprints match the actual local captures. The seven reviewed records include an explicitly
+unqualified canary observation, never a native support grant.
+
+MySQL integration now requires the reviewed exact-engine/SQL-mode count, policy and semantic
+digest. Explicit CLI capture remains separate from `--check` and never updates approved data.
+Both supported local gates pass; a deliberate fingerprint mutation fails on the actual engine,
+then approved bytes are restored exactly. The new gate needs its own hosted run.
+
+SQL Server now has a standalone sys.types-driven collector wired into all four engine jobs
+and all ten compatibility pairs. Builtin aliases and CLR names remain in discovery, followed by
+bare casts, empty table declarations and modifier controls. Independent metadata gates native
+comparison; rejected/unavailable witnesses are retained without pretending to qualify a family.
+Successful acquisitions compare actual IDs/dimensions/collation/XML facets. Artifacts preserve
+partial progress, exact runtime/driver/build identities and owned-database cleanup. Pure tests
+establish unknown-name discovery and fail-closed malformed/error classification; they are not
+native SQL Server qualification. No local engine is available. Hosted captures, review and an
+approved per-pair drift gate remain pending. These requirements remain in acceptance scenario 17.
+Root typechecking, all 53 repository contract files, source regressions and quality pass. No
+application package behavior or performance budgets change in this stage.

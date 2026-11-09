@@ -193,10 +193,41 @@ observations are retained separately and are not parser/analyzer coverage percen
 
 Both owners' isolated integration files pass locally on PostgreSQL 18.6 and MySQL 8.4.11 with
 unchanged deadlines. MySQL native capture runs in its own fixture file, and all supported engine/
-SQL-mode CI jobs upload detailed JSON. Hosted review, approved mode-specific drift fingerprints,
-further modifier/policy controls and source-vs-semantic qualification remain pending. These are
+SQL-mode CI jobs upload detailed JSON. All six supported engine/mode collectors pass [main CI at `847fe773`](https://github.com/Lojhan/typed-sql/actions/runs/42628562585). Their constructor, independent schema, wire-field and outcome facts match the corresponding default-mode captures; fingerprints still bind each exact SQL mode. Default-mode facts also match local captures. The reviewed [MySQL fingerprints](../../grammar/mysql/qualification/native-descriptors.json) retain those six profiles plus explicitly unqualified canary observations. Captures identify merge producer `0141c90e1bc8e544d36f1c0e14210619a2278523`; collector hashes match Git blobs. Normal integration now checks the reviewed constructor count, qualification policy, outcomes and digest; explicit capture without `--check` does not change the approved data. Both local approved gates pass, and a deliberate changed fingerprint fails. The gate itself still requires hosted qualification. Further modifier/policy controls and source-vs-semantic qualification remain pending. These are
 acquisition observations rather than universal type/function semantics or workload qualification.
+
+## SQL Server inventory collector awaiting native qualification
+
+The [SQL Server collector](../../e2e/sqlserver/descriptor-probe.mjs) discovers builtin type names,
+IDs, dimensions, collation and CLR classification from `sys.types` on each of the ten declared
+engine/compatibility pairs. It never filters discovery through the host's known-type list.
+Bare NULL/cast and parameter probes complement empty table declarations and concrete modifier
+controls. Table probes expose aliases/opaque families even when a bare CAST is invalid. New
+source names receive probes automatically; unknown or malformed catalog layouts fail validation.
+
+Independent parameter/result metadata comes from `sp_describe_undeclared_parameters` and
+`dm_exec_describe_first_result_set`. Candidate text is bound as metadata-API input, never executed
+or supplied sample application values. A probe without independent metadata is recorded as
+not attempted by the adapter; its failure does not prove a whole family unsupported. Successful
+native acquisitions must agree on shape, type IDs, dimensions, XML collection IDs and collation.
+Async statement guards can still decline an ordinary-looking relation with unsupported types.
+
+The standalone qualification step records exact build, compatibility, server settings, default
+policy, installed ODBC package, runtime and both collector/helper content hashes. Field records
+are factored by digest. Semantic fingerprints normalize only the owned database name and inline
+field references to avoid random database names changing otherwise identical facts. Partial
+runs retain their active declaration/probe and cleanup status. Unknown server diagnostics,
+permissions, resource failures and transport failures fail the audit; recognized statement and
+metadata-unavailability diagnostics remain distinct. The owned database is dropped before final
+publication, and failed cleanup prevents success.
+
+Pure regressions establish automatic inclusion of an unknown type/CLR name and rejection of
+malformed/duplicate catalogs and misclassified availability errors. Syntax, typechecking,
+repository contracts and quality pass. This is **collector implementation evidence only**:
+there is no local SQL Server engine, no native observations from this new collector yet, and no
+approved per-pair fingerprint. The required four hosted engine jobs now execute the collector
+and retain detailed artifacts. Exact-version observations, review and a drift gate remain open.
 
 ## Remaining owners
 
-SQL Server still needs a reconciled descriptor-family availability review beyond the representative [16-profile facet report](./native-costs.md). PostgreSQL still requires additional class/policy controls. SQLite's new reviewed gate requires hosted qualification, and MySQL's initial source/native inventory requires hosted mode-specific review and a drift gate. Existing real/native unit and packed tests remain evidence for their declared invocations. They do not substitute for independent inventory-driven family accounting. In particular, SQLite storage domains are not arbitrary-expression result types, MySQL modifiers/parameter authority can be partial, PostgreSQL custom/domain/polymorphic bindings need separate rules, and SQL Server opaque/custom/XML/collation facets can be unavailable. Acceptance scenario 17 remains open.
+SQL Server's new collector still needs actual observations and a reconciled descriptor-family availability review beyond the representative [16-profile facet report](./native-costs.md). PostgreSQL still requires additional class/policy controls. SQLite's reviewed gate passes the latest full aggregate. MySQL's hosted mode observations are reviewed and its new drift gate requires hosted qualification. Existing real/native unit and packed tests remain evidence for their declared invocations. They do not substitute for independent inventory-driven family accounting. In particular, SQLite storage domains are not arbitrary-expression result types, MySQL modifiers/parameter authority can be partial, PostgreSQL custom/domain/polymorphic bindings need separate rules, and SQL Server opaque/custom/XML/collation facets can be unavailable. Acceptance scenario 17 remains open.
