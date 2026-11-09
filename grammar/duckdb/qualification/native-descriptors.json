@@ -1,0 +1,56 @@
+{
+  "formatVersion": 1,
+  "scope": "Reviewed native-observation fingerprints for the default policy. Namespace duplication, host environment and capture revision are excluded from semantic comparison. These are descriptor observations, not universal SQL or function-semantic coverage.",
+  "engines": {
+    "1.5.6": {
+      "observationDigest": "d380d9f4d93b2d2010d9f50f8b87109b7d18a5e917b4c1a3799c1a95447bd425",
+      "policy": {
+        "bigint": "bigint",
+        "decimal": "string",
+        "temporal": "string",
+        "json": "string",
+        "enums": "string-union",
+        "unknown": "unknown"
+      },
+      "catalogNames": 83,
+      "counts": {
+        "acquired": 165,
+        "declined": 20,
+        "unavailable": 1
+      },
+      "capture": {
+        "sourceRevision": "f44f49ad1c5d2c9d361e1b8d24dc396044e0fe18",
+        "toolDigest": "bc3ef188b4775b91269346128b5ce8700eba9e36702991c605b558b5a8b1709b",
+        "sdkVersion": "1.5.6-r.2",
+        "node": "v24.22.2",
+        "platform": "darwin",
+        "architecture": "arm64"
+      }
+    },
+    "2.0.0": {
+      "observationDigest": "8f698655e102cbe12c51cc0341a9ac8fb74345c6fb562bf956c7540adffef506",
+      "policy": {
+        "bigint": "bigint",
+        "decimal": "string",
+        "temporal": "string",
+        "json": "string",
+        "enums": "string-union",
+        "unknown": "unknown"
+      },
+      "catalogNames": 84,
+      "counts": {
+        "acquired": 165,
+        "declined": 22,
+        "unavailable": 1
+      },
+      "capture": {
+        "sourceRevision": "f44f49ad1c5d2c9d361e1b8d24dc396044e0fe18",
+        "toolDigest": "bc3ef188b4775b91269346128b5ce8700eba9e36702991c605b558b5a8b1709b",
+        "sdkVersion": "2.0.0-r.1",
+        "node": "v24.22.2",
+        "platform": "darwin",
+        "architecture": "arm64"
+      }
+    }
+  }
+}

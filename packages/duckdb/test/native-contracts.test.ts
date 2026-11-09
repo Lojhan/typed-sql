@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -47,6 +47,20 @@ await describe("DuckDB non-executing native query contracts", async () => {
     strict.equal(
       report.observations.filter(({ origin }) => origin === "catalog-bare-type").length,
       report.inventory.length * 2,
+    );
+    const reviewed = JSON.parse(
+      await readFile(new URL("../../../grammar/duckdb/qualification/native-descriptors.json", import.meta.url), "utf8"),
+    );
+    const expected = reviewed.engines[sdk.version().replace(/^v/u, "")];
+    strict.equal(reviewed.formatVersion, 1);
+    strict.ok(expected, "Every qualified engine needs reviewed descriptor observations");
+    strict.deepEqual(report.policy, expected.policy);
+    strict.equal(report.inventory.length, expected.catalogNames);
+    strict.deepEqual(report.counts, expected.counts);
+    strict.equal(
+      report.observationDigest,
+      expected.observationDigest,
+      "Native descriptor facts changed; review the captured evidence rather than accepting new gaps",
     );
   });
   await it("matches complete pinned keyword inventories and source-owned identifier contexts", async () => {

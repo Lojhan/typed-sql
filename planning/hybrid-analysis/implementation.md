@@ -1891,3 +1891,31 @@ provide a large performance margin. The optional MySQL canary remains unqualifie
 refresh and root quality integration still need their own current-head aggregate after publication.
 Local quality/docs checks pass; a deliberately stale derived table fails `--check` and exact
 restoration passes. No native services are loaded by that check.
+
+## Inventory-driven DuckDB descriptor audit
+
+The [descriptor-family review](./descriptor-families.md) adds live type discovery independent of
+the source alias map. Both exact engines probe every internal type spelling as output and input,
+retaining namespace locations and requiring agreement before grouping duplicate names. Concrete
+controls cover all modeled kinds through a TypeScript-exhaustive record, with exact native
+logical-tree/modifier and runtime-policy comparisons. They use NULL/typed parameters without
+candidate execution, binding or sample application values. Detailed JSON is captured in CI;
+reviewed semantic fingerprints exclude host/provenance noise while retaining every name,
+classification, SQL probe, outcome and field descriptor.
+
+The audit exposes six missing common scalar aliases. Actual catalogs agree on their canonical
+types on both engines, and actual output/parameter acquisitions confirm them after the fix.
+Only those six offline type observations change on each reference target; restoring their
+prior classifications reproduces the entire previous reference baseline. No new reference
+gaps are accepted and recognition remains labelled semantics-unverified. The native adapter
+advances to v4 and reconciliation owner to v3; old captured DuckDB contracts need regeneration.
+
+Committed producer `f44f49ad1c5d2c9d361e1b8d24dc396044e0fe18` captures 83/84 internal spellings
+and 244/316 namespace rows on 1.5.6/2.0.0. Each engine acquires 73 bare output descriptors,
+72 bare parameter descriptors and all ten output/input constructed controls: 165 acquisitions
+per profile. The NULL-typed input remains unavailable; bare parametric/pseudo names are not
+misreported as unsupported entire families. Exact SDK package versions and collector Git
+hashes are retained. Native suites compare fresh facts with the reviewed fingerprints rather
+than silently accepting drift. Root types, both native suites, full DuckDB coverage, all 53
+repository contracts and local quality pass. Other owners and descriptor-policy/class gaps
+remain open; this is not a complete five-grammar capability certificate.
