@@ -1,7 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { describe, it, strict } from "poku";
+import { digest } from "../../scripts/vocabulary/common.mjs";
 import { parseSqlServerVocabulary } from "../../scripts/vocabulary/sqlserver.mjs";
+import { sqlServerNativePermissions } from "../../scripts/vocabulary/sqlserver-policy.mjs";
 import { auditSqlServerVocabulary, sqlServerVocabularyCases } from "../../scripts/vocabulary/sqlserver-probes.mjs";
+import { reconcileSqlServerVocabulary } from "../../scripts/vocabulary/sqlserver-review.mjs";
 
 const facts = {
   formatVersion: 1,
@@ -18,6 +21,7 @@ interface NativeVocabularyRow {
   probe_id: number;
   column_ordinal: number | null;
   error_number: number | null;
+  error_type?: number | null;
   name: string | null;
 }
 const expectedRows = (ids: number[]): NativeVocabularyRow[] =>
@@ -29,6 +33,131 @@ const expectedRows = (ids: number[]): NativeVocabularyRow[] =>
   }));
 
 await describe("source vocabulary extraction and native audit boundaries", async () => {
+  await it("requires complete native scopes, pinned producers and every word/context before reconciliation", () => {
+    const producerDigest = `sha256:${"0".repeat(64)}`;
+    const artifact = {
+      major: 17,
+      expectedBuild: "17.0.1.1",
+      profiles: [
+        {
+          compatibilityLevel: 160,
+          server: { version: "17.0.1.1", compatibility_level: 160 },
+          vocabulary: {
+            formatVersion: 1,
+            status: "source-mismatch",
+            major: 17,
+            compatibilityLevel: 160,
+            sourceDigest: "source",
+            wordsDigest: "words",
+            toolDigest: producerDigest,
+            contexts: cases.slice(0, 8).map((item: { role: string }) => item.role),
+            declarations: 2,
+            probes: 16,
+            permissions: [
+              ["ordinary", 255],
+              ["select", 255],
+            ],
+          },
+        },
+      ],
+    };
+    const review = (value: typeof artifact, duplicate = false) =>
+      reconcileSqlServerVocabulary({
+        facts: { ...facts, profiles: [{ ...facts.profiles[0], compatibilityLevels: [160] }] },
+        sourceRevision: "0".repeat(40),
+        run: "1",
+        producerDigest,
+        reports: Array.from({ length: duplicate ? 2 : 1 }, () => ({
+          file: "catalog-17.json",
+          bytes: Buffer.from(JSON.stringify(value)),
+        })),
+      });
+    strict.deepEqual(review(artifact).common, [["select", 255]]);
+    const mutations: ((value: typeof artifact) => void)[] = [
+      (value) => {
+        value.profiles = [];
+      },
+      (value) => {
+        value.profiles[0]!.vocabulary.toolDigest = `sha256:${"1".repeat(64)}`;
+      },
+      (value) => {
+        value.profiles[0]!.vocabulary.status = "native-unavailable";
+      },
+      (value) => {
+        value.profiles[0]!.vocabulary.probes--;
+      },
+      (value) => {
+        value.profiles[0]!.vocabulary.permissions.pop();
+      },
+      (value) => {
+        value.profiles[0]!.vocabulary.permissions[0]![0] = "foreign";
+      },
+      (value) => {
+        value.profiles[0]!.vocabulary.permissions[0]![1] = 0;
+      },
+      (value) => {
+        value.profiles[0]!.server.version = "17.0.2.2";
+      },
+      (value) => {
+        value.profiles[0]!.vocabulary.sourceDigest = "changed";
+      },
+      (value) => {
+        value.profiles[0]!.vocabulary.contexts.reverse();
+      },
+    ];
+    for (const mutate of mutations) {
+      const changed = structuredClone(artifact);
+      mutate(changed);
+      strict.throws(() => review(changed));
+    }
+    strict.throws(() => review(artifact, true));
+  });
+  await it("applies reviewed native deltas without hiding original source disagreements", async () => {
+    const qualification = {
+      formatVersion: 1,
+      contexts: cases.slice(0, 8).map((item: { role: string }) => item.role),
+      common: [["select", 255]],
+      profiles: [
+        {
+          major: 17,
+          compatibilityLevel: 160,
+          sourceDigest: "source",
+          wordsDigest: "words",
+          permissionsDigest: digest(
+            JSON.stringify([
+              ["ordinary", 255],
+              ["select", 255],
+            ]),
+          ),
+          overrides: [],
+        },
+      ],
+    };
+    strict.equal(sqlServerNativePermissions(facts, qualification, 17, 160).get("select"), 255);
+    const report = await auditSqlServerVocabulary(
+      {
+        all: async (sql: string) => {
+          const ids = [...sql.matchAll(/\((\d+),N'/gu)].map((match) => Number(match[1]));
+          return expectedRows(ids).map((row) => ({ ...row, error_number: null }));
+        },
+      },
+      17,
+      160,
+      { facts, qualification },
+    );
+    strict.equal(report.status, "matched");
+    strict.equal(report.mismatches.length, 0);
+    strict.equal(report.sourceMismatches.length, 7);
+    strict.match(report.qualificationDigest ?? "", /^sha256:[a-f0-9]{64}$/u);
+    for (const changed of [
+      { ...qualification, common: [["undeclared", 255]] },
+      { ...qualification, common: [["select", -1]] },
+      { ...qualification, common: [["select", 64]] },
+      { ...qualification, profiles: [{ ...qualification.profiles[0], sourceDigest: "changed" }] },
+      { ...qualification, profiles: [{ ...qualification.profiles[0], overrides: [["select", 64]] }] },
+    ])
+      strict.throws(() => sqlServerNativePermissions(facts, changed, 17, 160));
+  });
   await it("retains declared reservation separately from contextual words and non-word constants", () => {
     const common = 'tokens {\nSelect="select"; Identifier;\n}\n';
     const parser = `identifier returns [Identifier result]\n : tId:Identifier { Use(tId); } | tQuoted:QuotedIdentifier { Use(tQuoted); };\nclass TSql170LexerInternal extends Lexer("TSqlLexerBaseInternal");\noptions {caseSensitive=false;caseSensitiveLiterals=false;importVocab=TSql;}\ntokens {\nPivot="pivot";\n}\n`;
@@ -212,6 +341,23 @@ await describe("source vocabulary extraction and native audit boundaries", async
     const denied = await auditSqlServerVocabulary(client(true), 17, 160, { facts });
     strict.equal(denied.status, "native-unavailable");
     strict.equal(denied.mismatches[0]?.accepted, null);
+  });
+  await it("keeps native metadata limitations distinct from syntax or binding rejection", async () => {
+    const report = await auditSqlServerVocabulary(
+      {
+        all: async (sql: string) => {
+          const ids = [...sql.matchAll(/\((\d+),N'/gu)].map((match) => Number(match[1]));
+          return expectedRows(ids).map((row) =>
+            row.probe_id === 8 ? { ...row, error_number: 11514, error_type: 4 } : row,
+          );
+        },
+      },
+      17,
+      160,
+      { facts },
+    );
+    strict.equal(report.status, "native-unavailable");
+    strict.equal(report.mismatches[0]?.accepted, null);
   });
   await it("discovers every supported engine and compatibility pair in pinned SQL Server evidence", async () => {
     const { SQLSERVER_LANGUAGE_SUPPORT } = await import("../../packages/sqlserver/src/support.js");

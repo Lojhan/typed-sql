@@ -116,6 +116,15 @@ reservation class and contextual usage where the authority establishes them. `SE
 `select` share an unquoted keyword identity; quoted identifiers and grammar-specific comparison
 rules remain distinct. Do not apply universal Unicode folding or normalize executable SQL text.
 
+Keep upstream parser declarations separate from observed engine permissions. An external parser
+can classify a spelling differently from the engine, and contextual name restrictions can depend
+on compatibility settings. Generate native context probes from the complete independent inventory,
+retain source disagreements, and reconcile reviewed deltas under their exact engine/profile scope.
+Persist the source, producer and artifact digests with the context ordering. A later audit checks
+both the reviewed policy and its differences from upstream; missing or indeterminate evidence
+cannot become a successful comparison. Normal generation and checking reuse these inputs offline.
+Identifier-context observations do not establish complete syntax or function result semantics.
+
 Vocabulary coverage is separate from syntax coverage. The core must recognize generic function
 calls without an enumerated function-name allowlist, but special forms such as casts, conditional
 expressions and table-producing syntax require their own supported grammar productions.

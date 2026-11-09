@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 import { SQLSERVER_LANGUAGE_SUPPORT } from "../packages/sqlserver/src/support.ts";
 import { digest, factorKeywords, formatGenerated, lockedSource } from "./vocabulary/common.mjs";
 import { parseSqlServerVocabulary } from "./vocabulary/sqlserver.mjs";
+import { sqlServerNativePermissions } from "./vocabulary/sqlserver-policy.mjs";
+import { sqlServerVocabularyCases } from "./vocabulary/sqlserver-probes.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url)),
   input = join(root, "grammar/sqlserver/vocabulary");
@@ -96,6 +98,17 @@ for (const profile of facts.profiles) {
 }
 if (check)
   assert.equal(await readFile(target, "utf8"), formatGenerated(root, "facts.json", JSON.stringify(facts)).toString());
+const qualification = JSON.parse(await readFile(join(input, "qualification.json"), "utf8"));
+assert.deepEqual(
+  qualification.contexts,
+  sqlServerVocabularyCases([["ordinary", null]]).map((item) => item.role),
+);
+assert.deepEqual(
+  qualification.profiles.map((profile) => `${profile.major}/${profile.compatibilityLevel}`),
+  facts.profiles.flatMap((profile) => profile.compatibilityLevels.map((level) => `${profile.major}/${level}`)),
+);
+for (const profile of qualification.profiles)
+  sqlServerNativePermissions(facts, qualification, profile.major, profile.compatibilityLevel);
 console.log(
   `SQL Server source vocabulary: ${facts.profiles.length} engine profiles, ${facts.profiles.reduce((sum, profile) => sum + profile.compatibilityLevels.length, 0)} compatibility contexts; ${facts.common.length} shared words, ${facts.profiles.reduce((sum, profile) => sum + profile.words.length, 0)} profile-specific rows. Source declarations require native qualification.`,
 );

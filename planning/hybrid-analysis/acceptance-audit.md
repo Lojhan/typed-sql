@@ -75,8 +75,10 @@ its required supported-engine native profiles. The optional canary remains unqua
   also independently qualify 991 versioned expression labels, with selected-core name/type
   assertions. DuckDB integration passes [main CI at `a1673bbb`](https://github.com/Lojhan/typed-sql/actions/runs/42585766197).
   SQL Server now has pinned source token/context declarations for four engines and a generated
-  native description audit across all ten compatibility pairs. Native reconciliation and host
-  parser consumption remain unfinished. This audit
+  native description audit across all ten compatibility pairs. The `24cbc659` artifacts complete
+  all 151,120 cases and expose three shared source deltas plus a 17/170 reservation delta;
+  reviewed policy data retains those differences and all provenance. The stricter native reader
+  requires fresh hosted qualification. Host parser consumption remains unfinished. This audit
   has not established that every grammar/profile's
   complete authoritative reservation/context inventory is generated and consumed correctly.
   Verify inventory-to-parser classification and quoted/unquoted contextual behavior before

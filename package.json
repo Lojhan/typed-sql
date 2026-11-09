@@ -95,7 +95,8 @@
     "duckdb:vocabulary:check": "pnpm duckdb:vocabulary:generate --check",
     "sqlserver:vocabulary:generate": "node --import tsx scripts/generate-sqlserver-vocabulary.mjs",
     "sqlserver:vocabulary:refresh": "pnpm sqlserver:vocabulary:generate --refresh",
-    "sqlserver:vocabulary:check": "pnpm sqlserver:vocabulary:generate --check"
+    "sqlserver:vocabulary:check": "pnpm sqlserver:vocabulary:generate --check",
+    "sqlserver:vocabulary:reconcile": "node scripts/reconcile-sqlserver-vocabulary.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.3",

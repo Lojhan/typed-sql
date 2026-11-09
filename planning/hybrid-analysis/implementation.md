@@ -1516,3 +1516,41 @@ Focused fault controls now cover multiple errors, denied metadata, successful in
 re-description and an ambiguous response that remains unavailable after re-description. Root
 types and quality pass. Production grammar behavior is unchanged; native source reconciliation
 and SQL Server parser integration still require actual completed matrix evidence.
+
+
+## SQL Server complete native source reconciliation
+
+The response-shape follow-up at `24cbc659` completes all 151,120 word/context descriptions
+across the ten exact engine/compatibility pairs in
+[run 42588817146](https://github.com/Lojhan/typed-sql/actions/runs/42588817146). Each pair
+records 15,112 cases; the 14/140 observation takes about 1.3 seconds using 237 batches. No
+candidate executes. The aggregate remains red because the new audit correctly exposes source
+disagreements; it is not represented as a green PR qualification.
+
+Nine comparisons differ from ScriptDOM on each of the first nine native scopes: STOPLIST is
+accepted in the seven unquoted identifier contexts despite its external lexer declaration,
+and XMLNAMESPACES / CHANGE_TRACKING_CONTEXT are rejected as unquoted CTE names. The 17/170
+profile additionally rejects REGEXP_LIKE in all seven unquoted contexts. Earlier compatibility
+levels on the same engine permit that identifier. All bracket-delimited CTE probes pass.
+
+`sqlserver:vocabulary:reconcile` reads complete catalog artifacts, checks the producer against
+its committed source, verifies source/word digests, exact native versions and every required
+engine/compatibility pair, and requires every word/context permission. The resulting small
+`qualification.json` retains four artifact digests, three shared deltas and one scoped delta.
+Its original producer is `24cbc659`; the artifact paths below reproduce the reviewed import:
+
+```sh
+pnpm sqlserver:vocabulary:reconcile 24cbc659ab875d3e46c177183b8ed33f964f1619 42588817146 /path/to/downloaded-artifacts/*/catalog-*.json
+```
+
+The native auditor now checks reviewed engine permissions while preserving the original source
+disagreements separately. Source changes retire the reviewed policy; a stale policy cannot
+produce a matching qualification. Native metadata limitations remain unavailable, while definite
+syntax/binding errors can establish rejection. Native error types are captured explicitly rather
+than treating every metadata limitation as a syntax failure. This stricter reader requires fresh
+hosted qualification. Runtime/parser consumption is the next integration step.
+
+Fault controls reject missing native scopes, wrong producer/source identities, incomplete probes,
+missing/foreign words, invalid permission masks, wrong native versions, changed context ordering,
+duplicate profiles, mutated reviewed permissions and unavailable metadata. The reviewed data
+qualifies identifier contexts only and never generates a function result rule.
