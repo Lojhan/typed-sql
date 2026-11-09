@@ -5,9 +5,9 @@ type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ?
 type Assert<T extends true> = T;
 
 const query = sql`
-  SELECT user.id, user.name, user.age::BIGINT AS age
-  FROM users AS user
-  LEFT JOIN ages AS age ON user.id = age.user_id
+  SELECT usr_.id, usr_.name, usr_.age::BIGINT AS age
+  FROM users AS usr_
+  LEFT JOIN ages AS age ON usr_.id = age.user_id
 `;
 
 async function verify(): Promise<void> {

@@ -14,7 +14,7 @@ const configFile = join(workspaceDirectory, "e2e", "postgres", "typed-sql.config
 const projectFile = join(fixtureDirectory, "tsconfig.json");
 const source = `
   import { sql } from "@typed-sql/postgres";
-  const query = sql\`SELECT user.id, user.name FROM users AS user\`;
+  const query = sql\`SELECT usr_.id, usr_.name FROM users AS usr_\`;
 `;
 
 function document(name: string, text = source, version = 1): TextDocument {
@@ -67,7 +67,7 @@ await describe("typed-sql language service", async () => {
 
   await it("provides schema-aware SQL completion and snapshot definitions", async () => {
     const current = document("completion.ts");
-    const qualifierOffset = source.indexOf("user.name") + "user.".length;
+    const qualifierOffset = source.indexOf("usr_.name") + "usr_.".length;
     const completions = await service.completions(current, positionAt(source, qualifierOffset));
     strict.deepStrictEqual(completions.map((item) => item.label).sort(), ["age", "id", "name"]);
     strict.ok(completions.find((item) => item.label === "age")?.detail?.includes("nullable"));
@@ -79,7 +79,7 @@ await describe("typed-sql language service", async () => {
     const dynamicSource = [
       'import { sql } from "@typed-sql/postgres";',
       'const users = "users";',
-      "const query = sql`SELECT user.id FROM users AS user WHERE user.name = ${users}`;",
+      "const query = sql`SELECT usr_.id FROM users AS usr_ WHERE usr_.name = ${users}`;",
     ].join("\n");
     const dynamic = document("dynamic-navigation.ts", dynamicSource);
     const dynamicOffset = dynamicSource.lastIndexOf("users") + 1;
@@ -88,7 +88,7 @@ await describe("typed-sql language service", async () => {
   });
 
   await it("returns preferred safe spelling fixes from resolver suggestions", async () => {
-    const text = source.replace("user.name", "user.nam");
+    const text = source.replace("usr_.name", "usr_.nam");
     const current = document("fix.ts", text);
     const diagnostics = await service.diagnostics(current);
     const unknown = diagnostics.find((diagnostic) => diagnostic.code === "TSQ101");
@@ -105,10 +105,10 @@ await describe("typed-sql language service", async () => {
       "interface Selection { readonly name: boolean }",
       "interface Filters { readonly name?: string | null }",
       "function users(select: Selection, filters: Filters) {",
-      "  return querySql`SELECT user.id",
-      "    ${select.name ? `, user.name` : querySql.empty}",
-      "    FROM users AS user WHERE user.name <> ${hostile}",
-      "    ${filters.name == null ? querySql.empty : `AND user.name = ${filters.name}`}`;",
+      "  return querySql`SELECT usr_.id",
+      "    ${select.name ? `, usr_.name` : querySql.empty}",
+      "    FROM users AS usr_ WHERE usr_.name <> ${hostile}",
+      "    ${filters.name == null ? querySql.empty : `AND usr_.name = ${filters.name}`}`;",
       "}",
     ].join("\n");
     const current = document("fragment-fix.ts", text);
@@ -116,7 +116,7 @@ await describe("typed-sql language service", async () => {
     strict.strictEqual(diagnostics.length, 2);
     strict.deepStrictEqual(
       diagnostics.map(({ range }) => current.getText(range)),
-      ["`, user.name`", "`AND user.name = ${filters.name}`"],
+      ["`, usr_.name`", "`AND usr_.name = ${filters.name}`"],
     );
 
     const edits = [];
@@ -140,7 +140,7 @@ await describe("typed-sql language service", async () => {
     strict.deepStrictEqual(await service.diagnostics(updated), []);
     const analysis = await service.analysis(updated);
     strict.ok(analysis?.transformedSource.includes("querySql.fragment<readonly [string]>") === true);
-    strict.ok(fixed.includes("user.name <> ${hostile}"));
+    strict.ok(fixed.includes("usr_.name <> ${hostile}"));
 
     const malformed = {
       ...diagnostics[0]!,

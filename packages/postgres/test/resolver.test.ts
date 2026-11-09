@@ -51,9 +51,9 @@ const v2Schema = (() => {
 await describe("query resolver", async () => {
   await it("infers the acceptance row and cast policy", async () => {
     const statement = parseSelect(`
-      SELECT user.id, user.name, user.age::BIGINT AS age
-      FROM users AS user
-      LEFT JOIN ages AS age ON user.id = age.user_id
+      SELECT usr_.id, usr_.name, usr_.age::BIGINT AS age
+      FROM users AS usr_
+      LEFT JOIN ages AS age ON usr_.id = age.user_id
     `);
     const result = resolveSelect(statement, schema);
     strict.deepStrictEqual(result.diagnostics, []);
