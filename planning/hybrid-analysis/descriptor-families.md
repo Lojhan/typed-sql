@@ -296,7 +296,12 @@ The [contract tests](../../test/contracts/native-descriptor-facets.test.ts) exer
 type/policy/outcome names and negative accounting controls. Local replay covers 8,774 observations
 across 28 captured profiles (including explicitly unqualified profiles); this is evidence-shape
 accounting, not new native acquisition or semantic qualification. Fresh collectors still require
-their own reviewed native gates.
+their own reviewed native gates. Committed producer `5278e8d8a541bc93bdefe2c70238f0e3c7bb4b56`
+passes seven fresh local captures: PostgreSQL 18.3/18.6, MySQL 8.4.11/9.7.2, DuckDB 1.5.6/2.0.0
+and SQLite 3.53.4 under its four policies. They account for 2,372 observations with unchanged
+reviewed semantic fingerprints. Every collector hash and facet-tool hash matches its Git blob;
+recomputation equals the emitted summary. The PostgreSQL 18.6 native/editor file also passes in
+97.32 seconds. Fresh SQL Server facet emission remains pending hosted qualification.
 
 ## Capability boundaries used for acceptance
 
