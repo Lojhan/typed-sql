@@ -1,6 +1,6 @@
 {
   "formatVersion": 1,
-  "sourceRevision": "eab41d13786c985ed5b5afeeb078e9041adcab2e",
+  "sourceRevision": "26d9aa7b690b43e6e641e65d3f3281c922f7faed",
   "measurementToolDigest": "f17df587bd2d41a1906a1695dde0ee3b0a150442a143a5b79ada281b18c653e4",
   "method": {
     "scope": "All Git-tracked files at exact revisions; no working-tree, build-output or installed-package files.",
@@ -701,12 +701,12 @@
       ]
     },
     "current": {
-      "revision": "eab41d13786c985ed5b5afeeb078e9041adcab2e",
+      "revision": "26d9aa7b690b43e6e641e65d3f3281c922f7faed",
       "totals": {
-        "files": 2092,
-        "bytes": 52619061,
-        "lines": 539640,
-        "maintainedCodeLines": 260970,
+        "files": 2113,
+        "bytes": 52800524,
+        "lines": 543169,
+        "maintainedCodeLines": 262802,
         "generatedCodeLines": 33245
       },
       "categories": {
@@ -718,9 +718,9 @@
           "generatedCodeLines": 4082
         },
         "auditFixtureAndReportData": {
-          "files": 46,
-          "bytes": 24800780,
-          "lines": 131218,
+          "files": 53,
+          "bytes": 24867137,
+          "lines": 132550,
           "maintainedCodeLines": 0,
           "generatedCodeLines": 0
         },
@@ -733,15 +733,15 @@
         },
         "configurationAndOtherData": {
           "files": 198,
-          "bytes": 2730598,
-          "lines": 83664,
+          "bytes": 2732978,
+          "lines": 83710,
           "maintainedCodeLines": 0,
           "generatedCodeLines": 0
         },
         "documentation": {
           "files": 262,
-          "bytes": 1987498,
-          "lines": 27876,
+          "bytes": 2017599,
+          "lines": 28195,
           "maintainedCodeLines": 0,
           "generatedCodeLines": 0
         },
@@ -767,17 +767,17 @@
           "generatedCodeLines": 29163
         },
         "testSource": {
-          "files": 563,
-          "bytes": 4804989,
-          "lines": 111071,
-          "maintainedCodeLines": 111071,
+          "files": 571,
+          "bytes": 4870924,
+          "lines": 112542,
+          "maintainedCodeLines": 112542,
           "generatedCodeLines": 0
         },
         "toolingSource": {
-          "files": 84,
-          "bytes": 475240,
-          "lines": 11095,
-          "maintainedCodeLines": 11095,
+          "files": 90,
+          "bytes": 491930,
+          "lines": 11456,
+          "maintainedCodeLines": 11456,
           "generatedCodeLines": 0
         }
       },
@@ -1062,22 +1062,22 @@
       "physicalLineDeltaMatchesGitDiff": true
     },
     "currentProposal": {
-      "netTrackedLines": 82382,
-      "netMaintainedCodeLines": 43326,
+      "netTrackedLines": 85911,
+      "netMaintainedCodeLines": 45158,
       "netGeneratedCodeLines": 5724,
-      "shortstat": "798 files changed, 99566 insertions(+), 17184 deletions(-)",
-      "additions": 99566,
-      "deletions": 17184,
+      "shortstat": "819 files changed, 103346 insertions(+), 17435 deletions(-)",
+      "additions": 103346,
+      "deletions": 17435,
       "binaryChanges": 0,
       "physicalLineDeltaMatchesGitDiff": true
     },
     "directionChange": {
-      "netTrackedLines": -336469,
-      "netMaintainedCodeLines": 13265,
+      "netTrackedLines": -332940,
+      "netMaintainedCodeLines": 15097,
       "netGeneratedCodeLines": 29163,
-      "shortstat": "783 files changed, 134291 insertions(+), 470760 deletions(-)",
-      "additions": 134291,
-      "deletions": 470760,
+      "shortstat": "804 files changed, 138074 insertions(+), 471014 deletions(-)",
+      "additions": 138074,
+      "deletions": 471014,
       "binaryChanges": 0,
       "physicalLineDeltaMatchesGitDiff": true
     }

@@ -2060,3 +2060,40 @@ native SQL Server qualification. No local engine is available. Hosted captures, 
 approved per-pair drift gate remain pending. These requirements remain in acceptance scenario 17.
 Root typechecking, all 53 repository contract files, source regressions and quality pass. No
 application package behavior or performance budgets change in this stage.
+
+
+## Reviewed SQL Server descriptors and actual context boundaries
+
+The SQL Server descriptor review binds every exact build/compatibility pair to its independent
+catalog discovery, cases, outcomes and field fingerprint. Source provenance for producer
+`17e85eb2e9690119453b416af46d5eca9524902c` is verified against both Git blobs. Normal hosted
+qualification uses `--check`; capture mode never updates reviewed data. All ten gates pass
+[run 42637006229](https://github.com/Lojhan/typed-sql/actions/runs/42637006229). Deliberately changed
+fingerprints fail on replay of each actual hosted engine report. Partial, declined and unavailable
+outcomes remain restrictions, including bare vector, CLR/alias guards and sql_variant parameters.
+
+The same run proves all ten actual default-schema mutations under a fixed non-sysadmin login,
+with unchanged compiler schema/codec and user/login facts. Old contexts reject; new contexts
+acquire; owned schema changes and logins are cleaned up. Context controls record bounded retries
+only for classified opening-guard races and preserve the original supplied stale context.
+
+The MySQL engine-boundary helper discovers the required engine set from owner policy and tests
+every directed pair against actual endpoints. Committed producer `26d9aa7b` passes both 8.4.11 /
+9.7.2 directions locally, acquires each own context and removes both owned databases. Its collector
+hash matches Git. A deliberate duplicate-engine configuration fails set coverage and still
+cleans up. Required packed-database CI now includes both services and uploads the bounded report.
+This is endpoint-change evidence, not in-place upgrade certification or version-only isolation.
+Hosted execution of this new helper remains pending.
+
+Bundle, installation, repository and offline project measurements are refreshed at `26d9aa7b`.
+There are 332,940 fewer tracked lines than the discarded exhaustive proposal. The measured diff
+against base is +103,346 / -17,435; maintained package source is +15,279 and generated package
+source +5,724. Tests, tooling, audit data and documentation remain separate categories. Production
+package code is unchanged by these audit stages, and measured bundle/payload bytes are unchanged.
+
+The current aggregate is not green: PostgreSQL 18.6 watch regeneration reports generic
+live-runner-error, and SQL Server 17 later fails its packed editor project initialization.
+Source quality and unchanged performance checks pass. A targeted PostgreSQL local native run
+passes in 98.8 seconds; temporary diagnostics are restored exactly. This does not resolve either
+hosted failure. Both remain in acceptance scenario 19, alongside the remaining declared-profile
+invalidation and descriptor-capability accounting rather than being hidden by successful audits.
