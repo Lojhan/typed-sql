@@ -16,7 +16,7 @@
     "api:check": "poku test/contracts/public-api.test.ts --reporter=compact --enforce",
     "changeset": "changeset",
     "verify": "pnpm quality && pnpm test && pnpm build && pnpm docs:build && pnpm performance:gate",
-    "quality": "pnpm duckdb:vocabulary:check && pnpm mysql:vocabulary:check && pnpm sqlite:vocabulary:check && pnpm postgres:vocabulary:check && pnpm audit:language:check && biome check .",
+    "quality": "pnpm sqlserver:vocabulary:check && pnpm duckdb:vocabulary:check && pnpm mysql:vocabulary:check && pnpm sqlite:vocabulary:check && pnpm postgres:vocabulary:check && pnpm audit:language:check && biome check .",
     "audit:language": "tsx --tsconfig scripts/language-audit/tsconfig.json scripts/language-audit/run.ts",
     "audit:language:check": "pnpm audit:language check",
     "audit:language:refresh": "pnpm audit:language refresh",
@@ -92,7 +92,10 @@
     "mysql:vocabulary:check": "pnpm mysql:vocabulary:generate --check",
     "duckdb:vocabulary:generate": "node scripts/generate-duckdb-vocabulary.mjs",
     "duckdb:vocabulary:refresh": "pnpm duckdb:vocabulary:generate --refresh",
-    "duckdb:vocabulary:check": "pnpm duckdb:vocabulary:generate --check"
+    "duckdb:vocabulary:check": "pnpm duckdb:vocabulary:generate --check",
+    "sqlserver:vocabulary:generate": "node --import tsx scripts/generate-sqlserver-vocabulary.mjs",
+    "sqlserver:vocabulary:refresh": "pnpm sqlserver:vocabulary:generate --refresh",
+    "sqlserver:vocabulary:check": "pnpm sqlserver:vocabulary:generate --check"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.3",

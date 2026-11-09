@@ -11,9 +11,10 @@ export const formatGenerated = (root, name, body) =>
     input: body,
   });
 /** Only explicit refresh operations call this helper; owners validate exact repository/revision URLs. */
-export async function lockedSource(root, pin) {
+export async function lockedSource(root, pin, maximumBytes = 1024 * 1024) {
   assert.match(pin.digest, /^sha256:[a-f0-9]{64}$/u);
-  assert.ok(Number.isSafeInteger(pin.bytes) && pin.bytes > 0 && pin.bytes < 1024 * 1024);
+  assert.ok(Number.isSafeInteger(maximumBytes) && maximumBytes > 0 && maximumBytes <= 4 * 1024 * 1024);
+  assert.ok(Number.isSafeInteger(pin.bytes) && pin.bytes > 0 && pin.bytes < maximumBytes);
   const path = join(root, "node_modules/.cache/typed-sql-vocabulary", pin.digest.slice(7));
   let bytes;
   try {

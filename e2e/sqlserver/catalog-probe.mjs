@@ -5,6 +5,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { compileSqlFile } from "@typed-sql/compiler";
 import { SqlServerSchemaProvider, sqlserver } from "@typed-sql/sqlserver/analysis";
 import { createSqlServerOdbcDatabase } from "@typed-sql/sqlserver/odbc";
+import { auditSqlServerVocabulary } from "../../scripts/vocabulary/sqlserver-probes.mjs";
 
 // This probe never changes an application database. Every compatibility profile gets
 // a unique disposable database; all grants/denials belong to its WITHOUT LOGIN user.
@@ -959,6 +960,13 @@ try {
       assert.equal(integer(native.compatibility_level), compatibilityLevel);
       assert.equal(native.database_name, database);
       profile.server = native;
+      const vocabularyStarted = Date.now();
+      profile.vocabulary = {
+        ...(await auditSqlServerVocabulary(db.queryable, major, compatibilityLevel)),
+        durationMs: Date.now() - vocabularyStarted,
+      };
+      if (profile.vocabulary.status !== "matched")
+        failures.push(`${compatibilityLevel}: source/native vocabulary requires reconciliation`);
       for (const [name, operation] of [
         ["aliases/defaults/rules/generated/rowversion", aliases],
         ["futureonly", futureOnly],

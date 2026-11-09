@@ -1447,3 +1447,50 @@ against the existing hosted 20 ms limit. That failed aggregate is not counted as
 The integrated implementation requires its own green hosted aggregate; no budget is relaxed.
 SQL Server vocabulary, final per-profile context/facet/workload evidence and refreshed final
 measurements remain outstanding.
+
+
+## SQL Server source vocabulary and native reconciliation audit
+
+The DuckDB integration at `a1673bbb` passes
+[main CI](https://github.com/Lojhan/typed-sql/actions/runs/42585766197), including the required
+native profiles and unchanged performance budgets. The earlier audit-only performance failure
+is not counted as qualification; the integrated revision has its own green aggregate.
+
+SQL Server vocabulary now has an independent hash-pinned Microsoft ScriptDOM source map at
+`3ea69b6fc1ed76b63eca6df868f3d1347b92e9fb`. Four version-owned lexer/parser files and the
+common token/constant declarations represent every supported engine and all ten compatibility
+pairs discovered from the owner policy. The source map records 1,889 shared ASCII words,
+including 180 declared literal tokens, plus 25 non-word constants in a separate namespace.
+Contextual code-generation words are not mislabeled as reserved tokens or function semantics.
+All four current source profiles have identical word facts; source/profile identities remain
+separate. Full vendor grammar inputs are cached outside Git, with bounded size and digest checks.
+Only the SQL Server owner opts into the 2 MiB input bound required by its parser files; other
+owners retain the preceding 1 MiB default. Normal checking stays offline.
+
+The extractor rejects unfamiliar token/constant layouts, duplicate/conflicting literal names,
+unknown identifier permissions, unsupported profiles and source-pin drift. Microsoft source
+notices are preserved. This external parser is evidence, not an assertion of engine identity: its
+source explicitly records lexer approximations, so the next gate compares actual engine behavior.
+
+The existing owned native catalog matrix now describes all 1,889 words in eight identifier
+contexts per engine/compatibility pair: explicit/bare column aliases, CTEs, explicit/bare relation
+aliases, qualified columns, bracket-delimited CTEs and assignment aliases. That is 15,112 generated
+candidates per pair and 151,120 across the matrix. Candidate statements never execute. Native
+metadata requests are batched; only classified SQL errors permit individual description fallback.
+Authentication/transport failures propagate. Missing/duplicate native protocol identities fail;
+unavailable metadata remains unavailable and cannot certify keyword rejection. Actual result
+names must match the requested identifier role. Each profile records native permission masks,
+source disagreements, batch/fallback counts and duration alongside its exact native environment.
+Any disagreement or unavailable facet keeps the native gate red for reconciliation.
+
+Local source-generation checks, root types, all 25 SQL Server package files with enforced
+coverage (96.91% statements / 91.71% branches / 95.83% functions), 50 repository contracts and
+quality pass. Fault controls exercise unexpected source layouts, native source disagreements,
+wrong result names, classified fallback, authentication/transport failures, absent/duplicate
+protocol rows, unavailable negative evidence and unqualified profiles. These tests qualify the
+mechanism; real SQL Server metadata acquisition requires the hosted x86-64 engine matrix.
+
+SQL Server runtime/parser consumption and any source/native reservation differences remain
+unfinished until that native evidence is reviewed. This phase changes audit tooling and license
+metadata, not production grammar inference. Final per-profile context/facet/workload evidence and
+refreshed final measurements remain outstanding.
