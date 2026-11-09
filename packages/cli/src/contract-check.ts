@@ -329,13 +329,28 @@ export async function runContractCommand(
   if (generating) {
     const index = createQueryContractIndex(view.contracts),
       selected = new Map<string, QueryContract>();
-    for (const { path, collection } of collections)
+    for (const { path, source, collection } of collections)
       for (const candidate of collection.candidates) {
         if (selected.has(candidate.sql)) continue;
         let contract = index.resolve(context, candidate.sql);
         if (!contract) {
-          if (configuration.qualification.mode !== "hybrid")
-            throw new Error("Native-required query generation requires qualified contracts for every candidate");
+          if (configuration.qualification.mode !== "hybrid") {
+            const diagnostics = dialect.analyze(candidate.sql, schema, policy, { runtimeValidation: true }).diagnostics;
+            const details = diagnostics.map((diagnostic) => {
+              const range = mapSqlRange(
+                source,
+                { range: candidate.sourceRange, sqlOffsetMap: candidate.sqlOffsetMap },
+                diagnostic.range,
+              );
+              return `${path}:${range.line}:${range.column} - ${diagnostic.severity} ${diagnostic.code}: ${diagnostic.message}`;
+            });
+            throw new Error(
+              [
+                `${path}:${candidate.sourceRange.line}:${candidate.sourceRange.column}: Native-required query generation requires qualified contracts for every candidate`,
+                ...details,
+              ].join("\n"),
+            );
+          }
           try {
             contract = materializeOfflineContract({
               sql: candidate.sql,

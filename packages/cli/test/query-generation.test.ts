@@ -29,6 +29,22 @@ async function contents(directory: string): Promise<unknown> {
   return result;
 }
 await describe("durable query generation", async () => {
+  await it("reports the source and qualification diagnostic for a missing native-required candidate", async () => {
+    await fixture(async (directory) => {
+      await allowOfflineOwner(directory);
+      const output = join(directory, "generated/contracts");
+      await rm(output, { recursive: true, force: true });
+      await strict.rejects(generate(directory, ["--qualification", "native-required"]), (error: unknown) => {
+        const stderr = (error as { stderr: string }).stderr;
+        strict.match(stderr, /src\/query\.ts:\d+:\d+/u);
+        strict.match(stderr, /TSQ406/u);
+        strict.match(stderr, /No matching query contract/u);
+        return true;
+      });
+      await strict.rejects(lstat(output), { code: "ENOENT" });
+    });
+  });
+
   await it("bootstraps scoped offline inputs without a context file and rejects target/schema mismatch", async () => {
     await fixture(async (directory) => {
       await allowOfflineOwner(directory);
