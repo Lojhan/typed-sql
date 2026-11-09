@@ -17,7 +17,8 @@ native transport currently qualified by this PR.
 - Add SQLite read-only native query acquisition and SQL Server guarded expression acquisition.
 
 The exhaustive upstream inventory, vendor fact extraction, global catalog model, generated
-completeness reports and selected-version/core/compatibility-pack APIs are excluded. Normal
+completeness reports and workload-selected core/compatibility-pack APIs are excluded. DuckDB has explicit
+selected-engine full-analyzer entrypoints; common-name core selection is not implemented. Normal
 builds and installations do not fetch database sources or require a global engine inventory.
 The existing PostgreSQL/MySQL catalog generators also derive small runtime codec projections
 from their maintained catalog inputs, preserving compile-time/runtime policy agreement.
@@ -788,3 +789,42 @@ on the PostgreSQL 18.6 migration fixture's extension namespace assumption; its e
 reproduction and full disconnected-consumer helper pass after the fixture correction. The next
 remote run must verify that fix. The unqualified MySQL canary is advisory and still rejects native
 acquisition outside the owner profile. This does not establish final architecture acceptance.
+
+## Version-isolated DuckDB analyzers
+
+At `2eae5c03`, explicit `analysis/1.5.6` and `analysis/2.0.0` exports select one engine's
+existing signatures, casts and common-type matrices through a grammar-owned immutable provider.
+The resolver and matching code receive that provider rather than importing the compatibility
+registry. The default analyzer still supports both engines. Shared mechanics reuse the light
+profile; neither entrypoint loads an optional native SDK. Snapshot validation and analysis both
+refuse a mismatched engine instead of selecting another catalog silently.
+
+The tests discover qualified engines from owner policy and compare full selected/compatibility
+outcomes for every unique invocation candidate generated from the independently captured native
+inventory, including diagnostics, parameters and result metadata. This is distribution parity,
+not an assertion that all candidates are valid or supported. Structural expressions, compounds,
+lists and CTE parameters also match. Graph tests exclude the other engine's data and compatibility
+registry. Replacing the selected entrypoints with compatibility aliases fails both the isolation
+and wrong-snapshot tests. Packed consumers import every discovered installed per-version export.
+
+The inventory sweep exposed a prior bare polymorphic MAP-result crash. Missing child evidence
+now remains unresolved; the regression checks both engines. No native acceptance is widened.
+Both fresh local native audits pass the existing reviewed fingerprints without baseline updates.
+
+Validation: all 41 DuckDB test files and their coverage gate, the additional 1.5.6 SDK's native
+suite, clean build/types, packed/public API/package-boundary tests, soundness, docs, quality and
+isolated performance pass. Bundle measurements at `6edcd6ed` retain 359.4/384.4 KiB minified for
+selected 1.5.6/2.0.0, versus 627.1 KiB for the two-engine analyzer. Runtime tags are unchanged.
+The measurement tool now counts native `Generated from` headers as generated attribution on
+both baseline and current sources. See [bundle measurements](./bundle-size.md).
+
+CI at `167772ac` passes the required PostgreSQL, MySQL, SQLite, DuckDB and SQL Server native
+jobs. Its source-quality lane exposes a PID-file publication race in the cancellation fixture:
+an empty file is interpreted as PID 0, so the subsequent liveness assertion checks the process
+group. A targeted 80-iteration reproduction observes 78 empty reads. Commit `f26a1b43` publishes
+both compiler and CLI fixture PIDs atomically and accepts only positive safe integers; it also
+installs the CLI fixture's signal handler before publishing readiness. Both focused fixture tests
+and all 21 compiler files with coverage pass. Production cancellation behavior is unchanged.
+
+Workload-selected compact cores, optional semantic packs in all grammars, reusable custom-type
+qualification, native-qualified project overhead and the complete acceptance audit remain open.

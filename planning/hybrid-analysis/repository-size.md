@@ -103,7 +103,10 @@ modules, their dependency/provenance identities, compatible migration of existin
 workload-based selection. The specification's `analysis/core`, `analysis/packs` and generated
 projection directories describe that target, not folders already implemented here. Reusable
 catalog/custom-type interpretation beyond PostgreSQL and qualified selection merging also remain
-open. This accounting must not be presented as the final LOC result for those unfinished parts.
+open. Since this measured revision, DuckDB has added per-engine full-analyzer exports and an
+internal catalog-provider boundary; [the current bundle report](./bundle-size.md) measures them.
+The core/common-function selection remains open. This accounting must not be presented as the
+final LOC result for those unfinished parts.
 
 The measured prototype establishes the maintenance cost and removed corpus. It does not justify
 an invented numerical prediction for the remaining core/pack implementation. Later measurements

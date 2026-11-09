@@ -3,7 +3,8 @@
 > Implementation scope: this PR retains the existing offline catalogs. Exhaustive upstream
 > inventories, vendor source extraction, global catalog generation and optional core/compatibility
 > pack distribution are excluded. Sections describing those later capabilities are architecture
-> targets, not claims about the current implementation.
+> targets, not claims about the current implementation. DuckDB now has explicit per-engine
+> full-analyzer exports; these do not yet implement common-function core selection.
 
 Status: final direction-change specification; implementation is in progress. This defines the
 target architecture and acceptance requirements, not an assertion that they are implemented.
