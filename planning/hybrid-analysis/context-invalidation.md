@@ -131,7 +131,8 @@ compatibility or descriptor qualification of every build.
 
 Schema/routine changes already have separate native evidence: PostgreSQL routine and table
 mutations, MySQL table DDL, SQLite schema-version changes, DuckDB macro/catalog changes, and
-SQL Server's guarded table/module descriptions. These do not substitute for the missing mutation
+SQL Server’s guarded table/module descriptions. These do not substitute for the distinct mutation
 classes above. Permission-denied or unsupported context acquisition stays unavailable; it does
-not certify an unchanged context. Acceptance scenario 8 remains open until the remaining
-applicable mutations and exact profile runs are reconciled.
+not certify an unchanged context. With the actual profile runs and same-file SQLite pair now
+reconciled, acceptance scenario 8 has scoped proof for the declared boundaries. In-place binary
+upgrades, future builds and host file authorization remain outside this evidence.
