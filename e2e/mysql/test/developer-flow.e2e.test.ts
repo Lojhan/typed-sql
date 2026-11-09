@@ -43,6 +43,7 @@ import {
   assertMySqlContractProtocol,
   assertMySqlVerificationMetadata,
 } from "../../../test/helpers/mysql-contract-protocol.js";
+import { assertMySqlJsonInputs } from "../../../test/helpers/mysql-json-inputs.js";
 import { assertMySqlNativeContracts } from "../../../test/helpers/mysql-native-contracts.js";
 import { assertMySqlNumericConformance } from "../../../test/helpers/mysql-numeric-conformance.js";
 import { assertMySqlPackedContracts } from "../../../test/helpers/mysql-packed-contracts.js";
@@ -204,6 +205,9 @@ try {
   }
 
   await describe("developer MySQL flow", async () => {
+    await it("executes compiled JSON inputs with DDL type spellings under each JSON policy", async () => {
+      await assertMySqlJsonInputs(connectionUri, workspaceDirectory);
+    });
     await it("enforces attached value plans through actual mysql2 buffered, prepared and streaming paths", async () => {
       const database = await createMySql2Database({ connectionUri, typePolicy });
       try {

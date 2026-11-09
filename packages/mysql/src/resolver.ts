@@ -2651,9 +2651,8 @@ class Resolver {
   }
 
   #recordParameter(index: number, expected: ResolvedType | undefined): ResolvedType {
-    const json =
-      expected?.json ??
-      (expected?.databaseType === "json" ? this.#jsonResult(unknownJsonShape, expected.nullable).json : undefined);
+    const jsonType = expected?.databaseType !== undefined && normalized(expected.databaseType) === "json";
+    const json = expected?.json ?? (jsonType ? this.#jsonResult(unknownJsonShape, expected.nullable).json : undefined);
     const parameterExpected =
       expected === undefined
         ? undefined
@@ -2663,9 +2662,7 @@ class Resolver {
             ...(expected.databaseType === undefined ? {} : { databaseType: expected.databaseType }),
             ...(json === undefined ? {} : { json }),
             ...(expected.scalarJsonShape === undefined ? {} : { scalarJsonShape: expected.scalarJsonShape }),
-            ...(expected.acceptsJsonInput === true || expected.databaseType === "json"
-              ? { acceptsJsonInput: true as const }
-              : {}),
+            ...(expected.acceptsJsonInput === true || jsonType ? { acceptsJsonInput: true as const } : {}),
           };
     const parameter = this.#parameters.record(index, parameterExpected);
     return {

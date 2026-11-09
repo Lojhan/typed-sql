@@ -81,3 +81,21 @@ normalization hooks, and portable SQLite wrappers forward it; two-argument hooks
 Buffered and streamed tests cover safe normalization, overflow rejection and unchanged unplanned
 BIGINT policy behavior. Prefix/suffix projection anchors preserve proven literal bounds without
 guessing positions between stars.
+
+## Case-insensitive JSON input metadata
+
+Parameter context now normalizes physical type names before recognizing JSON, matching the
+grammar's existing type policy. Unit regressions cover lowercase, uppercase and mixed-case names,
+both snapshot formats, INSERT/UPDATE parameter order and each JSON representation policy. They
+also build and encode the resulting value plans; uppercase input fails without the normalization.
+
+The real MySQL 8.4.11/9.7.2 fixture introspects an owned JSON table, substitutes the equivalent
+uppercase DDL spelling, compiles/imports application factories and executes explicit JSON bindings
+under unknown, JsonValue and string policies. Nested payloads round-trip and invalid explicit JSON
+inputs fail before dispatch. The fixture drops its table and closes all connections. This corrects
+offline-generated execution metadata; native acquisition admission and unknown JSON shape remain
+unchanged.
+
+Validation for this correction passes all 28 MySQL files and their coverage gate (96.08%
+statements, 91.08% branches, 99.09% functions), both real engines, clean build/types, nine
+soundness files, all three packed-consumer/editor suites, docs, quality and isolated performance.
