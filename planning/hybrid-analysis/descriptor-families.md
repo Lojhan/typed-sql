@@ -146,7 +146,7 @@ The full SQLite suite passes nineteen files with its existing coverage threshold
 all 53 repository contract files and quality pass. Source-quality and Node-matrix jobs upload
 detailed captures. Runtimes without authorizer/column APIs retain their existing explicit
 unavailable-profile test; no descriptor capability is inferred from a skipped native suite.
-The two hosted advanced-API profiles pass their native suites in [run 42624331784](https://github.com/Lojhan/typed-sql/actions/runs/42624331784), despite that aggregate's separate PostgreSQL flow timeout. Their captures identify merge producer `6b3bdcb6807be0b14660e54d89a7b9f6dd03c3d3`; each collector hash matches its Git blob. The reviewed [SQLite fingerprints](../../grammar/sqlite/qualification/native-descriptors.json) cover 3.53.4 on Node 24 and 3.54.0 on Node 26. The 3.53.4 fingerprint also exactly matches local Darwin/arm64 observations. Normal native tests now require the approved counts and fingerprint; a deliberately changed fingerprint fails. Unsupported API profiles now emit an explicit unavailable artifact after their negative native test. Hosted qualification of these new gates/reporting mechanics remains pending.
+The two hosted advanced-API profiles pass their native suites in [run 42624331784](https://github.com/Lojhan/typed-sql/actions/runs/42624331784), despite that aggregate's separate PostgreSQL flow timeout. Their captures identify merge producer `6b3bdcb6807be0b14660e54d89a7b9f6dd03c3d3`; each collector hash matches its Git blob. The reviewed [SQLite fingerprints](../../grammar/sqlite/qualification/native-descriptors.json) cover 3.53.4 on Node 24 and 3.54.0 on Node 26. The 3.53.4 fingerprint also exactly matches local Darwin/arm64 observations. Normal native tests now require the approved counts and fingerprint; a deliberately changed fingerprint fails. Unsupported API profiles now emit an explicit unavailable artifact after their negative native test. The gates and unavailable-profile reporting pass [main CI at `847fe773`](https://github.com/Lojhan/typed-sql/actions/runs/42628562585).
 
 ## MySQL source-driven type witnesses
 
@@ -193,10 +193,10 @@ observations are retained separately and are not parser/analyzer coverage percen
 
 Both owners' isolated integration files pass locally on PostgreSQL 18.6 and MySQL 8.4.11 with
 unchanged deadlines. MySQL native capture runs in its own fixture file, and all supported engine/
-SQL-mode CI jobs upload detailed JSON. All six supported engine/mode collectors pass [main CI at `847fe773`](https://github.com/Lojhan/typed-sql/actions/runs/42628562585). Their constructor, independent schema, wire-field and outcome facts match the corresponding default-mode captures; fingerprints still bind each exact SQL mode. Default-mode facts also match local captures. The reviewed [MySQL fingerprints](../../grammar/mysql/qualification/native-descriptors.json) retain those six profiles plus explicitly unqualified canary observations. Captures identify merge producer `0141c90e1bc8e544d36f1c0e14210619a2278523`; collector hashes match Git blobs. Normal integration now checks the reviewed constructor count, qualification policy, outcomes and digest; explicit capture without `--check` does not change the approved data. Both local approved gates pass, and a deliberate changed fingerprint fails. The gate itself still requires hosted qualification. Further modifier/policy controls and source-vs-semantic qualification remain pending. These are
+SQL-mode CI jobs upload detailed JSON. All six supported engine/mode collectors pass [main CI at `847fe773`](https://github.com/Lojhan/typed-sql/actions/runs/42628562585). Their constructor, independent schema, wire-field and outcome facts match the corresponding default-mode captures; fingerprints still bind each exact SQL mode. Default-mode facts also match local captures. The reviewed [MySQL fingerprints](../../grammar/mysql/qualification/native-descriptors.json) retain those six profiles plus explicitly unqualified canary observations. Captures identify merge producer `0141c90e1bc8e544d36f1c0e14210619a2278523`; collector hashes match Git blobs. Normal integration now checks the reviewed constructor count, qualification policy, outcomes and digest; explicit capture without `--check` does not change the approved data. Both local approved gates pass, and a deliberate changed fingerprint fails. The reviewed gate passes all supported modes in [main CI at `4f8b312c`](https://github.com/Lojhan/typed-sql/actions/runs/42633277370). Further modifier/policy controls and source-vs-semantic qualification remain pending. These are
 acquisition observations rather than universal type/function semantics or workload qualification.
 
-## SQL Server inventory collector awaiting native qualification
+## SQL Server catalog-driven observations
 
 The [SQL Server collector](../../e2e/sqlserver/descriptor-probe.mjs) discovers builtin type names,
 IDs, dimensions, collation and CLR classification from `sys.types` on each of the ten declared
@@ -221,13 +221,45 @@ permissions, resource failures and transport failures fail the audit; recognized
 metadata-unavailability diagnostics remain distinct. The owned database is dropped before final
 publication, and failed cleanup prevents success.
 
-Pure regressions establish automatic inclusion of an unknown type/CLR name and rejection of
-malformed/duplicate catalogs and misclassified availability errors. Syntax, typechecking,
-repository contracts and quality pass. This is **collector implementation evidence only**:
-there is no local SQL Server engine, no native observations from this new collector yet, and no
-approved per-pair fingerprint. The required four hosted engine jobs now execute the collector
-and retain detailed artifacts. Exact-version observations, review and a drift gate remain open.
+All ten pairs pass native capture and owned-database cleanup in [main CI at `4f8b312c`](https://github.com/Lojhan/typed-sql/actions/runs/42633277370).
+The captures identify merge producer `17e85eb2e9690119453b416af46d5eca9524902c`; both collector
+and discovery-helper hashes match their Git blobs. All use Node 24.22.2, Linux x64 and Microsoft
+ODBC package 18.7.1.1-1. Exact builds are retained in the reviewed
+[fingerprints](../../grammar/sqlserver/qualification/native-descriptors.json).
+
+| Engine build | Compatibility targets | Catalog names | Probes per target | Acquired | Declined | Adapter unavailable | Partial | Independent unavailable / rejected |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 14.0.3560.2 | 140 | 34 | 156 | 134 | 8 | 6 | 2 | 6 / 0 |
+| 15.0.4500.2 | 140, 150 | 34 | 156 | 134 | 8 | 6 | 2 | 6 / 0 |
+| 16.0.4305.5 | 140, 150, 160 | 34 | 156 | 134 | 8 | 6 | 2 | 6 / 0 |
+| 17.0.5035.5 | 140, 150, 160, 170 | 36 | 162 | 137 | 8 | 6 | 2 | 7 / 2 |
+
+Counts include aliases and multiple witnesses per name; they are not type-family coverage
+percentages. Independent unavailable/rejected witnesses are not attempted through the adapter.
+All 34 older-engine column declarations succeed. On 17, 35 of 36 declarations succeed; bare
+`vector` is rejected with native diagnostic 2715 and both bare CAST witnesses are rejected.
+This does not establish availability of concrete vector dimensions.
+
+Bare `geography`, `geometry`, `hierarchyid` and `sysname` casts are declined by the adapter's
+select scope. Their table queries remain guarded-statement unavailable, except geography/geometry
+parameter comparisons whose independent metadata is already unavailable. Table comparisons for
+`image`, `ntext`, `text` and `xml` also lack independent metadata; 17 adds `json` to that set.
+Both `sql_variant` parameter witnesses remain partial. None of these outcomes becomes an
+optimistic contract or a universal family verdict.
+
+Acquired outputs retain 134 complete native identities on 14–16 and 137 on 17, including two
+unknown runtime representations per target. Acquired input fields retain 52 complete identities
+and 12 partial on 14–16, versus 52 complete and 13 partial on 17. Nullability remains a nullable
+upper bound; complete native identity does not prove refined nullability or JSON shape.
+
+Normal hosted qualification now runs `node descriptor-probe.mjs --check` and requires every
+compatibility target, successful cleanup, exact counts and its reviewed semantic fingerprint.
+Capture mode omits `--check`, retains full observations and never changes approved data.
+Replay of all four actual hosted reports passes the gate; deliberately altered fingerprints fail
+on every engine. Unit regressions reject missing/duplicated targets, incomplete runs, cleanup
+failures and inconsistent accounting, and prove that a partial-to-acquired change requires review.
+The gate's fresh hosted execution remains pending.
 
 ## Remaining owners
 
-SQL Server's new collector still needs actual observations and a reconciled descriptor-family availability review beyond the representative [16-profile facet report](./native-costs.md). PostgreSQL still requires additional class/policy controls. SQLite's reviewed gate passes the latest full aggregate. MySQL's hosted mode observations are reviewed and its new drift gate requires hosted qualification. Existing real/native unit and packed tests remain evidence for their declared invocations. They do not substitute for independent inventory-driven family accounting. In particular, SQLite storage domains are not arbitrary-expression result types, MySQL modifiers/parameter authority can be partial, PostgreSQL custom/domain/polymorphic bindings need separate rules, and SQL Server opaque/custom/XML/collation facets can be unavailable. Acceptance scenario 17 remains open.
+SQL Server now has reviewed observations for all ten pairs; its new drift gate requires a fresh hosted execution and additional concrete/custom-family controls remain open. PostgreSQL still requires additional class/policy controls. SQLite's reviewed gate passes the latest full aggregate. MySQL's hosted mode observations and reviewed drift gate pass required CI. Existing real/native unit and packed tests remain evidence for their declared invocations. They do not substitute for independent inventory-driven family accounting. In particular, SQLite storage domains are not arbitrary-expression result types, MySQL modifiers/parameter authority can be partial, PostgreSQL custom/domain/polymorphic bindings need separate rules, and SQL Server opaque/custom/XML/collation facets can be unavailable. Acceptance scenario 17 remains open.

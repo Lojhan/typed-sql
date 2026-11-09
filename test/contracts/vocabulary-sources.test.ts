@@ -4,6 +4,7 @@ import { digest } from "../../scripts/vocabulary/common.mjs";
 import { mySqlDescriptorTypes } from "../../scripts/vocabulary/mysql-descriptors.mjs";
 import { parseSqliteStandardTypes } from "../../scripts/vocabulary/sqlite-descriptors.mjs";
 import { parseSqlServerVocabulary } from "../../scripts/vocabulary/sqlserver.mjs";
+import { reviewSqlServerDescriptors } from "../../scripts/vocabulary/sqlserver-descriptor-review.mjs";
 import {
   sqlServerDescriptorCases,
   sqlServerDescriptorFailure,
@@ -39,6 +40,66 @@ const expectedRows = (ids: number[]): NativeVocabularyRow[] =>
   }));
 
 await describe("source vocabulary extraction and native audit boundaries", async () => {
+  await it("rejects descriptor drift, incomplete captures and missing compatibility targets", () => {
+    const profile = {
+      compatibility: 140,
+      stage: "complete",
+      inventory: [{}],
+      cases: [{}],
+      observations: [{ independent: { status: "described" }, adapter: { status: "partial" } }],
+      counts: { "described/partial": 1 },
+      observationDigest: "a".repeat(64),
+    };
+    const report = {
+      formatVersion: 1,
+      major: 14,
+      build: "14.0.1.0",
+      caseStatus: "passed",
+      cleanupStatus: "passed",
+      profiles: [profile],
+    };
+    const approved = {
+      formatVersion: 1,
+      profiles: {
+        "14.0.1.0:140": {
+          major: 14,
+          build: "14.0.1.0",
+          compatibility: 140,
+          catalogNames: 1,
+          cases: 1,
+          observations: 1,
+          counts: profile.counts,
+          observationDigest: profile.observationDigest,
+        },
+      },
+    };
+    reviewSqlServerDescriptors(report, approved);
+    for (const changed of [
+      { ...report, cleanupStatus: "failed" },
+      { ...report, caseStatus: "incomplete" },
+      { ...report, profiles: [] },
+      { ...report, profiles: [profile, profile] },
+      { ...report, build: "14.0.2.0" },
+      { ...report, profiles: [{ ...profile, stage: "table-cleanup" }] },
+      { ...report, profiles: [{ ...profile, inventory: [{}, {}] }] },
+      { ...report, profiles: [{ ...profile, cases: [] }] },
+      { ...report, profiles: [{ ...profile, observations: [] }] },
+      { ...report, profiles: [{ ...profile, counts: { "described/acquired": 1 } }] },
+      { ...report, profiles: [{ ...profile, observationDigest: "b".repeat(64) }] },
+      {
+        ...report,
+        profiles: [
+          {
+            ...profile,
+            observations: [{ independent: { status: "described" }, adapter: { status: "acquired" } }],
+            counts: { "described/acquired": 1 },
+          },
+        ],
+      },
+    ])
+      strict.throws(() => reviewSqlServerDescriptors(changed, approved));
+    strict.deepEqual(approved.profiles["14.0.1.0:140"].counts, { "described/partial": 1 });
+  });
   await it("discovers unknown SQL Server catalog types without filtering them through mapped names", () => {
     const row = {
       namespace: "sys",

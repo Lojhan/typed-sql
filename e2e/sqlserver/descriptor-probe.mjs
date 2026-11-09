@@ -15,6 +15,7 @@ import {
   queryContractDigest,
 } from "../../packages/analysis/dist/packages/analysis/src/index.js";
 import { defaultSqlServerTypePolicy } from "../../packages/sqlserver/dist/packages/sqlserver/src/type-policy.js";
+import { reviewSqlServerDescriptors } from "../../scripts/vocabulary/sqlserver-descriptor-review.mjs";
 import {
   sqlServerDescriptorCases,
   sqlServerDescriptorErrors,
@@ -346,6 +347,23 @@ const [cleanup] = await Promise.allSettled([
 ]);
 report.cleanupStatus = cleanup.status === "fulfilled" ? "passed" : "failed";
 if (cleanup.status === "rejected") failures.push(cleanup.reason);
+if (process.argv.includes("--check")) {
+  try {
+    reviewSqlServerDescriptors(
+      report,
+      JSON.parse(
+        await readFile(
+          new URL("../../grammar/sqlserver/qualification/native-descriptors.json", import.meta.url),
+          "utf8",
+        ),
+      ),
+    );
+    report.reviewStatus = "passed";
+  } catch (error) {
+    report.reviewStatus = "failed";
+    failures.push(error);
+  }
+} else report.reviewStatus = "not-requested";
 await mkdir(resolve("../../artifacts/sqlserver"), { recursive: true });
 await writeFile(output, `${JSON.stringify(report, null, 2)}\n`);
 if (failures.length) throw new AggregateError(failures, "SQL Server descriptor observation or cleanup failed");
