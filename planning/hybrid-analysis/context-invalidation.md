@@ -7,11 +7,11 @@ authorization, schema or session settings to manufacture a compatible context.
 
 | Native profile | Authorization | Resolution environment | Semantic settings | Decoder policy | Engine boundary |
 | --- | --- | --- | --- | --- | --- |
-| PostgreSQL 18.3 | Actual principal change and permission grant reject the old context | Actual search-path change rejects the old context | Actual time-zone change rejects the old context | Actual BIGINT policy change changes type-policy/codec identities and rejects reuse | Actual 18.3 / 18.6 endpoints reject each other's context with an identical empty compiler schema/policy locally; fresh hosted proof pending. Other majors remain unavailable to native acquisition. |
+| PostgreSQL 18.3 | Actual principal change and permission grant reject the old context | Actual search-path change rejects the old context | Actual time-zone change rejects the old context | Actual BIGINT policy change changes type-policy/codec identities and rejects reuse | Actual 18.3 / 18.6 endpoints reject each other's context with an identical empty compiler schema/policy locally and in required hosted CI. Other majors remain unavailable to native acquisition. |
 | MySQL 8.4.11 / 9.7.2 | Actual principal, direct grant, active role and effective role grant changes reject prior context | Actual selected-database change rejects prior context | Actual time-zone change rejects prior context; changed SQL mode declines qualification | Actual BIGINT policy change changes identities and rejects reuse on both engines | Actual bidirectional endpoint changes reject the old schema/environment and context on both declared stable engines, locally and in required CI |
 | DuckDB 1.5.6 / 2.0.0 | The supported owned embedded connection has no database-user authorization API; host file authorization is outside native metadata | Actual nondefault search-path mutation declines context inspection and old-context acquisition | Actual integer-division setting mutation changes the native result type and rejects prior context with unchanged compiler schema and codec policy | Actual BIGINT policy change changes identities and rejects reuse on both engines | Each engine acquires its own context and rejects the other engine's recorded context, in separate processes with the same compiler schema/policy |
-| SQLite 3.53.4, Node 24.22.2 | The supported embedded connection has no database-user authorization API; host file authorization is outside native metadata | Worker authorizer admits the main database only; arbitrary attachments/search paths are outside the profile | Owned worker forces its declared read-only settings; setting mutation is outside the worker protocol | Actual integer policy change changes identities and rejects reuse | Actual version/source/compile-option evidence is fingerprinted; engine replacement remains unverified |
-| SQL Server 14–17, ten compatibility pairs | Actual grant/revoke and distinct-login impersonation reject prior context on all ten pairs; login names and SIDs are fingerprinted | Actual same-principal default-schema change rejects the old context on all ten pairs; ordinary table admission still requires two-part names | Actual DATEFIRST mutation declines inspection and old-context acquisition on all ten pairs | Actual BIGINT policy mutation rejects prior context on all ten pairs | Compatibility-profile mutation is implemented for every pair with fixed compiler schema/policy; fresh hosted proof pending. Binary engine replacement is not tested here. |
+| SQLite 3.53.4, Node 24.22.2 | The supported embedded connection has no database-user authorization API; host file authorization is outside native metadata | Worker authorizer admits the main database only; arbitrary attachments/search paths are outside the profile | Owned worker forces its declared read-only settings; setting mutation is outside the worker protocol | Actual integer policy change changes identities and rejects reuse | Separate actual 3.50.4 / 3.53.4 builds reject each other’s contexts against the same unchanged database file locally; the required Node 24/26 hosted pair is pending |
+| SQL Server 14–17, ten compatibility pairs | Actual grant/revoke and distinct-login impersonation reject prior context on all ten pairs; login names and SIDs are fingerprinted | Actual same-principal default-schema change rejects the old context on all ten pairs; ordinary table admission still requires two-part names | Actual DATEFIRST mutation declines inspection and old-context acquisition on all ten pairs | Actual BIGINT policy mutation rejects prior context on all ten pairs | Actual compatibility-profile mutations reject prior contexts on all ten hosted pairs with fixed compiler schema/policy. Binary engine replacement is not tested here. |
 
 PostgreSQL mutation proof is in [postgres-context-mutations.ts](../../test/helpers/postgres-context-mutations.ts).
 It keeps the compiler schema fixed while changing the actual native environment, then attempts
@@ -26,7 +26,7 @@ the other actual engine's context before confirming its own still acquires. Both
 directions pass locally; repeating the same actual engine fails before any boundary can qualify.
 All owned connections close on success and failure. The helper never executes candidates, and
 its connection/metadata reads have finite deadlines. Required CI includes both engine services
-and uploads a provenance-bearing report. Its new hosted execution is pending. Distinct endpoints
+and uploads a provenance-bearing report. Both directions and connection cleanup pass [run 42648616769](https://github.com/Lojhan/typed-sql/actions/runs/42648616769). The downloaded capture identifies merge producer `d132f8123f90ebc2ff619263837d51124109efc1`; its collector digest matches that Git blob. Distinct endpoints
 and catalogs can also differ; this does not isolate the version field or certify in-place upgrades.
 
 The [MySQL mutation helper](../../test/helpers/mysql-context-mutations.ts) performs direct and
@@ -116,8 +116,18 @@ ODBC factory's explicit qualification check and cannot acquire through the old a
 case independently reads the changed and restored level from sys.databases, restores the setting
 in finally and confirms restored-profile acquisition. Unit controls pass for all alternate
 levels on the qualified 17 fixture; syntax, package coverage and types pass locally. All ten
-actual hosted cases remain pending. This is compatibility-profile invalidation, not a binary
-server-upgrade test.
+actual hosted cases and owned cleanup pass [run 42648616769](https://github.com/Lojhan/typed-sql/actions/runs/42648616769). Downloaded reports retain the changed levels and required outcomes: nine supported-profile context mismatches and one unsupported-at-connection result on engine 14. The later SQL Server 17 packed editor check fails separately. This is compatibility-profile invalidation, not a binary server-upgrade test.
+
+The [SQLite engine-boundary audit](../../test/helpers/sqlite-engine-boundary.ts) creates one
+owned database file and inspects it from separate Node processes. Every actual build must
+acquire its own context and reject every other build’s context while compiler schema, type
+policy and codec identities remain equal. The audit fingerprints actual SQLite version,
+source ID and compile options, requires distinct builds and checks the database bytes remain
+unchanged. Local Node 24.10.0 / 24.22.2 runs pass both 3.50.4 / 3.53.4 directions and cleanup;
+duplicate actual builds fail qualification. Required CI pairs its Node 24 and 26 executables
+and uploads provenance plus the database digest. That new hosted pair remains pending.
+This establishes context separation across those builds, not arbitrary database-file upgrade
+compatibility or descriptor qualification of every build.
 
 Schema/routine changes already have separate native evidence: PostgreSQL routine and table
 mutations, MySQL table DDL, SQLite schema-version changes, DuckDB macro/catalog changes, and

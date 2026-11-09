@@ -651,6 +651,24 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Record the primary SQLite runtime
+        if: matrix.label == 'node-24-current'
+        run: echo "TYPED_SQL_SQLITE_PRIMARY_NODE=$(command -v node)" >> "$GITHUB_ENV"
+      - if: matrix.label == 'node-24-current'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26.x
+      - name: Reject SQLite contexts across actual engine builds
+        if: matrix.label == 'node-24-current'
+        run: node --import tsx test/helpers/sqlite-engine-boundary.ts "$TYPED_SQL_SQLITE_PRIMARY_NODE" "$(command -v node)"
+      - if: always() && matrix.label == 'node-24-current'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: typed-sql-sqlite-engine-boundary-${{ github.run_attempt }}
+          path: artifacts/sqlite/engine-boundary.json
+          if-no-files-found: warn
+          retention-days: 14
+
   sqlite-language-matrix:
     name: sqlite-language (${{ matrix.label }})
     runs-on: ubuntu-latest
