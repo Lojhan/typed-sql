@@ -1,6 +1,6 @@
 # Bundle and installation measurements
 
-The [bundle JSON](./bundle-measurements.json) and [installation JSON](./installation-measurements.json) measure committed source `5278e8d8a541bc93bdefe2c70238f0e3c7bb4b56`. Bundles compare against `a1f27fc894e48021e91ce4c9a4b98929890f233d` using the same tool, Node v24.22.2, esbuild 0.28.2, minified ESM, Node platform, ES2022, tree-shaking, gzip level 9 and Brotli quality 11. Sizes below use KiB (1,024 bytes) or MiB (1,048,576 bytes).
+The [bundle JSON](./bundle-measurements.json) and [installation JSON](./installation-measurements.json) measure committed source `5be790bf93ae9eafbe0925cbe476b0b7d925275f`. Bundles compare against `a1f27fc894e48021e91ce4c9a4b98929890f233d` using the same tool, Node v24.22.2, esbuild 0.28.2, minified ESM, Node platform, ES2022, tree-shaking, gzip level 9 and Brotli quality 11. Sizes below use KiB (1,024 bytes) or MiB (1,048,576 bytes).
 
 ## Compatibility analyzers
 
@@ -65,11 +65,11 @@ Root/query tags, profiles and frozen hosts retain zero global catalog inputs. Fr
 
 | Grammar | Grammar files MiB | Grammar dependency closure MiB | With compiler/contracts MiB | Grammar tarball KiB |
 | --- | --- | --- | --- | --- |
-| duckdb | 2.11 | 3.66 | 4.39 | 257.0 |
-| mysql | 1.07 | 2.62 | 3.34 | 206.9 |
-| postgres | 2.19 | 6.62 | 7.34 | 341.9 |
-| sqlite | 0.76 | 2.31 | 3.03 | 142.7 |
-| sqlserver | 0.95 | 2.50 | 3.23 | 196.5 |
+| duckdb | 2.11 | 3.67 | 4.39 | 257.0 |
+| mysql | 1.07 | 2.62 | 3.35 | 206.9 |
+| postgres | 2.19 | 6.62 | 7.35 | 341.9 |
+| sqlite | 0.76 | 2.31 | 3.04 | 142.7 |
+| sqlserver | 0.95 | 2.51 | 3.23 | 196.5 |
 
 Installation uses fresh isolated offline pnpm installs of built tarballs at the named revision. It counts published file contents once per package name/version, including declarations/maps; it excludes filesystem allocation, pnpm store, application-installed drivers and engine binaries. It is neither bundle size nor total disk usage. Full package exports remain installed even when a consumer imports one core.
 

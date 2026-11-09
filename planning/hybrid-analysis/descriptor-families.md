@@ -342,7 +342,7 @@ contract and is checked again against the project's required-facet policy.
 
 The declared descriptor-capability review has scoped proof. Every collector preserves the same
 three evidence facets, and the shared audit checks all acquired field references and records
-non-acquired outcomes. All sixty valid native-identity/runtime/nullability state combinations
+non-acquired outcomes. All sixty classification-state combinations in the common native/runtime/nullability model
 are compared automatically with the compiler qualification model. This includes a false nullable
 upper bound: it excludes NULL and is a complete non-null guarantee. Invalid precision remains an
 audit failure. These format checks establish accounting consistency, not engine semantics.
@@ -352,7 +352,7 @@ Fresh hosted summaries pass and recompute exactly for all ten SQL Server compati
 (1,584 observations) in [run 42659335405](https://github.com/Lojhan/typed-sql/actions/runs/42659335405).
 Their facet-tool digest matches merge producer `2808d51234c65394983162c23044b337937af301`.
 The same run emits MySQL mode and SQLite policy summaries, while source verification captures
-both DuckDB SDKs. PostgreSQL has the seven fresh local captures and earlier reviewed exact-version
+both DuckDB SDKs. PostgreSQL’s two fresh local captures complement its earlier reviewed exact-version
 protocol observations. The run's PostgreSQL/packed E2E TypeScript declaration failures and later
 SQL Server 17 packed editor failure are separate integration defects; descriptor facts do not
 make that aggregate green. Standalone test-project compilation now accepts the checked JavaScript
