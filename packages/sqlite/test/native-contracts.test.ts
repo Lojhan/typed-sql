@@ -12,6 +12,7 @@ import {
 } from "@typed-sql/analysis";
 import { sql, withQueryValuePlan } from "@typed-sql/core";
 import { describe, it, strict } from "poku";
+import { recordNativeCosts } from "../../../planning/hybrid-analysis/measure-native.mjs";
 import { sqlite as sqliteCore } from "../src/analysis/core.js";
 import { sqlite } from "../src/analysis.js";
 import {
@@ -267,7 +268,7 @@ await describe("SQLite owned read-only native query contracts", async () => {
     );
   });
   await it("qualifies an unmapped builtin conservatively without inventing a result declaration", async () => {
-    await temporary(async (path) => {
+    await temporary(async (path, database) => {
       const sql = "SELECT subtype(CAST(? AS TEXT)) AS value";
       const analysis = sqliteCore().analyze(sql, schema);
       strict.ok(analysis.diagnostics.some((item) => item.code === "TSQ408"));
@@ -287,6 +288,20 @@ await describe("SQLite owned read-only native query contracts", async () => {
       });
       strict.equal(result.status, "qualified");
       if (result.status !== "qualified") throw Error("Unmapped SQLite routine did not qualify");
+      if (process.env.TYPED_SQL_NATIVE_COSTS_DIRECTORY) {
+        const version = database.prepare("SELECT sqlite_version() AS version").get()?.version;
+        if (typeof version !== "string") throw Error("Missing SQLite engine version");
+        await recordNativeCosts({
+          label: `sqlite-${version}`,
+          serverVersion: version,
+          schema,
+          adapter: createNodeSqliteNativeContractAdapter({ path, schema }),
+          candidate: candidate(sql),
+          analyze: (text) => sqliteCore().analyze(text, schema),
+          contribution,
+          policy,
+        });
+      }
       strict.deepEqual(result.contract.valuePlan, contract.valuePlan);
       strict.equal(result.contract.valuePlan.columns[0]?.nullable, true);
       strict.deepEqual(result.contract.nativeEvidence?.columns[0]?.nativeType, {

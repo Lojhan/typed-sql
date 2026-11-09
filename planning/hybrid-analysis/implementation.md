@@ -1150,3 +1150,38 @@ The tool exports/reopens all closures and repeats the 1/10/50 identity-growth an
 growth experiments. Every workload, schema and runtime bundle measurement is identical to the
 preceding generic-analyzer report. Native-qualified artifact overhead and acquisition/context/cache
 latencies remain separate unfinished measurements.
+
+
+### Partial evidence composition and native cost instrumentation
+
+One composed PostgreSQL project-catalog regression now carries a selected fixed-scalar routine
+through the 18 core in a subquery, CTE and compound. A controlled protocol fixture supplies
+independent runtime facts, partial numeric identity and unknown nullability. Acquisition,
+reconciliation, canonical contract reload, manifest serialization, candidate extraction and
+verification retain those limitations together. Exact native-type requirements remain incomplete,
+while contradictions in known type facts still produce mismatches. Frozen contracts keep unknown
+execution effects; explicit verification can separately use the already-computed core operation
+without treating a native description as execution-effect evidence. This is a pipeline regression
+using a protocol fixture; native adapter admission boundaries remain declared per engine. All 40
+PostgreSQL test files pass coverage (97.36% statements, 91.00% branches, 97.96% functions).
+
+An opt-in measurement helper now attaches to existing owner-qualified native fixtures for all
+five grammars. With `TYPED_SQL_NATIVE_COSTS_DIRECTORY` configured, it records three actual
+context/acquisition/reconciliation observations, serialized evidence/plan/contract bytes, exported
+one-query closure and cache file contents, durable reloads, and reopened/warm cache lookups.
+Stale attempts are retained; every reported sample must independently qualify and every recorded
+cache read remains unverified. Reports exclude candidate SQL and application values, record the
+engine/tool/source/environment identities, publish atomically and remove their owned temporaries.
+An older report is removed before a fresh observation so a failed attempt cannot look current.
+
+The normal test path leaves these extra round trips disabled. SQL Server's explicit hosted
+native-contract qualification enables them and includes the reports in its existing transport
+artifacts for all ten compatibility targets. Initial SQLite 3.53.4 and DuckDB 2.0.0 enabled runs
+pass; the final committed helper still needs the complete measured profile collection. These
+small owner fixtures do not establish workload popularity or latency guarantees. Cold cache
+means a new cache object reading existing files, not a dropped OS page cache or cold server.
+
+Main CI `42562791948` at `4fe65a4f` completes successfully. The new composition/instrumentation
+changes also pass workspace types, all 49 repository contracts, docs and quality locally. The
+measurement helper separately counts the fixture schema input and asserts its digest matches the
+qualified context; that small input is not presented as a full application/server catalog.

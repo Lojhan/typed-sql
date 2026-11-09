@@ -6,6 +6,7 @@
     "rootDir": ".."
   },
   "include": [
+    "../planning/hybrid-analysis/measure-native.mjs",
     "../scripts/language-audit/**/*.ts",
     "../scripts/language-audit/**/*.mjs",
     "../packages/*/test/**/*.test.ts",

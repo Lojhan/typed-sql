@@ -43,6 +43,7 @@ import { createPostgresProjectCatalogContribution } from "../../packages/postgre
 import { createPostgresContractReconciler } from "../../packages/postgres/src/reconciliation.js";
 import { createPostgresDatabase } from "../../packages/postgres/src/runtime.js";
 import { type RoutineSnapshot, upgradeSchemaSnapshotV1 } from "../../packages/schema/src/index.js";
+import { recordNativeCosts } from "../../planning/hybrid-analysis/measure-native.mjs";
 import { assertIsolatedPostgresContractConsumer } from "./frozen-contract-consumer.js";
 import { assertInheritedPostgresContracts } from "./inherited-postgres-contracts.js";
 import { assertPostgresTableContracts } from "./postgres-table-contracts.js";
@@ -145,6 +146,20 @@ export async function assertPostgresNativeContracts(connectionString: string, di
     strict.equal(coreReconciled.contract.valuePlan.columns[0]?.type, "string");
     strict.equal(coreReconciled.contract.valuePlan.columns[0]?.nullable, true);
     strict.equal(coreReconciled.contract.valuePlan.parameters[0]?.type, "string");
+    await recordNativeCosts({
+      label: `postgres-${version.split(" ")[0]}`,
+      serverVersion: version,
+      schema: coreSchema,
+      adapter: coreNative,
+      candidate: { sql: coreSql, parameterOccurrences: coreAcquired.contract.nativeEvidence!.parameterOccurrences },
+      analyze: (sql) => postgresCore().analyze(sql, coreSchema),
+      contribution: coreContribution,
+      policy: {
+        mode: "native-required",
+        owner: { id: coreContribution.id, version: coreContribution.version },
+        requiredNativeFacets: ["runtime-type"],
+      },
+    });
     // Metadata acquisition now owns context observation and collection on one guarded lease.
     const projectBase = {
       ...upgradeSchemaSnapshotV1({

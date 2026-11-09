@@ -1,8 +1,16 @@
 import {
+  acquireNativeQueryContract,
   applyProjectCatalogs,
+  createContractDialect,
   createProjectCatalog,
+  createStaticQueryClaim,
+  type NativeContractAdapter,
+  type NativeContractValueEvidence,
   parseProjectCatalog,
+  parseQueryContract,
   queryContractDigest,
+  reconcileQueryContract,
+  serializeQueryContract,
 } from "@typed-sql/analysis";
 import {
   calculateSchemaHash,
@@ -12,9 +20,19 @@ import {
   upgradeSchemaSnapshotV1,
 } from "@typed-sql/schema";
 import { describe, it, strict } from "poku";
-import { compileSource } from "../../compiler/src/index.js";
+import {
+  buildQueryManifest,
+  collectQueryVerificationCandidates,
+  compileSource,
+  parseQueryManifest,
+  serializeQueryManifest,
+  verifyQueryManifest,
+} from "../../compiler/src/index.js";
+import { postgres as postgresCore } from "../src/analysis/core/18.js";
 import { postgres, postgresServerEvidence } from "../src/analysis.js";
+import { postgresProfile } from "../src/profile.js";
 import { createPostgresProjectCatalog, createPostgresProjectCatalogContribution } from "../src/project-catalog.js";
+import { createPostgresContractReconciler } from "../src/reconciliation.js";
 import { defaultPostgresTypePolicy } from "../src/type-policy.js";
 import { POSTGRES_DIALECT_VERSION } from "../src/version.js";
 
@@ -136,6 +154,202 @@ await describe("PostgreSQL selected reusable declarations", async () => {
     strict.equal(next.columns[0]?.tsType, "bigint");
     strict.equal(next.columns[0]?.nullable, true);
     strict.deepEqual(next.columns[0]?.range, { start: 7, end: 47, line: 1, column: 8 });
+  });
+  await it("preserves partial evidence through project routines, derived queries, contracts, manifests and verification", async () => {
+    const inner = "SELECT project.lookup($1::bigint) AS id, CAST($2 AS numeric) AS amount";
+    const queries = [
+      `SELECT nested.id, nested.amount FROM (${inner}) AS nested`,
+      `WITH nested AS (${inner}) SELECT id, amount FROM nested`,
+      `${inner} UNION ALL SELECT NULL::bigint AS id, NULL::numeric AS amount`,
+    ];
+    const catalog = make(queries);
+    strict.equal(catalog.entries.length, 1);
+    strict.equal(catalog.entries[0]!.permission, "fixed-result");
+    const loaded = apply(catalog),
+      core = postgresCore(),
+      profile = postgresProfile();
+    const contribution = createPostgresContractReconciler({ schema: loaded.schema });
+    const policy = {
+      mode: "native-required" as const,
+      owner: { id: contribution.id, version: contribution.version },
+      requiredNativeFacets: ["runtime-type" as const],
+    };
+    const field = (name: string, type: "bigint" | "string", complete: boolean): NativeContractValueEvidence => ({
+      nativeType: { status: "known", value: { name, complete } },
+      runtimeType: { status: "known", value: type },
+      nullable: { status: "unknown", reason: "fixture-protocol-does-not-report-nullability" },
+      descriptor: {},
+    });
+    for (const [index, text] of queries.entries()) {
+      strict.ok(core.analyze(text, { ...base, dialect: "postgres" }).diagnostics.some(({ code }) => code === "TSQ408"));
+      const staticAnalysis = core.analyze(text, loaded.schema);
+      strict.deepEqual(staticAnalysis.diagnostics, []);
+      strict.deepEqual(
+        staticAnalysis.columns.map(({ tsType }) => tsType),
+        ["bigint", "string"],
+      );
+      strict.equal(staticAnalysis.columns[0]!.nullable, true);
+      strict.deepEqual(
+        staticAnalysis.parameters.map(({ index, tsType }) => [index, tsType]),
+        [
+          [1, "bigint"],
+          [2, "string"],
+        ],
+      );
+      const occurrences = profile.parameterOccurrences!(text, loaded.schema).map(({ index, range }) => ({
+        index,
+        start: range.start,
+        end: range.end,
+      }));
+      let opened = 0,
+        described = 0,
+        contexts = 0,
+        closed = 0;
+      // Independent protocol fixture: this does not expand the production PostgreSQL adapter's statement scope.
+      const adapter: NativeContractAdapter = {
+        id: "test/partial-protocol",
+        version: "1",
+        grammar: loaded.context.grammar,
+        accept: (candidate) =>
+          candidate.sql === text ? { accepted: true } : { accepted: false, reason: "fixture-exact-query-only" },
+        async open() {
+          opened++;
+          return {
+            async context() {
+              contexts++;
+              return loaded.context;
+            },
+            async describe() {
+              described++;
+              return {
+                adapter: { id: adapter.id, version: adapter.version },
+                consistency: { mechanism: "snapshot", scope: "independent-test-protocol" },
+                resultKind: "rows",
+                columns: [
+                  { name: "id", ...field("bigint", "bigint", true) },
+                  { name: "amount", ...field("numeric", "string", false) },
+                ],
+                parameters: [
+                  { index: 1, ...field("bigint", "bigint", true) },
+                  { index: 2, ...field("numeric", "string", false) },
+                ],
+                parameterOccurrences: occurrences,
+              };
+            },
+            async close() {
+              closed++;
+            },
+          };
+        },
+      };
+      const acquired = await acquireNativeQueryContract({
+        adapter,
+        candidate: { sql: text, parameterOccurrences: occurrences },
+        context: loaded.context,
+      });
+      strict.deepEqual([opened, contexts, described, closed], [1, 2, 1, 1]);
+      if (acquired.status !== "acquired") throw Error("Expected independent protocol evidence");
+      const reconciled = reconcileQueryContract({
+        nativeContract: acquired.contract,
+        staticClaim: createStaticQueryClaim({ sql: text, context: loaded.context, analysis: staticAnalysis }),
+        contribution,
+        policy,
+      });
+      strict.equal(reconciled.status, "qualified");
+      if (reconciled.status !== "qualified")
+        throw Error("Expected runtime qualification with explicitly partial native facets");
+      strict.equal(
+        reconcileQueryContract({
+          nativeContract: acquired.contract,
+          staticClaim: createStaticQueryClaim({ sql: text, context: loaded.context, analysis: staticAnalysis }),
+          contribution,
+          policy: { ...policy, requiredNativeFacets: ["native-type"] },
+        }).status,
+        "incomplete",
+        "Partial numeric identity cannot satisfy an exact native-type requirement",
+      );
+      const contract = parseQueryContract(JSON.parse(serializeQueryContract(reconciled.contract)));
+      strict.equal(contract.nativeEvidence!.columns[1]!.nativeType.status, "known");
+      strict.equal(contract.nativeEvidence!.columns[1]!.nullable.status, "unknown");
+      const frozen = createContractDialect({
+        profile,
+        context: loaded.context,
+        contracts: [contract],
+        qualificationPolicyHash: queryContractDigest(policy),
+      });
+      const preserved = frozen.analyze(text, loaded.schema);
+      strict.equal(preserved.columns[1]!.databaseTypeIsPartial, true);
+      strict.equal(preserved.parameters[1]!.databaseTypeIsPartial, true);
+      strict.ok(preserved.columns.every(({ nullable }) => nullable));
+      strict.equal(preserved.semantics.operation.value, "unknown");
+      const rootDir = "/partial-composition";
+      const querySource =
+        'import {sql} from "@typed-sql/postgres"; export const query=sql`' +
+        text.replace("$1", "${id}").replace("$2", "${amount}") +
+        "`;";
+      const options = {
+        rootDir,
+        sources: [{ file: `${rootDir}/query-${index}.ts`, source: querySource }],
+        dialect: frozen,
+        schema: loaded.schema,
+        compilerVersion: "composition-test",
+      };
+      const manifest = parseQueryManifest(JSON.parse(serializeQueryManifest(buildQueryManifest(options).manifest)));
+      const entry = manifest.queries[0]!;
+      if (entry.status !== "resolved") throw Error("Expected preserved contract in manifest");
+      strict.equal(entry.variants[0]!.columns[1]!.databaseTypeIsPartial, true);
+      strict.equal(entry.variants[0]!.parameters[1]!.databaseTypeIsPartial, true);
+      const candidates = collectQueryVerificationCandidates({ ...options, manifest });
+      strict.equal(candidates.length, 1);
+      const candidate = candidates[0]!;
+      strict.equal(candidate.columns[1]!.databaseTypeIsPartial, true);
+      strict.equal(candidate.parameters[1]!.databaseTypeIsPartial, true);
+      let verifications = 0;
+      const verifier = (mismatch: boolean) => ({
+        dialect: "postgres",
+        adapterVersion: "independent-partial-verification-fixture",
+        async server() {
+          return { version: "18.6" };
+        },
+        compareDatabaseTypes(expected: string, actual: string) {
+          strict.equal(expected, "bigint", "Partial numeric identities must bypass exact comparison");
+          strict.equal(actual, "bigint");
+          return "equal" as const;
+        },
+        async verify() {
+          verifications++;
+          return {
+            columns: [
+              { index: 1, name: "id", databaseType: "bigint", tsType: mismatch ? "string" : "bigint" },
+              { index: 2, name: "amount", databaseType: "numeric(12,3)", tsType: "string" },
+            ],
+            parameters: [
+              { index: 1, databaseType: "bigint", tsType: "bigint" },
+              { index: 2, databaseType: "numeric(12,3)", tsType: "string" },
+            ],
+          };
+        },
+        async close() {},
+      });
+      const blocked = await verifyQueryManifest({ manifest, candidates, verifier: verifier(false) });
+      strict.equal(blocked.proof.entries[0]!.status, "skipped");
+      strict.equal(verifications, 0, "A frozen description alone cannot establish execution effects");
+      // Supply the separately computed core operation solely for the explicit verification pass.
+      strict.equal(staticAnalysis.semantics.operation.value, "read");
+      const independentlyClassified = [{ ...candidate, operation: staticAnalysis.semantics.operation.value }];
+      for (const mismatch of [false, true]) {
+        const checked = await verifyQueryManifest({
+          manifest,
+          candidates: independentlyClassified,
+          verifier: verifier(mismatch),
+        });
+        const result = checked.proof.entries[0]!;
+        strict.equal(result.status, mismatch ? "mismatch" : "skipped");
+        if (result.status === "skipped") strict.equal(result.reason, "native-metadata-unavailable");
+        if (result.status === "mismatch") strict.ok(result.mismatches.some(({ kind }) => kind === "typescript-type"));
+      }
+      strict.equal(verifications, 2);
+    }
   });
   await it("preserves polymorphism/default metadata but requires exact contracts instead of optimistic rules", () => {
     const catalog = make();

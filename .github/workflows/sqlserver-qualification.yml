@@ -86,6 +86,7 @@ jobs:
       - name: Qualify guarded native query-contract acquisition
         run: pnpm --filter @typed-sql/e2e-sqlserver qualify:contracts
         env:
+          TYPED_SQL_NATIVE_COSTS_DIRECTORY: ${{ github.workspace }}/artifacts/sqlserver/native-costs
           TYPED_SQL_SQLSERVER_MAJOR: ${{ matrix.major }}
           TYPED_SQL_SQLSERVER_BUILD: ${{ matrix.build }}
       - name: Qualify isolated tarballs and native worker artifacts

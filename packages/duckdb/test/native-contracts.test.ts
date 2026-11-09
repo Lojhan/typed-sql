@@ -11,6 +11,7 @@ import {
   queryContractDigest,
 } from "@typed-sql/analysis";
 import { describe, it, strict } from "poku";
+import { recordNativeCosts } from "../../../planning/hybrid-analysis/measure-native.mjs";
 import { duckdb } from "../src/browser.js";
 import { duckDBContractReconciliationOwner } from "../src/contract-profile.js";
 import { createNodeDuckDBNativeContractAdapter } from "../src/node-api-contracts.js";
@@ -61,6 +62,20 @@ await describe("DuckDB non-executing native query contracts", async () => {
     );
     strict.equal(result.kind, "usable-recorded-context");
     if (result.kind !== "usable-recorded-context") throw Error("Omitted core function was not qualified");
+    await recordNativeCosts({
+      label: `duckdb-${sdk.version().replace(/^v/u, "")}`,
+      serverVersion: sdk.version(),
+      schema: snapshot,
+      adapter,
+      candidate: candidate(sql),
+      analyze: (text) => grammar.analyze(text, snapshot),
+      contribution: createDuckDBContractReconciler(),
+      policy: {
+        mode: "native-required",
+        owner: duckDBContractReconciliationOwner,
+        requiredNativeFacets: ["runtime-type"],
+      },
+    });
     strict.deepEqual(
       result.contract.valuePlan.parameters.map((item) => [item.index, item.type, item.nullable]),
       [[1, "string", true]],

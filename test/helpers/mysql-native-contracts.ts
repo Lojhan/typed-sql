@@ -23,6 +23,7 @@ import { createMySql2NativeContractAdapter } from "../../packages/mysql/src/mysq
 import { tokenize } from "../../packages/mysql/src/parser/index.js";
 import { mysqlProfile } from "../../packages/mysql/src/profile.js";
 import { createMySqlContractReconciler } from "../../packages/mysql/src/reconciliation.js";
+import { recordNativeCosts } from "../../planning/hybrid-analysis/measure-native.mjs";
 import { assertMySqlTableContracts } from "./mysql-table-contracts.js";
 
 /** Requires a disposable qualification database and BACKUP_ADMIN plus metadata privileges. */
@@ -86,6 +87,21 @@ export async function assertMySqlNativeContracts(connectionUri: string): Promise
         qualified.contract.valuePlan.columns.map((column) => [column.name, column.type, column.nullable]),
         [["value", "number", query.parameterOccurrences.length > 0]],
       );
+      if (query.parameterOccurrences.length)
+        await recordNativeCosts({
+          label: `mysql-${schema.server.version.split("-")[0]}`,
+          serverVersion: schema.server.version,
+          schema,
+          adapter,
+          candidate: query,
+          analyze: (sql) => core.analyze(sql, schema),
+          contribution: createMySqlContractReconciler(),
+          policy: {
+            mode: "native-required",
+            owner: mySqlContractReconciliationOwner,
+            requiredNativeFacets: ["runtime-type"],
+          },
+        });
       strict.deepEqual(
         qualified.contract.valuePlan.parameters.map((parameter) => [
           parameter.index,

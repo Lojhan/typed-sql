@@ -13,6 +13,7 @@ import {
   createStaticQueryClaim,
   reconcileQueryContract,
 } from "../../packages/analysis/dist/packages/analysis/src/index.js";
+import { recordNativeCosts } from "../../planning/hybrid-analysis/measure-native.mjs";
 
 const password = process.env.TYPED_SQL_SQLSERVER_PASSWORD;
 assert.ok(password && !/[;{}]/u.test(password));
@@ -130,6 +131,17 @@ try {
         policy,
       });
       assert.equal(qualified.status, "qualified", JSON.stringify(qualified.report));
+      if (id === "bigint-parameter")
+        await recordNativeCosts({
+          label: `sqlserver-${build}-compat-${compatibility}`,
+          serverVersion: build,
+          schema,
+          adapter,
+          candidate: candidate(sql, schema),
+          analyze: (text) => sqlserver().analyze(text, schema),
+          contribution: createSqlServerContractReconciler(),
+          policy,
+        });
       evidence.cases.push({ compatibility, id, status: "pass", contract: qualified.contract });
     }
     for (const relation of ["record_view", "computed_records", "alias_records", "protected_records"]) {
