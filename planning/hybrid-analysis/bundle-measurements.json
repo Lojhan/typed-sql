@@ -1,6 +1,6 @@
 {
   "formatVersion": 2,
-  "sourceRevision": "4f19d94701cb58123681d5804e23bd424d3807d3",
+  "sourceRevision": "388a5184b4056e792f59ef9a8b23cb77020fd0c1",
   "nodeVersion": "v24.22.2",
   "esbuildVersion": "0.28.2",
   "measurementToolDigest": "e0544c2e81419a8a3f6ea76eb48f9628bc4fde1b55db6be77345f07557dbca31",
@@ -447,26 +447,26 @@
     {
       "grammar": "postgres",
       "scenario": "execution",
-      "minifiedBytes": 113095,
-      "gzipBytes": 31746,
-      "brotliBytes": 27720,
+      "minifiedBytes": 115486,
+      "gzipBytes": 32482,
+      "brotliBytes": 28374,
       "generatedInputBytes": 0,
       "globalCatalogInputs": [],
       "attribution": {
-        "postgres/other": 23657,
+        "postgres/other": 26048,
         "core/other": 36953,
         "schema/other": 399,
         "ast/other": 1645,
         "postgres/parser": 50401
       },
-      "outputDigest": "e136c16f4fa333db4b51538a8badec3a8eb84fd9226434c8dd02b74659c1bb5b"
+      "outputDigest": "eec0bbabd7a230cf4eebbe3903a68ca22646a1ae8d7b56c2884ba9aa8f40d3c7"
     },
     {
       "grammar": "postgres",
       "scenario": "analyzer",
-      "minifiedBytes": 391561,
-      "gzipBytes": 69372,
-      "brotliBytes": 57181,
+      "minifiedBytes": 392973,
+      "gzipBytes": 69765,
+      "brotliBytes": 57463,
       "generatedInputBytes": 147275,
       "globalCatalogInputs": [
         "packages/postgres/src/catalog/generated/14.ts",
@@ -480,12 +480,12 @@
       "attribution": {
         "core/other": 20570,
         "schema/other": 26025,
-        "postgres/other": 145670,
+        "postgres/other": 147082,
         "postgres/catalog": 140289,
         "ast/other": 1647,
         "postgres/parser": 57331
       },
-      "outputDigest": "299df595ef1a458be347197fc8a3a1a386d4d26c375bfd6459541b9a598362ad"
+      "outputDigest": "81e417ad7d1e28b4f514eae29ba17f426f7bfd021db2987f2f009a1e6067d074"
     },
     {
       "grammar": "postgres",
@@ -885,6 +885,7 @@
     "packages/postgres/src/codecs/index.ts": "b43911a5861a5e532b89d924e6059bd51510f1f3d4b261168c9b787194286ecd",
     "packages/postgres/src/codecs/normalize.ts": "c87a3201e8e0d33c6c5b73aae2962c6ff8d95ab94823adc7b38cc20563d96044",
     "packages/postgres/src/codecs/types-data.ts": "ab9acd4e63aac0cee1d1225bfba355c3b761d547a1aeea77c61059404b096adf",
+    "packages/postgres/src/enum-runtime.ts": "0396db18d79c5c9db1bd1f3f0c884a5ff7f5d2e592516916dd7201d93093bf31",
     "packages/postgres/src/expression-evidence.ts": "b1f7a14a6826f5c4850dfd861618418f0c4f085cbac9408f6ab79e008daef5d3",
     "packages/postgres/src/extensions.ts": "c3ee84bf65029e120480d45ee6ac3cea5702f52fb6305848abfebffd4d3d9695",
     "packages/postgres/src/index.ts": "9753467a1a90d2ade7c4b756f056f828976f301f33d297a734b75a5badc7ca21",
@@ -903,11 +904,11 @@
     "packages/postgres/src/query.ts": "ad1792e9125711cc9e67773201818976427d39eed3003e4ac372658e23e1c0e2",
     "packages/postgres/src/rendering.ts": "d837d87d4f8cda3d1c0615e7992e372a7d058ffb10f6e321fc25c158bf8d4b01",
     "packages/postgres/src/repeated-inputs.ts": "6c92a254c0279aec2ee1f2158a29e8d2eaa4957d46f259b6f953a4a3ccef95ac",
-    "packages/postgres/src/resolver.ts": "ad4b56d03aaade43439b4f66e9a4082ee131f230def4b9b7739e91529af7d14b",
+    "packages/postgres/src/resolver.ts": "90f9b72237a4147ce78ec88297f4619b1945a36068ae521743bc488b9c5c4c2c",
     "packages/postgres/src/routine-catalog.ts": "9cb18b5b2aa7fb75da6e9d1cc874f105f5225cbe7155b7a58cc4c2ab278d13d8",
     "packages/postgres/src/routing.ts": "ad20ee9dad164de04175fd2759d14af1dc06d26ba3d12452464642ee39839991",
     "packages/postgres/src/runtime-compatibility.ts": "118901da7f1ffe75d078e3ae66df9ffd5bf94c89c376a78a9e61dce6e68adc47",
-    "packages/postgres/src/runtime.ts": "4a04d94edd2258d53b77ff4b6b635eb7b033508fc18caf22d350ad89b890d0f9",
+    "packages/postgres/src/runtime.ts": "c3ce23bf72272474ca5bb00670ab07c019cb40ada5e0b622824c7de7e2442bdc",
     "packages/postgres/src/semantics.ts": "bb365e26f6c621dc4577a0498c67ff53ec2e14f1d363392f3315e8d656a74443",
     "packages/postgres/src/server-evidence.ts": "53656d8dac75529bcbac52d1ee345cd91887fd803907293019de3eff511f786a",
     "packages/postgres/src/stream.ts": "77fdd94f5d40e73313670f51726d683ad074074888a17d2067ead591713baff4",

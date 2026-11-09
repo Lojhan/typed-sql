@@ -1,6 +1,6 @@
 {
   "formatVersion": 1,
-  "sourceRevision": "4f19d94701cb58123681d5804e23bd424d3807d3",
+  "sourceRevision": "388a5184b4056e792f59ef9a8b23cb77020fd0c1",
   "nodeVersion": "v24.22.2",
   "esbuildVersion": "0.28.2",
   "toolDigest": "f7eb9f6274ff346fa516081ff0880523d946253d9b0b9f74b14058b7e22b6f5b",
@@ -679,10 +679,7 @@
           "queryFacts": [
             {
               "sqlDigest": "ed21d8923fb54061176c9c8ccb21e793166ebdbb4eded957a1be218f2194fc90",
-              "unresolvedCodecDescriptors": [
-                { "target": "column", "name": "status", "databaseType": "account_status" },
-                { "target": "column", "name": "role", "databaseType": "membership_role" }
-              ]
+              "unresolvedCodecDescriptors": []
             }
           ]
         },
@@ -718,7 +715,7 @@
             },
             {
               "sqlDigest": "5fdb0b27095544b34ea92a78e6e2ff23ebd99beb34f38ca88eabcbc471bf2edf",
-              "unresolvedCodecDescriptors": [{ "target": "column", "name": "status", "databaseType": "order_status" }]
+              "unresolvedCodecDescriptors": []
             }
           ]
         },
@@ -787,22 +784,22 @@
           "copies": 1,
           "sourceQueryFiles": 7,
           "collectedCandidates": 7,
-          "knownCodecCandidates": 5,
+          "knownCodecCandidates": 7,
           "uniqueContracts": 7,
           "runtimeTemplateModules": 6,
           "durableFiles": 9,
-          "durableFileBytes": 12193,
+          "durableFileBytes": 12390,
           "durableClosure": {
-            "bytes": 12875,
-            "gzipBytes": 2005,
-            "brotliBytes": 1644,
-            "digest": "7186b5774590da7967c84dfcede17f202025e61f0dda4b51cf6d0e4ee93c64fe"
+            "bytes": 13072,
+            "gzipBytes": 2085,
+            "brotliBytes": 1707,
+            "digest": "1b291db6703775c05ebdb686d463b37f2398ff2021f37cde8b5b8c703797225f"
           },
           "valuePlans": {
-            "bytes": 4848,
-            "gzipBytes": 663,
-            "brotliBytes": 540,
-            "digest": "dd065394452491e661ca0580dde925ef8fa6d650644a1aab12c16d11b3527f2f"
+            "bytes": 5045,
+            "gzipBytes": 730,
+            "brotliBytes": 596,
+            "digest": "ecb49125800f2d910170a62067389234b98191ef9104b2d458f0c2bd809e1daf"
           },
           "rendererOnlyBundle": {
             "bytes": 19770,
@@ -814,20 +811,20 @@
             "retainedModules": 11
           },
           "withValuePlansBundle": {
-            "bytes": 29329,
-            "gzipBytes": 8545,
-            "brotliBytes": 7686,
-            "digest": "ade21fd39fa79315991055029eeb9c488e090ef0eba6a4174c8e5fa2f2147745",
-            "attribution": { "application": 7229, "core": 21720, "postgres": 195 },
+            "bytes": 29502,
+            "gzipBytes": 8609,
+            "brotliBytes": 7719,
+            "digest": "d842863b7461a25fe619602e6154085cb70db29cc1e2db6e8b1fa5bbfc3ab0cf",
+            "attribution": { "application": 7402, "core": 21720, "postgres": 195 },
             "retainedApplicationModules": 6,
             "retainedModules": 14
           },
           "selectedModuleThroughBarrel": {
-            "bytes": 18559,
-            "gzipBytes": 5936,
-            "brotliBytes": 5364,
-            "digest": "f4b9794109c3424032d9aa77e39f2690e94b7f2ce97ff42db74484fc7a7e2078",
-            "attribution": { "application": 954, "core": 17490 },
+            "bytes": 18655,
+            "gzipBytes": 5973,
+            "brotliBytes": 5395,
+            "digest": "76fa34fd8bb7fa887107fed04002de8abf039722421c6cf397561e18b9f221ae",
+            "attribution": { "application": 1050, "core": 17490 },
             "retainedApplicationModules": 1,
             "retainedModules": 6
           }
@@ -836,22 +833,22 @@
           "copies": 10,
           "sourceQueryFiles": 70,
           "collectedCandidates": 70,
-          "knownCodecCandidates": 50,
+          "knownCodecCandidates": 70,
           "uniqueContracts": 70,
           "runtimeTemplateModules": 60,
           "durableFiles": 72,
-          "durableFileBytes": 115324,
+          "durableFileBytes": 117294,
           "durableClosure": {
-            "bytes": 121236,
-            "gzipBytes": 10207,
-            "brotliBytes": 6714,
-            "digest": "8263d94cc2c36440ee2cc7a687a7580d4102627134821a5c16a9c477f98befc2"
+            "bytes": 123206,
+            "gzipBytes": 10356,
+            "brotliBytes": 6740,
+            "digest": "82aabdeb9a4525be58eaed66b0de65efdd08b0a180ab532183a86a3581122b9e"
           },
           "valuePlans": {
-            "bytes": 48471,
-            "gzipBytes": 1003,
-            "brotliBytes": 547,
-            "digest": "6dfebc19eb66e58004f7f56b5610c51aea02be53ad5e6e9a3b2654da4ac153f6"
+            "bytes": 50441,
+            "gzipBytes": 1086,
+            "brotliBytes": 605,
+            "digest": "cc6e016877fc20b8b1bc8ed584232354d780b7e91562947318e028bbd543df5a"
           },
           "rendererOnlyBundle": {
             "bytes": 40763,
@@ -863,20 +860,20 @@
             "retainedModules": 65
           },
           "withValuePlansBundle": {
-            "bytes": 96708,
-            "gzipBytes": 10845,
-            "brotliBytes": 8697,
-            "digest": "8058402dccbeaa722bc766847b7b5fe645677b53826f23b915cb742c1c31fa67",
-            "attribution": { "application": 73802, "core": 21720, "postgres": 195 },
+            "bytes": 98438,
+            "gzipBytes": 10921,
+            "brotliBytes": 8718,
+            "digest": "407787103a5b5d7601994e9e95e70080a917c149e3483d78a686557ed849ea78",
+            "attribution": { "application": 75532, "core": 21720, "postgres": 195 },
             "retainedApplicationModules": 60,
             "retainedModules": 68
           },
           "selectedModuleThroughBarrel": {
-            "bytes": 18559,
-            "gzipBytes": 5937,
-            "brotliBytes": 5374,
-            "digest": "16d3b1c19ff37928b0f66fe71447936c921dce77d6614cc110ff39fb22dcb0a7",
-            "attribution": { "application": 954, "core": 17490 },
+            "bytes": 18655,
+            "gzipBytes": 5975,
+            "brotliBytes": 5396,
+            "digest": "7d9d4bd2d62810e6e0b8dfe35a89059d34ad04767d80264bf6d11f920a255b78",
+            "attribution": { "application": 1050, "core": 17490 },
             "retainedApplicationModules": 1,
             "retainedModules": 6
           }
@@ -885,22 +882,22 @@
           "copies": 50,
           "sourceQueryFiles": 350,
           "collectedCandidates": 350,
-          "knownCodecCandidates": 250,
+          "knownCodecCandidates": 350,
           "uniqueContracts": 350,
           "runtimeTemplateModules": 300,
           "durableFiles": 352,
-          "durableFileBytes": 573684,
+          "durableFileBytes": 583534,
           "durableClosure": {
-            "bytes": 602837,
-            "gzipBytes": 48217,
-            "brotliBytes": 28598,
-            "digest": "c1bfbbdc3310063f7abfe162324e74953db2f40233902aeb87cd39cd1fc7bde7"
+            "bytes": 612687,
+            "gzipBytes": 48236,
+            "brotliBytes": 28729,
+            "digest": "ce53debc3399bc0c07aded14877f4466197343282383a4fe14e178c36f31b1a6"
           },
           "valuePlans": {
-            "bytes": 242351,
-            "gzipBytes": 2250,
-            "brotliBytes": 547,
-            "digest": "261a1542b8a4ee9a1e5d270fef47315f6d9dc3ca9a9bc9ecc574670c1778b909"
+            "bytes": 252201,
+            "gzipBytes": 2387,
+            "brotliBytes": 605,
+            "digest": "6e4e2e13531167298cd85ed54774fc5e3f3b49153a189d5c93391c4a6d300b7a"
           },
           "rendererOnlyBundle": {
             "bytes": 134563,
@@ -912,20 +909,20 @@
             "retainedModules": 305
           },
           "withValuePlansBundle": {
-            "bytes": 396708,
-            "gzipBytes": 20260,
-            "brotliBytes": 12643,
-            "digest": "7d9a8c8029a43d95aa2b10493f73727829f2d12e73a10e82f77c0475a73565f1",
-            "attribution": { "application": 370002, "core": 21720, "postgres": 195 },
+            "bytes": 405358,
+            "gzipBytes": 20389,
+            "brotliBytes": 12636,
+            "digest": "e44bd354dc0423f8f71ad98148047f0675d7a21890939c0b35adb3818f668381",
+            "attribution": { "application": 378652, "core": 21720, "postgres": 195 },
             "retainedApplicationModules": 300,
             "retainedModules": 308
           },
           "selectedModuleThroughBarrel": {
-            "bytes": 18559,
-            "gzipBytes": 5932,
-            "brotliBytes": 5355,
-            "digest": "78bbb08219c1556631fc5d649ecea5bf7565e25b45c298ed0123eb833db3e56a",
-            "attribution": { "application": 954, "core": 17490 },
+            "bytes": 18655,
+            "gzipBytes": 5972,
+            "brotliBytes": 5388,
+            "digest": "c3aaf693474e95bc52a954a7c94bedc04e1a42a051bd647610866035620511ba",
+            "attribution": { "application": 1050, "core": 17490 },
             "retainedApplicationModules": 1,
             "retainedModules": 6
           }

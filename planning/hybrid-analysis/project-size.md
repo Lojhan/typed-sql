@@ -1,7 +1,7 @@
 # Commerce project size and growth
 
 The [machine-readable report](./project-measurements.json) measures source revision
-`4f19d94701cb58123681d5804e23bd424d3807d3` with Node 24.22.2 and esbuild 0.28.2. It discovers
+`388a5184b4056e792f59ef9a8b23cb77020fd0c1` with Node 24.22.2 and esbuild 0.28.2. It discovers
 all five grammars from the feature ledger and uses their maintained commerce example query files
 and DDL. There is no copied vendor catalog or manually maintained benchmark function list.
 
@@ -22,7 +22,7 @@ module counts and output digests.
 
 | Grammar | Renderer-only application | Application with value plans | One selected module through barrel |
 | --- | ---: | ---: | ---: |
-| PostgreSQL | 19.3 / 6.3 | 28.6 / 8.3 | 18.1 / 5.8 |
+| PostgreSQL | 19.3 / 6.3 | 28.8 / 8.4 | 18.2 / 5.8 |
 | MySQL | 19.1 / 6.3 | 27.8 / 8.3 | 18.3 / 5.9 |
 | SQLite | 19.3 / 6.3 | 28.4 / 8.2 | 18.2 / 5.8 |
 | SQL Server | 19.0 / 6.2 | 29.0 / 8.2 | 18.7 / 6.0 |
@@ -49,7 +49,7 @@ qualification or evidence is invented.
 
 | Grammar | Exact candidates | Candidates with known codecs | Remaining modeled codec uncertainty |
 | --- | ---: | ---: | --- |
-| PostgreSQL | 7 | 5 | Enum-valued account/status/role fields |
+| PostgreSQL | 7 | 7 | None in these candidates |
 | MySQL | 7 | 6 | Audit JSON input parameter |
 | SQLite | 7 | 6 | Revenue SUM and threshold numeric family |
 | SQL Server | 8 | 8 | None in these candidates |
@@ -69,7 +69,7 @@ At 50 copies the measured artifact/plan payloads are:
 
 | Grammar | Exact contracts | Durable file contents, KiB | Framed closure gzip, KiB | Standalone plan JSON, KiB |
 | --- | ---: | ---: | ---: | ---: |
-| PostgreSQL | 350 | 560.2 | 47.1 | 236.7 |
+| PostgreSQL | 350 | 569.9 | 47.1 | 246.3 |
 | MySQL | 350 | 526.8 | 46.8 | 212.7 |
 | SQLite | 350 | 555.5 | 46.5 | 232.7 |
 | SQL Server | 400 | 638.4 | 53.5 | 268.9 |
@@ -122,4 +122,11 @@ three packed-consumer/editor suites pass, together with clean build/types, docs,
 isolated performance gate. The PostgreSQL migration-derived disconnected frozen build passes.
 [SQL Server run 42535227376](https://github.com/Lojhan/typed-sql/actions/runs/42535227376) passes
 all four engine jobs at compiler commit `57e35256`, including installed table-query/editor/frozen
-flows. Subsequent measurement commits change tooling/reports rather than compiler behavior.
+flows. PostgreSQL enum descriptor propagation is separately covered by the execution proof and
+the package, packed-consumer, soundness, build, type, documentation, quality and performance checks
+recorded in [the PostgreSQL proof](./postgres-native-proof.md).
+
+The PostgreSQL enum gaps identified by the preceding measurement are now closed using declared
+schema labels. The application with plans grows by 173 minified bytes / 64 gzip bytes relative
+to that measurement. This establishes codecs in this workload; it does not expand native
+acquisition admission or establish complete grammar semantics.
