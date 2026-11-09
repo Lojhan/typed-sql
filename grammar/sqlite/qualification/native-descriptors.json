@@ -1,0 +1,46 @@
+{
+  "formatVersion": 1,
+  "scope": "Reviewed descriptor observations on qualified authorizer/column-metadata profiles; older APIs remain explicitly unavailable. These are storage-domain observations, not precise expression or arbitrary-declaration semantics.",
+  "engines": {
+    "3.53.4": {
+      "observationDigest": "b161d5ad48d2cce47419bad71b5b204d8fe42614f564fe7bfbae87b1bbb533a9",
+      "counts": {
+        "standardNames": 6,
+        "probes": 28,
+        "policies": 4,
+        "acquired": 103,
+        "unavailable": 9
+      },
+      "capture": {
+        "sourceRevision": "6b3bdcb6807be0b14660e54d89a7b9f6dd03c3d3",
+        "toolDigest": "c319acf6a26aed498de651a9fcce2519a4e0b3fae58bbdb834aa118c20b0ae24",
+        "environment": {
+          "node": "v24.22.2",
+          "platform": "linux",
+          "architecture": "x64"
+        },
+        "sourceId": "2026-07-24 19:02:57 bf7c7f30031888f4e796e429ab3978879485813aaca6f641c7b33e4e09459bcc"
+      }
+    },
+    "3.54.0": {
+      "observationDigest": "998ea0c339880e1a72dbce07af70b5fab415073a48fb4a1ae2244c8c57284ced",
+      "counts": {
+        "standardNames": 6,
+        "probes": 28,
+        "policies": 4,
+        "acquired": 103,
+        "unavailable": 9
+      },
+      "capture": {
+        "sourceRevision": "6b3bdcb6807be0b14660e54d89a7b9f6dd03c3d3",
+        "toolDigest": "c319acf6a26aed498de651a9fcce2519a4e0b3fae58bbdb834aa118c20b0ae24",
+        "environment": {
+          "node": "v26.13.0",
+          "platform": "linux",
+          "architecture": "x64"
+        },
+        "sourceId": "2026-10-09 15:46:58 be8d059e9a49089ab2dce5ed26dd87aaf598fdc5fbe0b107c0dd758464bcd5e3"
+      }
+    }
+  }
+}

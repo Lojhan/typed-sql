@@ -25,7 +25,7 @@ interface Probe {
 }
 
 /** Source-derived standard names plus live declared/expression metadata, never sampled row values. */
-export async function captureSqliteDescriptorInventory() {
+export async function captureSqliteDescriptorInventory(options: { reviewed?: boolean } = {}) {
   const facts = JSON.parse(
     await readFile(new URL("../../../../grammar/sqlite/qualification/descriptor-types.json", import.meta.url), "utf8"),
   ) as {
@@ -215,6 +215,23 @@ export async function captureSqliteDescriptorInventory() {
       await writeFile(
         join(output, `sqlite-${engine}-node-${process.versions.node.split(".")[0]}-descriptors.json`),
         `${JSON.stringify(report, null, 2)}\n`,
+      );
+    }
+    if (options.reviewed) {
+      const approved = JSON.parse(
+        await readFile(
+          new URL("../../../../grammar/sqlite/qualification/native-descriptors.json", import.meta.url),
+          "utf8",
+        ),
+      );
+      strict.equal(approved.formatVersion, 1);
+      const expected = approved.engines[engine];
+      strict.ok(expected, "Review descriptors for this exact SQLite engine before qualification");
+      strict.deepEqual(expected.counts, report.counts);
+      strict.equal(
+        expected.observationDigest,
+        report.observationDigest,
+        "Native SQLite descriptor facts changed; review the capture without accepting new gaps",
       );
     }
     return report;

@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -65,6 +65,11 @@ async function acquire(path: string, sql: string): Promise<QueryContract> {
 await describe("SQLite owned read-only native query contracts", async () => {
   const probe = new DatabaseSync(":memory:");
   const statement = probe.prepare("SELECT 1");
+  const engine = String(probe.prepare("SELECT sqlite_version() AS version").get()!.version);
+  const capabilities = {
+    authorizer: typeof probe.setAuthorizer === "function",
+    columns: typeof statement.columns === "function",
+  };
   const supported = typeof probe.setAuthorizer === "function" && typeof statement.columns === "function";
   if ("close" in statement && typeof statement.close === "function") statement.close();
   probe.close();
@@ -76,12 +81,20 @@ await describe("SQLite owned read-only native query contracts", async () => {
           /unsupported-context|native-failure/u,
         );
       });
+      const directory = process.env.TYPED_SQL_NATIVE_DESCRIPTOR_DIRECTORY;
+      if (directory) {
+        await mkdir(directory, { recursive: true });
+        await writeFile(
+          join(directory, `sqlite-${engine}-node-${process.versions.node.split(".")[0]}-descriptors.json`),
+          `${JSON.stringify({ formatVersion: 1, engine, node: process.version, status: "unavailable", reason: "required-native-metadata-guards-unavailable", capabilities }, null, 2)}\n`,
+        );
+      }
     });
     await it.skip("Native SQLite qualification requires the authorizer and column-metadata APIs", () => {});
     return;
   }
   await it("audits source-derived standard types and native descriptor boundaries", async () => {
-    const report = await captureSqliteDescriptorInventory();
+    const report = await captureSqliteDescriptorInventory({ reviewed: true });
     strict.equal(report.counts.acquired + report.counts.unavailable, report.counts.probes * report.counts.policies);
   });
   await it("executes the recorded storage domains through the same integer and binding policy", async () => {
