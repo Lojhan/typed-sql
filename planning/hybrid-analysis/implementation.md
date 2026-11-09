@@ -1002,3 +1002,12 @@ The collection failure now has a deterministic retry regression; the new source 
 own green CI and hosted performance result. Remaining distribution decisions cover SQLite and
 SQL Server, alongside representative workloads, native-qualified payload/latency, broader reusable
 catalog/custom-type qualification and the complete architecture acceptance audit.
+
+The bundle and repository tools now both pin `1214270f`. PostgreSQL all-major analysis measures
+387.3 KiB minified / 68.6 KiB gzip; selected full/core imports measure 274.1–274.5 / 66.7 KiB.
+This saves about 29% minified but 2.7% gzip. Runtime/profile/frozen rows are byte-identical to the
+preceding report. Tracked generated package source is 26,156 lines (+2,717 versus the PR base),
+maintained package source 106,290 (+14,346), and maintained tests/E2E 107,186 (+18,833). The
+exhaustive vendor catalog JSON and upstream registry remain absent. Category/package totals and
+all three Git physical-line comparisons independently agree; these are measured current costs,
+not estimates of the unfinished final architecture.

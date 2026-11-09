@@ -1,7 +1,7 @@
 # Bundle measurements and remaining boundaries
 
 The [machine-readable report](./bundle-measurements.json) measures committed source at
-`c9e4a79395ad397d56c08cfd1d0aaaef339b7870`, compared with the earlier exhaustive-catalog revision
+`1214270f2fa35e8153654730d6752e566da7b04e`, compared with the earlier exhaustive-catalog revision
 `a1f27fc894e48021e91ce4c9a4b98929890f233d`. Both use the same measurement tool, esbuild 0.28.2,
 Node 24.22.2, minified ESM, Node platform, ES2022, tree-shaking, gzip level 9 and Brotli quality 11.
 
@@ -12,7 +12,7 @@ version selection. They exclude a TypeScript project, driver implementation and 
 
 | Grammar | Earlier analyzer minified | Current analyzer minified | Earlier gzip | Current gzip |
 | --- | ---: | ---: | ---: | ---: |
-| PostgreSQL | 1,649.9 | 383.8 | 131.8 | 68.1 |
+| PostgreSQL | 1,649.9 | 387.3 | 131.8 | 68.6 |
 | MySQL | 180.6 | 185.4 | 43.2 | 44.1 |
 | SQLite | 154.7 | 148.6 | 39.5 | 39.5 |
 | SQL Server | 138.7 | 121.1 | 35.6 | 34.6 |
@@ -21,8 +21,8 @@ version selection. They exclude a TypeScript project, driver implementation and 
 This measures the net change between those revisions, including removal of the exhaustive
 pipeline, maintained semantic corrections and API separation. It does not isolate savings caused
 by query contracts. In particular, MySQL grows slightly. Maintained global semantics and version
-tables still contribute to analyzers. The following rows measure DuckDB core/pack distribution;
-representative workload selection and equivalent boundaries in other grammars remain open.
+tables still contribute to analyzers. The following rows measure DuckDB core/pack distribution and MySQL/PostgreSQL version selection;
+representative workload selection and appropriate SQLite/SQL Server boundaries remain open.
 
 ## Version-specific DuckDB core and optional packs
 
@@ -33,7 +33,7 @@ overload partition. Adding that installed pack restores full existing offline be
 analyzer imports remain compatible. Every selected analyzer rejects another engine's snapshot.
 
 | DuckDB analyzer | Minified KiB | Gzip KiB | Generated input KiB, before compression |
-| --- | ---: | ---: | ---: | ---: |
+| --- | ---: | ---: | ---: |
 | Both engines, full | 627.8 | 78.0 | 509.4 |
 | 1.5.6 full | 360.0 | 55.0 | 242.2 |
 | 2.0.0 full | 385.0 | 57.1 | 267.2 |
@@ -90,6 +90,29 @@ its long tail uses qualified exact query contracts. This differs from DuckDB's l
 where the disjoint optional partition provides a measured reduction. These measurements do not
 establish production popularity or the size of newly packed installations.
 
+## PostgreSQL major selection and maintained core
+
+The selected full and core analyzers retain every maintained rule for one major. Core requests
+qualified query evidence for unmapped functions; it does not generate a universal rule from a
+single native description. There is no additional PostgreSQL compatibility pack. Explicit
+selection rejects missing/mismatched snapshot majors and retains existing canary policy.
+
+| PostgreSQL analyzer | Minified KiB | Gzip KiB | Generated input KiB, before compression |
+| --- | ---: | ---: | ---: |
+| All six majors, full | 387.3 | 68.6 | 143.8 |
+| 14 full/core | 274.2 | 66.7 | 31.0 |
+| 15–17 full/core | 274.1 | 66.7 | 30.9 |
+| 18–19 full/core | 274.5 | 66.7 | 31.4 |
+
+Selecting one major saves 29.1–29.2% minified versus the current all-major factory, but only
+2.7% gzip. Shared parser/semantics remain, and compression already deduplicates much of the
+similar version data. The all-major analyzer grows from 383.8 to 387.3 KiB versus the preceding
+measurement because explicit ownership and factory mechanics remain in its compatibility graph.
+The selected graphs contain one full catalog and compact codec facts, excluding the registry,
+default wrappers, introspection and drivers. Runtime tags, execution factories, lightweight
+profiles and frozen hosts are byte-identical to the preceding report. Installation payloads
+are not inferred from these tree-shaken graphs.
+
 ## Current consumer graphs
 
 | Grammar | Root query tag minified / gzip | Profile minified / gzip | Frozen host helpers minified / gzip |
@@ -118,7 +141,7 @@ Run from an installed repository with Node 24.22.2:
 
 ```sh
 node planning/hybrid-analysis/measure-bundles.mjs a1f27fc894e48021e91ce4c9a4b98929890f233d /tmp/typed-sql-bundle-baseline.json
-node planning/hybrid-analysis/measure-bundles.mjs c9e4a79395ad397d56c08cfd1d0aaaef339b7870 planning/hybrid-analysis/bundle-measurements.json /tmp/typed-sql-bundle-baseline.json
+node planning/hybrid-analysis/measure-bundles.mjs 1214270f2fa35e8153654730d6752e566da7b04e planning/hybrid-analysis/bundle-measurements.json /tmp/typed-sql-bundle-baseline.json
 ```
 
 The tool discovers grammars from the committed feature ledger and public entrypoints from package

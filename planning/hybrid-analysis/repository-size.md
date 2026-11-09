@@ -1,17 +1,17 @@
 # Repository topology and tracked-line accounting
 
 The [machine-readable inventory](./repository-measurements.json) measures committed source
-`1adfc8e5ded500d509ae47c10c8d971a7c78e6b0` against PR base `3753571154bb3acf460a2a2031e9b20f88e21ea8` and the exact
+`1214270f2fa35e8153654730d6752e566da7b04e` against PR base `3753571154bb3acf460a2a2031e9b20f88e21ea8` and the exact
 `e194abb4f55523f435995a74d7d8ab58c2c42977` proposal that produced +486,674 / −67,823.
 These are physical UTF-8 lines, including comments and blanks. They are not semantic statements,
 maintenance effort, bundle bytes or an estimate of the unfinished architecture.
 
 ## What the direction change removes
 
-The current source has **373,476 fewer tracked text lines** than the exhaustive proposal.
+The current source has **371,492 fewer tracked text lines** than the exhaustive proposal.
 That proposal's five `grammar/*/facts/catalog.json` files contribute 175,882 lines / 24,929,359
 bytes and are absent now. Its separate `grammar/catalog/upstream.json` has another 165,165 lines
-and is also absent. Other audit/fixture/report data falls by 225,717 lines overall, including
+and is also absent. Other audit/fixture/report data falls by 225,465 lines overall, including
 that upstream registry. Required reviewed reference/native-audit fixtures remain.
 
 Most of the original giant addition was captured data and reports, rather than committed
@@ -21,15 +21,15 @@ from the PR base, not a new exhaustive generated pipeline.
 
 | Tracked content | PR base | Exhaustive proposal | Current source | Current minus base |
 | --- | ---: | ---: | ---: | ---: |
-| Tracked physical text lines | 457,258 | 876,109 | 502,633 | +45,375 |
-| Maintained package source | 91,944 | 99,619 | 105,725 | +13,781 |
-| Generated package source | 23,439 | 0 | 26,154 | +2,715 |
-| Maintained test/E2E source | 88,353 | 101,778 | 106,408 | +18,055 |
+| Tracked physical text lines | 457,258 | 876,109 | 504,617 | +47,359 |
+| Maintained package source | 91,944 | 99,619 | 106,290 | +14,346 |
+| Generated package source | 23,439 | 0 | 26,156 | +2,717 |
+| Maintained test/E2E source | 88,353 | 101,778 | 107,186 | +18,833 |
 | Captured vendor catalog JSON | 0 | 175,882 | 0 | +0 |
-| Other audit/fixture/report data | 105,432 | 335,870 | 110,153 | +4,721 |
+| Other audit/fixture/report data | 105,432 | 335,870 | 110,405 | +4,973 |
 
-Maintained package source grows by **13,781 lines** over the base; maintained tests/E2E grow by
-**18,055 lines**. Generated package source grows by **2,715 lines**. Existing generated example
+Maintained package source grows by **14,346 lines** over the base; maintained tests/E2E grow by
+**18,833 lines**. Generated package source grows by **2,717 lines**. Existing generated example
 schema inputs add another 4,082 lines in every compared revision. Keeping these categories
 separate avoids calling tests, captured metadata or retained baseline catalogs newly generated
 application code. The complete inventory also accounts for tooling, application/editor/website
@@ -44,7 +44,7 @@ generated. Mixed generated blocks inside maintained files are not split.
 
 | Package | Maintained lines | Maintained delta from base | Generated lines | Generated delta from base |
 | --- | ---: | ---: | ---: | ---: |
-| `analysis` | 5,760 | +5,760 | 0 | +0 |
+| `analysis` | 5,773 | +5,773 | 0 | +0 |
 | `build` | 1,608 | +286 | 0 | +0 |
 | `cli` | 3,347 | +864 | 0 | +0 |
 | `compiler` | 8,661 | +672 | 0 | +0 |
@@ -52,8 +52,8 @@ generated. Mixed generated blocks inside maintained files are not split.
 | `core` | 6,276 | +170 | 0 | +0 |
 | `duckdb` | 8,729 | +1,028 | 13,309 | +2,056 |
 | `language-server` | 2,854 | +461 | 0 | +0 |
-| `mysql` | 11,146 | +1,122 | 179 | +155 |
-| `postgres` | 19,470 | +1,620 | 12,666 | +504 |
+| `mysql` | 11,339 | +1,315 | 181 | +157 |
+| `postgres` | 19,829 | +1,979 | 12,666 | +504 |
 | `sqlite` | 8,588 | +570 | 0 | +0 |
 | `sqlserver` | 10,358 | +1,114 | 0 | +0 |
 
@@ -88,6 +88,12 @@ packages/
   duckdb/src/analysis/packs/    explicit engine compatibility packs
   duckdb/src/catalog/core/     generated selected overloads and shared type mechanics
   duckdb/src/catalog/packs/    complementary generated overloads
+  mysql/src/analysis/<series>   selected full analyzers
+  mysql/src/analysis/core/      selected cores retaining maintained families
+  postgres/src/analysis/<major> selected full analyzers
+  postgres/src/analysis/core/   selected cores retaining maintained families
+  postgres/src/catalog/provider.ts  immutable catalog ownership
+  postgres/src/type-resolution-factory.ts  catalog-owned type/operator caches
   postgres/src/project-catalog*  selected reusable routine interpretation
 scripts/language-audit/         independent discovery and reviewed drift detection
 planning/hybrid-analysis/       design, qualification evidence and measurement tools
@@ -109,13 +115,14 @@ native data digests remain unchanged. The generated source increase includes the
 builtin-name vocabulary needed for binding/shadowing checks, selection metadata and provenance.
 The commit moves existing generated rows, so added/deleted diff counts exceed the net growth.
 
-Since this measured revision, MySQL has added selected-series core/full analyzers that retain its
-small maintained function set. The current bundle report measures that source separately; this
-tracked-line table still pins the exact revision shown above. PostgreSQL, SQLite and SQL Server
-still need appropriate distribution boundaries. Representative
-workload selection, reusable catalog/custom-type interpretation beyond PostgreSQL and qualified
-selection merging remain open. This accounting is not the final LOC result for those unfinished
-parts. [The bundle report](./bundle-size.md) measures the current DuckDB distribution separately.
+This measured revision includes MySQL selected-series and PostgreSQL selected-major full/core
+analyzers, retaining their maintained rules without additional compatibility packs. PostgreSQL
+mechanics are moved behind injected owners rather than copied into a parallel semantic engine.
+SQLite and SQL Server still need appropriate distribution boundaries. Representative workload
+selection, native-qualified project payload/latency, reusable catalog/custom-type interpretation
+beyond PostgreSQL and qualified selection merging remain open. This accounting is not the final
+LOC result for those unfinished parts. [The bundle report](./bundle-size.md) measures distribution
+separately from tracked source, while its installation table retains its own older source pin.
 
 The measured prototype establishes the maintenance cost and removed corpus. It does not justify
 an invented numerical prediction for the remaining core/pack implementation. Later measurements
