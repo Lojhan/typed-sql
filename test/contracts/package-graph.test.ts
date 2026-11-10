@@ -76,6 +76,7 @@ const stablePackages = [
   "analysis",
   "compiler",
   "conformance",
+  "migrations",
   "postgres",
   "mysql",
   "sqlite",
@@ -85,7 +86,6 @@ const stablePackages = [
   "adapters",
   "build",
   "playground",
-  "migrations",
 ] as const;
 const experimentalPackages = ["ts-bridge", "language-server"] as const;
 const expectedEntrypoints: Readonly<Record<(typeof publicPackages)[number], readonly string[]>> = {
