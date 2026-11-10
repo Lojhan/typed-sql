@@ -1,7 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, it, strict } from "poku";
-import { fixture } from "../../cli/test/helpers/contract-fixture.js";
+import { context, fixture } from "../../cli/test/helpers/contract-fixture.js";
 import type { RunRecord } from "../src/runner.js";
 import { startPlayground } from "../src/server.js";
 
@@ -23,7 +23,6 @@ await describe("workspace contract host", async () => {
         await writeFile(join(root, "src/query.sql"), sql);
         const application =
           'import {getQueryValuePlan} from "@typed-sql/core";' +
-          // biome-ignore lint/suspicious/noTemplateCurlyInString: Application fixture.
           'import {sql} from "@typed-sql/postgres";export function run(){const q=sql`SELECT ${1n}::bigint AS value`;return [{valid:getQueryValuePlan(q)?.columns[0]?.type==="bigint"}];}';
         await writeFile(join(root, "src/run.ts"), application);
         const host = await startPlayground({ config, target: "local" });
@@ -87,9 +86,10 @@ await it("starts native qualification only after trust and closes its owned serv
     const config = join(root, "typed-sql.config.mjs");
     const opened = join(root, "native-opened");
     const closed = join(root, "native-closed");
+    await writeFile(join(root, "native-context.json"), JSON.stringify(context));
     let source = await readFile(config, "utf8");
     source =
-      `import {writeFile} from "node:fs/promises";import {createPostgresContractReconciler} from "@typed-sql/postgres/reconciliation";\n` +
+      `import {readFile,writeFile} from "node:fs/promises";import {createPostgresContractReconciler} from "@typed-sql/postgres/reconciliation";\n` +
       source;
     source = source.replace(
       'loadAnalyzer(){throw new Error("analyzer must remain cold")}',
@@ -98,10 +98,10 @@ await it("starts native qualification only after trust and closes its owned serv
     source = source.replace(
       'analysis:{mode:"frozen",',
       `playground:{readRoots:["src"],writeRoots:["src"]},analysis:{mode:"live",cache:{connectionContext:"${"a".repeat(64)}",adapter:{id:"fixture/native",version:"1"}},live:{async adapter({schema}){
-    await writeFile(${JSON.stringify(opened)},"opened");
-    const context=${JSON.stringify((await import("../../cli/test/helpers/contract-fixture.js")).context)};
+    await writeFile(new URL("./native-opened",import.meta.url),"opened");
+    const context=JSON.parse(await readFile(new URL("./native-context.json",import.meta.url),"utf8"));
     const adapter={id:"fixture/native",version:"1",grammar:context.grammar,accept:()=>({accepted:true}),async open(){return {context:async()=>context,close:async()=>{},describe:async(candidate)=>({adapter:{id:"fixture/native",version:"1"},consistency:{mechanism:"snapshot",scope:"fixture"},resultKind:"rows",parameterOccurrences:candidate.parameterOccurrences,columns:[{name:"value",nativeType:{status:"known",value:{name:"bigint",complete:true}},runtimeType:{status:"known",value:"bigint"},nullable:{status:"known",value:true,precision:"upper-bound"},descriptor:{}}],parameters:[{index:1,nativeType:{status:"known",value:{name:"bigint",complete:true}},runtimeType:{status:"known",value:"bigint"},nullable:{status:"known",value:true,precision:"upper-bound"},descriptor:{}}]})}}};
-    return {adapter,connectionContext:"${"a".repeat(64)}",contribution:createPostgresContractReconciler({schema}),inspectContext:async()=>context,close:()=>writeFile(${JSON.stringify(closed)},"closed")};
+    return {adapter,connectionContext:"${"a".repeat(64)}",contribution:createPostgresContractReconciler({schema}),inspectContext:async()=>context,close:()=>writeFile(new URL("./native-closed",import.meta.url),"closed")};
   }},`,
     );
     await writeFile(config, source);
