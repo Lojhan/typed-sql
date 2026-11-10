@@ -1,6 +1,6 @@
 {
   "name": "@typed-sql/playground",
-  "version": "3.0.0-rc.0",
+  "version": "3.0.0",
   "description": "Local schema exploration and live TypeScript/SQL development workspace.",
   "license": "MIT",
   "author": "Lojhan",

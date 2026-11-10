@@ -1,5 +1,18 @@
 # @typed-sql/playground
 
+## 3.0.0
+
+### Patch Changes
+
+- @typed-sql/analysis@3.0.0
+  - @typed-sql/build@3.0.0
+  - @typed-sql/compiler@3.0.0
+  - @typed-sql/config@3.0.0
+  - @typed-sql/core@3.0.0
+  - @typed-sql/migrations@3.0.0
+  - @typed-sql/postgres@3.0.0
+  - @typed-sql/schema@3.0.0
+
 ## 3.0.0-rc.0
 
 ### Minor Changes

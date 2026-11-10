@@ -1,5 +1,11 @@
 # @typed-sql/migrations
 
+## 3.0.0
+
+### Patch Changes
+
+- @typed-sql/core@3.0.0
+
 ## 3.0.0-rc.0
 
 ### Minor Changes

@@ -1,5 +1,12 @@
 # @typed-sql/conformance
 
+## 3.0.0
+
+### Patch Changes
+
+- @typed-sql/compiler@3.0.0
+  - @typed-sql/core@3.0.0
+
 ## 3.0.0-rc.0
 
 ### Patch Changes
