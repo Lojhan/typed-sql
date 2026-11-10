@@ -53,7 +53,7 @@ function fixture(
         return { rows: [{ ...common, fingerprint: "a".repeat(64), epoch: epoch(), extensions: 0 }] };
       if (text.includes("AS first_schema")) return { rows: [common] };
       if (text.includes("AS epoch")) return { rows: [{ epoch: epoch() }] };
-      if (text.includes("current_schemas(true) AS schemas"))
+      if (text.includes("current_schemas(true)::text[] AS schemas"))
         return { rows: [{ schemas: options.schemas === undefined ? ["pg_catalog", "public"] : options.schemas }] };
       if (text.includes("AS argument_type_identities")) {
         if (options.failure) throw options.failure;

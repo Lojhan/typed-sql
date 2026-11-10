@@ -361,7 +361,18 @@ export class EditorRoutes {
           params.range = body.range;
           params.context = body.context ?? { diagnostics: [] };
         }
-        const diagnosticResult = await client.request("textDocument/diagnostic", { textDocument: { uri } });
+        let diagnosticResult = await client.request("textDocument/diagnostic", { textDocument: { uri } });
+        const settledBy = Date.now() + Math.min(this.options.timeoutMs ?? 2_000, 2_000);
+        while (
+          object(diagnosticResult) &&
+          Array.isArray(diagnosticResult.items) &&
+          diagnosticResult.items.some((item: unknown) => object(item) && item.code === "TSQ409") &&
+          Date.now() < settledBy
+        ) {
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          await assertCurrent();
+          diagnosticResult = await client.request("textDocument/diagnostic", { textDocument: { uri } });
+        }
         const diagnostics =
           object(diagnosticResult) && Array.isArray(diagnosticResult.items) ? diagnosticResult.items : [];
         let result: unknown = diagnostics;

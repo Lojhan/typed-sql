@@ -565,6 +565,9 @@ importers:
       '@typed-sql/analysis':
         specifier: workspace:*
         version: link:../analysis
+      '@typed-sql/build':
+        specifier: workspace:*
+        version: link:../build
       '@typed-sql/compiler':
         specifier: workspace:*
         version: link:../compiler
@@ -635,6 +638,9 @@ importers:
       '@modelcontextprotocol/server':
         specifier: 2.4.0
         version: 2.4.0
+      '@typed-sql/analysis':
+        specifier: workspace:*
+        version: link:../analysis
       '@typed-sql/build':
         specifier: workspace:*
         version: link:../build

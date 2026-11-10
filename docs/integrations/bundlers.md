@@ -41,6 +41,19 @@ Include the configured contract directory with the project's build inputs. Missi
 incompatible required contracts fail checking. The manifest and its referenced context/query files
 participate in build cache keys and watching, so regeneration invalidates compiled SQL and declarations.
 
+## Custom analysis hosts
+
+`@typed-sql/build/analysis` exposes `prepareRecordedDocument` and `recordedContractPaths` for
+asynchronous development hosts. Pass a loaded configuration source, saved schema and current
+SQL or TypeScript text. Live hosts provide an explicitly owned live-session callback; ordinary
+build adapters continue using their offline preparation path.
+
+Use the returned dialect **and schema** together, and call `assertCurrent()` before publishing
+or executing the compiled result. Selected catalog declarations can enrich the schema. Hosts
+must close their native sessions when trust is revoked or the project closes. The workspace and
+language server share this preparation API so mode selection, recorded evidence and catalog
+restoration follow the same rules.
+
 ## webpack
 
 ```sh

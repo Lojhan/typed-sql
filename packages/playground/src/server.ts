@@ -5,11 +5,12 @@ import { homedir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { analyzeSource } from "@typed-sql/compiler";
-import { loadConfig } from "@typed-sql/config";
+import { type LoadedConfig, loadConfigSource, resolveConfigDialect } from "@typed-sql/config";
 import { calculateSchemaHash, calculateTypePolicyHash } from "@typed-sql/schema";
 import { AgentWorkspaceToolServer } from "./agent-tools.js";
 import { AgentRoutes, agentConfigurationDirectory } from "./agents.js";
 import { AnalysisRoutes } from "./analysis-routes.js";
+import { WorkspaceAnalysis } from "./analysis-service.js";
 import { AnalysisStore } from "./analysis-store.js";
 import { validatePlaygroundConfiguration } from "./configuration.js";
 import type { PlaygroundLimits, PlaygroundOptions, PlaygroundTarget } from "./contracts.js";
@@ -79,7 +80,22 @@ async function assetDirectory(): Promise<string> {
 
 /** Starts a local-only host. No target factory runs until an explicit connect, refresh or Run action. */
 export async function startPlayground(options: PlaygroundOptions = {}): Promise<PlaygroundServer> {
-  const discovered = await loadConfig({ ...(options.config === undefined ? {} : { file: options.config }) });
+  const sourceConfig = await loadConfigSource({ ...(options.config === undefined ? {} : { file: options.config }) });
+  const discovered =
+    sourceConfig.config.analysis === undefined
+      ? await resolveConfigDialect(sourceConfig)
+      : ({
+          ...sourceConfig,
+          config: {
+            ...sourceConfig.config,
+            dialect: {
+              ...sourceConfig.config.dialect,
+              analyze() {
+                throw new WorkspaceError("ANALYSIS_REQUIRED", "Prepare a workspace document before analysis");
+              },
+            },
+          },
+        } as LoadedConfig);
   const loaded = {
     ...discovered,
     directory: await realpath(discovered.directory),
@@ -147,6 +163,8 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
   });
   let agents: AgentRoutes | undefined;
   let editor: EditorRoutes | undefined;
+  const documentAnalysis = new WorkspaceAnalysis(loaded.file, () => manager.trusted);
+  manager.analysis = documentAnalysis;
   manager.expectedSchemaHash = savedSchemaHash;
   const token = randomBytes(32).toString("base64url");
   const assets = await assetDirectory();
@@ -158,6 +176,7 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
     files,
     trusted: () => manager.trusted,
     origin: () => origin,
+    prepare: (source) => documentAnalysis.prepare("agent.sql", source, schema),
     dialect: loaded.config.dialect,
     typePolicy: loaded.config.typePolicy,
     schema: () => schema,
@@ -357,6 +376,7 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
               schema = loaded.config.dialect.validateSnapshot(await target.snapshot());
               capturedAt = new Date().toISOString();
               schemaSource = "live";
+              await documentAnalysis.reset();
               manager.schema = calculateSchemaHash(schema) === savedSchemaHash ? undefined : schema;
             }
             await explorer.refresh(
@@ -429,9 +449,11 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
           await files.path(file);
           if (Buffer.byteLength(source) > 512 * 1024)
             throw new WorkspaceError("FILE_LIMIT", "File exceeds analysis limit");
+          const prepared = await documentAnalysis.prepare(file, source, schema);
           if (file.endsWith(".sql")) {
-            const sqlAnalysis = analyzeSql(source, loaded.config.dialect, schema, loaded.config.typePolicy);
+            const sqlAnalysis = analyzeSql(source, prepared.dialect, prepared.schema, loaded.config.typePolicy);
             const compiled = sqlAnalysis.compiled;
+            await prepared.assertCurrent();
             json(response, {
               revision: contentHash(source),
               diagnostics: compiled.sourceDiagnostics,
@@ -451,7 +473,7 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
           } else {
             const analysis = analyzeSource(
               { formatVersion: 1, source: { id: await files.path(file), text: source } },
-              { dialect: loaded.config.dialect, schema, typePolicy: loaded.config.typePolicy },
+              { dialect: prepared.dialect, schema: prepared.schema, typePolicy: loaded.config.typePolicy },
             );
             let exports: readonly string[] = [];
             const diagnostics = [...analysis.diagnostics];
@@ -481,6 +503,7 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
               }
               if (!diagnostics.length) throw error;
             }
+            await prepared.assertCurrent();
             json(response, {
               revision: contentHash(source),
               diagnostics,
@@ -501,7 +524,9 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
           const input = await files.read(file);
           if (input.revision !== text(body.revision, "revision"))
             throw new WorkspaceError("STALE_SOURCE", "Save the current SQL file before generating declarations", 409);
-          const { compiled } = analyzeSql(input.source, loaded.config.dialect, schema, loaded.config.typePolicy);
+          const prepared = await documentAnalysis.prepare(file, input.source, schema);
+          const { compiled } = analyzeSql(input.source, prepared.dialect, prepared.schema, loaded.config.typePolicy);
+          await prepared.assertCurrent();
           if (!compiled.query || compiled.sourceDiagnostics.some((diagnostic) => diagnostic.severity === "error"))
             throw new WorkspaceError("SQL_CHECK", "Fix SQL diagnostics before generating declarations");
           const declaration = file.replace(/\.sql$/u, ".d.sql.ts");
@@ -528,6 +553,7 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
             throw new WorkspaceError("REQUEST", "enable must be a boolean");
           manager.trusted = body.enable;
           if (!manager.trusted) {
+            await documentAnalysis.reset();
             await editor?.close();
             editor = undefined;
             await agents?.close();
@@ -555,6 +581,7 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
             schema = loaded.config.dialect.validateSnapshot(await target.snapshot());
             capturedAt = new Date().toISOString();
             schemaSource = "live";
+            await documentAnalysis.reset();
             manager.schema = calculateSchemaHash(schema) === savedSchemaHash ? undefined : schema;
             await explorer.refresh(
               target,
@@ -654,6 +681,7 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
     token,
     url: `${origin}/#session=${token}`,
     close: async () => {
+      await documentAnalysis.close();
       await editor?.close();
       await formatter.close();
       await agents?.close();

@@ -484,6 +484,7 @@ await describe("public documentation", async () => {
       ["./register", "node"],
       ["./bun", "bun"],
       ["./bun-register", "bun"],
+      ["./analysis", "bundlers"],
     ]);
     strict.deepStrictEqual([...tutorials.keys()].sort(), Object.keys(build.exports).sort());
     for (const [entrypoint, page] of tutorials) {

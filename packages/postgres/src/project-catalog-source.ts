@@ -27,8 +27,9 @@ export async function collectPostgresProjectRoutines(input: {
       else namespaces.add(namespace);
     }
   if (searchPath) {
-    const row = (await input.client.query<{ schemas: string[] }>("SELECT pg_catalog.current_schemas(true) AS schemas"))
-      .rows[0];
+    const row = (
+      await input.client.query<{ schemas: string[] }>("SELECT pg_catalog.current_schemas(true)::text[] AS schemas")
+    ).rows[0];
     if (
       !row ||
       !Array.isArray(row.schemas) ||

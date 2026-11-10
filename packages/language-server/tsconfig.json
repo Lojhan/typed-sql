@@ -4,6 +4,7 @@
   "include": ["src/**/*.ts"],
   "references": [
     { "path": "../analysis" },
+    { "path": "../build" },
     { "path": "../compiler" },
     { "path": "../config" },
     { "path": "../core" },

@@ -456,6 +456,7 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
       )
         return;
       this.view.dispatch(setDiagnostics(this.view.state, mergeDocumentDiagnostics([...diagnostics, ...fallback])));
+      if (response?.diagnostics.some((item) => item.code === "TSQ409")) this.schedule(500);
     }
     async hover(pos: number, explicit = false): Promise<{ contents: unknown; from: number; to: number } | undefined> {
       const source = this.view.state.doc.toString();

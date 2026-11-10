@@ -70,6 +70,7 @@
     "vscode-jsonrpc": "10.0.0",
     "vscode-languageserver": "11.0.0",
     "vscode-languageserver-textdocument": "1.0.16",
-    "@typed-sql/compiler": "workspace:*"
+    "@typed-sql/compiler": "workspace:*",
+    "@typed-sql/build": "workspace:*"
   }
 }
