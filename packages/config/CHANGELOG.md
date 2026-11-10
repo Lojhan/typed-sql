@@ -1,5 +1,49 @@
 # @typed-sql/config
 
+## 3.0.0-rc.0
+
+### Minor Changes
+
+- 63e76b2: Add lightweight dialect registrations with explicit lazy analyzer loading and frozen CLI checks
+  against validated durable query contracts. Frozen checks validate interpreter, schema, decoding and
+  qualification identities without opening disposable caches, initializing analyzers or invoking
+  database providers. TypeScript project checking supplies SQL-file factory declarations in memory.
+  
+  Expose PostgreSQL contract compatibility identities through a pure contract-profile entrypoint.
+- 63e76b2: Add explicit live adapter registration and finite native qualification before CLI TypeScript
+  checking. Qualify every extracted candidate, including successful static inference, through bounded
+  workers and the persistent scheduler. Check recorded context before and after acquisition, retire
+  incompatible context evidence, and close owned transport resources before synchronous compilation.
+  
+  Offline and frozen overrides leave native factories unloaded. Track local modules imported by
+  explicit contribution factories so subsequent configuration loads detect their changes.
+- 63e76b2: Support live context discovery and refresh without a pre-recorded context file. Bind recorded
+  selection to the configured target, schema, installed profile and decoding policy; fence competing
+  observations and retire prior query evidence when the selected epoch changes. Explicit context pins
+  retain their behavior.
+  
+  Include target/context selection in durable manifests for offline and frozen consumption. Frozen
+  checks ignore disposable observations; hybrid offline rules remain available without claiming a
+  native observation. Revalidate context/query cache snapshots before publishing generated inputs.
+  
+  Dispose constructed native services if subsequent configuration dependency tracking fails.
+
+### Patch Changes
+
+- Updated dependencies [63e76b2]
+- Updated dependencies [4de04fc]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [825eba3]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+  - @typed-sql/core@3.0.0-rc.0
+
 ## 2.5.0
 
 Promote the qualified `2.5.0-rc.0` candidate to stable. See that entry below for the included features and fixes.

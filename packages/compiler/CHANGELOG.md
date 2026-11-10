@@ -1,5 +1,55 @@
 # @typed-sql/compiler
 
+## 3.0.0-rc.0
+
+### Minor Changes
+
+- 63e76b2: Add lightweight dialect registrations with explicit lazy analyzer loading and frozen CLI checks
+  against validated durable query contracts. Frozen checks validate interpreter, schema, decoding and
+  qualification identities without opening disposable caches, initializing analyzers or invoking
+  database providers. TypeScript project checking supplies SQL-file factory declarations in memory.
+  
+  Expose PostgreSQL contract compatibility identities through a pure contract-profile entrypoint.
+- 63e76b2: Consume durable query contracts in build transforms and SQL declaration generation. Frozen builds use recorded inputs without initializing analyzers or native services. Offline and live-configured builds can use offline rules for unrecorded queries; builds never invoke live factories or read the disposable development cache. Track the validated contract closure in cache keys and watched dependencies, including lazy analyzer dependencies in source-aware Jest keys, and reject inputs changed during preparation or publication.
+  
+  Explicit query-contract generation checks prospective SQL types over stale build-owned declarations in memory, allowing changed queries to regenerate their contracts before declarations are rewritten. Application-owned declarations and incorrect application assignments remain blocking; ordinary checks still reject stale declarations.
+- 63e76b2: Preserve explicitly partial database type identities through parameter inference, query manifests
+  and native verification. Known representations remain available while incomplete modifiers cannot
+  earn an exact native identity verification claim. Independent type and nullability mismatches
+  remain reported.
+- 63e76b2: Expose grammar-neutral profiles and collect finite source/SQL-file query candidates before semantic analysis. Share rendering and binding normalization with compilation, preserve nested placeholder indexes and source spans after fragment expansion, and reject explicit structural expressions that remain unrendered instead of treating them as parameters.
+
+### Patch Changes
+
+- 825eba3: Check JavaScript and JSX SQL queries with JavaScript-compatible virtual source. Preserve inferred rows, parameter checks, and original diagnostic positions while respecting the project's allowJs and checkJs settings.
+- 63e76b2: Reuse the schema's table entries while matching manifest dependencies during compatibility analysis. Large query manifests avoid rebuilding the same table list for each relation and column reference.
+- 63e76b2: Add `check --watch` for ordinary, offline, frozen and explicitly live query checking. Serialize
+  checks, coalesce edits, reload configuration in each pass, observe discovered external inputs and
+  ignore disposable cache writes without exporting tracked contracts. Stop owned discovery and
+  checking processes on shutdown; TypeScript discovery accepts an optional cancellation signal.
+- 63e76b2: Allow bundlers to remove unselected generated SQL-file modules through barrel exports without requiring application sideEffects metadata. Validate value plans during compilation before marking successful static initializers pure. Selected query factories retain their decoding plans and parameter checks; invalid SQL modules keep their throwing behavior.
+- 63e76b2: Accept current build-generated SQL declarations during project checking by sharing the declaration
+  ownership header and normalizing platform line endings. Continue rejecting changed or stale
+  declaration contents, including files carrying the generated ownership header.
+- 63e76b2: Allow bundlers to remove unused template value plans and conditional/repeated plan selectors
+  through application barrels. Validate generated metadata during compilation before annotating
+  its runtime constructor as pure. Application initialization effects remain observable, and invalid
+  descriptors fail before emission.
+- Updated dependencies [63e76b2]
+- Updated dependencies [4de04fc]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [825eba3]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+  - @typed-sql/core@3.0.0-rc.0
+  - @typed-sql/schema@3.0.0-rc.0
+
 ## 2.5.0
 
 Promote the qualified `2.5.0-rc.0` candidate to stable. See that entry below for the included features and fixes.

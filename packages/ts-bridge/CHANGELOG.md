@@ -1,5 +1,38 @@
 # @typed-sql/ts-bridge
 
+## 3.0.0-rc.0
+
+### Patch Changes
+
+- Updated dependencies [63e76b2]
+- Updated dependencies [4de04fc]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [825eba3]
+- Updated dependencies [825eba3]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [76d4cf0]
+  - @typed-sql/core@3.0.0-rc.0
+  - @typed-sql/build@3.0.0-rc.0
+  - @typed-sql/config@3.0.0-rc.0
+  - @typed-sql/compiler@3.0.0-rc.0
+  - @typed-sql/schema@3.0.0-rc.0
+
 ## 2.5.0-rc.0
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
   "name": "@typed-sql/playground",
-  "version": "2.5.0",
+  "version": "3.0.0-rc.0",
   "description": "Local schema exploration and live TypeScript/SQL development workspace.",
   "license": "MIT",
   "author": "Lojhan",
@@ -60,7 +60,7 @@
     "@typed-sql/analysis": "workspace:*"
   },
   "peerDependencies": {
-    "@typed-sql/postgres": ">=2.5.0 <3",
+    "@typed-sql/postgres": ">=3.0.0 <4.0.0",
     "pg": ">=8 <9",
     "pg-cursor": ">=2 <3"
   },

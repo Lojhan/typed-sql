@@ -1,8 +1,7 @@
 {
-  "channel": "stable",
-  "series": "2.5.0",
-  "npmTag": "latest",
-  "sourceCandidate": "2.5.0-rc.0",
+  "channel": "rc",
+  "series": "3.0.0",
+  "npmTag": "next",
   "packages": [
     "@typed-sql/core",
     "@typed-sql/opentelemetry",
@@ -21,7 +20,9 @@
     "@typed-sql/cli",
     "@typed-sql/adapters",
     "@typed-sql/build",
-    "@typed-sql/playground"
+    "@typed-sql/playground",
+    "@typed-sql/ts-bridge",
+    "@typed-sql/language-server"
   ],
   "packagePolicy": {
     "stable": [
@@ -33,6 +34,7 @@
       "@typed-sql/analysis",
       "@typed-sql/compiler",
       "@typed-sql/conformance",
+      "@typed-sql/migrations",
       "@typed-sql/postgres",
       "@typed-sql/mysql",
       "@typed-sql/sqlite",
@@ -41,8 +43,7 @@
       "@typed-sql/cli",
       "@typed-sql/adapters",
       "@typed-sql/build",
-      "@typed-sql/playground",
-      "@typed-sql/migrations"
+      "@typed-sql/playground"
     ],
     "experimental": ["@typed-sql/ts-bridge", "@typed-sql/language-server"]
   }

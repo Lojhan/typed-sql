@@ -1,6 +1,6 @@
 {
   "name": "@typed-sql/migrations",
-  "version": "2.5.0",
+  "version": "3.0.0-rc.0",
   "description": "Driver-neutral migration lifecycle, immutable plans, drift checks and recovery for typed-sql.",
   "license": "MIT",
   "author": "Lojhan",

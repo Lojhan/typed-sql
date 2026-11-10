@@ -1,5 +1,108 @@
 # @typed-sql/mysql
 
+## 3.0.0-rc.0
+
+### Major Changes
+
+- 63e76b2: Make grammar roots lightweight entrypoints for application SQL, runtime plans, rendering and type
+  policy. Keep profile construction on explicit `/profile` entrypoints. Move eager analyzer factories
+  and the previous full root export surfaces to explicit `/analysis` compatibility entrypoints. Application `sql` imports stay at the
+  selected grammar root. Migrate analyzer, introspection and semantic routing imports to `/analysis`,
+  or register an explicit lazy analyzer loader alongside a lightweight profile for development hosts.
+  
+  Scaffold new projects with a lightweight profile and a separate lazy analyzer contribution.
+
+### Minor Changes
+
+- 63e76b2: Expose explicit driver-free `/profile` entrypoints for contract consumers without loading semantic
+  catalogs, resolvers or introspection providers. Existing analyzer factories share the same profile
+  mechanics, including parameter extraction, snapshot validation, rendering and type policy. DuckDB
+  retains contextual parser-based parameter extraction.
+- 63e76b2: Add explicit mysql2 query-contract acquisition and independent reconciliation for supported builtin expression projections. Each acquisition owns a read-only connection and backup lock, preserves protocol facets, rejects stored/loadable routines, bounds cancellation and cleanup, and supports recorded offline consumption. Import the native adapter and reconciliation contribution through their explicit development entrypoints; ordinary query imports do not load them or the optional driver.
+  
+  Preserve geometry results as opaque bytes in owned mysql2 pools so execution matches the grammar's runtime type policy.
+- 63e76b2: Add selected-series analyzers and bounded offline cores. Each core retains all existing maintained
+  routine families, types, coercions, operators, collations and JSON rules without loading other
+  full series catalogs or introspection services. Unmapped routines preserve parameter evidence
+  and request a qualified query contract. Version, edition, SQL-mode and ambiguity errors remain
+  blocking. Existing analyzer imports preserve their offline behavior and diagnostic compatibility;
+  canary selection retains the existing explicit version policy.
+
+### Patch Changes
+
+- 63e76b2: Keep execution adapter imports independent of schema discovery and semantic catalogs. Share cold
+  provider and extension contracts, preserve server/session evidence checks in dedicated modules, and
+  load introspection implementations only when requested. PostgreSQL extension-manifest validation
+  retains its explicit opt-in semantic resolution path and existing error identity.
+- 63e76b2: Pass the optional scalar descriptor to transport normalization hooks, preserving existing two-argument
+  hooks. Forward the descriptor through SQLite adapter wrappers. Use integer metadata to decode
+  qualified MySQL numeric literals consistently under lossless BIGINT policies while rejecting unsafe
+  numbers and unrelated numeric-looking text.
+- 63e76b2: Bind direct privileges, enabled roles and effective role grants into native query contract context identity. Missing or denied grant evidence remains unavailable. The native adapter identity changes and prior native contracts require regeneration.
+- 63e76b2: Describe guarded InnoDB table queries through native contracts, including projections, stars,
+  filters and joins. Bind recorded context to live table/column definitions and preserve BIGINT
+  representations after star expansion. Update the acquisition identity so earlier artifacts require
+  regeneration. Unsupported relation kinds and statement forms remain unavailable.
+- 63e76b2: Preserve JSON parameter codecs and explicit JSON binding support when schema inputs use
+  uppercase or mixed-case JSON type names. Input shapes and wire representations continue to
+  follow the selected JSON policy.
+- 63e76b2: Preserve decimal precision/scale and integer signedness in MySQL native verification. Interpret textual and binary protocol fields using their character set, and retain incomplete metadata as unavailable instead of inventing a type. Advance the verification adapter revision for the changed evidence identity.
+  
+  Use catalog-owned argument bounds for numeric and string-length builtin families, including both supported ATAN forms. Remove contradictory resolver bounds and keep invalid invocations unknown with a diagnostic.
+- 63e76b2: Derive builtin argument bounds from pinned vendor registrations. Preserve numeric literal spelling
+  and infer integer/decimal rounding results through the configured type policy. Account for native
+  NULL results from domain-sensitive numeric functions.
+- 63e76b2: Apply version-owned keyword reservation and function-name parsing rules from pinned declarations. Preserve native distinctions for quoting, whitespace, IGNORE_SPACE and Unicode lookalikes instead of assigning unrelated built-in semantics. Ordinary routine calls retain argument inference and require suitable metadata. Retire contracts from preceding interpretation rules.
+- 63e76b2: Load compact generated type-policy projections instead of full semantic catalogs in PostgreSQL
+  and MySQL codec helpers. Preserve existing version selection, native names, aliases and mappings;
+  PostgreSQL runtime compatibility retains the same catalog revision checks. Share type-name
+  normalization with the analyzers so runtime and compile-time policy remain aligned.
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [4de04fc]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [825eba3]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+  - @typed-sql/analysis@3.0.0-rc.0
+  - @typed-sql/core@3.0.0-rc.0
+  - @typed-sql/schema@3.0.0-rc.0
+
 ## 2.5.0
 
 Promote the qualified `2.5.0-rc.0` candidate to stable. See that entry below for the included features and fixes.

@@ -1,5 +1,133 @@
 # @typed-sql/postgres
 
+## 3.0.0-rc.0
+
+### Major Changes
+
+- 63e76b2: Make grammar roots lightweight entrypoints for application SQL, runtime plans, rendering and type
+  policy. Keep profile construction on explicit `/profile` entrypoints. Move eager analyzer factories
+  and the previous full root export surfaces to explicit `/analysis` compatibility entrypoints. Application `sql` imports stay at the
+  selected grammar root. Migrate analyzer, introspection and semantic routing imports to `/analysis`,
+  or register an explicit lazy analyzer loader alongside a lightweight profile for development hosts.
+  
+  Scaffold new projects with a lightweight profile and a separate lazy analyzer contribution.
+
+### Minor Changes
+
+- 4de04fc: Add explicit SQL and TypeScript migration control with independently replayed schema evidence, blocking drift detection, global/local checks, PostgreSQL locking and history, schema reconciliation, baseline adoption and inspected recovery.
+- 63e76b2: Add lightweight dialect registrations with explicit lazy analyzer loading and frozen CLI checks
+  against validated durable query contracts. Frozen checks validate interpreter, schema, decoding and
+  qualification identities without opening disposable caches, initializing analyzers or invoking
+  database providers. TypeScript project checking supplies SQL-file factory declarations in memory.
+  
+  Expose PostgreSQL contract compatibility identities through a pure contract-profile entrypoint.
+- 63e76b2: Add explicit native project-catalog acquisition with automatic context observation, guarded
+  before/after validation, cancellation and owned cleanup. PostgreSQL captures matching routine
+  families on one leased connection using metadata-only queries and the shared introspection
+  mapper. Reject truncated families, unsupported selections and mismatched server evidence.
+  Metadata collection does not prepare or execute the selected application statements.
+- 63e76b2: Add a separate pure native/static reconciliation contribution for PostgreSQL. Compare successful
+  offline inference independently, preserve nullability uncertainty and reject inconsistent type
+  claims. Native acquisition now restricts inferred representations to qualified built-in base
+  types and records namespace/kind evidence instead of trusting custom mappings in a schema input.
+- 63e76b2: Add selected-major full and core analyzer entrypoints. Core analyzers retain maintained offline rules and request qualified query contracts for unmapped functions while preserving other static errors. Selected analyzers require matching snapshot major evidence and retain existing canary policy.
+- 63e76b2: Add lightweight profile and tag entrypoints for query-contract consumers, plus explicit native
+  acquisition through an application-owned pg pool. The PostgreSQL 18 adapter qualifies expression
+  queries through Parse/Describe without executing application statements. It records native types,
+  modifiers and parameter identities, preserves unknown nullability/representations, and rejects
+  unsupported contexts or writes during the guarded acquisition interval.
+- 63e76b2: Add bounded, context-bound project catalog data with explicit grammar interpreters and inference
+  permissions. PostgreSQL selects complete routine families from introspected metadata using SQL
+  calls and permits offline reuse of qualified fixed scalar results. Preserve parameter/default
+  metadata, recompute types from the configured policy, keep results nullable, and require exact
+  query evidence for unsupported declaration forms. Catalog selection changes analysis identity;
+  conflicting owners, changed contexts and unsupported permissions fail closed.
+  
+  Record qualified native PostgreSQL argument/result type identities during introspection. Strict
+  null-input behavior no longer incorrectly marks an introspected routine's result as non-null.
+
+### Patch Changes
+
+- 63e76b2: Keep execution adapter imports independent of schema discovery and semantic catalogs. Share cold
+  provider and extension contracts, preserve server/session evidence checks in dedicated modules, and
+  load introspection implementations only when requested. PostgreSQL extension-manifest validation
+  retains its explicit opt-in semantic resolution path and existing error identity.
+- 825eba3: Add optional historical catalog display details with validated object identities. PostgreSQL targets can opt in with captureDetails to retain safe structural column, enum, index and constraint metadata while preserving existing drift fingerprints and hash-only history. Routine bodies, default literals and expression SQL remain excluded.
+- 63e76b2: Allow native adapters to classify acquisition failures without host-specific wiring. PostgreSQL
+  connection loss and temporary availability failures preserve recorded evidence, while confirmed
+  statement rejection and context changes invalidate it. Acquisition and cleanup failures retain
+  both classifications so a rollback outage cannot hide a known invalidation.
+- 63e76b2: Reduce identifier and keyword comparison overhead for ASCII SQL while preserving PostgreSQL's case-sensitive treatment of non-ASCII letters.
+- 63e76b2: Derive runtime enum descriptors from schema label metadata for selected columns, parameters,
+  casts and routine results. String-union policies validate declared labels, including enum-array
+  elements; string policies retain string representation. Unknown, ambiguous and non-enum type
+  evidence remains conservative. No native acquisition admission boundary is widened.
+  
+  Decode driver-returned PostgreSQL array text when the query plan establishes string or enum
+  elements, and preserve known CASE result families when another branch is a literal SQL NULL.
+- 63e76b2: Describe guarded table SELECT queries through the native contract adapter, including projections,
+  stars, comparison filters and joins. Check and lock native relations before candidate Parse;
+  unsupported relation kinds and column representations remain unavailable. Update the acquisition
+  identity so existing artifacts require regeneration for the expanded profile.
+- 63e76b2: Preserve unnamed routine parameters when PostgreSQL represents their names as empty catalog
+  entries alongside named parameters. Introspection and selected routine capture retain parameter
+  positions, modes and named output columns without failing snapshot validation for routines such
+  as pgcrypto's pgp_armor_headers.
+- 63e76b2: Expose grammar-neutral profiles and collect finite source/SQL-file query candidates before semantic analysis. Share rendering and binding normalization with compilation, preserve nested placeholder indexes and source spans after fragment expansion, and reject explicit structural expressions that remain unrendered instead of treating them as parameters.
+- 63e76b2: Load compact generated type-policy projections instead of full semantic catalogs in PostgreSQL
+  and MySQL codec helpers. Preserve existing version selection, native names, aliases and mappings;
+  PostgreSQL runtime compatibility retains the same catalog revision checks. Share type-name
+  normalization with the analyzers so runtime and compile-time policy remain aligned.
+- 63e76b2: Apply version-owned PostgreSQL keyword reservation and alias rules from pinned upstream declarations. Preserve ASCII-only identifier folding so Unicode lookalikes cannot bind to unrelated identifiers or built-ins. Invalidate contracts recorded under the preceding interpretation rules.
+- 76d4cf0: Use configured offline, frozen and trusted live analysis in workspace previews, SQL tools and captured runs. Share document preparation with the editor, preserve enriched catalog schemas, and keep execution workers from initializing analyzers or native qualification adapters. PostgreSQL selected-catalog capture requests text-array namespace metadata so ordinary pg clients need no name-array parser override.
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [4de04fc]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [825eba3]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [825eba3]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+  - @typed-sql/analysis@3.0.0-rc.0
+  - @typed-sql/core@3.0.0-rc.0
+  - @typed-sql/migrations@3.0.0-rc.0
+  - @typed-sql/schema@3.0.0-rc.0
+
 ## 2.5.0
 
 Promote the qualified `2.5.0-rc.0` candidate to stable. See that entry below for the included features and fixes.

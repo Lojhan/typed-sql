@@ -1,5 +1,89 @@
 # @typed-sql/sqlite
 
+## 3.0.0-rc.0
+
+### Major Changes
+
+- 63e76b2: Make grammar roots lightweight entrypoints for application SQL, runtime plans, rendering and type
+  policy. Keep profile construction on explicit `/profile` entrypoints. Move eager analyzer factories
+  and the previous full root export surfaces to explicit `/analysis` compatibility entrypoints. Application `sql` imports stay at the
+  selected grammar root. Migrate analyzer, introspection and semantic routing imports to `/analysis`,
+  or register an explicit lazy analyzer loader alongside a lightweight profile for development hosts.
+  
+  Scaffold new projects with a lightweight profile and a separate lazy analyzer contribution.
+
+### Minor Changes
+
+- 63e76b2: Expose explicit driver-free `/profile` entrypoints for contract consumers without loading semantic
+  catalogs, resolvers or introspection providers. Existing analyzer factories share the same profile
+  mechanics, including parameter extraction, snapshot validation, rendering and type policy. DuckDB
+  retains contextual parser-based parameter extraction.
+- 63e76b2: Add optional owned-process SQLite query preparation, independent reconciliation and lightweight
+  contract identities. Native evidence records acceptance, labels and conservative storage domains
+  without evaluating candidate SQL. Read-only snapshots, authorizer restrictions, explicit cleanup,
+  cancellation and deadlines guard acquisition. Qualified exports support live generation/editor
+  checking and offline/frozen consumption without claiming unavailable expression-type precision.
+- 63e76b2: Add portable offline core analyzer entrypoints that retain maintained rules and request qualified query contracts for unmapped scalar functions. Existing analyzers remain compatible. Native reconciliation accepts the core diagnostic within each adapter's qualified scope and retains conservative metadata bounds.
+  
+  SQL Server invalid built-in arities now retain supplied argument evidence and return unknown after diagnosis instead of entering a rule that can read missing arguments.
+
+### Patch Changes
+
+- 63e76b2: Use grammar-owned ASCII case rules in DuckDB and SQLite. Unicode spellings that JavaScript folds into ASCII no longer resolve optimistically to builtins, SQL keywords or type aliases. Allow schema indexes to receive a comparison policy and cache indexes separately by policy.
+- 63e76b2: Use compact version-owned SQLite keyword and identifier-context metadata generated from pinned source declarations. Honor compile-option guards, native identifier fallback, alias contexts and contextual window keywords. Retire query contracts recorded under preceding interpretation rules.
+- 63e76b2: Keep execution adapter imports independent of schema discovery and semantic catalogs. Share cold
+  provider and extension contracts, preserve server/session evidence checks in dedicated modules, and
+  load introspection implementations only when requested. PostgreSQL extension-manifest validation
+  retains its explicit opt-in semantic resolution path and existing error identity.
+- 63e76b2: Carry policy-bound integer/real runtime codecs through known numeric expressions, aggregates,
+  casts, derived projections and compound queries. Numeric parameters retain those codecs instead
+  of falling back to unknown, while empty aggregate results remain nullable.
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [4de04fc]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [825eba3]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+  - @typed-sql/analysis@3.0.0-rc.0
+  - @typed-sql/core@3.0.0-rc.0
+  - @typed-sql/schema@3.0.0-rc.0
+
 ## 2.5.0
 
 Promote the qualified `2.5.0-rc.0` candidate to stable. See that entry below for the included features and fixes.

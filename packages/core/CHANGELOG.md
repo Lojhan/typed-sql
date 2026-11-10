@@ -1,5 +1,44 @@
 # @typed-sql/core
 
+## 3.0.0-rc.0
+
+### Minor Changes
+
+- 63e76b2: Use grammar-owned ASCII case rules in DuckDB and SQLite. Unicode spellings that JavaScript folds into ASCII no longer resolve optimistically to builtins, SQL keywords or type aliases. Allow schema indexes to receive a comparison policy and cache indexes separately by policy.
+- 4de04fc: Add explicit SQL and TypeScript migration control with independently replayed schema evidence, blocking drift detection, global/local checks, PostgreSQL locking and history, schema reconciliation, baseline adoption and inspected recovery.
+- 63e76b2: Add explicit DuckDB native query-contract acquisition and reconciliation for builtin expression queries on qualified Node SDK engines. Prepared logical types preserve decimal dimensions and nested shapes without binding or executing application SQL. Unavailable parameter metadata remains unavailable, and nullability remains conservative. Distinguish unsupported offline routine result metadata with TSQ408 so qualified native evidence can supply that facet while invalid SQL diagnostics remain blocking.
+- 63e76b2: Add lightweight dialect registrations with explicit lazy analyzer loading and frozen CLI checks
+  against validated durable query contracts. Frozen checks validate interpreter, schema, decoding and
+  qualification identities without opening disposable caches, initializing analyzers or invoking
+  database providers. TypeScript project checking supplies SQL-file factory declarations in memory.
+  
+  Expose PostgreSQL contract compatibility identities through a pure contract-profile entrypoint.
+- 825eba3: Add an optional local dev workspace with captured schema relationships, real project file editing, inferred SQL contracts, and checked TypeScript/SQL execution through explicit lazy targets. Include an application-owned PostgreSQL adapter with bounded cursor results, cancellation and read-only execution, plus loopback session protection and lossless result export. Keep query files in a repository folder across sessions, reuse the docs playground file tree and resizable split-editor interactions, page cursor results on demand without a fixed row cutoff, compare captured runs, and connect explicitly configured local ACP agents with private user configuration and reviewed repository-file proposals.
+  
+  Provide a headerless workspace with a command palette, editor search, layout shortcuts and theme controls. Format editor buffers through repository-configured, locally installed Biome or Prettier without automatically saving files or installing tools.
+  
+  Connect an optional local language-server companion for hover, completions, definitions, quick fixes and inline diagnostics with full unsaved working-copy context. Preserve TypeScript runtime import resolution across JS/TS source families and bind sanitized PostgreSQL diagnostics to proven captured SQL spans.
+- 63e76b2: Pass the optional scalar descriptor to transport normalization hooks, preserving existing two-argument
+  hooks. Forward the descriptor through SQLite adapter wrappers. Use integer metadata to decode
+  qualified MySQL numeric literals consistently under lossless BIGINT policies while rejecting unsafe
+  numbers and unrelated numeric-looking text.
+- 63e76b2: Show informational TSQ409 diagnostics while opted-in native qualification is pending. SQL files and templates use source/version-fenced progress, short operations avoid flicker, and the completion pull consumes the qualified view without starting another refresh cycle. Pending reports clear on completion and cannot replace newer document results or suppress subsequent TypeScript diagnostics.
+- 63e76b2: Expose grammar-neutral argument binding mechanics for grammar contributions, including
+  positional, named, default and variadic slots. Type coercion and overload selection remain
+  owned by the grammar.
+- 63e76b2: Preserve explicitly partial database type identities through parameter inference, query manifests
+  and native verification. Known representations remain available while incomplete modifiers cannot
+  earn an exact native identity verification claim. Independent type and nullability mismatches
+  remain reported.
+- 63e76b2: Expose grammar-neutral profiles and collect finite source/SQL-file query candidates before semantic analysis. Share rendering and binding normalization with compilation, preserve nested placeholder indexes and source spans after fragment expansion, and reject explicit structural expressions that remain unrendered instead of treating them as parameters.
+
+### Patch Changes
+
+- 63e76b2: Register existing DuckDB expression/statement, SQL Server projection, and SQL preparation diagnostic
+  codes in the shared machine-readable registry and reference. Discover production diagnostic emitters
+  across packages so new modules and grammars participate without a manually maintained file list.
+- 63e76b2: Recheck the requested deadline when its timer fires. Early timer delivery no longer cancels native work before the deadline, keeping adapter cancellation and clock checks consistent.
+
 ## 2.5.0
 
 Promote the qualified `2.5.0-rc.0` candidate to stable. See that entry below for the included features and fixes.
