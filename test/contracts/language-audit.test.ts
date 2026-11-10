@@ -461,6 +461,29 @@ alias:
     );
   });
 
+  await it("isolates network reference refresh from CI and release qualification", async () => {
+    const workflow = (name: string) =>
+      readFile(new URL(`../../.github/workflows/${name}.yml`, import.meta.url), "utf8");
+    const shared = await workflow("language-audit");
+    const refresh = await workflow("upstream-language-references");
+    for (const name of ["ci", "release"]) {
+      const source = await workflow(name);
+      strict.ok(!source.includes("upstream-language-references.yml"));
+      strict.ok(!source.includes("audit:language:refresh"));
+    }
+    strict.ok(!shared.includes("audit:language:refresh"));
+    strict.ok(shared.includes("pnpm audit:language live"));
+    strict.ok(refresh.includes("  schedule:"));
+    strict.ok(refresh.includes("  workflow_dispatch:"));
+    strict.ok(!refresh.includes("workflow_call:"));
+    strict.ok(refresh.includes("pnpm audit:language:refresh"));
+    strict.ok(refresh.includes("pnpm audit:language:check"));
+    strict.ok(refresh.includes("if: always()"));
+    const manifest = JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8"));
+    strict.ok(manifest.scripts.quality.includes("pnpm audit:language:check"));
+    strict.ok(manifest.scripts.verify.includes("pnpm quality"));
+  });
+
   await it("keeps the reviewed mapping observations and generated gap report current", async () => {
     await checkReferences();
     await renderReport(true);

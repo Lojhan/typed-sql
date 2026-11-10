@@ -16,6 +16,13 @@ name, overload signature, or captured inventory fingerprint requires review. It 
 as well as additions. The contract test also requires an adapter and evidence for every dialect
 in the grammar feature ledger, so adding a grammar cannot silently omit it from this audit.
 
+CI and publication run the offline check against committed, reviewed reference fixtures through
+`pnpm quality`. The independent **Upstream language references** workflow refreshes vendor
+manuals weekly or on manual dispatch, checks the refreshed observations, and uploads the
+reference fixtures for review. It is not called by CI or the release workflow: unavailable vendor
+websites fail that refresh run without blocking publication. Native engine qualification remains
+part of CI and release evidence.
+
 Refresh from the network and review the differences before accepting a baseline:
 
 ```sh
