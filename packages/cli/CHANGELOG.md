@@ -1,5 +1,142 @@
 # @typed-sql/cli
 
+## 3.0.0-rc.0
+
+### Minor Changes
+
+- 63e76b2: Add read-only analysis cache inspection, CLI cache status and pruning, semantic query/declaration export diffs with JSON output and current callers, and recorded evidence origin/context in editor hovers. Cache inspection reports unverified freshness and does not initialize storage or native services.
+- 4de04fc: Add explicit SQL and TypeScript migration control with independently replayed schema evidence, blocking drift detection, global/local checks, PostgreSQL locking and history, schema reconciliation, baseline adoption and inspected recovery.
+- 63e76b2: Load selected project catalog interpreters lazily in CLI, build and editor hosts, and carry the enriched schema through checking, transforms and declaration generation. Offline checking can reuse qualified declarations for new queries, while frozen checking requires exact contracts. Preserve base-context retirement evidence when checking derived catalog inputs, and track catalog objects and local interpreter modules as dependencies.
+- 63e76b2: Add explicit live/offline query-contract generation and check-only export comparison. Generation
+  checks the prospective contract view with TypeScript and fences source/config/schema/project inputs
+  before publishing a complete durable closure. Native-required qualification cannot fall back to an
+  ordinary offline result.
+  
+  Serialize cooperating exporters, compare the selected manifest before replacement, and reject
+  unsafe artifact files. Preserve recorded result kind and reject offline materialization that would
+  lose logical type refinements or misrepresent partial native identity.
+- 63e76b2: Add lightweight dialect registrations with explicit lazy analyzer loading and frozen CLI checks
+  against validated durable query contracts. Frozen checks validate interpreter, schema, decoding and
+  qualification identities without opening disposable caches, initializing analyzers or invoking
+  database providers. TypeScript project checking supplies SQL-file factory declarations in memory.
+  
+  Expose PostgreSQL contract compatibility identities through a pure contract-profile entrypoint.
+- 63e76b2: Make grammar roots lightweight entrypoints for application SQL, runtime plans, rendering and type
+  policy. Keep profile construction on explicit `/profile` entrypoints. Move eager analyzer factories
+  and the previous full root export surfaces to explicit `/analysis` compatibility entrypoints. Application `sql` imports stay at the
+  selected grammar root. Migrate analyzer, introspection and semantic routing imports to `/analysis`,
+  or register an explicit lazy analyzer loader alongside a lightweight profile for development hosts.
+  
+  Scaffold new projects with a lightweight profile and a separate lazy analyzer contribution.
+- 825eba3: Add an optional local dev workspace with captured schema relationships, real project file editing, inferred SQL contracts, and checked TypeScript/SQL execution through explicit lazy targets. Include an application-owned PostgreSQL adapter with bounded cursor results, cancellation and read-only execution, plus loopback session protection and lossless result export. Keep query files in a repository folder across sessions, reuse the docs playground file tree and resizable split-editor interactions, page cursor results on demand without a fixed row cutoff, compare captured runs, and connect explicitly configured local ACP agents with private user configuration and reviewed repository-file proposals.
+  
+  Provide a headerless workspace with a command palette, editor search, layout shortcuts and theme controls. Format editor buffers through repository-configured, locally installed Biome or Prettier without automatically saving files or installing tools.
+  
+  Connect an optional local language-server companion for hover, completions, definitions, quick fixes and inline diagnostics with full unsaved working-copy context. Preserve TypeScript runtime import resolution across JS/TS source families and bind sanitized PostgreSQL diagnostics to proven captured SQL spans.
+- 63e76b2: Add explicit live adapter registration and finite native qualification before CLI TypeScript
+  checking. Qualify every extracted candidate, including successful static inference, through bounded
+  workers and the persistent scheduler. Check recorded context before and after acquisition, retire
+  incompatible context evidence, and close owned transport resources before synchronous compilation.
+  
+  Offline and frozen overrides leave native factories unloaded. Track local modules imported by
+  explicit contribution factories so subsequent configuration loads detect their changes.
+- 63e76b2: Support live context discovery and refresh without a pre-recorded context file. Bind recorded
+  selection to the configured target, schema, installed profile and decoding policy; fence competing
+  observations and retire prior query evidence when the selected epoch changes. Explicit context pins
+  retain their behavior.
+  
+  Include target/context selection in durable manifests for offline and frozen consumption. Frozen
+  checks ignore disposable observations; hybrid offline rules remain available without claiming a
+  native observation. Revalidate context/query cache snapshots before publishing generated inputs.
+  
+  Dispose constructed native services if subsequent configuration dependency tracking fails.
+- 63e76b2: Consume durable query contracts in build transforms and SQL declaration generation. Frozen builds use recorded inputs without initializing analyzers or native services. Offline and live-configured builds can use offline rules for unrecorded queries; builds never invoke live factories or read the disposable development cache. Track the validated contract closure in cache keys and watched dependencies, including lazy analyzer dependencies in source-aware Jest keys, and reject inputs changed during preparation or publication.
+  
+  Explicit query-contract generation checks prospective SQL types over stale build-owned declarations in memory, allowing changed queries to regenerate their contracts before declarations are rewritten. Application-owned declarations and incorrect application assignments remain blocking; ordinary checks still reject stale declarations.
+- 63e76b2: Add exact recorded-context cache lookup before analyzer loading, offline contract-first project
+  checking, and explicit persistent live producers. Hybrid offline checks load an analyzer only for
+  uncovered statements; native-required misses and known negative evidence remain conservative.
+  
+  Fence cache publications across changed static claims and preserve matching recorded evidence on
+  transport outages. A known stale context blocks all lookups in that recorded context until fresh
+  qualified acquisition restores it. Explicit live producers always acquire independent evidence.
+- 63e76b2: Persist selected catalog closures in the owned analysis cache with independent base-context and
+  selection publication fences. Live editor sessions capture through a shared native owner, reuse
+  valid document views, and bound refresh work, cancellation and cleanup. Offline checks recover
+  matching cached selections with independently installed interpreters. Explicit live CLI checks
+  can capture selected catalogs without exporting durable artifacts.
+- 63e76b2: Capture and refresh selected catalogs during explicit live query generation. Keep base native identities independent of the enriched compiler schema, qualify queries against the derived context, and publish the catalog closure with query contracts. Bound retries and owned cleanup on context drift or cancellation. Hybrid live preparation retains independent offline rules for adapter-excluded statement classes; native-required qualification remains blocking.
+- 63e76b2: Add `check --watch` for ordinary, offline, frozen and explicitly live query checking. Serialize
+  checks, coalesce edits, reload configuration in each pass, observe discovered external inputs and
+  ignore disposable cache writes without exporting tracked contracts. Stop owned discovery and
+  checking processes on shutdown; TypeScript discovery accepts an optional cancellation signal.
+
+### Patch Changes
+
+- 63e76b2: Refresh automatically observed contexts after confirmed drift in finite live checks and generation,
+  with at most three attempts sharing the existing batch deadline. Wait for owned cleanup between
+  attempts, preserve explicit pins, and honor cancellation through cleanup. Watch status distinguishes
+  queued edits from waiting for changes.
+- 63e76b2: Report source locations and retained qualification diagnostics when native-required generation
+  cannot obtain a candidate contract. The underlying classified failure is no longer hidden by
+  the generic project-wide qualification error; failed generation still preserves durable inputs.
+- 76d4cf0: Use configured offline, frozen and trusted live analysis in workspace previews, SQL tools and captured runs. Share document preparation with the editor, preserve enriched catalog schemas, and keep execution workers from initializing analyzers or native qualification adapters. PostgreSQL selected-catalog capture requests text-array namespace metadata so ordinary pg clients need no name-array parser override.
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [4de04fc]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [825eba3]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [825eba3]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [825eba3]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+  - @typed-sql/analysis@3.0.0-rc.0
+  - @typed-sql/core@3.0.0-rc.0
+  - @typed-sql/migrations@3.0.0-rc.0
+  - @typed-sql/config@3.0.0-rc.0
+  - @typed-sql/compiler@3.0.0-rc.0
+  - @typed-sql/schema@3.0.0-rc.0
+
 ## 2.5.0
 
 Promote the qualified `2.5.0-rc.0` candidate to stable. See that entry below for the included features and fixes.

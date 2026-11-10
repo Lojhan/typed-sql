@@ -1,5 +1,97 @@
 # @typed-sql/language-server
 
+## 3.0.0-rc.0
+
+### Minor Changes
+
+- 63e76b2: Load selected project catalog interpreters lazily in CLI, build and editor hosts, and carry the enriched schema through checking, transforms and declaration generation. Offline checking can reuse qualified declarations for new queries, while frozen checking requires exact contracts. Preserve base-context retirement evidence when checking derived catalog inputs, and track catalog objects and local interpreter modules as dependencies.
+- 825eba3: Connect the trusted local workspace to an optional project-installed language server for TypeScript and SQL diagnostics, hover, completion, definitions, and reviewed quick fixes. Standalone SQL uses grammar analysis with original source positions. Definition documents remain bounded and read-only, and unsaved overlays never overwrite repository files.
+  
+  JavaScript and JSX use the project’s native JavaScript checking settings. Complete dirty working-copy contexts keep imported helpers current across editor tabs.
+- 63e76b2: Show informational TSQ409 diagnostics while opted-in native qualification is pending. SQL files and templates use source/version-fenced progress, short operations avoid flicker, and the completion pull consumes the qualified view without starting another refresh cycle. Pending reports clear on completion and cannot replace newer document results or suppress subsequent TypeScript diagnostics.
+- 63e76b2: Persist selected catalog closures in the owned analysis cache with independent base-context and
+  selection publication fences. Live editor sessions capture through a shared native owner, reuse
+  valid document views, and bound refresh work, cancellation and cleanup. Offline checks recover
+  matching cached selections with independently installed interpreters. Explicit live CLI checks
+  can capture selected catalogs without exporting durable artifacts.
+- 63e76b2: Add owned project live-analysis sessions with shared bounded query scheduling, coalesced
+  request-driven context observations, cancellation and guarded view publication. The language server
+  uses explicit live adapter registrations, refreshes TypeScript overlays after context changes and
+  reports connection/observation status. Offline and frozen modes keep native factories unloaded.
+  
+  Preserve recorded evidence for availability/configuration failures independently of retry policy.
+  Hybrid analysis may use independent offline rules for unsupported native statement classes;
+  known changed claims, native rejection and conflicts remain blocking.
+- 63e76b2: Support offline and frozen query contracts in the language server. Covered templates and raw SQL
+  reuse recorded types without constructing an analyzer or native adapter; hybrid misses use the
+  configured offline owner. Contract changes invalidate document analysis even when source text
+  and version are unchanged. Frozen editor analysis ignores disposable cache storage.
+
+### Patch Changes
+
+- 63e76b2: Add read-only analysis cache inspection, CLI cache status and pruning, semantic query/declaration export diffs with JSON output and current callers, and recorded evidence origin/context in editor hovers. Cache inspection reports unverified freshness and does not initialize storage or native services.
+- 63e76b2: Request a fresh diagnostic snapshot when asynchronous analysis fails after its project generation has been replaced. A late failure can no longer publish a project-unavailable diagnostic over newer analysis.
+- 63e76b2: Keep active query views valid when live database observations confirm an unchanged context. Observation timestamps still refresh, while catalog changes, retirement and invalidation retain their publication fences. This avoids spurious unavailable editor diagnostics when context refresh overlaps query preparation.
+  
+  Require consistent builtin scalar families for DuckDB native expression acquisition. Session-dependent binding results require separate qualification. Advance the adapter/profile revision so previously captured contracts cannot bypass this admission change.
+- 76d4cf0: Use configured offline, frozen and trusted live analysis in workspace previews, SQL tools and captured runs. Share document preparation with the editor, preserve enriched catalog schemas, and keep execution workers from initializing analyzers or native qualification adapters. PostgreSQL selected-catalog capture requests text-array namespace metadata so ordinary pg clients need no name-array parser override.
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [4de04fc]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [825eba3]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [825eba3]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [76d4cf0]
+  - @typed-sql/analysis@3.0.0-rc.0
+  - @typed-sql/core@3.0.0-rc.0
+  - @typed-sql/build@3.0.0-rc.0
+  - @typed-sql/config@3.0.0-rc.0
+  - @typed-sql/compiler@3.0.0-rc.0
+  - @typed-sql/schema@3.0.0-rc.0
+  - @typed-sql/ts-bridge@3.0.0-rc.0
+
 ## 2.5.0-rc.0
 
 ### Patch Changes

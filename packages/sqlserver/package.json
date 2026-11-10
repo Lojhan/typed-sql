@@ -1,6 +1,6 @@
 {
   "name": "@typed-sql/sqlserver",
-  "version": "2.5.0",
+  "version": "3.0.0-rc.0",
   "description": "SQL Server grammar, catalog introspection, lossless type policies, and application-owned native execution for typed-sql.",
   "license": "MIT",
   "author": "Lojhan",

@@ -1,5 +1,27 @@
 # @typed-sql/adapters
 
+## 3.0.0-rc.0
+
+### Patch Changes
+
+- 63e76b2: Pass the optional scalar descriptor to transport normalization hooks, preserving existing two-argument
+  hooks. Forward the descriptor through SQLite adapter wrappers. Use integer metadata to decode
+  qualified MySQL numeric literals consistently under lossless BIGINT policies while rejecting unsafe
+  numbers and unrelated numeric-looking text.
+- Updated dependencies [63e76b2]
+- Updated dependencies [4de04fc]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [825eba3]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+  - @typed-sql/core@3.0.0-rc.0
+
 ## 2.5.0
 
 Promote the qualified `2.5.0-rc.0` candidate to stable. See that entry below for the included features and fixes.

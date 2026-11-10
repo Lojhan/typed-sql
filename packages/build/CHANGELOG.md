@@ -1,5 +1,74 @@
 # @typed-sql/build
 
+## 3.0.0-rc.0
+
+### Minor Changes
+
+- 63e76b2: Load selected project catalog interpreters lazily in CLI, build and editor hosts, and carry the enriched schema through checking, transforms and declaration generation. Offline checking can reuse qualified declarations for new queries, while frozen checking requires exact contracts. Preserve base-context retirement evidence when checking derived catalog inputs, and track catalog objects and local interpreter modules as dependencies.
+- 63e76b2: Consume durable query contracts in build transforms and SQL declaration generation. Frozen builds use recorded inputs without initializing analyzers or native services. Offline and live-configured builds can use offline rules for unrecorded queries; builds never invoke live factories or read the disposable development cache. Track the validated contract closure in cache keys and watched dependencies, including lazy analyzer dependencies in source-aware Jest keys, and reject inputs changed during preparation or publication.
+  
+  Explicit query-contract generation checks prospective SQL types over stale build-owned declarations in memory, allowing changed queries to regenerate their contracts before declarations are rewritten. Application-owned declarations and incorrect application assignments remain blocking; ordinary checks still reject stale declarations.
+- 76d4cf0: Use configured offline, frozen and trusted live analysis in workspace previews, SQL tools and captured runs. Share document preparation with the editor, preserve enriched catalog schemas, and keep execution workers from initializing analyzers or native qualification adapters. PostgreSQL selected-catalog capture requests text-array namespace metadata so ordinary pg clients need no name-array parser override.
+
+### Patch Changes
+
+- 63e76b2: Accept current build-generated SQL declarations during project checking by sharing the declaration
+  ownership header and normalizing platform line endings. Continue rejecting changed or stale
+  declaration contents, including files carrying the generated ownership header.
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [4de04fc]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [825eba3]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [825eba3]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+- Updated dependencies [63e76b2]
+  - @typed-sql/analysis@3.0.0-rc.0
+  - @typed-sql/core@3.0.0-rc.0
+  - @typed-sql/config@3.0.0-rc.0
+  - @typed-sql/compiler@3.0.0-rc.0
+  - @typed-sql/schema@3.0.0-rc.0
+
 ## 2.5.0
 
 Promote the qualified `2.5.0-rc.0` candidate to stable. See that entry below for the included features and fixes.
