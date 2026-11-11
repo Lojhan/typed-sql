@@ -57,7 +57,7 @@
     "@typed-sql/sqlite": "workspace:*",
     "@types/ws": "8.18.1",
     "miniflare": "4.20260730.0",
-    "postgres": "3.4.9",
+    "postgres": "4.1.0",
     "ws": "8.21.0"
   },
   "peerDependencies": {
