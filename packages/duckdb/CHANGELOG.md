@@ -1,5 +1,14 @@
 # @typed-sql/duckdb
 
+## 3.0.0
+
+### Patch Changes
+
+- @typed-sql/analysis@3.0.0
+  - @typed-sql/ast@3.0.0
+  - @typed-sql/core@3.0.0
+  - @typed-sql/schema@3.0.0
+
 ## 3.0.0-rc.0
 
 ### Major Changes
