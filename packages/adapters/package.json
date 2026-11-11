@@ -55,10 +55,10 @@
     "@sqlite.org/sqlite-wasm": "3.54.1-build1",
     "@typed-sql/postgres": "workspace:*",
     "@typed-sql/sqlite": "workspace:*",
-    "@types/ws": "8.18.1",
+    "@types/ws": "8.18.2",
     "miniflare": "4.20260730.0",
     "postgres": "3.4.9",
-    "ws": "8.21.0"
+    "ws": "8.22.1"
   },
   "peerDependencies": {
     "@libsql/client": "^0.18.0",
