@@ -99,7 +99,7 @@
     "sqlserver:vocabulary:reconcile": "node scripts/reconcile-sqlserver-vocabulary.mjs"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.6.3",
+    "@biomejs/biome": "2.6.6",
     "@changesets/cli": "3.0.3",
     "@opentelemetry/api": "1.10.0",
     "@pokujs/c8": "^2.0.0",
